@@ -6,7 +6,7 @@ No SDK imports and no UObjects here, ever: the game thread publishes plain JSON 
 the Hub, the server threads only read them.
 
     GET /             the page (web/index.html; every file is read from disk on each request)
-    GET /<path>.js|css   its modules / stylesheets under web/ (js/, js/ui/, i18n/, css/)
+    GET /<path>.js|css|png   its modules / stylesheets / images under web/ (js/, js/ui/, i18n/, css/, img/)
     GET /events       SSE stream: "level", "state", "objects", "players" events, each the latest JSON
     GET /image/<level>/<n>   raw texture data of map image n of level <level> (decoded by the page)
 """
@@ -19,8 +19,8 @@ from pathlib import Path
 
 WEB_DIR = Path(__file__).parent / "web"
 # Files served from WEB_DIR: lowercase names, folders allowed, no dots but the extension (no "..")
-STATIC = re.compile(r"/(?:[a-z0-9_-]+/)*[a-z0-9_-]+\.(js|css)")
-TYPES = {"js": "text/javascript; charset=utf-8", "css": "text/css; charset=utf-8"}
+STATIC = re.compile(r"/(?:[a-z0-9_-]+/)*[a-z0-9_-]+\.(js|css|png)")
+TYPES = {"js": "text/javascript; charset=utf-8", "css": "text/css; charset=utf-8", "png": "image/png"}
 KEEPALIVE = 10.0  # s between SSE comments when nothing changes (detects closed tabs)
 
 

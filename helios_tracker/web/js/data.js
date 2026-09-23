@@ -60,18 +60,29 @@ function onLevel(level) {
   const wasReady = S.level && S.level.id === level.id && S.level.status === "ready";
   S.level = level;
   if (level.rarity) setRarityTable(level.rarity);
+  renderLevel();
+  const inMenu = !!level.map && level.map.toLowerCase() === "menumap";
+  if (level.status === "loading") setMessage("msg.loading");
+  else if (level.status === "none") setMessage(inMenu ? "msg.menu" : "msg.noMap");
+  else if (level.status === "error") setMessage("msg.mapError", { error: level.error });
+  else setMessage(null);
+  if (level.status === "ready" && !wasReady) loadImages(level);
+}
+
+/** The panel's level name, its area level and the tab title - from S.level, in the page's language
+ *  (again on a language change: panel.js). */
+export function renderLevel() {
+  const level = S.level;
+  if (!level) return;
   // the game's name for the level (the map screen's); "raw": made up from the map file's name - marked " ?"
-  const levelText = level.name ? level.name + (level.raw ? " ?" : "") : level.map || "—";
+  // the main menu's map ("menumap", no game name): "Main menu", not a made-up level name
+  const inMenu = !!level.map && level.map.toLowerCase() === "menumap";
+  const levelText = inMenu ? t("level.menu") : level.name ? level.name + (level.raw ? " ?" : "") : level.map || "—";
   $("level").textContent = levelText;
   // the area's level (its missions' regions' game stage, the game's): "Lv 13", or a range
   const lv = level.lv;
   $("levelLv").textContent = lv ? t(lv[0] === lv[1] ? "level.lv" : "level.lvRange", { n: lv[0], m: lv[1] }) : "";
-  document.title = (level.name ? levelText + " · " : "") + "Helios Tracker";
-  if (level.status === "loading") setMessage("msg.loading");
-  else if (level.status === "none") setMessage(level.map && level.map.toLowerCase() === "menumap" ? "msg.menu" : "msg.noMap");
-  else if (level.status === "error") setMessage("msg.mapError", { error: level.error });
-  else setMessage(null);
-  if (level.status === "ready" && !wasReady) loadImages(level);
+  document.title = (level.name && !inMenu ? levelText + " · " : "") + "Helios Tracker";
 }
 
 async function loadImages(level) {

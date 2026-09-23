@@ -12,6 +12,7 @@ export default {
   "msg.connecting": "Connecting to the game…",
   "msg.loading": "Reading the map from the game files…",
   "msg.menu": "In the main menu",
+  "level.menu": "Main menu",
   "msg.noMap": "No map for this area",
   "msg.mapError": "Couldn't read this area's map:\n{error}",
   "msg.imageError": "Couldn't load the map image: {error}",

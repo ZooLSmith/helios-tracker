@@ -901,12 +901,13 @@ def check_helios_tracker() -> None:  # noqa: PLR0915
         image = res.read()
         assert res.status == 200 and len(image) == 468 * 512, (res.status, len(image))
         web = ROOT / "helios_tracker" / "web"
-        web_files = sorted(p for p in web.rglob("*") if p.suffix in (".js", ".css"))
-        for file in web_files:  # every module / stylesheet, at its path under web/
+        web_files = sorted(p for p in web.rglob("*") if p.suffix in (".js", ".css", ".png"))
+        assert web / "img" / "logo.png" in web_files, "the logo (favicon, panel header)"
+        for file in web_files:  # every module / stylesheet / image, at its path under web/
             conn.request("GET", "/" + file.relative_to(web).as_posix())
             res = conn.getresponse()
             body = res.read()
-            want_type = "text/css" if file.suffix == ".css" else "text/javascript"
+            want_type = {".css": "text/css", ".png": "image/png"}.get(file.suffix, "text/javascript")
             assert res.status == 200 and res.headers["Content-Type"].startswith(want_type), (file, res.status)
             assert body == file.read_bytes(), file
         for bad in ("/../server.py", "/js/../../server.py", "/web/js/main.js", "/JS/MAIN.JS", "/js/main.py"):
@@ -928,7 +929,7 @@ def check_helios_tracker() -> None:  # noqa: PLR0915
             if line.startswith("event: "):
                 events.add(line[7:].strip())
         assert events == {"level", "state", "objects", "players", "missions", "missiondefs", "missionlog"}, events
-        print(f"  server: page {len(page)} bytes + {len(web_files)} js / css files, image {len(image)} bytes,"
+        print(f"  server: page {len(page)} bytes + {len(web_files)} js / css / png files, image {len(image)} bytes,"
               f" SSE events {sorted(events)}")
     finally:
         server.stop()

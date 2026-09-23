@@ -11,6 +11,7 @@ export default {
   "msg.connecting": "Connexion au jeu…",
   "msg.loading": "Lecture de la carte dans les fichiers du jeu…",
   "msg.menu": "Dans le menu principal",
+  "level.menu": "Menu principal",
   "msg.noMap": "Pas de carte pour cette zone",
   "msg.mapError": "Impossible de lire la carte de cette zone :\n{error}",
   "msg.imageError": "Impossible de charger l'image de la carte : {error}",

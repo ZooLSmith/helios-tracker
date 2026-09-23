@@ -1,6 +1,7 @@
 // The left panel: its tabs, the Settings tab ("Who", view, movement, language). The Layers tab is
 // layers.js.
 import { $, esc } from "../dom.js";
+import { renderLevel } from "../data.js";
 import { CATALOG, langPref, setLanguage, t } from "../i18n.js";
 import { icon } from "../icons.js";
 import { invalidate } from "../scheduler.js";
@@ -78,7 +79,7 @@ export function initPanel() {
   langBox.value = CATALOG[langPref] ? langPref : "auto";
   langBox.onchange = () => {
     setLanguage(langBox.value);
-    refreshStatus(); renderPlayers(); renderTargets(); renderMotion(); renderLayers(); renderInspector(); renderMission(); invalidate();
+    refreshStatus(); renderLevel(); renderPlayers(); renderTargets(); renderMotion(); renderLayers(); renderInspector(); renderMission(); invalidate();
   };
 
   // Tabs, collapse

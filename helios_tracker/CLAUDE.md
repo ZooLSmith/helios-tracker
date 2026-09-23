@@ -165,7 +165,8 @@ and interactive objects on it, with zoom / pan. Read the root `../CLAUDE.md` fir
   Slow tasks are logged every 30 s (`helios_tracker.log`), `state` with its parts (skills / pawns /
   pickups / json) and the counts.
 - `server.py`: stdlib `ThreadingHTTPServer`; `/` (page, read from disk per request),
-  `/<path>.js|css` (any module / stylesheet under `web/`), `/events` (SSE: `level`, `state`, `objects`, `players`, latest
+  `/<path>.js|css|png` (any module / stylesheet / image under `web/`: `img/logo.png` = the panel header's logo, 48 px tall; `img/favicon.png` = the tab icon, 64 x 64 - both
+  resized from the source `../logo.png` at the repo root, which stays as drawn), `/events` (SSE: `level`, `state`, `objects`, `players`, latest
   payload each), `/image/<level>/<n>`. Server changes need a mod reload; page / i18n edits only a
   browser refresh. The Hub holds
   the payloads; server threads never touch UObjects. The running server is kept on
