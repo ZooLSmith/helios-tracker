@@ -510,7 +510,7 @@ def check_helios_tracker() -> None:  # noqa: PLR0915
     from helios_tracker import collector as col  # noqa: PLC0415
     from helios_tracker.server import Hub, TrackerServer  # noqa: PLC0415
     from helios_tracker.tacmap import load_tactical_map  # noqa: PLC0415
-    from helios_tracker.util import field, pickup_kind  # noqa: PLC0415
+    from helios_tracker.util import clear_fields, field, pickup_kind  # noqa: PLC0415
 
     # field(): the property looked up once per class, then read with _get_field (tools/probe_perf.txt)
     class FakeClass:
@@ -539,6 +539,9 @@ def check_helios_tracker() -> None:  # noqa: PLR0915
     except ValueError:
         pass
     assert field(types.SimpleNamespace(x=5), "x") == 5, "plain objects: getattr"
+    clear_fields()  # a level change
+    field(obj, "HealthVar")
+    assert FakeClass.finds == 2, "looked up again after clear_fields()"
 
 
     # Pickup kinds: the definition's inventory card (Presentation), resolved once per definition
@@ -575,6 +578,19 @@ def check_helios_tracker() -> None:  # noqa: PLR0915
         assert (img.format, img.width, img.height) == ("PF_DXT5", *size), img
         print(f"  {level_name}: {img.name} {img.width}x{img.height} {img.format}, bounds {img.bounds}"
               f" ({time.perf_counter() - t:.2f} s)")
+    # A DLC map: its package is under DLC/<code name>/{Lic,Compat}/Content (the collector's package_path)
+    real_cooked = col.cooked_dir
+    col.cooked_dir = lambda: GAME_COOKED
+    try:
+        dlc = col.package_path("Sage_Underground_P.upk")
+        assert dlc is not None and "DLC" in dlc.parts, dlc
+        assert col.package_path("Sanctuary_P.upk") == GAME_COOKED / "Sanctuary_P.upk" and col.package_path("Nope_P.upk") is None
+        t = time.perf_counter()
+        (img,) = load_tactical_map(dlc, "Sage_UI_TacticalMap_Undergrnd.Undergrnd_P")
+        assert (img.format, img.width, img.height) == ("PF_DXT5", 1024, 644), img
+        print(f"  Sage_Underground_P (DLC): {img.name} {img.width}x{img.height} ({time.perf_counter() - t:.2f} s)")
+    finally:
+        col.cooked_dir = real_cooked
 
     # A level load through the collector (fake world); the map is extracted on its thread
     ns = types.SimpleNamespace

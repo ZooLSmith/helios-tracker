@@ -66,8 +66,16 @@ def _str_result(r: Any) -> str:
     return ""
 
 
-# (class address, property name) -> the property: looked up once per class
+# (class address, property name) -> the property: looked up once per class. Cleared on every level
+# change (clear_fields): the engine unloads packages then - a class freed, another one at its address,
+# would get a stale property. The script classes read per update most likely stay loaded, but this
+# doesn't rely on it
 _fields: dict[tuple[int, str], Any] = {}
+
+
+def clear_fields() -> None:
+    """Forgets the looked-up properties (a level change: packages may have been unloaded)."""
+    _fields.clear()
 
 
 def field(obj: Any, name: str) -> Any:

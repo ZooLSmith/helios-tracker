@@ -26,7 +26,7 @@ from .missions import MissionLog
 from .skills import SkillReader
 from .server import Hub
 from .tacmap import MapImage, load_tactical_map
-from .util import addr, call_str, def_name, exp_level, field, item_name, log, log_error, named, pickup_kind, player_info, try_
+from .util import addr, call_str, clear_fields, def_name, exp_level, field, item_name, log, log_error, named, pickup_kind, player_info, try_
 
 MOVIE_SCALE = 4  # movie px per volume "pixel": UnrealUnitsPerPixel is 32, the fit gave 128 uu / px
 LEVEL_CHECK_EVERY = 1.0  # s
@@ -90,6 +90,29 @@ def cooked_dir() -> Path | None:
         if d.is_dir():
             return d
     return None
+
+
+# DLC packages: <game>/DLC/<code name>/{Lic,Compat}/Content/*.upk (seen: DLC/Sage/Lic/Content/
+# Sage_Underground_P.upk) - file name (lower case) -> path, listed once (the DLCs don't change while
+# the game runs)
+_dlc_packages: dict[str, Path] | None = None
+
+
+def package_path(file_name: str) -> Path | None:
+    """A cooked package by file name: the base game's (WillowGame/CookedPCConsole), else a DLC's. Files
+    only (the map extraction thread)."""
+    global _dlc_packages  # noqa: PLW0603
+    cooked = cooked_dir()
+    if cooked is None:
+        return None
+    if (path := cooked / file_name).is_file():
+        return path
+    if _dlc_packages is None:
+        _dlc_packages = {}
+        for content in sorted((cooked.parent.parent / "DLC").glob("*/*/Content")):
+            for pkg in content.glob("*.upk"):
+                _dlc_packages.setdefault(pkg.name.lower(), pkg)
+    return _dlc_packages.get(file_name.lower())
 
 
 def pretty_map_name(name: str) -> str:
@@ -188,6 +211,7 @@ class Collector:
         self._clear_contents()
 
     def _clear_contents(self) -> None:
+        clear_fields()  # a new level: packages may have been unloaded (the property cache re-fills at once)
         self._next_scan = 0.0
         self._next_objects = 0.0
         self._next_players = 0.0
@@ -318,10 +342,10 @@ class Collector:
         """Background thread: files only, no UObjects."""
         level_id = level["id"]
         try:
-            cooked = cooked_dir()
-            if cooked is None:
-                raise FileNotFoundError("couldn't find WillowGame/CookedPCConsole")
-            images = self._images.get(cooked / f"{map_name}.upk", movie)
+            package = package_path(f"{map_name}.upk")  # the base game's, or a DLC's
+            if package is None:
+                raise FileNotFoundError(f"couldn't find {map_name}.upk (WillowGame/CookedPCConsole, DLC/*/*/Content)")
+            images = self._images.get(package, movie)
         except Exception as ex:  # noqa: BLE001
             log_error("map extraction", ex)
             level.update(status="error", error=f"{type(ex).__name__}: {ex}")
