@@ -57,6 +57,22 @@ def _text(obj: Any, prop: str) -> str:
     return try_(lambda: str(getattr(obj, prop)), "") or ""
 
 
+# Travel station definition address -> {"a": its name as the game shows it, "map": its level's map}
+_stations: dict[int, dict[str, str]] = {}
+
+
+def station(s: Any) -> dict[str, str] | None:
+    """A travel station definition as the page gets it (tools/probe_area.txt): StationDisplayName and
+    StationLevelName (the map it's in, e.g. "Ice_P": compared with the current level) - static, cached."""
+    if s is None:
+        return None
+    key = s._get_address()
+    if (info := _stations.get(key)) is None:
+        info = {"a": _text(s, "StationDisplayName"), "map": _text(s, "StationLevelName")}
+        _stations[key] = info
+    return info if info["a"] or info["map"] else None
+
+
 def _definition(mdef: Any) -> tuple[dict[str, Any], dict[int, int]]:
     key = mdef._get_address()
     if (cached := _defs.get(key)) is not None:
@@ -86,8 +102,15 @@ def _definition(mdef: Any) -> tuple[dict[str, Any], dict[int, int]]:
     }
     # Its area: the travel station's name, as the game shows it (tools/probe_mission_areas.py:
     # TravelStation.StationDisplayName - "Three Horns Divide", "Claptrap's Place"...)
-    if area := try_(lambda: str(mdef.TravelStation.StationDisplayName), ""):
-        record["area"] = area
+    # Where it comes from - where its giver is (Name Game: Sanctuary); not where it's done: see _live)
+    if (home := try_(lambda: station(mdef.TravelStation))) is not None:
+        if home["a"]:
+            record["area"] = home["a"]
+        if home["map"]:
+            record["map"] = home["map"]
+    # Where to hand it in (TurnInStation; None: back at its own station)
+    if (turn_in := try_(lambda: station(mdef.TurnInStation))) is not None:
+        record["tin"] = turn_in
     if (nxt := try_(lambda: mdef.NextMissionInChain)) is not None:
         record["next"] = mission_id(nxt)
     # Its DLC (MissionDefinition.DlcExpansion: None for the base game) - the page's "Best now" leaves
@@ -139,41 +162,88 @@ def _status_name(status: Any) -> str:
     return str(name).removeprefix("MS_")
 
 
-Live = tuple[str, tuple[int, ...], tuple[int, ...], bool, int, bool]
-_NOT_STARTED: Live = ("NotStarted", (), (), False, 0, False)
+Live = tuple[str, tuple[int, ...], tuple[int, ...], bool, int, bool, tuple[str, str] | None, tuple[str, str] | None]
+_NOT_STARTED: Live = ("NotStarted", (), (), False, 0, False, None, None)
 
 
-def _live(entry: Any, index: dict[int, int], prev: Live | None, doable: bool) -> Live:
+def _waiting_on(mdef: Any, status: dict[str, str], progress: dict[int, tuple[int, ...]]) -> tuple[str, str] | None:
+    """The objective of another mission a mission waits on, besides its Dependencies: its
+    ObjectiveDependency {Objective, Status} (tools/probe_quests.txt: None on most; EODS_Complete: that
+    objective must be done) - (the objective's text, its mission's id) while it isn't, else None. Done:
+    its mission done, or its count reached in that mission's progress (the last pass's, by mission
+    address) - property reads only, no function call (tracker.IsMissionObjectiveComplete was one of
+    the calls suspected in a game crash). Other statuses: not known yet, not waited on."""
+    dep = try_(lambda: mdef.ObjectiveDependency)
+    objective = try_(lambda: dep.Objective)
+    if objective is None or not str(getattr(try_(lambda: dep.Status), "name", "")).endswith("Complete"):
+        return None
+    owner = try_(lambda: objective.Outer)
+    if owner is None or not hasattr(owner, "ObjectiveDefs"):
+        return None
+    owner_id = mission_id(owner)
+    if status.get(owner_id) == "Complete":
+        return None
+    _, index = _definition(owner)
+    i = index.get(objective._get_address())
+    done = progress.get(owner._get_address(), ())
+    if i is not None and i < len(done) and done[i] >= (try_(lambda: int(objective.ObjectiveCount), 1) or 1):
+        return None
+    return _text(objective, "ProgressMessage") or def_name(objective), owner_id
+
+
+def _live(entry: Any, index: dict[int, int], prev: Live | None, doable: bool,
+          status_by_id: dict[str, str] | None = None, progress: dict[int, tuple[int, ...]] | None = None) -> Live:
     """(status, progress per objective, indices of the current step's objectives, offered, level,
-    level fixed) - reading only what can change, the full pass going over ~290 entries:
+    level fixed, where to go (active), the objective it waits on (not started)) - reading only what
+    can change, the full pass going over ~290 entries:
     - done: the status only (its progress is read once, when it gets done: final);
     - not started: the status, offered (bHeardKickoff - the giver offered it; unverified in game) and,
       if doable (every mission it needs done), its level: the one it would be fixed at if picked up now
-      (its region's current stage, MissionDefinition.GameStage);
+      (its region's current stage, MissionDefinition.GameStage) and the objective it still waits on
+      (_waiting_on: its ObjectiveDependency - the game won't offer it before);
     - active (and anything else): everything - progress, the current step (ActiveObjectiveSet +
-      SubObjectiveSets), its level (GameStage, fixed when picked up: bGameStageLocked).
+      SubObjectiveSets), its level (GameStage, fixed when picked up: bGameStageLocked), and where
+      to go for it now (active only): the StationOverride of its step's first objective left that has
+      one, else the step's (MissionObjective(Set)Definition.StationOverride - tools/probe_quests.txt:
+      "Go to Sanctuary" -> Sanctuary). (name, map) or None. Property reads only: pc.GetLevelForMission
+      (the level the game says - tools/probe_area.txt) is no longer called, suspected in a game crash.
     Levels: tools/probe_mission_xp_curve.txt."""
     status = _status_name(try_(lambda: entry.Status, ""))
     if status == "Complete":
         if prev is not None and prev[0] == "Complete":
             return prev
         progress = tuple(int(v) for v in try_(lambda: list(entry.ObjectivesProgress), []) or [])
-        return status, progress, (), False, 0, False
+        return status, progress, (), False, 0, False, None, None
     if status == "NotStarted":
         offered = bool(try_(lambda: entry.bHeardKickoff, False))
         level = try_(lambda: int(field(entry.MissionDef, "GameStage")), 0) if doable else 0
-        return status, (), (), offered, level, False
+        wait = None
+        if doable and not offered and status_by_id is not None:
+            wait = try_(lambda: _waiting_on(entry.MissionDef, status_by_id, progress or {}))
+        return status, (), (), offered, level, False, None, wait
     progress = tuple(int(v) for v in try_(lambda: list(entry.ObjectivesProgress), []) or [])
     current = []
+    step_station = obj_station = None
     sets = [try_(lambda: entry.ActiveObjectiveSet)] + list(try_(lambda: list(entry.SubObjectiveSets), []) or [])
     for s in sets:
+        if s is None:
+            continue
+        if step_station is None:
+            step_station = try_(lambda s=s: s.StationOverride)
         for obj in try_(lambda s=s: list(s.ObjectiveDefinitions), []) or []:
             if obj is not None and (i := index.get(obj._get_address())) is not None and i not in current:
                 current.append(i)
+                done = i < len(progress) and progress[i] >= try_(lambda o=obj: int(o.ObjectiveCount), 1)
+                if obj_station is None and not done:
+                    obj_station = try_(lambda o=obj: o.StationOverride)
+    go = None
+    if status == "Active":
+        if (override := obj_station or step_station) is not None and (info := station(override)) is not None:
+            go = (info["a"], info["map"])
     mdef = try_(lambda: entry.MissionDef)
     level = try_(lambda: int(field(mdef, "GameStage")), 0)
     locked = bool(try_(lambda: field(mdef, "bGameStageLocked"), False))
-    return status, progress, tuple(current), bool(try_(lambda: entry.bHeardKickoff, False)), level, locked
+    return status, progress, tuple(current), bool(try_(lambda: entry.bHeardKickoff, False)), level, locked, go, None
 
 
 class MissionLog:
@@ -220,6 +290,8 @@ class MissionLog:
                 # the last pass's states: a done one isn't read again; a not-started one's level only if doable
                 "previous": {a: st for (_, a), st in zip(self._addrs, self._live, strict=True)},
                 "status": {r["i"]: st[0] for r, st in zip(self._records, self._live, strict=True)},
+                # the last pass's progress per mission (address): what a mission's objective dependency reads
+                "progress": {a: st[1] for (_, a), st in zip(self._addrs, self._live, strict=True)},
             }
         c = self._cycle
         count = try_(lambda: len(entries), 0)
@@ -236,7 +308,7 @@ class MissionLog:
             record, index = _definition(mdef)
             address = mdef._get_address()
             doable = all(c["status"].get(d) == "Complete" for d in record["deps"]) if c["status"] else True
-            state = _live(entry, index, c["previous"].get(address), doable)
+            state = _live(entry, index, c["previous"].get(address), doable, c["status"], c["progress"])
             c["records"].append(record)
             c["mdefs"].append(mdef)
             c["addrs"].append((n, address))
@@ -320,6 +392,8 @@ class MissionLog:
             if mdef is None or mdef._get_address() != address:
                 return False
             state = _live(entry, self._indexes[k], self._live[k], True)
+            if state[0] == "NotStarted":  # (a tracked one) what it waits on: the full pass's
+                state = (*state[:7], self._live[k][7])
             if state != self._live[k]:
                 self._live[k] = state
                 self.dirty = True
@@ -351,7 +425,7 @@ class MissionLog:
         """The live part, per mission by id (the page merges it with the definitions)."""
         self.dirty = False
         missions = []
-        for k, (record, (status, progress, current, offered, level, locked)) in enumerate(zip(self._records, self._live, strict=True)):
+        for k, (record, (status, progress, current, offered, level, locked, go, wait)) in enumerate(zip(self._records, self._live, strict=True)):
             m = {"i": record["i"], "st": status}
             if level:
                 m["ml"] = level  # its level: locked (picked up), else the one it would lock at now
@@ -365,6 +439,10 @@ class MissionLog:
                 m["p"] = list(progress)
             if current:
                 m["cur"] = list(current)
+            if go is not None:
+                m["go"] = {"a": go[0], "map": go[1]}  # where to go for it now (active)
+            if wait is not None:
+                m["wait"] = {"o": wait[0], "m": wait[1]}  # the objective of another mission it waits on
             missions.append(m)
         return {"level": level_id, "tracked": self._tracked or None, "missions": missions,
                 "thresholds": try_(difficulty_thresholds, {}) or {}}

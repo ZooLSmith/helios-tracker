@@ -1,6 +1,7 @@
 """Small helpers shared by the game-side modules (collector, inspector)."""
 
 import os
+import sys
 import time
 import traceback
 from pathlib import Path
@@ -31,6 +32,35 @@ def start_log() -> None:
     except OSError:
         pass
     log("---- loaded ----")
+    start_crash_log()
+
+
+CRASH_FILE = LOG_FILE.with_name("helios_crash.log")
+_CRASH_ATTR = "_helios_tracker_crash_log"  # sys attribute: the open file, across module reloads
+
+
+def start_crash_log() -> None:
+    """faulthandler: on a native crash (access violation...) the Python stack of every thread goes to
+    helios_crash.log - the line that called into the game when it died (the game's own dump only
+    shows "from Python"). The file stays open (faulthandler writes to it at the crash); a reload
+    closes the previous one. Also written for exceptions the game handles itself (it keeps running):
+    only the last entry before a crash matters."""
+    import faulthandler  # noqa: PLC0415
+
+    previous = getattr(sys, _CRASH_ATTR, None)
+    try:
+        f = CRASH_FILE.open("a", encoding="utf-8")
+        f.write(f"---- {time.strftime('%Y-%m-%d %H:%M:%S')} loaded ----\n")
+        f.flush()
+        faulthandler.enable(file=f, all_threads=True)
+    except (OSError, RuntimeError, ValueError):
+        return
+    setattr(sys, _CRASH_ATTR, f)
+    if previous is not None:
+        try:
+            previous.close()
+        except OSError:
+            pass
 
 
 class ErrorLog:
@@ -201,14 +231,16 @@ def player_info(pawn: Any) -> Any:
 
 def item_name(inv: Any) -> str:
     """An inventory item's name, in the game's language: its full name (weapons, gear), else its
-    definition's ItemName - e.g. usable items (cash, ammo, health vials) have no full name."""
+    definition's ItemName - e.g. usable items (cash, ammo, health vials) have no full name. Mission
+    items name themselves by their class's generic MissionItemString ("Mission Item" - tools/
+    probe_pickups.txt: an ECHO log): their definition's ItemName then ("Data Log")."""
     if inv is None:
         return ""
-    return (
-        call_str(inv.GetShortHumanReadableName)
-        or try_(lambda: str(inv.GeneratedItemName), "")
-        or try_(lambda: str(inv.DefinitionData.ItemDefinition.ItemName), "")
-    )
+    own = try_(lambda: str(inv.DefinitionData.ItemDefinition.ItemName), "")
+    short = call_str(inv.GetShortHumanReadableName)
+    if short and own and short == try_(lambda: str(inv.MissionItemString), ""):
+        return own
+    return short or try_(lambda: str(inv.GeneratedItemName), "") or own
 
 
 def addr(obj: Any) -> str:

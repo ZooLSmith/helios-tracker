@@ -59,8 +59,10 @@ function onLevel(level) {
   const wasReady = S.level && S.level.id === level.id && S.level.status === "ready";
   S.level = level;
   if (level.rarity) setRarityTable(level.rarity);
-  $("level").textContent = level.name || level.map || "—";
-  document.title = (level.name ? level.name + " · " : "") + "Helios Tracker";
+  // the game's name for the level (the map screen's); "raw": made up from the map file's name - marked " ?"
+  const levelText = level.name ? level.name + (level.raw ? " ?" : "") : level.map || "—";
+  $("level").textContent = levelText;
+  document.title = (level.name ? levelText + " · " : "") + "Helios Tracker";
   if (level.status === "loading") setMessage("msg.loading");
   else if (level.status === "none") setMessage(level.map && level.map.toLowerCase() === "menumap" ? "msg.menu" : "msg.noMap");
   else if (level.status === "error") setMessage("msg.mapError", { error: level.error });

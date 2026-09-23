@@ -175,7 +175,9 @@ const log = [
   { i: "s2", num: 21, plot: 0, st: "NotStarted", deps: ["s1"] }, { i: "o", num: 30, plot: 0, st: "Complete", deps: [] },
   // ready to turn in (tools/probe_turnin.txt), and a status the page doesn't know (shown by its name)
   { i: "x", num: 40, plot: 0, st: "RequiredObjectivesComplete", deps: ["gone"] }, { i: "r", num: 41, plot: 0, st: "ReadyToTurnIn", deps: [] },
-  { i: "f", num: 42, plot: 0, st: "Failed", deps: [] }];
+  { i: "f", num: 42, plot: 0, st: "Failed", deps: [] },
+  // every mission it needs done, but it waits on an objective of b (its ObjectiveDependency): locked
+  { i: "w", num: 43, plot: 0, st: "NotStarted", deps: ["a"], wait: { o: "Reach the gate", m: "b" } }];
 const tree = missionTree(log);
 const { gameTextHtml } = await load("js/dom.js");
 const { cleanGameText } = await load("js/model.js");
@@ -234,7 +236,12 @@ const { missionDifficulty } = await load("js/missions.js");
 const th = { impossible: 5, hard: 3, tough: 1, normal: -3 };
 const difficulty = [[9, 4], [6, 4], [4, 4], [2, 4], [1, 5], [3, 0]].map(([ml, level]) => missionDifficulty({ ml }, level, th))
   .concat([missionDifficulty({ ml: 0 }, 8, th)]);
-const missionsOut = { tooHigh, finish, difficulty, best, search, infoHtml, areas, gameText, story: flat(tree.story), other: flat(tree.other), counts: missionCounts(log),
+const { whereTo, isHere } = await load("js/missions.js");
+const placeM = { area: "Sanctuary", map: "Sanctuary_P", tin: { a: "Southern Shelf", map: "SouthernShelf_P" }, go: { a: "Bay", map: "Bay_P" } };
+const where = { active: whereTo(placeM, "active"), ready: whereTo(placeM, "ready"), available: whereTo(placeM, "available"),
+  readyNoTin: whereTo({ area: "Sanctuary", map: "Sanctuary_P" }, "ready"), activeNoGo: whereTo({ area: "Sanctuary", map: "Sanctuary_P" }, "active"),
+  none: whereTo({}, "active"), here: isHere(whereTo(placeM, "available"), { map: "sanctuary_p" }), notHere: isHere({ map: "Ice_P" }, { map: "Sanctuary_P" }) };
+const missionsOut = { where, tooHigh, finish, difficulty, best, search, infoHtml, areas, gameText, story: flat(tree.story), other: flat(tree.other), counts: missionCounts(log),
   objectives: objectiveStates(log[1]).map((s) => s.state) };
 console.log(JSON.stringify({ sha: crypto.createHash("sha256").update(rgba).digest("hex"), err, back, right, raw, modules, missions: missionsOut,
   migrated, checked: { enemy: checked.layers.enemy, view: checked.view, openLayers: checked.ui.openLayers, drawer: checked.ui.drawer, badDrawer }, i18nKeys, unknownSettings, lootLayers, gameRarity, freeRects }));
@@ -352,6 +359,27 @@ def check_helios_tracker() -> None:  # noqa: PLR0915
     print("helios_tracker:")
     print(f"  options: {[getattr(o, 'identifier', o) for o in m.mod.options]}")
     assert col.pretty_map_name("SouthernShelf_P") == "Southern Shelf", col.pretty_map_name("SouthernShelf_P")
+    # A mission item (tools/probe_pickups.txt, an ECHO log): named by its definition, not the class's
+    # generic "Mission Item"; the mission it gives (MissionDirective) / its objective's (AssociatedMissionObjective)
+    echo_mission = types.SimpleNamespace(MissionName="No Hard Feelings", _path_name=lambda: "gd_z1_nohardfeelings.M_NoHardFeelings")
+    echo = types.SimpleNamespace(GetShortHumanReadableName=lambda: "Mission Item", MissionItemString="Mission Item",
+                                 DefinitionData=types.SimpleNamespace(ItemDefinition=types.SimpleNamespace(
+                                     ItemName="Data Log", MissionDirective=echo_mission, AssociatedMissionObjective=None)))
+    assert col.item_name(echo) == "Data Log", col.item_name(echo)
+    assert col.pickup_mission(echo) == {"i": "gd_z1_nohardfeelings.M_NoHardFeelings", "n": "No Hard Feelings", "k": "gives"}
+    part = types.SimpleNamespace(ProgressMessage="Collect parts", Outer=echo_mission)
+    echo.DefinitionData.ItemDefinition.MissionDirective, echo.DefinitionData.ItemDefinition.AssociatedMissionObjective = None, part
+    assert col.pickup_mission(echo) == {"i": "gd_z1_nohardfeelings.M_NoHardFeelings", "n": "No Hard Feelings", "k": "for", "o": "Collect parts"}
+    # The level's name as the game shows it (tools/probe_area.txt): a list per game / DLC, each knowing its maps
+    lists = [types.SimpleNamespace(Name="Default__LevelDependencyList", GetFriendlyLevelNameFromMapName=lambda m: "wrong"),
+             types.SimpleNamespace(Name="LevelList", GetFriendlyLevelNameFromMapName=lambda m: {"Ice_P": "Three Horns - Divide"}.get(m, "")),
+             types.SimpleNamespace(Name="AlliumTG_LevelList", GetFriendlyLevelNameFromMapName=lambda m: {"Hunger_P": "Gluttony Gulch"}.get(m, ""))]
+    saved_find_all = col.unrealsdk.find_all
+    col.unrealsdk.find_all = lambda cls, exact=True: lists if cls == "LevelDependencyList" else []
+    names = [col.level_name(m) for m in ("Ice_P", "Hunger_P", "Nowhere_P")]
+    col.unrealsdk.find_all = saved_find_all
+    col._level_names.clear()
+    assert names == ["Three Horns - Divide", "Gluttony Gulch", ""], names
     if not GAME_COOKED.is_dir():
         print("  game files not found: skipping the map / server checks")
         return
@@ -575,14 +603,21 @@ def check_helios_tracker() -> None:  # noqa: PLR0915
     status = enum.Enum("EMissionStatus", ["MS_NotStarted", "MS_Active", "MS_Complete"], start=0)
     secure = ns(Name="Securethetown", ProgressMessage="Sécuriser la ville", ObjectiveCount=1, _get_address=lambda: 0x650)
     kill = ns(Name="KillBandits", ProgressMessage="Tuer des bandits", ObjectiveCount=5, _get_address=lambda: 0x651)
+    # (its station: set below, once the stations exist)
     extra = ns(Name="Bonus", ProgressMessage="Bonus", ObjectiveCount=1, bObjectiveIsOptional=True, _get_address=lambda: 0x652)
+
+    # travel stations (tools/probe_area.txt): the name the game shows, the map they're in
+    shelf = ns(_get_address=lambda: 0x680, StationDisplayName="Southern Shelf", StationLevelName="SouthernShelf_P")
+    sanctuary = ns(_get_address=lambda: 0x681, StationDisplayName="Sanctuary", StationLevelName="Sanctuary_P")
+    bay = ns(_get_address=lambda: 0x682, StationDisplayName="Southern Shelf - Bay", StationLevelName="SouthernShelf_P")
 
     def mission_def(addr: int, path: str, name: str, number: int, plot: bool, deps: list, objectives: list = ()) -> object:
         return ns(_get_address=lambda: addr, _path_name=lambda: path, Name=path.split(".")[-1], MissionName=name,
                   MissionNumber=number, bPlotCritical=plot, Dependencies=deps, ObjectiveDefs=list(objectives),
                   MissionDescription="[place]Liar's Berg[-place] needs you.", MissionGiver="Claptrap", GameStage=3,
-                  TravelStation=ns(StationDisplayName="Southern Shelf") if number < 20 else None)
+                  TravelStation=shelf if number < 20 else None, TurnInStation=sanctuary if number == 2 else None)
 
+    kill.StationOverride = bay  # where that step is done (MissionObjectiveDefinition.StationOverride)
     henchman = mission_def(0x610, "GD_Episode02.M_Ep2_Henchman", "Aveugle", 1, True, [])
     mission = mission_def(0x600, "GD_Episode02.M_Ep2a_MoreGuns", "Ménage à Liar's Berg", 2, True, [henchman], [secure, kill, extra])
     mission.bGameStageLocked = True  # picked up: its level is set (GameStage 3 from mission_def)
@@ -694,6 +729,21 @@ def check_helios_tracker() -> None:  # noqa: PLR0915
         ("Sécuriser la ville", 1, None), ("Tuer des bandits", 5, None), ("Bonus", 1, 1)], tracked["obj"]
     assert [by_id[k]["st"] for k in ("GD_Episode02.M_Ep2_Henchman", "GD_Z1_Side.M_Side")] == ["Complete", "NotStarted"], by_id
     assert tracked["area"] == "Southern Shelf" and "area" not in by_id["GD_Z1_Side.M_Side"], "mission area (TravelStation)"
+    # where it is: its station's map, where to turn it in, and where its current step is done
+    assert (tracked["map"], tracked["tin"]) == ("SouthernShelf_P", {"a": "Sanctuary", "map": "Sanctuary_P"}), tracked
+    assert tracked["go"] == {"a": "Southern Shelf - Bay", "map": "SouthernShelf_P"}, ("current step's station", tracked.get("go"))
+    assert "go" not in by_id["GD_Z1_Side.M_Side"] and "tin" not in by_id["GD_Z1_Side.M_Side"], "not picked up / no turn-in station"
+    from helios_tracker import missions as mlog  # noqa: PLC0415
+
+    # waiting on another mission's objective (MissionDefinition.ObjectiveDependency, EODS_Complete)
+    dep_status = enum.Enum("EObjectiveDependencyStatus", ["EODS_Complete"], start=0)
+    # (the objective: the tracked mission's "kill" - 5 to do, its progress from the last pass: 3, then 5)
+    waiter = ns(ObjectiveDependency=ns(Objective=kill, Status=dep_status.EODS_Complete))
+    kill.Outer = mission
+    assert mlog._waiting_on(waiter, {}, {0x600: (1, 3, 0)}) == ("Tuer des bandits", "GD_Episode02.M_Ep2a_MoreGuns")
+    assert mlog._waiting_on(waiter, {}, {0x600: (1, 5, 0)}) is None, "objective done (its count reached)"
+    assert mlog._waiting_on(waiter, {"GD_Episode02.M_Ep2a_MoreGuns": "Complete"}, {}) is None, "its mission done"
+    assert mlog._waiting_on(ns(ObjectiveDependency=ns(Objective=None, Status=dep_status.EODS_Complete)), {}, {}) is None
     assert (tracked["ml"], tracked.get("mlk")) == (3, 1), "picked up: its level, locked"
     assert (by_id["GD_Z1_Side.M_Side"]["ml"], by_id["GD_Z1_Side.M_Side"].get("mlk")) == (3, None), "not picked up: the level it would lock at"
     assert "ml" not in by_id["GD_Episode02.M_Ep2_Henchman"], "done: no level read"
@@ -870,14 +920,18 @@ def check_helios_tracker() -> None:  # noqa: PLR0915
     missing = sorted(k for k in js["i18nKeys"] if k not in langs["en"])
     assert not missing, ("layer panel keys missing from the catalogs", missing)
     mis = js["missions"]
-    assert mis["story"] == ["a:done", "-s1:available", "--s2:locked", "-s3:unknown", "b:active", "c:locked"], mis["story"]
+    assert mis["story"] == ["a:done", "-s1:available", "--s2:locked", "-s3:unknown", "-w:locked", "b:active", "c:locked"], mis["story"]
     assert mis["other"] == ["o:done", "x:ready", "r:ready", "f:other"], mis["other"]
-    assert mis["counts"] == {"done": 2, "active": 1, "ready": 2, "available": 1, "unknown": 1, "locked": 2, "other": 1}, mis["counts"]
+    assert mis["counts"] == {"done": 2, "active": 1, "ready": 2, "available": 1, "unknown": 1, "locked": 3, "other": 1}, mis["counts"]
     assert mis["objectives"] == ["done", "current", "current"], mis["objectives"]
     assert mis["areas"] == ["Shelf:b", "Sanctuary:da", ":c"], mis["areas"]
     assert mis["search"] == ["a:done", "b:locked,a:done", "b:locked", "", ""], mis["search"]
     assert mis["difficulty"] == ["impossible", "tough", "normal", "normal", "trivial", None, None], mis["difficulty"]
     assert mis["finish"] == "f4:7,f1:5,f2:1", mis["finish"]
+    w = mis["where"]  # where to go: the step's station (active), the turn-in one (ready), else its own
+    assert (w["active"]["why"], w["active"]["a"], w["ready"]["a"], w["available"]["why"]) == ("step", "Bay", "Southern Shelf", "home"), w
+    assert (w["readyNoTin"]["why"], w["readyNoTin"]["a"], w["activeNoGo"], w["none"]) == ("turnin", "Sanctuary", None, None), w
+    assert w["here"] is True and w["notHere"] is False, ("here: the map names compared, any case", w)
     assert mis["tooHigh"] == {"rows": ["ok", "t2"], "n": 2, "lv": 11, "total": 150}, mis["tooHigh"]  # picked up only, the furthest behind first
     best = mis["best"]  # u counts its alternative reward (2000 XP); l2 (two steps away) and d (done) are out; e: no reward known
     assert (best["xp"], best["cash"], best["effort"]) == ("ual3vl1ery", "vual1l3ery", "vual3l1ery"), best

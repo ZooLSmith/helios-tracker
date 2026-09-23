@@ -4,8 +4,8 @@
 import { $, esc, gameTextHtml, nameHtml } from "../dom.js";
 import { num, t } from "../i18n.js";
 import { icon } from "../icons.js";
-import { GOALS, missionAreas, missionCounts, missionDifficulty, missionState, missionTree, nodeVisible, objectiveStates,
-  rankMissions, rewardFor, searchMissions } from "../missions.js";
+import { GOALS, isHere, missionAreas, missionCounts, missionDifficulty, missionState, missionTree, nodeVisible, objectiveStates,
+  rankMissions, rewardFor, searchMissions, whereTo } from "../missions.js";
 import { cleanGameText } from "../model.js";
 import { saveSettings, settings } from "../settings.js";
 import { S, isTrackedPlayer } from "../state.js";
@@ -49,9 +49,11 @@ function rowHtml(node, depth, showLocked, withArea = false) {
   const m = node.m, tracked = S.log && S.log.tracked === m.i;
   withArea = withArea || nameShared(m);
   const children = node.children.map((c) => rowHtml(c, depth + 1, showLocked)).join("");
-  return `<div class="mrow ${node.state}${m.plot ? " story" : ""}${tracked ? " tracked" : ""}" data-mission="${esc(m.i)}"` +
+  const here = node.state !== "done" && node.state !== "locked" && isHere(whereTo(m, node.state), S.level);
+  return `<div class="mrow ${node.state}${m.plot ? " story" : ""}${tracked ? " tracked" : ""}${here ? " here" : ""}" data-mission="${esc(m.i)}"` +
     ` style="--depth:${Math.min(depth, 6)}" title="${esc(stateText(node))}"><span class="mico">${icon(STATE_ICON[node.state])}</span>` +
-    `<span class="mn">${nameHtml(m)}</span>${withArea && m.area ? `<span class="marea">${esc(m.area)}</span>` : ""}${storyFlag(m)}` +
+    `<span class="mn">${nameHtml(m)}</span>${withArea && m.area ? `<span class="marea${isHere({ map: m.map }, S.level) ? " here" : ""}">${esc(m.area)}</span>` : ""}${storyFlag(m)}` +
+    `${here ? `<span class="mheretag">${esc(t("best.here"))}</span>` : ""}` +
     `${tracked ? `<span class="mtag">${esc(t("mdetail.tracked"))}</span>` : ""}</div>` + children;
 }
 
@@ -83,6 +85,33 @@ function levelBadge(m, player) {
   return `<span class="mlv ${diff || ""}${m.mlk ? "" : " would"}" title="${esc(tip)}">${esc(text)}</span>`;
 }
 
+/** Where to go for it, as a line: "Go to Sanctuary" (its current step's station), "Turn in at ...",
+ *  "Given at ..." (not picked up: its giver's area); "You're here" when it's the current level. */
+function placeHtml(m, state) {
+  const place = whereTo(m, state);
+  if (!place || !place.a) return "";
+  const key = place.why === "turnin" ? "best.turnInAt" : state === "active" ? "best.goTo" : "best.givenAt";
+  const here = isHere(place, S.level);
+  // already there: "Go to ..." crossed out (nowhere to go); "Given at" / "Turn in at" stay (who's still to find)
+  return `<span class="mplace${here ? " here" : ""}${here && key === "best.goTo" ? " arrived" : ""}">${esc(t(key, { a: place.a }))}</span>` +
+    (here ? ` <span class="mheretag">${esc(t("best.here"))}</span>` : "");
+}
+
+/** What's next, as a line: the current step's objectives to do (counts; two, then "+N"), who to
+ *  turn it in to (ready), or who gives it (not picked up). */
+function nextHtml(m, state) {
+  if (state === "ready") return m.turnin ? esc(t("best.turnInTo", { who: cleanGameText(m.turnin) })) : "";
+  if (state === "active") {
+    const cur = new Set(m.cur || []);
+    const todo = objectiveStates(m).filter((s) => cur.has(s.i) && s.state !== "done")
+      .sort((a, b) => !!a.o.opt - !!b.o.opt); // required ones first
+    const text = todo.slice(0, 2).map((s) => cleanGameText(s.o.n) + (s.o.c > 1 ? ` ${num(Math.min(s.p, s.o.c))}/${num(s.o.c)}` : ""));
+    if (todo.length > 2) text.push(t("best.more", { n: todo.length - 2 }));
+    return esc(text.join(" · "));
+  }
+  return m.giver ? esc(t("best.from", { who: cleanGameText(m.giver) })) : "";
+}
+
 function bestHtml(query = "") {
   const player = selectedPlayer();
   const level = player ? player.lvl : 0;
@@ -102,13 +131,17 @@ function bestHtml(query = "") {
   if (!rows.length) return html + `<div class="muted">${esc(t(matching ? "mlog.noMatch" : "best.none"))}</div>`;
   html += `<div class="mbestlist">` + rows.slice(0, BEST_TOP).map((r, n) => { // the top 10 only
     const m = r.m, after = (r.after || []).map((d) => S.log.missions.find((x) => x.i === d)).filter(Boolean);
-    const sub = [m.area, after.length ? t("best.after", { name: after.map((x) => x.n).join(", ") }) : "",
-      goal === "effort" ? t("best.left", { n: r.effort }) : ""].filter(Boolean).join(" · "); // quick wins: why it ranks there
-    const values = !r.known ? `<span class="muted">${esc(t("best.noReward"))}</span>`
-      : [r.xp ? `<span class="mxp">${esc(xpText(r.xp, player))}</span>` : "", r.cash ? `<span class="mcash">$${esc(num(r.cash))}</span>` : ""].join("");
-    return `<div class="mbest mrow ${r.state}${m.plot ? " story" : ""}" data-mission="${esc(m.i)}" title="${esc(stateText(r))}">` +
+    const lines = [placeHtml(m, r.state), nextHtml(m, r.state),
+      after.length ? esc(t("best.after", { name: after.map((x) => x.n).join(", ") })) : ""]
+      .filter(Boolean).map((h) => `<span class="msub">${h}</span>`).join("");
+    const here = isHere(whereTo(m, r.state), S.level);
+    // the reward on the right, and under it (quick wins, finish first) the objectives to do
+    const values = (!r.known ? `<span class="muted">${esc(t("best.noReward"))}</span>`
+      : [r.xp ? `<span class="mxp">${esc(xpText(r.xp, player))}</span>` : "", r.cash ? `<span class="mcash">$${esc(num(r.cash))}</span>` : ""].join("")) +
+      (goal === "effort" || goal === "finish" ? `<span class="mleft">${esc(t("best.left", { n: r.effort }))}</span>` : "");
+    return `<div class="mbest mrow ${r.state}${m.plot ? " story" : ""}${here ? " here" : ""}" data-mission="${esc(m.i)}" title="${esc(stateText(r))}">` +
       `<span class="mrank">${n + 1}</span><span class="mico">${icon(STATE_ICON[r.state])}</span>` +
-      `<span class="mbody"><span class="mn">${nameHtml(m)} ${levelBadge(m, player)}</span>${sub ? `<span class="msub">${esc(sub)}</span>` : ""}</span>` +
+      `<span class="mbody"><span class="mn">${nameHtml(m)} ${levelBadge(m, player)}</span>${lines}</span>` +
       `<span class="mval">${values}</span></div>`;
   }).join("") + `</div>`;
   if (ranked.tooHigh) html += `<div class="muted mhidden">${esc(t("best.tooHigh", { n: ranked.tooHigh, lv: ranked.minTooHigh }))}</div>`;
@@ -142,11 +175,11 @@ function listHtml() {
   }
   let html = "";
   const sections = grouping === "area"
-    ? missionAreas(missions).map((a) => [a.area || t("mlog.noArea"), a.nodes])
+    ? missionAreas(missions).map((a) => [a.area || t("mlog.noArea"), a.nodes, a.nodes.some((n) => isHere({ map: n.m.map }, S.level))])
     : (() => { const tree = missionTree(missions); return [[t("mlog.story"), tree.story], [t("mlog.other"), tree.other]]; })();
-  for (const [title, list] of sections) {
+  for (const [title, list, here] of sections) {
     const rows = list.map((n) => rowHtml(n, 0, showLocked)).join("");
-    if (rows) html += `<div class="group">${esc(title)}</div><div class="mtree">${rows}</div>`;
+    if (rows) html += `<div class="group${here ? " here" : ""}">${esc(title)}${here ? ` <span class="mheretag">${esc(t("best.here"))}</span>` : ""}</div><div class="mtree">${rows}</div>`;
   }
   return html;
 }
@@ -168,7 +201,15 @@ function rewardHtml(rw, player) {
 
 function detailHtml(m, tree) {
   const rows = [];
-  if (m.area) rows.push([t("mdetail.area"), m.area]);
+  const state = missionState(m, tree.byId), open = state !== "done";
+  const at = (place) => place.a + (open && isHere(place, S.level) ? ` · ${t("best.here")}` : ""); // "..., You're here"
+  // Where: given at (its own station), go to (in progress: where it's done), turn in at (its turn-in
+  // station, else back at its own) - the same places as the Best now rows
+  if (m.area) rows.push([t("mdetail.givenAt"), at({ a: m.area, map: m.map })]);
+  const go = state === "active" ? whereTo(m, state) : null;
+  if (go && go.a) rows.push([t("mdetail.goTo"), at(go)]);
+  const turnInAt = m.tin || (state === "ready" && m.area ? { a: m.area, map: m.map } : null);
+  if (turnInAt && turnInAt.a) rows.push([t("mdetail.turnInAt"), at(turnInAt)]);
   if (m.giver) rows.push([t("mdetail.giver"), m.giver]);
   if (m.turnin) rows.push([t("mdetail.turnin"), m.turnin]);
   const player = selectedPlayer();
@@ -183,6 +224,9 @@ function detailHtml(m, tree) {
   let html = "";
   const desc = gameTextHtml(m.desc); // descriptions can hold line breaks (<br>)
   if (desc) html += `<div class="mdesc">${desc}</div>`;
+  // its summary (the game's short "what to do", shown in the panel too), when it says something else
+  const summary = gameTextHtml(m.summary);
+  if (summary && cleanGameText(m.summary) !== cleanGameText(m.desc)) html += `<div class="mdesc msum">${summary}</div>`;
   if (rows.length) html += `<div class="kv">` + rows.map(([k, v]) => `<span>${esc(k)}</span><span>${esc(v)}</span>`).join("") + `</div>`;
   // Objectives: the ones done and the current step (later steps / other branches aren't shown)
   const objectives = objectiveStates(m).filter((s) => s.state !== "pending");
@@ -205,7 +249,10 @@ function detailHtml(m, tree) {
       `<span class="mico">${icon(STATE_ICON[state])}</span><span class="mn">${nameHtml(other)}</span></div>`;
   };
   const needs = (m.deps || []).map(link).join("");
-  if (needs) html += `<div class="group">${esc(t("mdetail.requires"))}</div>${needs}`;
+  // waiting on another mission's objective (its ObjectiveDependency): the game won't offer it before
+  const waits = m.wait && state === "locked" ? `<div class="muted mwait">${esc(t("mdetail.waitsOn", { o: cleanGameText(m.wait.o) }))}</div>` +
+    (m.wait.m && !(m.deps || []).includes(m.wait.m) ? link(m.wait.m) : "") : "";
+  if (needs || waits) html += `<div class="group">${esc(t("mdetail.requires"))}</div>${waits}${needs}`;
   const unlocks = S.log.missions.filter((o) => (o.deps || []).includes(m.i)).sort((a, b) => a.num - b.num).map((o) => link(o.i)).join("");
   if (unlocks) html += `<div class="group">${esc(t("mdetail.unlocks"))}</div>${unlocks}`;
   return html;
@@ -264,6 +311,8 @@ function goBack() {
 export function initMissionLog() {
   // One set of delegated handlers on the drawer (its content is rebuilt on every change)
   $("inspector").addEventListener("click", (e) => {
+    const open = e.target.closest("[data-open-mission]"); // from another view (a mission item's details)
+    if (open) { openMissionLog(open.dataset.openMission); return; }
     if (!S.missionView) return;
     if (e.target.closest("#mBack")) { goBack(); return; }
     const goal = e.target.closest("[data-mgoal]");

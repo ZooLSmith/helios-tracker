@@ -8,14 +8,33 @@ const pickedUp = (m) => m.st === "Active" || READY.includes(m.st);
 
 /** "done" / "active" / "ready" (to turn in) / "available" (not started, every mission it needs done,
  *  its giver offered it: "kick") / "unknown" (the same, but not offered yet: still to be found) /
- *  "locked", or "other" for a status the page doesn't know (shown by its game name). */
+ *  "locked" (a mission it needs isn't done, or it waits on another mission's objective: "wait" - the
+ *  game won't offer it before), or "other" for a status the page doesn't know (shown by its game name). */
 export function missionState(m, byId) {
   if (m.st === "Complete") return "done";
   if (m.st === "Active") return "active";
   if (READY.includes(m.st)) return "ready";
   if (m.st !== "NotStarted") return "other";
   if (!(m.deps || []).every((d) => byId.get(d)?.st === "Complete")) return "locked";
+  if (m.wait && !m.kick) return "locked";
   return m.kick ? "available" : "unknown";
+}
+
+/** Where to go for a mission now (tools/probe_area.txt): in progress, where it's done ("go": its
+ *  step's station override, else the level the game says - GetLevelForMission; none: null, its origin
+ *  isn't where to go); ready, its turn-in station ("tin", else back at its own); not picked up, its own
+ *  station - where to grab it (its giver's). { a: the name (the game's), map: its level's map,
+ *  why: "step" | "turnin" | "home" } or null. */
+export function whereTo(m, state) {
+  const home = m.area || m.map ? { a: m.area || "", map: m.map || "", why: "home" } : null;
+  if (state === "ready") return m.tin ? { ...m.tin, why: "turnin" } : home && { ...home, why: "turnin" };
+  if (state === "active") return m.go ? { ...m.go, why: "step" } : null;
+  return home;
+}
+
+/** Whether a place (whereTo / a station) is the level the player is in (map names compared). */
+export function isHere(place, level) {
+  return !!(place && place.map && level && level.map && place.map.toLowerCase() === String(level.map).toLowerCase());
 }
 
 /** The mission a side mission hangs under in the tree: the first mission it needs that's in the
@@ -89,6 +108,12 @@ export function objectiveStates(m) {
   });
 }
 
+/** The required objectives not done yet (at least 1: turning it in is a step too) - the "N to do"
+ *  of Quick wins and Finish first. */
+function objectivesLeft(m) {
+  return Math.max(1, objectiveStates(m).filter((o) => o.state !== "done" && !o.o.opt).length);
+}
+
 /** Counts per state, for the log's summary line. */
 export function missionCounts(missions) {
   const byId = new Map(missions.map((m) => [m.i, m]));
@@ -139,7 +164,7 @@ function rankAll(missions, goal, level) {
     const byId = new Map(missions.map((m) => [m.i, m]));
     const rows = missions.filter((m) => pickedUp(m) && m.mlk).map((m) => {
       const rw = rewardFor(m, level), sides = rw ? [rw, rw.alt].filter(Boolean) : [];
-      return { m, state: missionState(m, byId), after: null, known: !!rw, effort: 1,
+      return { m, state: missionState(m, byId), after: null, known: !!rw, effort: objectivesLeft(m),
         xp: Math.max(0, ...sides.map((r) => r.xp || 0)), cash: Math.max(0, ...sides.map((r) => (!r.cur || r.cur === "Credits" ? r.cash || 0 : 0))),
         score: level - m.ml };
     }).sort((a, b) => b.score - a.score || a.m.num - b.m.num);
@@ -159,12 +184,15 @@ function rankAll(missions, goal, level) {
     let after = null;
     if (!doable(m.i)) {
       if (state !== "locked" || !(m.deps || []).every((d) => byId.get(d)?.st === "Complete" || underway(d))) continue;
+      // waiting on another mission's objective: one step away only while that mission is under way
+      if (m.wait && !(m.wait.m && underway(m.wait.m))) continue;
       after = m.deps.filter((d) => byId.get(d)?.st !== "Complete");
+      if (m.wait && !after.includes(m.wait.m)) after.push(m.wait.m);
     }
     const rw = rewardFor(m, level), sides = rw ? [rw, rw.alt].filter(Boolean) : [];
     const xp = Math.max(0, ...sides.map((r) => r.xp || 0));
     const cash = Math.max(0, ...sides.map((r) => (!r.cur || r.cur === "Credits" ? r.cash || 0 : 0)));
-    const effort = Math.max(1, objectiveStates(m).filter((o) => o.state !== "done" && !o.o.opt).length);
+    const effort = objectivesLeft(m);
     rows.push({ m, state, after, xp, cash, effort, known: !!rw, score: 0 });
   }
   // A locked one's effort includes what's left of the missions it waits on (done first)

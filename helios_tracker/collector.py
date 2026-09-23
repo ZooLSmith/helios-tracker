@@ -22,7 +22,7 @@ from mods_base import ENGINE, get_pc
 from unrealsdk.unreal import WeakPointer
 
 from .inspector import read_players
-from .missions import MissionLog
+from .missions import MissionLog, mission_id
 from .skills import SkillReader
 from .server import Hub
 from .tacmap import MapImage, load_tactical_map
@@ -116,8 +116,46 @@ def package_path(file_name: str) -> Path | None:
     return _dlc_packages.get(file_name.lower())
 
 
+# map name -> the level's name as the game shows it ("" if no list knows it)
+_level_names: dict[str, str] = {}
+
+
+def level_name(map_name: str) -> str:
+    """The level's name as the game shows it (the map screen's): LevelDependencyList
+    .GetFriendlyLevelNameFromMapName - one list for the base game (GD_Globals.General.LevelList) and
+    one per DLC, each knowing only its own maps (tools/probe_area.txt: "Ice_P" -> "Three Horns -
+    Divide"). Cached per map; "" if none knows it."""
+    if (cached := _level_names.get(map_name)) is None:
+        cached = ""
+        for lst in try_(lambda: list(unrealsdk.find_all("LevelDependencyList", exact=False)), []) or []:
+            if str(lst.Name).startswith("Default__"):
+                continue
+            if cached := try_(lambda lst=lst: str(lst.GetFriendlyLevelNameFromMapName(map_name)), "") or "":
+                break
+        _level_names[map_name] = cached
+    return cached
+
+
+def pickup_mission(inv: Any) -> dict[str, str] | None:
+    """The mission a mission item is tied to (tools/probe_pickups.txt): the one it gives (its
+    MissionItemDefinition.MissionDirective - an ECHO log that starts "No Hard Feelings"; "k": "gives"),
+    else the one whose objective it's for (AssociatedMissionObjective, its mission = the objective's
+    Outer; "k": "for", "o": the objective). {"i": mission id, "n": its name (the game's), "k", "o"?}."""
+    item_def = try_(lambda: inv.DefinitionData.ItemDefinition)
+    if item_def is None:
+        return None
+    if (mission := try_(lambda: item_def.MissionDirective)) is not None:
+        return {"i": mission_id(mission), "n": try_(lambda: str(mission.MissionName), "") or def_name(mission), "k": "gives"}
+    objective = try_(lambda: item_def.AssociatedMissionObjective)
+    mission = try_(lambda: objective.Outer) if objective is not None else None
+    if mission is None or not hasattr(mission, "MissionName"):
+        return None
+    return {"i": mission_id(mission), "n": try_(lambda: str(mission.MissionName), "") or def_name(mission), "k": "for",
+            "o": try_(lambda: str(objective.ProgressMessage), "") or ""}
+
+
 def pretty_map_name(name: str) -> str:
-    """ "SouthernShelf_P" -> "Southern Shelf" (fallback; no localized lookup)."""
+    """ "SouthernShelf_P" -> "Southern Shelf": when the game has no name for the level (made up: marked raw)."""
     base = name.removesuffix("_P").removesuffix("_p").replace("_", " ")
     out = []
     for i, ch in enumerate(base):
@@ -307,8 +345,11 @@ class Collector:
         with self._lock:
             self.level_id += 1
             level_id = self.level_id
-        level: dict[str, Any] = {"id": level_id, "map": name, "name": pretty_map_name(name), "images": [],
+        game_name = level_name(name)
+        level: dict[str, Any] = {"id": level_id, "map": name, "name": game_name or pretty_map_name(name), "images": [],
                                  "rarity": try_(rarity_table, {}) or {}}  # the game's rarity colours
+        if not game_name:
+            level["raw"] = 1  # a made-up name (the page marks it)
         if vol is None or movie is None:
             level["status"] = "none"
         else:
@@ -623,6 +664,8 @@ class Collector:
             info["l"] = level
         if kind := pickup_kind(inv):  # ammo / cash / eridium / health (the page's pickup layers)
             info["pk"] = kind
+        if (mission := pickup_mission(inv)) is not None:
+            info["ms"] = mission
         self._info[addr] = info
         return info
 

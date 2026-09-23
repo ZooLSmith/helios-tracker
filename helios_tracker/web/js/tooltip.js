@@ -35,6 +35,7 @@ export function tooltip(mePos, f) {
     : (best.kind === "me" || best.kind === "player") && S.players.some((p) => p.i === it.i && p.host) ? esc(t("tip.host"))
     : esc(t("tip." + best.kind, null, best.kind));
   lines.push(`<span class="tl">${kindHtml}</span>`);
+  if (it.ms) lines.push(`<span class="tl">${esc(t(it.ms.k === "gives" ? "tip.givesMission" : "tip.forMission", { n: it.ms.n }))}</span>`);
   if (it.rs) lines.push(`<span class="tl">${esc(t("tip.respawning"))}</span>`);
   else if (it.dd) lines.push(`<span class="tl">${esc(t("vital.dead"))}</span>`);
   else if (it.dn) lines.push(`<span class="tl">${esc(t("vital.ffyl"))}</span>`);

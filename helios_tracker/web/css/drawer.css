@@ -27,6 +27,8 @@
 .kv > span:nth-child(odd) { color: var(--dim); }
 .plist { font-size: 12px; } .plist div { padding: 1px 0; border-bottom: 1px solid #16242e; }
 .kv > span:nth-child(even) { overflow-wrap: anywhere; }
+.mlink { color: var(--objective); cursor: pointer; } /* a mission, from a mission item's details */
+.mlink:hover { text-decoration: underline; }
 .branch { margin: 8px 0 12px; }
 .branch .bhead { display: flex; justify-content: space-between; font-weight: 600; margin-bottom: 4px; }
 .branch .bhead .bpts { color: var(--dim); font-weight: 400; font-size: 12px; }
@@ -86,7 +88,13 @@
 .mlv.would { border-style: dashed; } /* not picked up: the level it would lock at now */
 .mbest .mxp { color: var(--text); font-weight: 600; }
 .mbest .mcash { color: var(--live); }
+.mbest .mleft { color: var(--dim); font-size: 10.5px; } /* quick wins: the objectives to do, under the reward */
 .mbest.locked { opacity: .65; } /* one step away: still worth reading */
+/* where to go is the current level: a "You're here" badge (the text itself unchanged); "Go to ..."
+   crossed out (already there) */
+.mbest .msub .mplace.arrived { text-decoration: line-through; }
+.mheretag { font-size: 9.5px; font-weight: 600; color: var(--live); border: 1px solid color-mix(in srgb, var(--live) 50%, transparent);
+  border-radius: 3px; padding: 0 3px; vertical-align: 1px; }
 .mtools { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin: 2px 0 4px; }
 .mtools .seg { margin-left: 0; }
 .mlocked { font-size: 12px; color: var(--dim); }
@@ -123,6 +131,7 @@
   vertical-align: 1px; }
 .mback:hover { color: var(--text); }
 .mdesc { font-size: 12.5px; line-height: 1.45; margin: 4px 0 10px; }
+.mdesc.msum { color: var(--dim); margin-top: -4px; } /* the summary, under the description */
 .mobj { display: flex; align-items: baseline; gap: 6px; font-size: 12.5px; padding: 2px 0; }
 .mobj .mico { flex: none; width: 10px; color: var(--objective); font-size: 11px; }
 .mobj .mn { flex: 1; min-width: 0; }

@@ -56,6 +56,13 @@ and interactive objects on it, with zoom / pan. Read the root `../CLAUDE.md` fir
   goal: XP, cash (credits), both (each scaled to the best), per objective left; a mission's better
   reward (normal / alternative) counts. Top 10, "show all". XP shown as the number then its share
   of the selected player's level; the total available XP ≈ levels. `rankMissions` in missions.js.
+  Rows (up to 4 lines): name + level; where to go ("Go to" the current step's station, "Turn in at",
+  "Given at": `whereTo`); what's next (the step's objectives left, who to turn in to, who gives it);
+  "after ..." / objectives left.
+- **Where you are** (see notes: stations' `StationLevelName` vs the current map): missions whose
+  place to go is the current level get a green "You're here" badge (tree, areas, Best now; the text
+  itself unchanged); the area view's heading for the current level too. The level's name is the
+  game's (`LevelDependencyList.GetFriendlyLevelNameFromMapName`), else made up from the map (marked "?").
 - **Mission levels** (see notes: a mission's XP depends on its level only, locked when picked up):
   a badge per mission - "Lv 6" (picked up, locked) or dashed "→ Lv 8" (the level it would lock at if
   picked up now: its region's current stage), coloured by the game's difficulty thresholds for the

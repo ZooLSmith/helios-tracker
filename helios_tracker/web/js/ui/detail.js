@@ -49,6 +49,10 @@ export function renderDetail(resetScroll) {
     if (it.rad) rows.push([t("detail.area"), t("unit.meters", { n: num(it.rad / UU_PER_METER, 0) })]);
     rows.push([t("detail.tracked"), t(it.tracked ? "detail.yes" : "detail.no")]);
   }
+  if (it.ms) { // a mission item: the mission it gives / is for - a link to it in the mission log
+    rows.push([t(it.ms.k === "gives" ? "detail.givesMission" : "detail.forMission"), null,
+      `<a class="mlink" data-open-mission="${esc(it.ms.i)}">${esc(it.ms.n)}</a>` + (it.ms.o ? ` · ${esc(it.ms.o)}` : "")]);
+  }
   if (it.lootable) rows.push([t("detail.status"), t(it.looted ? "detail.looted" : "detail.unlooted")]);
   if (it.slots) rows.push([t("detail.slots"), num(it.slots)]);
   if (it.lists && it.lists.length) rows.push([t("detail.lists"), null, it.lists.map((n) => nameHtml({ n, raw: 1 })).join(", ")]);

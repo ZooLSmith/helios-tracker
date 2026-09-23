@@ -111,6 +111,12 @@ item's `DefinitionData.ItemDefinition` (a `UsableItemDefinition`):
 - The made-up rarity levels: `ItemDefinition.BaseRarity.BaseValueConstant` (health 171, cash 181,
   ammo 0).
 - A pickup lying in an opened container has `Base` = that `WillowInteractiveObject` (e.g. a Locker).
+- Mission items (2026-09-23, Tundra Express: an ECHO log dropped by a `PawnBalance_TundraPatrol`):
+  `WillowMissionItem` with `MissionItemString` 'Mission Item' (what its short name gives - the page
+  showed that), `ItemName` 'Data Log' (the real one), RarityLevel 500; its `MissionItemDefinition`:
+  `MissionDirective` = the mission it gives (`M_NoHardFeelings`; the pickup has `bIsMissionDirector`),
+  `AssociatedMissionObjective` (the objective it's for; None here), `bMissionWaypoint`. The collector:
+  the definition's name, `ms` {mission id, name, "gives" / "for"} - tooltip + a link in the details.
 - Customization items (skins / heads) are gear: `WillowUsableCustomizationItem`, a real `RarityLevel`
   (2 on a vehicle skin), `ItemFrame` `customization_vehicle`, card `Customization_VehicleSkin`.
 
@@ -135,6 +141,13 @@ item's `DefinitionData.ItemDefinition` (a `UsableItemDefinition`):
   Divide": `StationDisplayName` - tools/probe_mission_areas.txt; also `StationSign`, sometimes
   longer: "Windshear Waste - Claptrap's Place"; LevelTravelStationDefinition has it too; the
   regions (`GameStageRegion`) have no text), `DlcExpansion`.
+- Besides `Dependencies`: `MissionDefinition.ObjectiveDependency = {Objective, Status}` (an objective of
+  another mission; `EODS_Complete`: it must be done; None on the missions dumped). The collector sends
+  `wait` (that objective's text + mission) for a not-started mission whose Dependencies are done while
+  it isn't (that mission's progress, last pass: no function call); the page: locked. Why added: "Mine, All Mine" showed
+  as unknown / doable with its Dependencies done, but couldn't be picked up (user, 2026-09-23) - that
+  it's this field is NOT verified: if it still shows after a reload, dump that mission's definition.
+  Also seen, unused: `SeasonalAvailabilityTime` (FTAT_Always), `MarketingUnlock`.
 - `MissionList[].bHeardKickoff`: false on missions not started (probe); taken as "offered" (the
   game shows an undiscovered mission as "Inconnu") - to confirm in game.
 - `MissionObjectiveSetDefinition`: `ObjectiveDefinitions`, `NextSet`, `bCanCompleteMission`.
@@ -175,6 +188,46 @@ item's `DefinitionData.ItemDefinition` (a `UsableItemDefinition`):
 - The collector sends `mn` 1 when either is set (players only). Not verified yet: on a co-op client
   (both look replicated), and which menus besides the status menu set `bGFxMenuOpen` (pause, vendor,
   chat).
+
+## Areas, level names, where to go (probe_area.py, in game, Ice_P, 2026-09-23)
+
+- The level's name as the game shows it (the map screen's): `LevelDependencyList
+  .GetFriendlyLevelNameFromMapName(map)` - `GD_Globals.General.LevelList` for the base game ("Ice_P" ->
+  "Three Horns - Divide"; its `LevelList[]` = {PersistentMap, LevelName, ConnectedPersistents...}),
+  one list per DLC (`GD_AlliumPackageDef.AlliumTG_LevelList`: Hunger_P "Gluttony Gulch"...), each
+  answering "" for the others' maps; "Ice" (no _P) -> "". The collector asks each list (cached per
+  map); none: the made-up name, marked raw.
+- `TravelStationDefinition` (Fast / Level): `StationDisplayName`, `StationSign`, `StationLevelName` (its
+  map: "Sanctuary_P", "Hunger_P"), `DlcExpansion`, `PreviousStation`. A mission's `TravelStation` is where
+  it comes from (its giver's: Name Game -> Sanctuary, done in Three Horns), `TurnInStation` where to
+  hand it in (None: back at its own). Level actors `FastTravelStation.TravelDefinition` (Ice_P: IceEast).
+- Where a step is done: `MissionObjectiveSetDefinition.StationOverride` / `MissionObjectiveDefinition
+  .StationOverride` (tools/probe_quests.txt: a "Go to Sanctuary" step -> Sanctuary, a later one ->
+  IceEast; mostly None).
+- `pc.GetLevelForMission(mission)` -> a map name: the tracked Name Game -> `Ice_P` (where it's done;
+  its TravelStation is Sanctuary, its giver's). Seen once; for ready / not started not tried.
+- **Game crash, 2026-09-23 22:28** (Tundra Express, ~8 min after a reload, right after an ECHO log
+  that starts a mission was found): access violation writing 0x0 at `Borderlands2.exe+0x2582` (the
+  engine's own fatal-error crash), called from Python in a hook (stack: unrealsdk hook > pyunrealsdk >
+  python > pyunrealsdk > game). No Python error logged. The new per-pass function calls were
+  `pc.GetLevelForMission` (every active mission, every pass incl. the 1 s fast one) and
+  `tracker.IsMissionObjectiveComplete`: both removed (not proven the cause) - where to go now comes
+  from station overrides only, objective dependencies from the log's progress data. It crashed again
+  (22:34, same game stack, ~2.5 min after a reload without those two): not them. Still called:
+  `GetFriendlyLevelNameFromMapName` (once per map); the area level (GetGameStageFromRegion) removed.
+  Next: faulthandler (util.start_log) writes the Python traceback of a native crash to
+  `helios_crash.log` - the line that called into the game.
+  Rule: prefer property reads; a new function call in a loop = a crash risk, keep them rare and cached.
+- The collector sends, for active missions, where to go (`go`): the step's objective / step station
+  override (GetLevelForMission no longer: see the crash below); the page's whereTo: that (active; none:
+  no place shown), the turn-in station (ready), its own station (not picked up: where to grab it).
+- Not tried: `FindActiveStationsForLevel`.
+- **The area's level** (probe_region.py, Tundra Express, player 14): no "current region" anywhere (pc,
+  pawn, world / game / replication info). `pc.RegionGameStages[]` = {RegionDef, GameStage,
+  PlaythroughIdx} (83: every region seen); `pc.GetGameStageFromRegion(region)` (-1: not visited). This
+  map's 5 missions all use `GD_GameStages.Zone1.Tundra` -> 13; the enemies here 12-15 (mostly 14).
+  Was shown under the level's name ("Area level 13": the stages of this map's missions'
+  `GameStageRegion`s) - removed (user, 2026-09-23, during the crash hunt); the way to it is above.
 
 ## Mission level (probe_mission_level.py, in game, 2026-09-23)
 
