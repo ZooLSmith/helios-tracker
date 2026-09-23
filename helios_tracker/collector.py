@@ -26,7 +26,7 @@ from .missions import MissionLog
 from .skills import SkillReader
 from .server import Hub
 from .tacmap import MapImage, load_tactical_map
-from .util import addr, call_str, def_name, exp_level, item_name, log, log_error, named, pickup_kind, player_info, try_
+from .util import addr, call_str, def_name, exp_level, field, item_name, log, log_error, named, pickup_kind, player_info, try_
 
 MOVIE_SCALE = 4  # movie px per volume "pixel": UnrealUnitsPerPixel is 32, the fit gave 128 uu / px
 LEVEL_CHECK_EVERY = 1.0  # s
@@ -43,6 +43,7 @@ MAX_PAWNS = 1000  # PawnList walk guard
 LOOTED_EVERY = 1.0  # s between checks of unlooted containers (two property reads each, round robin)
 LOOTED_PER_PASS = 60
 SLOW_MS = 4.0  # a task taking longer than this on the game thread is reported (it can cause a hitch)
+RECORDS_SECONDS = 0.002  # per tick, building the records of newly found interactive objects (a scan's backlog)
 SLOW_REPORT_EVERY = 30.0  # s between console reports of slow tasks
 
 
@@ -51,7 +52,15 @@ class _Timings:
 
     def __init__(self) -> None:
         self._slow: dict[str, list[float]] = {}
+        self._sizes: dict[str, int] = {}  # context for the report (largest seen): pawns, pickups...
         self._next_report = 0.0
+
+    def add(self, name: str, ms: float) -> None:
+        """A part of a slow task (e.g. "state.pawns"): reported with the tasks."""
+        self._slow.setdefault(name, []).append(ms)
+
+    def size(self, name: str, n: int) -> None:
+        self._sizes[name] = max(n, self._sizes.get(name, 0))
 
     def run(self, name: str, fn, *args: Any) -> None:  # noqa: ANN001
         start = time.perf_counter()
@@ -66,8 +75,10 @@ class _Timings:
         if self._slow and now >= self._next_report:
             self._next_report = now + SLOW_REPORT_EVERY
             parts = [f"{n} max {max(v):.1f} ms ({len(v)}x)" for n, v in sorted(self._slow.items())]
-            log(f"slow game-thread tasks (> {SLOW_MS:.0f} ms) in the last {SLOW_REPORT_EVERY:.0f} s: {', '.join(parts)}")
+            sizes = f" [up to {', '.join(f'{v} {k}' for k, v in sorted(self._sizes.items()))}]" if self._sizes else ""
+            log(f"slow game-thread tasks (> {SLOW_MS:.0f} ms) in the last {SLOW_REPORT_EVERY:.0f} s: {', '.join(parts)}{sizes}")
             self._slow.clear()
+            self._sizes.clear()
 
 
 def cooked_dir() -> Path | None:
@@ -198,6 +209,9 @@ class Collector:
         self._object_records: dict[tuple[int, str], dict[str, Any] | None] = {}
         self._objects: dict[tuple[int, str], dict[str, Any]] = {}  # what the objects payload shows
         self._objects_dirty = False  # hooks changed it: publish on the next tick (batched)
+        # objects a scan found, their record not built yet: built a few per tick (a level's first scan
+        # has hundreds: one long hitch otherwise)
+        self._pending_records: dict[tuple[int, str], WeakPointer] = {}
         self._unlooted: dict[tuple[int, str], WeakPointer] = {}  # lootable containers not opened yet
         self._next_looted = 0.0
 
@@ -216,7 +230,7 @@ class Collector:
         if not self._active:  # a page just connected: fresh objects and players now
             self._active = True
             self._next_scan = self._next_objects = self._next_players = self._next_missions = self._next_log = 0.0
-            self._log.dirty = True  # the new page needs the log
+            self._log.dirty = self._log.defs_dirty = True  # the new page needs the log
             self._objects_json = self._players_json = self._missions_json = ""
         # At most one heavy task (scans / players) per tick: they'd add up into one hitch
         heavy = False
@@ -230,6 +244,8 @@ class Collector:
             self._next_missions = 0.0  # it (re)finds the mission tracker: read the markers now
             heavy = True
         run("state", self._publish_state, now)
+        if self._pending_records:
+            run("object records", self._build_pending_records)
         if self._objects_dirty:
             self._objects_dirty = False
             run("objects", self._publish_objects)
@@ -237,8 +253,10 @@ class Collector:
             self._next_players = now + PLAYERS_EVERY
             run("players", self._publish_players)
             heavy = True
-        if now >= self._next_log and not heavy and self._tracker is not None:
-            self._next_log = now + MISSION_LOG_EVERY
+        # The mission log's full pass: a slice per tick until it's done (never one long hitch)
+        if self._tracker is not None and (self._log.in_cycle or (now >= self._next_log and not heavy)):
+            if not self._log.in_cycle:
+                self._next_log = now + MISSION_LOG_EVERY
             run("mission log", self._full_log)
         if now >= self._next_missions:
             self._next_missions = now + MISSIONS_EVERY
@@ -384,8 +402,9 @@ class Collector:
         for io in unrealsdk.find_all("WillowInteractiveObject", exact=False):
             try:
                 key = (io._get_address(), str(io.Name))
-                if key not in records:
-                    records[key] = self._object_record(io) if self._in_world(io) else None
+                if key not in records:  # new: its record is built later, a few per tick
+                    self._pending_records.setdefault(key, WeakPointer(io))
+                    continue
                 if (record := records[key]) is not None and not io.bHidden and not io.bDeleteMe:
                     objects[key] = record
                     if record.get("lootable") and not record.get("looted"):
@@ -399,6 +418,26 @@ class Collector:
                 None,
             )
         self._publish_objects()
+
+    def _build_pending_records(self) -> None:
+        """The records of objects a scan found, within RECORDS_SECONDS per tick; shown as they're built."""
+        deadline = time.perf_counter() + RECORDS_SECONDS
+        records = self._object_records
+        while self._pending_records and time.perf_counter() < deadline:
+            key, ptr = next(iter(self._pending_records.items()))
+            del self._pending_records[key]
+            io = ptr()
+            if io is None or key in records:
+                continue
+            try:
+                records[key] = self._object_record(io) if self._in_world(io) else None
+                if (record := records[key]) is not None and not io.bHidden and not io.bDeleteMe:
+                    self._objects[key] = record
+                    self._objects_dirty = True
+                    if record.get("lootable") and not record.get("looted"):
+                        self._unlooted.setdefault(key, WeakPointer(io))
+            except Exception as ex:  # noqa: BLE001
+                log_error("interactive object", ex)
 
     def _publish_objects(self) -> None:
         objects = list(self._objects.values())
@@ -568,7 +607,9 @@ class Collector:
         me = try_(lambda: pc.MyWillowPawn)
         view_yaw = try_(lambda: pc.Rotation.Yaw, 0)
         self._state_n += 1
+        t0 = time.perf_counter()
         self._skills.update(pc, try_(lambda: float(wi.TimeSeconds), 0.0), now)
+        t_skills = time.perf_counter()
         players = []  # player pawns seen this update (the skill reader forgets the others)
         pawns = []
         health = {}
@@ -579,9 +620,10 @@ class Collector:
             try:
                 # Vehicle seats (a turret's gunner seat...) are pawns of their own, at the vehicle: the
                 # vehicle and its passengers are already shown
-                if not pawn.bDeleteMe and not pawn.bIsDead and not self._is_seat(pawn):
+                # (field(): the per-update reads through properties looked up once - ~10x cheaper)
+                if not field(pawn, "bDeleteMe") and not field(pawn, "bIsDead") and not self._is_seat(pawn):
                     info = self._pawn_info(pawn, me)
-                    loc = pawn.Location
+                    loc = field(pawn, "Location")
                     # Health / shield: function calls, so each pawn is read every HEALTH_EVERY
                     # updates (staggered), new ones at once
                     key = pawn._get_address()
@@ -610,7 +652,7 @@ class Collector:
                             "x": round(loc.X),
                             "y": round(loc.Y),
                             "z": round(loc.Z),
-                            "r": view_yaw if info["k"] == "me" else pawn.Rotation.Yaw,
+                            "r": view_yaw if info["k"] == "me" else field(pawn, "Rotation").Yaw,
                             "h": hp[0],
                             "m": hp[1],
                             **({"s": hp[2], "sm": hp[3]} if hp[3] else {}),
@@ -621,9 +663,10 @@ class Collector:
                     )
             except Exception as ex:  # noqa: BLE001
                 log_error("pawn", ex)
-            pawn = try_(lambda p=pawn: p.NextPawn)
+            pawn = try_(lambda p=pawn: field(p, "NextPawn"))
+        t_pawns = time.perf_counter()
         self._health = health  # drops the pawns that are gone
-        self._skills.forget({a for a in (try_(lambda p=p: p.Controller._get_address()) for p in players) if a})
+        self._skills.forget({a for a in (try_(lambda p=p: field(p, "Controller")._get_address()) for p in players) if a})
         pickups = []
         for key, ptr in list(self._pickups.items()):
             p = ptr()
@@ -631,14 +674,23 @@ class Collector:
                 del self._pickups[key]
                 continue
             try:
-                if p.bDeleteMe or p.bHidden:
+                if field(p, "bDeleteMe") or field(p, "bHidden"):
                     continue
-                loc = p.Location
+                loc = field(p, "Location")
                 pickups.append({**self._pickup_info(p), "x": round(loc.X), "y": round(loc.Y), "z": round(loc.Z)})
             except Exception as ex:  # noqa: BLE001
                 log_error("pickup", ex)
+        t_pickups = time.perf_counter()
         state = {"level": self.level_id, "t": round(now, 3), "hz": self.rate, "pawns": pawns, "pickups": pickups}
         self.hub.publish("state", json.dumps(state, separators=(",", ":")))
+        t_end = time.perf_counter()
+        if (t_end - t0) * 1000 > SLOW_MS:  # slow: which part (and how many pawns / pickups)
+            for part, a, b in (("skills", t0, t_skills), ("pawns", t_skills, t_pawns), ("pickups", t_pawns, t_pickups),
+                               ("json", t_pickups, t_end)):
+                if (ms := (b - a) * 1000) > 1.0:
+                    self._timings.add("state." + part, ms)
+            self._timings.size("pawns", len(pawns))
+            self._timings.size("pickups", len(pickups))
 
     @staticmethod
     def _down_state(pawn: Any) -> str:
@@ -647,10 +699,10 @@ class Collector:
         INJURED_Targeted + InjuredDeadState INJUREDDEAD_None; dead = InjuredState still
         INJURED_Targeted, InjuredDeadState INJUREDDEAD_InitRagdoll; respawning / fine: INJURED_Not.
         Plain property reads."""
-        injured = getattr(try_(lambda: pawn.InjuredState), "name", None)
+        injured = getattr(try_(lambda: field(pawn, "InjuredState")), "name", None)
         if injured is None or injured == "INJURED_Not":
             return ""
-        dead = getattr(try_(lambda: pawn.InjuredDeadState), "name", None)
+        dead = getattr(try_(lambda: field(pawn, "InjuredDeadState")), "name", None)
         return "dead" if dead not in (None, "INJUREDDEAD_None") else "crippled"
 
     @staticmethod
@@ -659,12 +711,12 @@ class Collector:
         the respawn effect): the pawn hidden, parked somewhere (where: up to the game - never assumed),
         bAwaitingInjuredRespawn set, AwaitingRespawnResurrectLocation = the spot (at
         AwaitingRespawnTravelStation, a ResurrectTravelStation). Plain property reads."""
-        if not try_(lambda: pawn.bHidden, False):
+        if not try_(lambda: field(pawn, "bHidden"), False):
             return False, None
-        if not any(try_(lambda f=f: bool(getattr(pawn, f)), False)
+        if not any(try_(lambda f=f: bool(field(pawn, f)), False)
                    for f in ("bAwaitingInjuredRespawn", "bIsAwaitingRespawn", "bAwaitingRespawn")):
             return False, None
-        spot = try_(lambda: pawn.AwaitingRespawnResurrectLocation)
+        spot = try_(lambda: field(pawn, "AwaitingRespawnResurrectLocation"))
         if spot is None or (spot.X == 0 and spot.Y == 0 and spot.Z == 0):
             return True, None
         return True, spot
@@ -674,14 +726,14 @@ class Collector:
         """(health, max, shield, max shield) from the pawn's replicated properties - plain reads, much
         cheaper than the function calls. Verified on the player pawn (2026-09-23): HealthVar /
         HealthMaxVar exact, ShieldVar / ShieldMaxVar the shield rounded down. None if unusable."""
-        hp_max = try_(lambda: float(pawn.HealthMaxVar), 0.0)
+        hp_max = try_(lambda: float(field(pawn, "HealthMaxVar")), 0.0)
         if not hp_max:
             return None
-        sh_max = try_(lambda: float(pawn.ShieldMaxVar), 0.0)
+        sh_max = try_(lambda: float(field(pawn, "ShieldMaxVar")), 0.0)
         return (
-            try_(lambda: float(pawn.HealthVar), 0.0),
+            try_(lambda: float(field(pawn, "HealthVar")), 0.0),
             hp_max,
-            try_(lambda: float(pawn.ShieldVar), 0.0) if sh_max else 0.0,
+            try_(lambda: float(field(pawn, "ShieldVar")), 0.0) if sh_max else 0.0,
             sh_max,
         )
 
@@ -764,9 +816,9 @@ class Collector:
         self._publish_log()
 
     def _full_log(self) -> None:
+        """One step of the full pass; published when the cycle completes."""
         tracker = self._tracker() if self._tracker is not None else None
-        if tracker is not None:
-            self._log.full(tracker, self._player_controllers())
+        if tracker is not None and self._log.step(tracker, self._player_controllers):
             self._publish_log()
 
     @staticmethod
@@ -793,7 +845,9 @@ class Collector:
     def _publish_log(self) -> None:
         """The mission log, only when something in it changed (definitions are cached: a change is
         a status / progress / current step / tracked mission)."""
-        if self._log.dirty:
+        if self._log.defs_dirty:  # the definitions: static, only when the list changes (large: texts)
+            self.hub.publish("missiondefs", json.dumps(self._log.defs_payload(), separators=(",", ":")))
+        if self._log.dirty:  # the live part: small
             self.hub.publish("missionlog", json.dumps(self._log.payload(self.level_id), separators=(",", ":")))
 
     def _publish_players(self) -> None:

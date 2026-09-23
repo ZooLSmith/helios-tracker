@@ -66,6 +66,26 @@ def _str_result(r: Any) -> str:
     return ""
 
 
+# (class address, property name) -> the property: looked up once per class
+_fields: dict[tuple[int, str], Any] = {}
+
+
+def field(obj: Any, name: str) -> Any:
+    """obj.<name>, ~10x cheaper for the per-update reads: a property read by name costs 15-24 us (the
+    name looked up through the class chain), the property looked up once then `_get_field` 1-2 us
+    (tools/probe_perf.txt). Raises like obj.<name> if there's no such property. Plain Python objects
+    (the offline check's fakes): getattr."""
+    get = getattr(type(obj), "_get_field", None)
+    if get is None:
+        return getattr(obj, name)
+    cls = obj.Class
+    key = (cls._get_address(), name)
+    prop = _fields.get(key)
+    if prop is None:
+        prop = _fields[key] = cls._find(name)
+    return get(obj, prop)
+
+
 def call_str(fn) -> str:  # noqa: ANN001
     """The string fn() gives - trying fn() then fn("") (a string out param, e.g.
     GetTargetName(out string TargetName)): the first non-empty one. fn() can succeed and return

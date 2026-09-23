@@ -12,7 +12,7 @@ is reported (as a reason code the page translates), not guessed. Stats are sent 
 
 from typing import Any
 
-from .util import addr, call_str, def_name, item_name, log, log_error, named, player_info, try_
+from .util import addr, call_str, def_name, field, item_name, log, log_error, named, player_info, try_
 
 MAX_CHAIN = 32  # guard for the linked inventory chains
 ITEM_KINDS = {  # class (or a superclass) -> kind shown by the page
@@ -55,8 +55,8 @@ def _stats(inv: Any, kind: str) -> list[list[Any]]:
     """Card-like stats [key, value, extra] (current values, with the owner's bonuses), where they exist."""
     out: list[list[Any]] = []
 
-    def get(name: str) -> float | None:
-        return _num(try_(lambda: getattr(inv, name)))
+    def get(name: str) -> float | None:  # (field(): ~10x cheaper than by name - these are re-read every pass)
+        return _num(try_(lambda: field(inv, name)))
 
     if kind == "weapon":
         dmg, pellets = get("InstantHitDamage"), get("ProjectilesPerShot")
@@ -158,7 +158,7 @@ def _equipped_item(inv: Any) -> dict[str, Any]:
     item = {**_equipped_cache[key], "stats": _stats(inv, _equipped_cache[key]["k"])}
     if item["k"] == "weapon":
         item.pop("slot", None)
-        if slot := try_(lambda: int(inv.QuickSelectSlot), 0):
+        if slot := try_(lambda: int(field(inv, "QuickSelectSlot")), 0):
             item["slot"] = slot
     return item
 
@@ -172,7 +172,7 @@ def _chain(first: Any, equipped: bool) -> list[dict[str, Any]]:
             out.append(_equipped_item(inv) if equipped else _item(inv, equipped))
         except Exception as ex:  # noqa: BLE001
             log_error("inspect item", ex)
-        inv = try_(lambda i=inv: i.Inventory)
+        inv = try_(lambda i=inv: field(i, "Inventory"))
     return out
 
 
@@ -337,7 +337,23 @@ def _xp(ctrl: Any, pri: Any, level: int) -> dict[str, Any]:
     return {"xp": [total - start, next_at - start]}
 
 
+_class_names: dict[int, dict[str, Any]] = {}  # controller / player info address -> _class_name()
+
+
 def _class_name(ctrl: Any, pri: Any) -> dict[str, Any]:
+    """_class_name_uncached(), once per player (a player's class never changes)."""
+    owner = ctrl if ctrl is not None else pri
+    key = try_(lambda: owner._get_address())
+    if key is None:
+        return _class_name_uncached(ctrl, pri)
+    if (cached := _class_names.get(key)) is None:
+        cached = _class_name_uncached(ctrl, pri)
+        if cached.get("cls") and not cached.get("clsRaw"):  # only the game's name (not yet loaded: again next time)
+            _class_names[key] = cached
+    return cached
+
+
+def _class_name_uncached(ctrl: Any, pri: Any) -> dict[str, Any]:
     """{"cls": class, "char": character} - the game's localized class name ("Gunzerker" /
     "Défourailleur") and character name ("Salvador"), via the player info (shared with everyone:
     works for others on a client too) or the class definition; else the class definition's object
@@ -368,8 +384,9 @@ def read_players(world_info: Any, me: Any, pc: Any = None) -> list[dict[str, Any
         if pawn is None:
             break
         try:
-            pri = player_info(pawn)  # the vehicle's while driving
-            if pri is not None and "PlayerPawn" in str(pawn.Class.Name) and not pawn.bDeleteMe:
+            # the class first (cheap): the player info (slow reads) only for players
+            pri = player_info(pawn) if "PlayerPawn" in str(pawn.Class.Name) else None  # the vehicle's while driving
+            if pri is not None and not field(pawn, "bDeleteMe"):
                 # Driving, the controller possesses the vehicle and the player pawn's own is None:
                 # through the vehicle, and ours is always the local player controller
                 ctrl = try_(lambda p=pawn: p.Controller) or try_(lambda p=pawn: p.DrivenVehicle.Controller)
@@ -393,6 +410,6 @@ def read_players(world_info: Any, me: Any, pc: Any = None) -> list[dict[str, Any
                 players.append(player)
         except Exception as ex:  # noqa: BLE001
             log_error("inspect player", ex)
-        pawn = try_(lambda p=pawn: p.NextPawn)
+        pawn = try_(lambda p=pawn: field(p, "NextPawn"))
     players.sort(key=lambda p: (not p["local"], p["n"].lower()))
     return players

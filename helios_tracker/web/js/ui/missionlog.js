@@ -81,11 +81,14 @@ function levelBadge(m, player) {
   return `<span class="mlv ${diff || ""}${m.mlk ? "" : " would"}" title="${esc(tip)}">${esc(text)}</span>`;
 }
 
-function bestHtml() {
+function bestHtml(query = "") {
   const player = selectedPlayer();
   const level = player ? player.lvl : 0;
   const goal = GOALS.includes(settings.ui.missionGoal) ? settings.ui.missionGoal : "xp";
-  const { rows, totalXp } = rankMissions(S.log.missions, goal, level);
+  const ranked = rankMissions(S.log.missions, goal, level), totalXp = ranked.totalXp;
+  // a search narrows the ranking (its goal and order kept)
+  const matching = query.trim() ? new Set(searchMissions(S.log.missions, query).map((n) => n.m.i)) : null;
+  const rows = matching ? ranked.rows.filter((r) => matching.has(r.m.i)) : ranked.rows;
   let html = `<div class="mtools"><span class="seg">` + GOALS.map((g) =>
     `<button data-mgoal="${g}" class="${g === goal ? "on" : ""}" title="${esc(t("mgoal." + g + "Tip"))}">${esc(t("mgoal." + g))}</button>`).join("") +
     `</span></div>`;
@@ -94,7 +97,7 @@ function bestHtml() {
     html += `<div class="muted mbestsum">${esc(t("best.for", { name: player.n, n: level }))}` +
       (totalXp ? ` · ${esc(t("best.total", { xp: totalXp }))}` + (size ? ` ${esc(t("best.levels", { n: (totalXp / size).toFixed(1) }))}` : "") : "") + `</div>`;
   }
-  if (!rows.length) return html + `<div class="muted">${esc(t("best.none"))}</div>`;
+  if (!rows.length) return html + `<div class="muted">${esc(t(matching ? "mlog.noMatch" : "best.none"))}</div>`;
   html += `<div class="mbestlist">` + rows.slice(0, BEST_TOP).map((r, n) => { // the top 10 only
     const m = r.m, after = (r.after || []).map((d) => S.log.missions.find((x) => x.i === d)).filter(Boolean);
     const sub = [m.area, after.length ? t("best.after", { name: after.map((x) => x.n).join(", ") }) : "",
@@ -121,17 +124,19 @@ function treeHtml() {
     `<div id="mList">${listHtml()}</div>`;
 }
 
-/** Under the tools: the search's matches (a flat list, with their area), or the tree / areas. */
+/** Under the tools: the current view - a search narrows it (the view's filters kept): the ranking
+ *  filtered (Best now), or the matches as a flat list with their area (the tree / areas; locked ones
+ *  only with "Show locked"). */
 function listHtml() {
   const missions = S.log.missions, showLocked = !!settings.ui.showLockedMissions;
   const query = S.missionView.query || "";
+  const grouping = GROUPINGS.includes(settings.ui.missionGroup) ? settings.ui.missionGroup : "chain";
+  if (grouping === "best") return bestHtml(query);
   if (query.trim()) {
-    const found = searchMissions(missions, query);
+    const found = searchMissions(missions, query).filter((n) => showLocked || n.state !== "locked");
     return found.length ? `<div class="mtree">${found.map((n) => rowHtml(n, 0, true, true)).join("")}</div>`
       : `<div class="muted">${esc(t("mlog.noMatch"))}</div>`;
   }
-  const grouping = GROUPINGS.includes(settings.ui.missionGroup) ? settings.ui.missionGroup : "chain";
-  if (grouping === "best") return bestHtml();
   let html = "";
   const sections = grouping === "area"
     ? missionAreas(missions).map((a) => [a.area || t("mlog.noArea"), a.nodes])

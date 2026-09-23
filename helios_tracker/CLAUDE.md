@@ -33,8 +33,11 @@ and interactive objects on it, with zoom / pan. Read the root `../CLAUDE.md` fir
 - **Mission log** (`missions.py`, the `missionlog` payload): every mission of the playthrough from
   `MissionTracker.MissionList` - status, objectives with progress, the current step
   (`ActiveObjectiveSet`), dependencies, texts (see notes). Definitions read once (cached forever); a
-  full pass every 5 s (a heavy task), a fast pass over the tracked / active missions every 1 s;
-  published only when the live part changes. Panel "Mission" section: the tracked mission and every
+  full pass every 5 s (a heavy task; per entry only what can change: a done one's status, a
+  not-started one's status + offered + level if doable, everything for active ones), a fast pass
+  over the tracked / active missions every 1 s. Two payloads: `missiondefs` (the definitions:
+  names, texts, objectives - only when the list changes) and `missionlog` (the live part:
+  status, progress, levels, rewards - small, on every change); the page merges them by id. Panel "Mission" section: the tracked mission and every
   objective of its current step (done / to do, counts, optional); its name opens its details, "All
   missions" the tree. The tree (drawer): story missions in order with the side missions each one
   unlocks under it (`Dependencies`), done / active / available (every dependency done, offered:
@@ -138,7 +141,12 @@ and interactive objects on it, with zoom / pan. Read the root `../CLAUDE.md` fir
   output goes to `autoexec.log`. It sits in a kill-on-close job object: server stop, port / LAN
   restart, mod disable, or the game exiting ends it along with its children.
 - `skills.py`: the players' skills (action skill, timed effects, melee cooldown), per update.
-- `util.py`: shared helpers (`try_`, `call_str`, `def_name`, `addr`, `log_error`).
+- `util.py`: shared helpers (`try_`, `call_str`, `def_name`, `addr`, `log_error`, `field`).
+- **Per-update / per-pass reads go through `util.field(obj, name)`** (the property looked up once per
+  class, then `_get_field`: 1-2 us instead of 15-24 us by name - tools/probe_perf.txt); structs held
+  in hand (`loc.X`) and `_get_address()` are cheap already. Function calls cost ~18 us: cache them.
+  Slow tasks are logged every 30 s (`helios_tracker.log`), `state` with its parts (skills / pawns /
+  pickups / json) and the counts.
 - `server.py`: stdlib `ThreadingHTTPServer`; `/` (page, read from disk per request),
   `/<path>.js|css` (any module / stylesheet under `web/`), `/events` (SSE: `level`, `state`, `objects`, `players`, latest
   payload each), `/image/<level>/<n>`. Server changes need a mod reload; page / i18n edits only a

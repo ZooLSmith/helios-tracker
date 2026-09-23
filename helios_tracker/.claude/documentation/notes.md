@@ -182,7 +182,7 @@ item's `DefinitionData.ItemDefinition` (a `UsableItemDefinition`):
 
 ## Backlog
 
-- **Mission log cost** (user, 2026-09-23: 20-40 ms often, to do once the mission features are done):
+- **Mission log cost** (user, 2026-09-23: 20-40 ms often) - (1) and (3) DONE, to measure in game; (2) if still needed:
   the full pass reads ~10 properties for each of ~290 entries in one tick. Plan: (1) read per entry
   only what can change - not started: status + bHeardKickoff; done: status only (progress final);
   a locked level once; full reads only for active ones (the fast pass has them anyway); (2) spread

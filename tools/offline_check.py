@@ -510,7 +510,35 @@ def check_helios_tracker() -> None:  # noqa: PLR0915
     from helios_tracker import collector as col  # noqa: PLC0415
     from helios_tracker.server import Hub, TrackerServer  # noqa: PLC0415
     from helios_tracker.tacmap import load_tactical_map  # noqa: PLC0415
-    from helios_tracker.util import pickup_kind  # noqa: PLC0415
+    from helios_tracker.util import field, pickup_kind  # noqa: PLC0415
+
+    # field(): the property looked up once per class, then read with _get_field (tools/probe_perf.txt)
+    class FakeClass:
+        finds = 0
+
+        def _get_address(self) -> int:
+            return 0x1234
+
+        def _find(self, name: str) -> str:
+            if name == "Missing":
+                raise ValueError("no such property")
+            FakeClass.finds += 1
+            return "prop:" + name
+
+    class FakeObject:
+        Class = FakeClass()
+
+        def _get_field(self, prop: str) -> str:
+            return "value of " + prop
+
+    obj = FakeObject()
+    assert [field(obj, "HealthVar") for _ in range(3)] == ["value of prop:HealthVar"] * 3 and FakeClass.finds == 1, FakeClass.finds
+    try:
+        field(obj, "Missing")
+        raise AssertionError("a missing property must raise")
+    except ValueError:
+        pass
+    assert field(types.SimpleNamespace(x=5), "x") == 5, "plain objects: getattr"
 
 
     # Pickup kinds: the definition's inventory card (Presentation), resolved once per definition
@@ -807,7 +835,11 @@ def check_helios_tracker() -> None:  # noqa: PLR0915
     assert (giver["k"], giver["rad"], "objective" in giver) == ("directive", 0, False), giver
     # The mission log: full pass (every entry, definitions cached), then the fast pass (the tracked /
     # active missions, every second) picks up progress
-    log = json.loads(hub._channels["missionlog"][1])
+    def merged_log() -> dict:  # what the page builds: the definitions + the live part, by id
+        defs = {m["i"]: m for m in json.loads(hub._channels["missiondefs"][1])["missions"]}
+        live = json.loads(hub._channels["missionlog"][1])
+        return {**live, "missions": [{**defs[m["i"]], **m} for m in live["missions"]]}
+    log = merged_log()
     by_id = {m["i"]: m for m in log["missions"]}
     tracked = by_id["GD_Episode02.M_Ep2a_MoreGuns"]
     assert log["tracked"] == tracked["i"] and tracked["st"] == "Active" and tracked["plot"] == 1, log["tracked"]
@@ -820,6 +852,15 @@ def check_helios_tracker() -> None:  # noqa: PLR0915
     assert (by_id["GD_Z1_Side.M_Side"]["ml"], by_id["GD_Z1_Side.M_Side"].get("mlk")) == (3, None), "not picked up: the level it would lock at"
     assert "ml" not in by_id["GD_Episode02.M_Ep2_Henchman"], "done: no level read"
     assert by_id["GD_Z1_Side.M_Side"].get("kick") == 1 and "kick" not in by_id["GD_Z1_Later.M_Later"], "offered flag (bHeardKickoff)"
+    # the full pass in slices (a few entries per tick): nothing applied until the cycle completes
+    from helios_tracker import missions as sliced  # noqa: PLC0415
+
+    chunked = sliced.MissionLog()
+    steps = 0
+    while not chunked.step(tracker, lambda: [], budget=1):
+        steps += 1
+        assert chunked.in_cycle and not chunked.payload(1)["missions"], "applied before the cycle completed"
+    assert steps == len(log_entries) - 1 and [m["st"] for m in chunked.payload(1)["missions"]] == [m["st"] for m in log["missions"]], steps
     # rewards per player level (tools/probe_rewards.txt: MissionDefinition.GetExperienceReward(pc, bAlt))
     from helios_tracker import missions as mission_log  # noqa: PLC0415
 
@@ -836,14 +877,14 @@ def check_helios_tracker() -> None:  # noqa: PLR0915
     henchman.DlcExpansion = ns(_path_name=lambda: "GD_Orchid.DLC")  # the definitions are cached: a fresh one
     mission_log._defs.clear()
     log_obj.full(tracker, [controller(1, 30)])
-    dlcs = {m["i"]: m.get("dlc") for m in log_obj.payload(1)["missions"]}
+    dlcs = {m["i"]: m.get("dlc") for m in log_obj.defs_payload()["missions"]}
     assert dlcs["GD_Episode02.M_Ep2_Henchman"] == "GD_Orchid.DLC" and dlcs["GD_Z1_Side.M_Side"] is None, dlcs
     version = hub._channels["missionlog"][0]
     c.tick(1001.5)  # nothing changed: not published again
     assert hub._channels["missionlog"][0] == version, "mission log republished with no change"
     log_entries[1].ObjectivesProgress = [1, 4, 0]  # a kill
     c.tick(1002.6)  # the next marker read (1 s): the fast pass
-    tracked = next(m for m in json.loads(hub._channels["missionlog"][1])["missions"] if m["i"] == tracked["i"])
+    tracked = next(m for m in merged_log()["missions"] if m["i"] == tracked["i"])
     assert tracked["p"] == [1, 4, 0], tracked
     assert [b["k"] for b in player["backpack"]] == ["shield"], player["backpack"]
     assert player["skills"][0]["n"] == "Sniping" and player["skills"][0]["skills"][0]["g"] == 4, player["skills"]
@@ -893,11 +934,11 @@ def check_helios_tracker() -> None:  # noqa: PLR0915
         res = sse.getresponse()
         assert res.headers["Content-Type"] == "text/event-stream", res.headers
         events = set()
-        while len(events) < 6:
+        while len(events) < 7:
             line = res.fp.readline().decode()
             if line.startswith("event: "):
                 events.add(line[7:].strip())
-        assert events == {"level", "state", "objects", "players", "missions", "missionlog"}, events
+        assert events == {"level", "state", "objects", "players", "missions", "missiondefs", "missionlog"}, events
         print(f"  server: page {len(page)} bytes + {len(web_files)} js / css files, image {len(image)} bytes,"
               f" SSE events {sorted(events)}")
     finally:

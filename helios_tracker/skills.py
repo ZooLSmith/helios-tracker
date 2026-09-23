@@ -22,7 +22,7 @@ from typing import Any
 
 from unrealsdk.unreal import WeakPointer
 
-from .util import try_
+from .util import field, try_
 
 SKILLS_EVERY = 0.2  # s between reads of the skill manager (every player's running skills)
 MAX_EVERY = 5.0  # s between reads of a player's full cooldown lengths (function calls)
@@ -69,16 +69,17 @@ class SkillReader:
                 return
             self._manager = WeakPointer(manager)
         by_pc: dict[int, dict[str, Any]] = {}
-        for skill in try_(lambda: list(manager.ActiveSkills), []) or []:
-            skill_def = try_(lambda s=skill: s.Definition)
+        # (field(): properties looked up once - ~10x cheaper than by name, see util.field)
+        for skill in try_(lambda: list(field(manager, "ActiveSkills")), []) or []:
+            skill_def = try_(lambda s=skill: field(s, "Definition"))
             if skill_def is None:
                 continue
             name, kind, duration_type = definition_info(skill_def)
-            if duration_type != "DURATION_Timed" or _enum_name(try_(lambda s=skill: s.SkillState)) != "SKILL_Active":
+            if duration_type != "DURATION_Timed" or _enum_name(try_(lambda s=skill: field(s, "SkillState"))) != "SKILL_Active":
                 continue
-            duration = try_(lambda s=skill: float(s.Duration), 0.0)
-            left = try_(lambda s=skill: float(s.StartTime), 0.0) + duration - world_time
-            instigator = try_(lambda s=skill: s.SkillInstigator)
+            duration = try_(lambda s=skill: float(field(s, "Duration")), 0.0)
+            left = try_(lambda s=skill: float(field(s, "StartTime")), 0.0) + duration - world_time
+            instigator = try_(lambda s=skill: field(s, "SkillInstigator"))
             if duration <= 0 or left <= 0 or instigator is None:
                 continue
             entry = by_pc.setdefault(instigator._get_address(), {"act": None, "timed": []})
@@ -93,8 +94,8 @@ class SkillReader:
         left, seconds left, name] running, ["c", fraction left, seconds left, name] cooling down),
         "ps" (timed passive effects: [[name, seconds left, duration]]), "mk" (melee skill cooling down:
         [fraction left, seconds left]). Empty without their controller (a co-op client only has its own)."""
-        pc = try_(lambda: pawn.Controller)
-        if pc is None or not hasattr(pc, "SkillCooldownPool"):
+        pc = try_(lambda: field(pawn, "Controller"))
+        if pc is None or try_(lambda: field(pc, "SkillCooldownPool")) is None:
             return {}
         key = pc._get_address()
         cached = self._max.get(key)
@@ -113,12 +114,12 @@ class SkillReader:
             name, left, duration = act
             out["ak"] = ["a", round(left / duration, 3), round(left, 1), name or action_name]
         elif action_max > 0:
-            left = _pool_seconds(try_(lambda: pc.SkillCooldownPool.Data))
+            left = _pool_seconds(try_(lambda: field(pc, "SkillCooldownPool").Data))
             out["ak"] = ["c", round(min(1.0, left[0] / action_max), 3), left[1], action_name] if left[0] > 0 else ["r", action_name]
         if running.get("timed"):
             out["ps"] = [[name, round(left, 1), round(duration, 1)] for name, left, duration in running["timed"]]
         if melee_max > 0:
-            left = _pool_seconds(try_(lambda: pc.MeleeSkillCooldownPool.Data))
+            left = _pool_seconds(try_(lambda: field(pc, "MeleeSkillCooldownPool").Data))
             if left[0] > 0:
                 out["mk"] = [round(min(1.0, left[0] / melee_max), 3), left[1]]
         return out
@@ -130,6 +131,6 @@ class SkillReader:
 
 def _pool_seconds(pool: Any) -> tuple[float, float]:
     """(the pool's value, seconds until empty at its drain rate) - the HUD bar's numbers."""
-    value = try_(lambda: float(pool.CurrentValue), 0.0)
-    rate = try_(lambda: float(pool.ConsumptionRate), 1.0) or 1.0
+    value = try_(lambda: float(field(pool, "CurrentValue")), 0.0)
+    rate = try_(lambda: float(field(pool, "ConsumptionRate")), 1.0) or 1.0
     return value, round(value / rate, 1) if value > 0 else 0.0

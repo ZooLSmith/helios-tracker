@@ -33,6 +33,7 @@ export function connect() {
   on("objects", onObjects);
   on("players", onPlayers);
   on("missions", onMissions);
+  on("missiondefs", onMissionDefs);
   on("missionlog", onMissionLog);
 }
 
@@ -140,8 +141,20 @@ function onPlayers(msg) {
   renderInspector();
 }
 
-function onMissionLog(msg) { // the whole playthrough's missions: kept across levels
-  S.log = msg;
+// The mission log, in two payloads (the whole playthrough's missions: kept across levels): the
+// definitions (static, when the list changes) and the live part (status, progress, levels, rewards)
+let logDefs = null, logLive = null;
+function onMissionDefs(msg) {
+  logDefs = new Map(msg.missions.map((m) => [m.i, m]));
+  mergeLog();
+}
+function onMissionLog(msg) {
+  logLive = msg;
+  mergeLog();
+}
+function mergeLog() {
+  if (!logDefs || !logLive) return;
+  S.log = { ...logLive, missions: logLive.missions.filter((l) => logDefs.has(l.i)).map((l) => ({ ...logDefs.get(l.i), ...l })) };
   renderMission();
   if (S.missionView) renderMissionLog();
 }

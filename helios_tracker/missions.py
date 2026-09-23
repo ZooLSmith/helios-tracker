@@ -17,12 +17,17 @@ scaled to the player; items: Reward.RewardItems (balance definitions) / RewardIt
 calls: only for the active / available / tracked missions, cached per (mission, player level).
 """
 
+import time
 from typing import Any
 
-from .util import def_name, named, try_
+from .util import def_name, field, named, try_
 
 # MissionDefinition (address) -> (its record for the page, {objective address: index})
 _defs: dict[int, tuple[dict[str, Any], dict[int, int]]] = {}
+STEP_ENTRIES = 60  # at most this many entries per step of the full pass (~290 in all: a few ticks)
+STEP_SECONDS = 0.002  # and at most this long: the first cycle reads every definition (a lot more per entry)
+REWARDS_SECONDS = 0.003  # per cycle, computing rewards not cached yet (function calls; the rest next cycle)
+
 # (MissionDefinition address, player level, mission level) -> reward (see _reward). The mission's level
 # is part of the key: it's only set when the mission is picked up (GameStage), changing the reward
 _rewards: dict[tuple[int, int, int], dict[str, Any]] = {}
@@ -133,11 +138,30 @@ def _status_name(status: Any) -> str:
     return str(name).removeprefix("MS_")
 
 
-def _live(entry: Any, index: dict[int, int]) -> tuple[str, tuple[int, ...], tuple[int, ...], bool, int, bool]:
-    """(status, progress per objective, indices of the current step's objectives, offered): offered =
-    bHeardKickoff - the giver offered it (its kickoff dialog; unverified in game): a mission not
-    started yet that nobody offered is still to be found."""
+Live = tuple[str, tuple[int, ...], tuple[int, ...], bool, int, bool]
+_NOT_STARTED: Live = ("NotStarted", (), (), False, 0, False)
+
+
+def _live(entry: Any, index: dict[int, int], prev: Live | None, doable: bool) -> Live:
+    """(status, progress per objective, indices of the current step's objectives, offered, level,
+    level fixed) - reading only what can change, the full pass going over ~290 entries:
+    - done: the status only (its progress is read once, when it gets done: final);
+    - not started: the status, offered (bHeardKickoff - the giver offered it; unverified in game) and,
+      if doable (every mission it needs done), its level: the one it would be fixed at if picked up now
+      (its region's current stage, MissionDefinition.GameStage);
+    - active (and anything else): everything - progress, the current step (ActiveObjectiveSet +
+      SubObjectiveSets), its level (GameStage, fixed when picked up: bGameStageLocked).
+    Levels: tools/probe_mission_xp_curve.txt."""
     status = _status_name(try_(lambda: entry.Status, ""))
+    if status == "Complete":
+        if prev is not None and prev[0] == "Complete":
+            return prev
+        progress = tuple(int(v) for v in try_(lambda: list(entry.ObjectivesProgress), []) or [])
+        return status, progress, (), False, 0, False
+    if status == "NotStarted":
+        offered = bool(try_(lambda: entry.bHeardKickoff, False))
+        level = try_(lambda: int(field(entry.MissionDef, "GameStage")), 0) if doable else 0
+        return status, (), (), offered, level, False
     progress = tuple(int(v) for v in try_(lambda: list(entry.ObjectivesProgress), []) or [])
     current = []
     sets = [try_(lambda: entry.ActiveObjectiveSet)] + list(try_(lambda: list(entry.SubObjectiveSets), []) or [])
@@ -145,19 +169,16 @@ def _live(entry: Any, index: dict[int, int]) -> tuple[str, tuple[int, ...], tupl
         for obj in try_(lambda s=s: list(s.ObjectiveDefinitions), []) or []:
             if obj is not None and (i := index.get(obj._get_address())) is not None and i not in current:
                 current.append(i)
-    # Its level (tools/probe_mission_xp_curve.txt): MissionDefinition.GameStage - locked when picked up
-    # (bGameStageLocked: its XP is fixed from then on); before, its region's current stage (the level
-    # it would lock at if picked up now). Two property reads, only for missions not done
     mdef = try_(lambda: entry.MissionDef)
-    level, locked = 0, False
-    if status != "Complete":
-        level = try_(lambda: int(mdef.GameStage), 0)
-        locked = bool(try_(lambda: mdef.bGameStageLocked, False))
+    level = try_(lambda: int(field(mdef, "GameStage")), 0)
+    locked = bool(try_(lambda: field(mdef, "bGameStageLocked"), False))
     return status, progress, tuple(current), bool(try_(lambda: entry.bHeardKickoff, False)), level, locked
 
 
 class MissionLog:
-    """The log's state between passes; `payload()` gives what the page gets."""
+    """The log's state between passes. What the page gets, in two payloads: `defs_payload()` - the
+    definitions (names, texts, objectives: static, only when the list changes) - and `payload()` -
+    the live part (status, progress, level, rewards: small, on every change)."""
 
     def __init__(self) -> None:
         self._records: list[dict[str, Any]] = []  # per MissionList entry (the definition's record)
@@ -165,33 +186,77 @@ class MissionLog:
         self._rewards: dict[int, dict[str, Any]] = {}  # entry -> {player level: reward}
         self._addrs: list[int] = []  # MissionDef address per entry (the fast pass checks the order)
         self._indexes: list[dict[int, int]] = []
-        self._live: list[tuple[str, tuple[int, ...], tuple[int, ...], bool, int, bool]] = []
+        self._live: list[Live] = []
         self._watch: list[int] = []  # entries the fast pass reads: active ones and the tracked one
+        self._cycle: dict[str, Any] | None = None  # the full pass under way (step by step)
         self._tracked = ""
-        self.dirty = False  # changed since the last payload()
+        self.dirty = False  # the live part changed since the last payload()
+        self.defs_dirty = True  # the list (definitions) changed since the last defs_payload()
 
     def full(self, tracker: Any, pcs: list[Any] | None = None) -> None:
-        """Every entry: definitions (cached) and live state; rewards of the ones that matter."""
-        records, addrs, indexes, live, watch, mdefs = [], [], [], [], [], []
-        for n, entry in enumerate(try_(lambda: list(tracker.MissionList), []) or []):
+        """A whole pass at once (tests / tools): step() until the cycle completes."""
+        while not self.step(tracker, lambda: pcs or [], budget=1 << 30):
+            pass
+
+    @property
+    def in_cycle(self) -> bool:
+        """A full pass is under way (step() again next tick)."""
+        return self._cycle is not None
+
+    def step(self, tracker: Any, pcs: Any, budget: int = STEP_ENTRIES) -> bool:
+        """The full pass, a slice at a time: the next `budget` entries (definitions cached, live state);
+        True when the cycle is complete - the new state is then applied (rewards: pcs() gives the
+        player controllers). The list is fetched from the tracker at each step (nothing held across
+        frames but the definitions, static game data); an entry changed under us is caught by the
+        next cycle (and the fast pass checks the order)."""
+        entries = try_(lambda: tracker.MissionList)
+        if entries is None:
+            self._cycle = None
+            return True
+        if self._cycle is None:
+            self._cycle = {
+                "k": 0, "records": [], "addrs": [], "indexes": [], "live": [], "watch": [], "mdefs": [],
+                # the last pass's states: a done one isn't read again; a not-started one's level only if doable
+                "previous": {a: st for (_, a), st in zip(self._addrs, self._live, strict=True)},
+                "status": {r["i"]: st[0] for r, st in zip(self._records, self._live, strict=True)},
+            }
+        c = self._cycle
+        count = try_(lambda: len(entries), 0)
+        end = min(count, c["k"] + budget)
+        deadline = time.perf_counter() + STEP_SECONDS if budget == STEP_ENTRIES else float("inf")
+        for n in range(c["k"], end):
+            if time.perf_counter() > deadline:  # out of time: the rest next tick
+                end = n
+                break
+            entry = try_(lambda n=n: entries[n])
             mdef = try_(lambda e=entry: e.MissionDef)
             if mdef is None:
                 continue
             record, index = _definition(mdef)
-            state = _live(entry, index)
-            records.append(record)
-            mdefs.append(mdef)
-            addrs.append((n, mdef._get_address()))
-            indexes.append(index)
-            live.append(state)
+            address = mdef._get_address()
+            doable = all(c["status"].get(d) == "Complete" for d in record["deps"]) if c["status"] else True
+            state = _live(entry, index, c["previous"].get(address), doable)
+            c["records"].append(record)
+            c["mdefs"].append(mdef)
+            c["addrs"].append((n, address))
+            c["indexes"].append(index)
+            c["live"].append(state)
             if state[0] not in ("NotStarted", "Complete"):
-                watch.append(len(records) - 1)
-        if [a for _, a in addrs] != [a for _, a in self._addrs] or live != self._live:
+                c["watch"].append(len(c["records"]) - 1)
+        c["k"] = end
+        if end < count:
+            return False
+        self._cycle = None
+        records, addrs, indexes, live, watch, mdefs = (c[k] for k in ("records", "addrs", "indexes", "live", "watch", "mdefs"))
+        if [a for _, a in addrs] != [a for _, a in self._addrs]:
+            self.dirty = self.defs_dirty = True
+        elif live != self._live:
             self.dirty = True
         self._records, self._addrs, self._indexes, self._live, self._watch = records, addrs, indexes, live, watch
         self._mdefs = mdefs
         self._track(tracker)
-        self._update_rewards(pcs or [])
+        self._update_rewards(pcs() or [])
+        return True
 
     def _update_rewards(self, pcs: list[Any]) -> None:
         """Rewards of the missions doable now (active, or not started with every dependency done),
@@ -214,12 +279,22 @@ class MissionLog:
             return st == "Active" or (st == "NotStarted" and all(status.get(d) == "Complete" for d in records[mission_id]["deps"]))
 
         rewards = {}
+        deadline = time.perf_counter() + REWARDS_SECONDS  # new reward function calls: at most this long per cycle
         for k, (record, (st, *_)) in enumerate(zip(self._records, self._live, strict=True)):
             wanted = doable(record["i"]) or record["i"] == self._tracked or (
                 st == "NotStarted" and all(status.get(d) == "Complete" or (d in records and doable(d)) for d in record["deps"]))
             if not wanted:
                 continue
-            per_level = {str(level): r for level, pc in by_level.items() if (r := _reward(self._mdefs[k], pc, level))}
+            per_level = {}
+            for level, pc in by_level.items():
+                mdef = self._mdefs[k]
+                if (mdef._get_address(), level, try_(lambda m=mdef: int(m.GameStage), 0)) not in _rewards and time.perf_counter() > deadline:
+                    # out of time for new function calls: the previous value meanwhile, the rest next cycle
+                    if (old := self._rewards.get(k, {}).get(str(level))) is not None:
+                        per_level[str(level)] = old
+                    continue
+                if r := _reward(mdef, pc, level):
+                    per_level[str(level)] = r
             if per_level:
                 rewards[k] = per_level
         if rewards != self._rewards:
@@ -242,7 +317,7 @@ class MissionLog:
             mdef = try_(lambda e=entry: e.MissionDef)
             if mdef is None or mdef._get_address() != address:
                 return False
-            state = _live(entry, self._indexes[k])
+            state = _live(entry, self._indexes[k], self._live[k], True)
             if state != self._live[k]:
                 self._live[k] = state
                 self.dirty = True
@@ -265,11 +340,17 @@ class MissionLog:
                 return True
         return False
 
+    def defs_payload(self) -> dict[str, Any]:
+        """The definitions, in the list's order (static: sent when the list changes)."""
+        self.defs_dirty = False
+        return {"missions": self._records}
+
     def payload(self, level_id: int) -> dict[str, Any]:
+        """The live part, per mission by id (the page merges it with the definitions)."""
         self.dirty = False
         missions = []
         for k, (record, (status, progress, current, offered, level, locked)) in enumerate(zip(self._records, self._live, strict=True)):
-            m = {**record, "st": status}
+            m = {"i": record["i"], "st": status}
             if level:
                 m["ml"] = level  # its level: locked (picked up), else the one it would lock at now
                 if locked:
