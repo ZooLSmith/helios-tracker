@@ -92,6 +92,7 @@ export function initInput() {
     const k = e.key.toLowerCase();
     if (k === "escape") { closeInspector(); return; }
     if (k === "f") { $("follow").click(); }
+    else if (k === "r") { $("rotate").click(); } // (only while following: greyed out otherwise)
     else if (k === "0") { stopFollow(); fit(); }
     else if (k === "+" || k === "=") zoomAt(W / 2, H / 2, 1.25);
     else if (k === "-") zoomAt(W / 2, H / 2, 0.8);

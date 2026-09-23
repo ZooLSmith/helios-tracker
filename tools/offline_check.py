@@ -358,7 +358,11 @@ const walk = (dir) => fs.readdirSync(dir, { withFileTypes: true }).flatMap((e) =
 const modules = walk(web);
 for (const file of modules) await load(file);
 const { decodeTexture } = await load("js/dxt.js");
-const { worldToMap, mapToWorld, yawToAngle } = await load("js/geo.js");
+const { worldToMap, mapToWorld, yawToAngle, largestFreeRect } = await load("js/geo.js");
+// Follow: the largest part of the screen no panel covers (1600 x 900; the panel top-left, the inspector right)
+const panel = { left: 12, top: 12, right: 268, bottom: 700 }, drawer = { left: 1208, top: 12, right: 1588, bottom: 888 };
+const freeRects = [largestFreeRect(1600, 900, []), largestFreeRect(1600, 900, [panel]),
+  largestFreeRect(1600, 900, [panel, drawer]), largestFreeRect(1600, 900, [{ ...panel, bottom: 60 }, drawer])];
 const { prettyRaw, nameText } = await load("js/model.js");
 const rgba = decodeTexture("PF_DXT5", 468, 512, fs.readFileSync(imageFile));
 const level = { center: [-3072, -10240], upp: 128, north: 0 };
@@ -467,7 +471,7 @@ const difficulty = [[9, 4], [6, 4], [4, 4], [2, 4], [1, 5], [3, 0]].map(([ml, le
 const missionsOut = { tooHigh, finish, difficulty, best, search, infoHtml, areas, gameText, story: flat(tree.story), other: flat(tree.other), counts: missionCounts(log),
   objectives: objectiveStates(log[1]).map((s) => s.state) };
 console.log(JSON.stringify({ sha: crypto.createHash("sha256").update(rgba).digest("hex"), err, back, right, raw, modules, missions: missionsOut,
-  migrated, checked: { enemy: checked.layers.enemy, view: checked.view, openLayers: checked.ui.openLayers }, i18nKeys, unknownSettings, lootLayers, gameRarity }));
+  migrated, checked: { enemy: checked.layers.enemy, view: checked.view, openLayers: checked.ui.openLayers }, i18nKeys, unknownSettings, lootLayers, gameRarity, freeRects }));
 """
 
 
@@ -1053,6 +1057,12 @@ def check_helios_tracker() -> None:  # noqa: PLR0915
     assert js["lootLayers"] == ["loot.common", "loot.legendary", "loot.pearl", "loot.pearl", "loot.misc", "loot.misc",
                                 "pickup.other", "pickup.cash", "pickup.ammo", "pickup.health", "pickup.other",
                                 "loot.uncommon", "pickup.eridium"], js["lootLayers"]
+    assert js["freeRects"] == [
+        {"x": 0, "y": 0, "w": 1600, "h": 900},  # nothing open: the whole window
+        {"x": 268, "y": 0, "w": 1332, "h": 900},  # the panel: right of it
+        {"x": 268, "y": 0, "w": 940, "h": 900},  # both: between them
+        {"x": 0, "y": 60, "w": 1208, "h": 840},  # a collapsed panel: below it, left of the inspector
+    ], js["freeRects"]
     assert js["gameRarity"] == [["legendary", "#ffb400"], ["legendary", "#ffb400"], ["seraph", "#ff9ab8"],
                                 ["unknown", "#9132c8"], "loot.legendary"], js["gameRarity"]
     assert mig["layers"]["player"] == {"names": True, "floors": "show", "size": 100}, mig["layers"]["player"]

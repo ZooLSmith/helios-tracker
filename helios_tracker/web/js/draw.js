@@ -32,11 +32,11 @@ export function draw() {
   const f = frame();
   if (!f) return;
   if (!S.fitted && (S.images.length || S.meId)) fit(true); // first time: fits; after a level change: keeps the zoom
-  if (settings.view.follow) centerOnTarget();
   const tracked = trackedPawn();
   // Rotate: only while following - the map turns so their heading points up
   const target = settings.view.rotate && settings.view.follow ? tracked : null;
   S.view.rot = target ? yawToAngle(f, pawnPos(target, now).r) : 0;
+  if (settings.view.follow) centerOnTarget(); // (after the rotation: the player's offset is on screen)
 
   // map images (and the grid), in movie px
   ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
