@@ -280,6 +280,9 @@ class Collector:
         # markers are worked out from them - _client_markers), found at each objects scan
         self._waypoints: list[WeakPointer] = []
         self._client = False  # a co-op client (set at each objects scan): containers opened by their state alone
+        # NPCs giving / taking back missions (their MissionDirectives: tools/probe_directors.txt), by
+        # pawn address -> (the pawn, [(mission, begins, ends)]): a co-op client's quest-giver markers
+        self._givers: dict[int, tuple[WeakPointer, list[tuple[Any, bool, bool]]]] = {}
         self._next_log = 0.0
         self._log = MissionLog()
         self._active = False  # a page was connected last tick
@@ -686,6 +689,14 @@ class Collector:
             # GetTransformedName give - read as a property: calling those crashed the game (a native
             # fatal error from call_str here, helios_crash.log, 2026-09-23, Tundra Express)
             name = named(pawn_display_name(pawn), def_name(try_(lambda: pawn.AIClass)), str(pawn.Class.Name))
+            # the missions it gives / takes back (MissionDirectivesDefinition.MissionDirectives: static)
+            directives = [(d.MissionDefinition, bool(d.bBeginsMission), bool(d.bEndsMission))
+                          for d in try_(lambda: list(pawn.MissionDirectives.MissionDirectives), []) or []
+                          if try_(lambda d=d: d.MissionDefinition) is not None]
+            if directives:
+                self._givers[addr] = (WeakPointer(pawn), directives)
+            else:
+                self._givers.pop(addr, None)
         info = {"i": f"{addr:x}", "k": kind, **name}
         if level := exp_level(pawn):  # re-read at each scan (enemies can level up)
             info["l"] = level
@@ -967,6 +978,34 @@ class Collector:
                 log_error("client mission marker", ex)
         return markers
 
+    def _client_givers(self, active_addr: int | None) -> list[dict[str, Any]]:
+        """A co-op client's quest-giver markers ("!"), which the game only registers on the host: the
+        NPCs' own lists of missions they give / take back (MissionDirectives, read with their info)
+        against the mission log - a mission it gives that can be picked up now, or one it takes back
+        that's ready to hand in (MissionLog.giver_states). The same markers as the host's ("directive"),
+        one per NPC (its first such mission). Property reads only."""
+        markers = []
+        states = self._log.giver_states() if self._givers else {}
+        for key, (ptr, directives) in list(self._givers.items()):
+            pawn = ptr()
+            if pawn is None:
+                del self._givers[key]
+                continue
+            try:
+                for mission, begins, ends in directives:
+                    state = states.get(mission_id(mission), "")
+                    if (state == "begin" and begins) or (state == "end" and ends):
+                        loc = pawn.Location
+                        markers.append({
+                            "i": f"g{key:x}", "k": "directive", "x": round(loc.X), "y": round(loc.Y), "z": round(loc.Z),
+                            "rad": 0, "tracked": mission._get_address() == active_addr,
+                            "mission": named(try_(lambda m=mission: str(m.MissionName), ""), def_name(mission)),
+                        })
+                        break
+            except Exception as ex:  # noqa: BLE001
+                log_error("client quest giver", ex)
+        return markers
+
     def _publish_missions(self) -> None:
         """Quest markers the game shows: every mission waypoint component that is bActive.
 
@@ -1007,6 +1046,8 @@ class Collector:
                     log_error("mission marker", ex)
         if not markers and self._waypoints:  # a co-op client: none registered here
             markers = self._client_markers(tracker, active_addr)
+        if self._client and not any(m["k"] == "directive" for m in markers):
+            markers += self._client_givers(active_addr)
         payload = {
             "level": self.level_id,
             "tracked": named(try_(lambda: str(active.MissionName), ""), def_name(active)) if active is not None else None,

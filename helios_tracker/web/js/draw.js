@@ -5,7 +5,7 @@ import { UU_PER_METER, worldToMap, yawToAngle } from "./geo.js";
 import { FLOOR_UU, LAYERS, LAYER_COLOR, chestTier, isGear, lootLayer, nameText, rarity } from "./model.js";
 import { missionItemWanted } from "./missions.js";
 import { settings } from "./settings.js";
-import { COLORS, arrow, bang, diamond, dot, label, menuBadge, respawnRing, square, triangle, vitalBars } from "./shapes.js";
+import { COLORS, arrow, bang, diamond, dot, label, menuBadge, respawnRing, ring, square, triangle, vitalBars } from "./shapes.js";
 import { S, frame, pawnPos, trackedPawn } from "./state.js";
 import { tooltip } from "./tooltip.js";
 import { refreshPlayerInfo } from "./ui/inspector.js";
@@ -108,7 +108,12 @@ export function draw() {
     // Containers (looted ones too, just dimmed): chests biggest, others by how many items they spawn
     const tier = chestTier(o);
     const size = st.k * (o.cat === "other" ? 2.5 : tier === 2 ? 7 : tier === 1 ? 5.5 : o.slots ? 2.5 + Math.min(o.slots, 4) * 0.6 : 3.5);
-    square(sx, sy, size, LAYER_COLOR[o.cat]);
+    if (o.cat === "vaultsymbol") { // a ring and a dot: not a container (squares)
+      ctx.beginPath(); ctx.arc(sx, sy, 4.5 * st.k, 0, Math.PI * 2);
+      ctx.lineWidth = 2.5 * st.k; ctx.strokeStyle = "rgba(0,0,0,.8)"; ctx.stroke();
+      ctx.lineWidth = 1.6 * st.k; ctx.strokeStyle = LAYER_COLOR[o.cat]; ctx.stroke();
+      dot(sx, sy, 1.6 * st.k, LAYER_COLOR[o.cat]);
+    } else square(sx, sy, size, LAYER_COLOR[o.cat]);
     if (st.names) label(sx, sy, nameText(o), LAYER_COLOR[o.cat], o.raw);
     hits.push({ sx, sy, r: size, kind: o.cat, item: o });
   }
@@ -173,7 +178,7 @@ export function draw() {
     else if (p.k === "vehicle") square(sx, sy, 5 * st.k, LAYER_COLOR.vehicle);
     else {
       if (p.k === "enemy") diamond(sx, sy, 5 * st.k, LAYER_COLOR.enemy); // like the game's minimap
-      else dot(sx, sy, 3.5 * st.k, LAYER_COLOR[p.k]);
+      else ring(sx, sy, 4.5 * st.k, LAYER_COLOR[p.k], st.k); // NPCs: a hollow ring (pickups are dots, mission items a filled "!")
       if (hurt) vitalBars(sx, sy, { ...p, h: pos.h, s: pos.s });
     }
     if (st.names) label(sx, sy, nameText(p), p === tracked ? "#ffcc33" : LAYER_COLOR[layer], p.raw);

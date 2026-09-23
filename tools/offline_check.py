@@ -251,7 +251,9 @@ const itemLog = new Map([
   ["new", { i: "new", st: "NotStarted" }], ["old", { i: "old", st: "Complete" }]]);
 const items = [{ k: "for", i: "act", oi: 1 }, { k: "for", i: "act", oi: 2 }, { k: "for", i: "act", oi: 0 }, { k: "for", i: "new", oi: 0 },
   { k: "gives", i: "new" }, { k: "gives", i: "old" }, { k: "for", i: "nowhere", oi: 0 }].map((ms) => missionItemWanted(ms, itemLog));
-const missionsOut = { items, fallback, where, tooHigh, finish, difficulty, best, search, infoHtml, areas, gameText, story: flat(tree.story), other: flat(tree.other), counts: missionCounts(log),
+const { objectCategory } = await load("js/model.js");
+const vaultCat = objectCategory({ d: "IO_VaultRoy", n: "Vault Roy", c: "WillowInteractiveObject" });
+const missionsOut = { vaultCat, items, fallback, where, tooHigh, finish, difficulty, best, search, infoHtml, areas, gameText, story: flat(tree.story), other: flat(tree.other), counts: missionCounts(log),
   objectives: objectiveStates(log[1]).map((s) => s.state) };
 console.log(JSON.stringify({ sha: crypto.createHash("sha256").update(rgba).digest("hex"), err, back, right, raw, modules, missions: missionsOut,
   migrated, checked: { enemy: checked.layers.enemy, view: checked.view, openLayers: checked.ui.openLayers, drawer: checked.ui.drawer, badDrawer }, i18nKeys, unknownSettings, lootLayers, gameRarity, freeRects }));
@@ -818,6 +820,15 @@ def check_helios_tracker() -> None:  # noqa: PLR0915
     c._waypoints = []
     assert [(m["i"], m["rad"], m["tracked"], m["objective"]["n"]) for m in client_marks] == [
         ("6c0", 500, True, "Tuer des bandits"), ("6c3", 0, True, "Bonus")], client_marks
+    # A co-op client's quest givers (tools/probe_directors.txt): an NPC's MissionDirectives against the log -
+    # "Side job" can be picked up (its dependency done), "Later job" can't (needs the active mission)
+    states = c._log.giver_states()
+    assert states.get("GD_Z1_Side.M_Side") == "begin" and "GD_Z1_Later.M_Later" not in states, states
+    giver = ns(Location=ns(X=500.0, Y=600.0, Z=700.0))
+    c._givers = {0x6d0: (lambda: giver, [(later, True, True), (side, True, True)])}
+    givers = c._client_givers(mission._get_address())
+    c._givers = {}
+    assert [(m["i"], m["k"], m["mission"]["n"], m["x"]) for m in givers] == [("g6d0", "directive", "Side job", 500)], givers
     assert (tracked["ml"], tracked.get("mlk")) == (3, 1), "picked up: its level, locked"
     assert (by_id["GD_Z1_Side.M_Side"]["ml"], by_id["GD_Z1_Side.M_Side"].get("mlk")) == (3, None), "not picked up: the level it would lock at"
     assert "ml" not in by_id["GD_Episode02.M_Ep2_Henchman"], "done: no level read"
@@ -1004,6 +1015,7 @@ def check_helios_tracker() -> None:  # noqa: PLR0915
     assert mis["finish"] == "f4:7,f1:5,f2:1", mis["finish"]
     # its objective current (to do) / later step / done / mission not started; gives: not started / done; unknown mission
     assert mis["items"] == [True, False, False, False, True, False, True], mis["items"]
+    assert mis["vaultCat"] == "vaultsymbol", ("a vault symbol: its own layer", mis["vaultCat"])
     fb = mis["fallback"]  # a reward not known for the player's level: the local player's level's, else any
     assert fb["own"] == {"xp": 900} and fb["toLocal"] == {"xp": 1100, "from": 15} and fb["toAny"] == {"xp": 900, "from": 12} and fb["none"] is None, fb
     w = mis["where"]  # where to go: the step's station (active), the turn-in one (ready), else its own

@@ -423,6 +423,20 @@ class MissionLog:
                 return True
         return False
 
+    def giver_states(self) -> dict[str, str]:
+        """For the quest givers' "!" (a co-op client works it out: tools/probe_directors.txt), per
+        mission id: "begin" if it can be picked up now (not started, every mission it needs done, not
+        waiting on another's objective), "end" if it's ready to hand in - from the last full pass (the
+        others left out). Built once per call: the caller keeps it for the pass."""
+        status = {r["i"]: st[0] for r, st in zip(self._records, self._live, strict=True)}
+        out = {}
+        for record, live in zip(self._records, self._live, strict=True):
+            if live[0] in ("ReadyToTurnIn", "RequiredObjectivesComplete"):
+                out[record["i"]] = "end"
+            elif live[0] == "NotStarted" and live[7] is None and all(status.get(d) == "Complete" for d in record["deps"]):
+                out[record["i"]] = "begin"
+        return out
+
     def entry_addresses(self) -> list[tuple[int, int]]:
         """(MissionList index, MissionDefinition address) per entry, as of the last full pass."""
         return list(self._addrs)

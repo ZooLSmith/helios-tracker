@@ -25,6 +25,12 @@ export function dot(x, y, r, fill) {
   ctx.lineWidth = 1; ctx.strokeStyle = "rgba(0,0,0,.75)"; ctx.stroke();
 }
 
+export function ring(x, y, r, color, k = 1) { // a hollow ring (NPCs): a dark outline under the colour, to read on any map
+  ctx.beginPath(); ctx.arc(x, y, r, 0, Math.PI * 2);
+  ctx.lineWidth = 2.4 * k; ctx.strokeStyle = "rgba(0,0,0,.6)"; ctx.stroke();
+  ctx.lineWidth = 1.3 * k; ctx.strokeStyle = color; ctx.stroke();
+}
+
 export function diamond(x, y, r, fill) {
   ctx.beginPath(); ctx.moveTo(x, y - r); ctx.lineTo(x + r, y); ctx.lineTo(x, y + r); ctx.lineTo(x - r, y); ctx.closePath();
   ctx.fillStyle = fill; ctx.fill();

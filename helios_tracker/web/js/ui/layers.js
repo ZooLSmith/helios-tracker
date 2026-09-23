@@ -20,13 +20,14 @@ function layerIcon(l) {
   const shape = l.rarity ? triangle : l.id === "pickup.mission" ? bang : l.id.startsWith("pickup") ? dot : {
     player: `<polygon points="6,1 10.3,10.8 6,8.3 1.7,10.8" fill="${c}" ${o}/>`,
     enemy: `<polygon points="6,1 11,6 6,11 1,6" fill="${c}" ${o}/>`,
-    npc: `<circle cx="6" cy="6" r="3.5" fill="${c}" ${o}/>`,
+    npc: `<circle cx="6" cy="6" r="3.9" fill="none" stroke="rgba(0,0,0,.6)" stroke-width="2.3"/><circle cx="6" cy="6" r="3.9" fill="none" stroke="${c}" stroke-width="1.3"/>`,
     vehicle: `<rect x="1.5" y="1.5" width="9" height="9" fill="${c}" ${o}/>`,
     objective: `<polygon points="6,1 11,6 6,11 1,6" fill="${c}" ${o}/><circle cx="6" cy="6" r="1.5" fill="#1a1200"/>`,
     gear: triangle,
     chest: `<rect x="0.5" y="0.5" width="11" height="11" fill="${c}" ${o}/>`,
     weaponchest: `<rect x="1.5" y="1.5" width="9" height="9" fill="${c}" ${o}/>`,
     other: `<rect x="3.5" y="3.5" width="5" height="5" fill="${c}" ${o}/>`,
+    vaultsymbol: `<circle cx="6" cy="6" r="4" fill="none" stroke="${c}" stroke-width="2"/><circle cx="6" cy="6" r="1.4" fill="${c}"/>`,
     looted: `<rect x="3.5" y="3.5" width="5" height="5" fill="${c}" opacity=".6" ${o}/>`,
   }[l.id] || `<rect x="2.5" y="2.5" width="7" height="7" fill="${c}" ${o}/>`; // containers, vendors, stations
   return `<svg width="12" height="12" viewBox="0 0 12 12" aria-hidden="true">${shape}</svg>`;

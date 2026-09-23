@@ -50,7 +50,7 @@ const PICKUP_KINDS = [["ammo", "#d8c07a"], ["cash", "#6fd46f"], ["eridium", "#c7
 export const LAYERS = [
   { id: "player", group: "characters", color: "#f4f4f4", toggle: false, settings: ["names", "floors", "size"], defaults: { names: true } },
   { id: "enemy", group: "characters", color: "#ff4b3e", on: true, settings: COMMON },
-  { id: "npc", group: "characters", color: "#63e06a", on: true, settings: COMMON },
+  { id: "npc", group: "characters", color: "#a7eeb0", on: true, settings: COMMON }, // a pale green: apart from the objectives' #7cf58a
   { id: "vehicle", group: "characters", color: "#c08bff", on: true, settings: COMMON },
   { id: "gear", group: "loot", color: "#ffb52e", folder: true, settings: [] },
   ...LOOT_RARITIES.map((r) => ({ id: "loot." + r, group: "loot", parent: "gear", legacy: "loot", rarity: r, color: RARITY_COLOR[r], on: true, settings: COMMON })),
@@ -65,6 +65,9 @@ export const LAYERS = [
   { id: "looted", group: "loot", parent: "containers", color: "#56646d", on: false, settings: COMMON }, // opened: nothing left to find
   { id: "objective", group: "world", color: "#7cf58a", on: true, settings: ["names", "floors", "size", "trackedOnly"] },
   { id: "vendor", group: "world", color: "#4fd1c5", on: true, settings: COMMON },
+  // the Cult of the Vault symbols (IO_VaultRoy: clicked to discover, a challenge - tools/probe_directors.txt;
+  // discovered ones not told apart yet)
+  { id: "vaultsymbol", group: "world", color: "#ff7eb6", on: true, settings: COMMON },
   { id: "station", group: "world", color: "#f0f0f0", on: false, settings: COMMON },
   { id: "other", group: "world", color: "#7f8f99", on: false, settings: COMMON },
 ];
@@ -117,6 +120,7 @@ export function objectCategory(o) {
   if (tier) return tier === 2 ? "chest" : "weaponchest";
   const s = (o.d + " " + o.n + " " + o.c).toLowerCase();
   if (/vending|vendor|shop/.test(s)) return "vendor";
+  if (/vaultroy|vaultsymbol/.test(s)) return "vaultsymbol"; // before "container": "Vault..." isn't a vault chest
   if (/fasttravel|fast travel|travelstation|newu|respawn|quickchange|customiz/.test(s)) return "station";
   if (/chest|lockbox|lootable|loot|safe|cache|box|crate|locker|dumpster|toilet|cooler|cabinet|stash|pile/.test(s)) return "container";
   return "other";

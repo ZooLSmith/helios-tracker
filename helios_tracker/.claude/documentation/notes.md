@@ -349,6 +349,19 @@ item's `DefinitionData.ItemDefinition` (a `UsableItemDefinition`):
   its `InteractiveObjectDefinition` (it arrives after the object, on a client at least): made-up
   class name, "Other", not a container. Such records are built again at each objects scan until the
   definition is there (`_incomplete`). Seen fixed in game (the chests show).
+- **Quest givers on a co-op client** (tools/probe_directors.py, Sanctuary, 2026-09-24): NPCs have
+  `MissionDirectives` (a `MissionDirectivesDefinition`: `MissionDirectives[]` = {MissionDefinition,
+  bBeginsMission, bEndsMission, BranchEnding}; Scooter: Poetic License, Swallowed Whole, Cold
+  Shoulder...; Crimson Raiders: empty) and a `MissionDirectorParticle` (template
+  `Part_Dynamic_Mission_Select`: the "!"; read inactive both runs - not relied on). The collector
+  (`_client_givers`, client only, no host "directive" markers) makes a giver marker per NPC with a
+  mission it gives that can be picked up / takes back that's ready (MissionLog.giver_states). Not
+  verified in game yet. Bounty boards (`BountyBoard`, several missions in a submenu: also a
+  `MissionDirectorParticle`): still to probe in full (none in range in the 2nd run).
+- **Vault symbols** (`IO_VaultRoy`, `InteractionIconOverride` = `Icon_DefaultDiscover`: the Cult of
+  the Vault challenge, clicked to discover): two dumped in full, identical but for DrawScale (1 / 0.5)
+  - nothing on the object says discovered (likely the player's challenge progress). Own map layer
+  ("Vault symbols", a pink ring + dot, on by default), discovered ones not told apart (user's call).
 - **Mission markers on a co-op client** (tools/probe_client_markers.py / probe_minimap_icons.py /
   probe_client_waypoints.py, 2026-09-23): the client's MissionTracker has the full MissionList and
   ActiveMission but an empty `MissionWaypoints`, and no waypoint components exist at all (the host

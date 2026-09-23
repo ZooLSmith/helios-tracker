@@ -13,7 +13,7 @@ and interactive objects on it, with zoom / pan. Read the root `../CLAUDE.md` fir
   Second** (1-30, default 10). Port / LAN changes restart the server immediately.
 - Page: full-window canvas, the level's map image(s), markers (the tracked player - "Who", else the host -
   = yellow arrow, drawn on top; other players = white arrows + names, enemies = red diamonds (like the game's minimap) + health bar when hurt, NPCs green
-  dots, vehicles purple, loot = triangles in rarity colour, objects = squares by category). Follow me (F), fit (0),
+  hollow rings (not dots: cash pickups are green dots), vehicles purple, loot = triangles in rarity colour, objects = squares by category). Follow me (F), fit (0),
   **Smooth movement** (on: interpolates between updates, redraws every frame; off: markers jump,
   frames are only requested on a change - data, view, input - for weak / integrated GPUs), tooltip
   (name, kind, health, distance, height difference), world X/Y under the cursor. Wheel / pinch zoom,
