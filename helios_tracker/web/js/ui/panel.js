@@ -23,11 +23,11 @@ export function renderMotion() {
   box.value = String(settings.view.motion);
 }
 
-export function renderTargets() { // "Who": the host, then the other players (by name: ids change per level)
+export function renderTargets() { // "Who": you (whoever runs the mod: host or not), then the others (by name: ids change per level)
   const box = $("target"), target = settings.view.target;
-  const names = S.players.filter((p) => !p.local).map((p) => p.n);
+  const names = S.players.filter((p) => !p.local).map((p) => p.n), self = S.players.find((p) => p.local);
   if (target !== "me" && !names.includes(target)) names.push(target); // saved, not here now
-  box.innerHTML = `<option value="me">${esc(t("who.host"))}</option>` +
+  box.innerHTML = `<option value="me">${esc(self ? t("who.youNamed", { name: self.n }) : t("who.you"))}</option>` +
     names.map((n) => `<option value="${esc(n)}">${esc(n)}</option>`).join("");
   box.value = target;
 }

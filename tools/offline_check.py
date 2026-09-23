@@ -394,7 +394,7 @@ for (const [k, s] of Object.entries(LAYER_SETTINGS)) {
 // Pickups -> layer: gear by rarity (unknown levels: misc), the rest by the collector's kind ("pk")
 const lootLayers = [[1, "WillowWeapon"], [5, "WillowShield"], [500, "WillowArtifact"], [520, "WillowWeapon"], [0, "WillowClassMod"],
   [77, "WillowGrenadeMod"], [5, "WillowUsableItem"], [181, "", "cash"], [0, "WillowUsableItem", "ammo"], [171, "WillowUsableItem", "health"],
-  [0, "WillowUsableItem", "bogus"], [2, "WillowUsableCustomizationItem"]].map(([q, c, pk]) => lootLayer({ q, c, pk }));
+  [0, "WillowUsableItem", "bogus"], [2, "WillowUsableCustomizationItem"], [0, "WillowUsableItem", "eridium"]].map(([q, c, pk]) => lootLayer({ q, c, pk }));
 const unknownSettings = LAYERS.flatMap((l) => l.settings.filter((k) => !LAYER_SETTINGS[k]).map((k) => l.id + "." + k));
 // Missions: state (available = every mission it needs done), the tree, objective states
 const { missionTree, objectiveStates, missionCounts, missionAreas } = await load("js/missions.js");
@@ -446,6 +446,11 @@ const bestLog = [
 const finishLog = [{ i: "f1", num: 1, st: "Active", deps: [], ml: 3, mlk: 1 }, { i: "f2", num: 2, st: "Active", deps: [], ml: 7, mlk: 1 },
   { i: "f3", num: 3, st: "NotStarted", deps: [], ml: 2 }, { i: "f4", num: 4, st: "Active", deps: [], ml: 1, mlk: 1 }];
 const finish = rankMissions(finishLog, "finish", 8).rows.map((r) => `${r.m.i}:${r.score}`).join(",");
+// a mission the game rates impossible for the player (5+ levels above): left out, counted
+const highLog = [{ i: "ok", num: 1, st: "Active", deps: [], ml: 9, mlk: 1, rw: { "8": { xp: 100 } } },
+  { i: "dlc", num: 2, st: "Active", deps: [], ml: 30, mlk: 1, rw: { "8": { xp: 7890 } } }];
+const high = rankMissions(highLog, "effort", 8, { impossible: 5, hard: 3, tough: 1, normal: -3 });
+const tooHigh = { rows: high.rows.map((r) => r.m.i), n: high.tooHigh, lv: high.minTooHigh, total: high.totalXp };
 const best = Object.fromEntries(["xp", "cash", "effort"].map((g) => [g, rankMissions(bestLog, g, 30).rows.map((r) => r.m.i).join("")]));
 const bestAt30 = rankMissions(bestLog, "xp", 30);
 best.after = bestAt30.rows.find((r) => r.m.i === "l1").after;
@@ -455,7 +460,7 @@ const { missionDifficulty } = await load("js/missions.js");
 const th = { impossible: 5, hard: 3, tough: 1, normal: -3 };
 const difficulty = [[9, 4], [6, 4], [4, 4], [2, 4], [1, 5], [3, 0]].map(([ml, level]) => missionDifficulty({ ml }, level, th))
   .concat([missionDifficulty({ ml: 0 }, 8, th)]);
-const missionsOut = { finish, difficulty, best, search, infoHtml, areas, gameText, story: flat(tree.story), other: flat(tree.other), counts: missionCounts(log),
+const missionsOut = { tooHigh, finish, difficulty, best, search, infoHtml, areas, gameText, story: flat(tree.story), other: flat(tree.other), counts: missionCounts(log),
   objectives: objectiveStates(log[1]).map((s) => s.state) };
 console.log(JSON.stringify({ sha: crypto.createHash("sha256").update(rgba).digest("hex"), err, back, right, raw, modules, missions: missionsOut,
   migrated, checked: { enemy: checked.layers.enemy, view: checked.view, openLayers: checked.ui.openLayers }, i18nKeys, unknownSettings, lootLayers }));
@@ -564,6 +569,11 @@ def check_helios_tracker() -> None:  # noqa: PLR0915
     assert pickup_kind(usable(defs["Credits"])) == "cash"
     assert pickup_kind(usable(FakeDef("Credits"), "WillowWeapon")) == "", "gear classified as a pickup kind"
     assert pickup_kind(None) == ""
+    # every currency shares the "Credits" presentation: FormOfCurrency tells them apart (probe_eridium)
+    for currency, kind in (("CURRENCY_Eridium", "eridium"), ("CURRENCY_Credits", "cash"), ("CURRENCY_SeraphCrystals", "")):
+        coin = FakeDef("Credits")
+        coin.FormOfCurrency = types.SimpleNamespace(name=currency)
+        assert pickup_kind(usable(coin)) == kind, (currency, pickup_kind(usable(coin)))
 
     print("helios_tracker:")
     print(f"  options: {[getattr(o, 'identifier', o) for o in m.mod.options]}")
@@ -907,6 +917,13 @@ def check_helios_tracker() -> None:  # noqa: PLR0915
     assert player["skills"][0]["pts"] == 4 and not player["skills"][0].get("root"), player["skills"]
     (tier,) = player["skills"][0]["tiers"]
     assert tier["need"] == 5 and tier["cells"][0]["g"] == 4 and tier["cells"][1:] == [None, None], tier
+    # a co-op client, another player: no inventory manager, their equipped gear on the pawn (tools/probe_coop.txt)
+    inspector = sys.modules["helios_tracker.inspector"]
+    remote = {"local": False}
+    inspector._inventory(ns(InvManager=None, Weapon=weapon, HolsteredWeaponSlots=[weapon, None],
+                            EquippedItems=[shield, None, None, None]), remote)
+    assert remote["inventory"] == "partial" and [i["k"] for i in remote["equipped"]] == ["weapon", "shield"], remote
+    assert remote["inventoryWhy"] == "coopClient" and "backpack" not in remote, remote
     print(f"  inspector: {player['n']} Lv{player['lvl']} {player['cls']}, {len(player['equipped'])} equipped,"
           f" {len(player['backpack'])} in backpack, skills {[b['n'] for b in player['skills']]};"
           f" gun '{gun['type']}' by '{gun['maker']}'; object '{obj['n']}'")
@@ -1012,7 +1029,7 @@ def check_helios_tracker() -> None:  # noqa: PLR0915
     assert not {"gear", "pickups", "containers"} & set(mig["layers"]), "a folder has no settings"
     assert js["lootLayers"] == ["loot.common", "loot.legendary", "loot.pearl", "loot.pearl", "loot.misc", "loot.misc",
                                 "pickup.other", "pickup.cash", "pickup.ammo", "pickup.health", "pickup.other",
-                                "loot.uncommon"], js["lootLayers"]
+                                "loot.uncommon", "pickup.eridium"], js["lootLayers"]
     assert mig["layers"]["player"] == {"names": True, "floors": "show", "size": 100}, mig["layers"]["player"]
     assert mig["view"]["zoom"] == 2.5 and mig["view"]["motion"] == 0, mig["view"]
     assert mig["ui"]["lang"] == "fr" and mig["ui"]["inspectorTab"] == "skills", mig["ui"]
@@ -1030,7 +1047,8 @@ def check_helios_tracker() -> None:  # noqa: PLR0915
     assert mis["areas"] == ["Shelf:b", "Sanctuary:da", ":c"], mis["areas"]
     assert mis["search"] == ["a:done", "b:locked,a:done", "b:locked", "", ""], mis["search"]
     assert mis["difficulty"] == ["impossible", "tough", "normal", "normal", "trivial", None, None], mis["difficulty"]
-    assert mis["finish"] == "f4:7,f1:5,f2:1", mis["finish"]  # picked up only, the furthest behind first
+    assert mis["finish"] == "f4:7,f1:5,f2:1", mis["finish"]
+    assert mis["tooHigh"] == {"rows": ["ok"], "n": 1, "lv": 30, "total": 100}, mis["tooHigh"]  # picked up only, the furthest behind first
     best = mis["best"]  # u counts its alternative reward (2000 XP); l2 (two steps away) and d (done) are out; e: no reward known
     assert (best["xp"], best["cash"], best["effort"]) == ("ual3vl1ery", "vual1l3ery", "vual3l1ery"), best
     assert best["after"] == ["a"] and best["total"] == 12600 and best["otherLevel"] == 0, best

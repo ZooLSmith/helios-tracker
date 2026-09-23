@@ -618,7 +618,7 @@ class Collector:
         }
         if inv is not None and (level := exp_level(inv)):
             info["l"] = level
-        if kind := pickup_kind(inv):  # ammo / cash / health (the page's pickup layers)
+        if kind := pickup_kind(inv):  # ammo / cash / eridium / health (the page's pickup layers)
             info["pk"] = kind
         self._info[addr] = info
         return info

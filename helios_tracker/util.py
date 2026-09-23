@@ -138,13 +138,17 @@ def exp_level(obj: Any) -> int:
 # A usable item's kind, by its definition's inventory card (Presentation): the game's own grouping
 # (probe_pickups.py: GD_InventoryPresentations.Definitions.Credits / Health / WeaponAmmo_* / GrenadeAmmo)
 PRESENTATION_KINDS = {"Credits": "cash", "Health": "health", "GrenadeAmmo": "ammo"}
+# The "Credits" presentation is shared by every currency: the definition's FormOfCurrency tells them
+# apart (seen in game, tools/probe_eridium.py: GD_Currency.A_Item.EridiumStick = CURRENCY_Eridium).
+# Other currencies (not seen yet: Seraph crystals, Torgue tokens...) stay "other".
+CURRENCY_KINDS = {"CURRENCY_Credits": "cash", "CURRENCY_Eridium": "eridium"}
 # Per item definition (static game data, set when the item spawns - never changes): kind. Never
 # cleared; keyed by definition, not by pickup (a destroyed pickup's address can be reused).
 _pickup_kinds: dict[int, str] = {}
 
 
 def pickup_kind(inv: Any) -> str:
-    """ "ammo" / "cash" / "health" for a usable item (a non-gear pickup), "" for anything else.
+    """ "ammo" / "cash" / "eridium" / "health" for a usable item (a non-gear pickup), "" for anything else.
     Weapons / gear / mission items aren't looked at; each definition is resolved once."""
     if inv is None or inv.Class.Name != "WillowUsableItem":
         return ""
@@ -154,7 +158,11 @@ def pickup_kind(inv: Any) -> str:
     key = item_def._get_address()
     if (kind := _pickup_kinds.get(key)) is None:
         name = try_(lambda: str(item_def.Presentation.Name), "")
-        kind = _pickup_kinds[key] = "ammo" if name.startswith("WeaponAmmo_") else PRESENTATION_KINDS.get(name, "")
+        kind = "ammo" if name.startswith("WeaponAmmo_") else PRESENTATION_KINDS.get(name, "")
+        if kind == "cash":
+            currency = getattr(try_(lambda: item_def.FormOfCurrency), "name", "CURRENCY_Credits")
+            kind = CURRENCY_KINDS.get(currency, "")
+        _pickup_kinds[key] = kind
     return kind
 
 

@@ -55,9 +55,11 @@ class SkillReader:
         self._by_pc: dict[int, dict[str, Any]] = {}
         # controller address -> (next read, action skill full cooldown, melee full cooldown, action skill name)
         self._max: dict[int, tuple[float, float, float, str]] = {}
+        self._world = 0.0  # the world time of the last update() call
 
     def update(self, pc: Any, world_time: float, now: float) -> None:
         """Every SKILLS_EVERY: every running timed skill, by player."""
+        self._world = world_time
         if now < self._next:
             return
         self._next = now + SKILLS_EVERY
@@ -96,7 +98,7 @@ class SkillReader:
         [fraction left, seconds left]). Empty without their controller (a co-op client only has its own)."""
         pc = try_(lambda: field(pawn, "Controller"))
         if pc is None or try_(lambda: field(pc, "SkillCooldownPool")) is None:
-            return {}
+            return self._remote(pawn)
         key = pc._get_address()
         cached = self._max.get(key)
         if cached is None or now >= cached[0]:
@@ -123,6 +125,16 @@ class SkillReader:
             if left[0] > 0:
                 out["mk"] = [round(min(1.0, left[0] / melee_max), 3), left[1]]
         return out
+
+    def _remote(self, pawn: Any) -> dict[str, Any]:
+        """Another player on a co-op client (no controller): only when they last used their action
+        skill - the pawn's replicated NextActionSkillActiveAbilityTime, set to the world time of each
+        use (seen in game, tools/probe_coop_skill.py; not when it's ready again: no duration or cooldown
+        reaches a client). -> {"ak": ["u", seconds ago]}, nothing if never used here."""
+        used = try_(lambda: float(field(pawn, "NextActionSkillActiveAbilityTime")), 0.0)
+        if used <= 0 or used > self._world:
+            return {}
+        return {"ak": ["u", round(self._world - used)]}
 
     def forget(self, keep: set[int]) -> None:
         """Drops the cooldown lengths of controllers that are gone."""

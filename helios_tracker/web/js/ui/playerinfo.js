@@ -39,7 +39,10 @@ export function playerInfoHtml(p) {
   const ak = pawn.ak;
   html += `<div class="group">${esc(t("pinfo.action"))}</div>`;
   if (!ak) html += `<div class="muted">${esc(t(p.local || S.meId === p.i ? "pinfo.noAction" : "pinfo.unknown"))}</div>`;
-  else {
+  else if (ak[0] === "u") { // another player, on a co-op client: only when they last used it
+    html += `<div class="muted">${esc(t("pinfo.lastUsed", { n: num(ak[1]) }))}</div>` +
+      `<div class="muted">${esc(t("pinfo.unknown"))}</div>`;
+  } else {
     const name = ak[0] === "r" ? ak[1] : ak[3];
     const label = name || t("skill.tip");
     if (ak[0] === "r") html += barRow(label, t("skill.ready"), 1, "ready");

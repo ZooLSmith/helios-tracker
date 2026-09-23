@@ -26,8 +26,8 @@ export const LAYER_GROUPS = ["characters", "loot", "world"];
 // Gear on the ground: a layer per rarity (misc: rarity 0 and unknown levels), in the Gear folder
 const LOOT_RARITIES = ["common", "uncommon", "rare", "epic", "legendary", "etech", "pearl", "misc"];
 // Other pickups: a layer per kind (the collector's "pk", from the game's inventory card), in the
-// Pickups folder; anything else (ECHO logs, eridium until probed...) is "other"
-const PICKUP_KINDS = [["ammo", "#d8c07a"], ["cash", "#6fd46f"], ["health", "#ff6f7d"], ["other", "#9aa7ad"]];
+// Pickups folder; anything else (ECHO logs, other currencies...) is "other"
+const PICKUP_KINDS = [["ammo", "#d8c07a"], ["cash", "#6fd46f"], ["eridium", "#c77dff"], ["health", "#ff6f7d"], ["other", "#9aa7ad"]];
 
 // Map layers, in panel order within their category. "on": shown by default; toggle: false = can't
 // be hidden (players), only configured. folder: a row holding the layers whose parent it is (no

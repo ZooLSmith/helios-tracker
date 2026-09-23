@@ -145,6 +145,10 @@ class _Handler(BaseHTTPRequestHandler):
 class TrackerServer(ThreadingHTTPServer):
     daemon_threads = True
     allow_reuse_address = False  # on Windows SO_REUSEADDR would let a stale server keep the port
+    # The listen backlog (default 5): Windows refuses connections beyond it. A tunnel / proxy
+    # (cloudflared) opens one per file of the page at once - 30+ modules - while the accept thread waits
+    # for the game thread (it holds the GIL during its ticks): refused, the proxy answers 502
+    request_queue_size = 128
 
     def __init__(self, host: str, port: int, hub: Hub) -> None:
         self.hub = hub

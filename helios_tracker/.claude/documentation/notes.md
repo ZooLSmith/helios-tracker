@@ -96,7 +96,11 @@ item's `DefinitionData.ItemDefinition` (a `UsableItemDefinition`):
 | ammo | `GD_Ammodrops.Pickups.AmmoDrop_<type>` | `GD_InventoryPresentations.Definitions.WeaponAmmo_<Weapon>` / `GrenadeAmmo` | `ar` `smg` `pistol` `shotgun` `sniper` `grenade` |
 | health | `GD_BuffDrinks.A_Item.BuffDrink_HealingInstant` | `...Definitions.Health` | `'0'` |
 | cash | `GD_Currency.A_Item.Currency` / `Currency_Big` | `...Definitions.Credits` | `money` |
-| eridium | not seen yet (none on the ground) | ? | ? |
+| eridium | `GD_Currency.A_Item.EridiumStick` | `...Definitions.Credits` (shared with cash!) | ? |
+
+- Every currency shares the `Credits` presentation: the definition's `FormOfCurrency` tells them
+  apart (`CURRENCY_Credits` / `CURRENCY_Eridium`; seen in game, tools/probe_eridium.py). Other
+  currencies (Seraph crystals, Torgue tokens: not seen yet) go to "other".
 
 - Also consistent per kind: `PickupFlagIcon` (`fx_shared_items.Textures.ItemCards.Health` / `Credits` /
   `Ammo_<type>`), `DroppedImpact` (`GD_Impacts.Loot.Loot_Drop_Ammo` / `_Health` / `_Cash`),
@@ -216,8 +220,17 @@ item's `DefinitionData.ItemDefinition` (a `UsableItemDefinition`):
 - **Item card stats from the game**: `ItemCardModifierStats` / `ReplicatedWeaponCardModifierValues`
   -> `AttributePresentationDefinition` text + value, instead of the hand-picked stat list. Probe first.
 
-- **Player inspection** (gear, backpack, skills): `tools/probe_inventory.py` - waiting for in-game
-  runs (solo, co-op host, co-op client). Candidates: `InvManager.Backpack` / `InventoryChain` /
+- **Player inspection, co-op client: DONE** (seen in game, tools/probe_coop.py, 2026-09-23). The
+  others have no controller and no `InvManager` on a client. Replicated anyway: their pawn's
+  `Weapon`, `HolsteredWeaponSlots` and `EquippedItems` (shield, grenade, class mod, relic: the Gear
+  tab shows them), their player info's `ExpLevel`, `ClassModNamePart`, `bClassModIsBuffingTeam*`,
+  `Currency`. Not replicated: backpack, skill tree (`TrackedSkills` empty), XP (the player info's
+  `ExpPointsNextLevelAt` = 0, no `ExpPool`), cooldowns. The pawn's
+  `NextActionSkillActiveAbilityTime` (= `...CooldownAbilityTime`) is the world time of their last
+  action skill use (tools/probe_coop_skill.py: jumps to the current time on use, nothing when ready
+  again): the Info tab shows "last used N s ago".
+- **Player inspection, co-op host**: to check (tools/probe_inventory.py, hosting with a friend in):
+  the host should have every player's controller and inventory manager. Candidates: `InvManager.Backpack` / `InventoryChain` /
   `ItemChain`, `pawn.EquippedItems` / `HolsteredWeaponSlots`, item `DefinitionData`, `RarityLevel`,
   `ExpLevel`, card stat modifiers; `pc.PlayerSkillTree.Skills` / `Branches`; replicated to everyone:
   `PlayerReplicationInfo.StandInGear`, `TrackedSkills`, `ClassModNamePart`.

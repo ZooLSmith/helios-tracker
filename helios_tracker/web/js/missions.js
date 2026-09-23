@@ -115,7 +115,17 @@ export const GOALS = ["xp", "cash", "balanced", "effort", "finish"];
  *  lists what's left), ranked by goal - xp, cash (credits), balanced (both, scaled to the best
  *  mission), effort (balanced per objective left). A mission's better reward counts (the normal or
  *  the alternative one). { rows: [{ m, state, after, xp, cash, effort, known, score }], totalXp } */
-export function rankMissions(missions, goal, level) {
+export function rankMissions(missions, goal, level, thresholds = null) {
+  const ranked = rankAll(missions, goal, level);
+  // too high a level to do now (the game's "impossible": 5+ above the player): left out, counted
+  const tooHigh = ranked.rows.filter((r) => missionDifficulty(r.m, level, thresholds) === "impossible");
+  if (!tooHigh.length) return { ...ranked, tooHigh: 0, minTooHigh: 0 };
+  const rows = ranked.rows.filter((r) => !tooHigh.includes(r));
+  return { rows, totalXp: rows.reduce((sum, r) => sum + r.xp, 0), tooHigh: tooHigh.length,
+    minTooHigh: Math.min(...tooHigh.map((r) => r.m.ml)) };
+}
+
+function rankAll(missions, goal, level) {
   // "finish": the missions picked up (their level is locked: their XP is fixed while the player
   // levels up), the furthest below the player first
   if (goal === "finish") {

@@ -4,8 +4,10 @@ Player inspection: equipped gear, backpack and skills of every player, for the p
 Game thread only (called by the collector every PLAYERS_EVERY). Reads defensively: what's missing
 is reported (as a reason code the page translates), not guessed. Stats are sent as raw numbers
 ([key, value, extra]); the page labels and formats them. Expected availability (to verify with tools/probe_inventory.py):
-- inventory: `pawn.InvManager` - our own; on the host probably everyone's, on a client only ours
-  (then only the weapon in hand, `pawn.Weapon`, is known for the others);
+- inventory: `pawn.InvManager` - our own; on the host probably everyone's, on a client only ours.
+  A client still gets the others' equipped gear, replicated on their pawn (seen in game,
+  tools/probe_coop.py): `Weapon` (in hand), `HolsteredWeaponSlots` (the other carried weapons) and
+  `EquippedItems` (shield, grenade, class mod, relic) - not their backpack;
 - skills: `pawn.Controller.PlayerSkillTree` - our own; on the host probably everyone's (the host
   has every player's controller), never the others' on a client.
 """
@@ -178,9 +180,20 @@ def _chain(first: Any, equipped: bool) -> list[dict[str, Any]]:
 
 def _inventory(pawn: Any, player: dict[str, Any]) -> None:
     inv_mgr = try_(lambda: pawn.InvManager)
-    if inv_mgr is None:
-        held = try_(lambda: pawn.Weapon)
-        player["equipped"] = [_item(held, True)] if held is not None else []
+    if inv_mgr is None:  # (a co-op client, for the others) what their pawn shows: their equipped gear
+        seen: set[int] = set()
+        equipped = []
+        for inv in [try_(lambda: pawn.Weapon), *(try_(lambda: list(pawn.HolsteredWeaponSlots), []) or []),
+                    *(try_(lambda: list(pawn.EquippedItems), []) or [])]:
+            if inv is None or (key := inv._get_address()) in seen:
+                continue
+            seen.add(key)
+            try:
+                equipped.append(_equipped_item(inv))
+            except Exception as ex:  # noqa: BLE001
+                log_error("inspect item", ex)
+        equipped.sort(key=lambda it: (it["k"] != "weapon", it.get("slot", 9), it["k"]))
+        player["equipped"] = equipped
         player["inventory"] = "partial"
         player["inventoryWhy"] = "unavailable" if player["local"] else "coopClient"
         return

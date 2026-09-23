@@ -85,7 +85,7 @@ function bestHtml(query = "") {
   const player = selectedPlayer();
   const level = player ? player.lvl : 0;
   const goal = GOALS.includes(settings.ui.missionGoal) ? settings.ui.missionGoal : "xp";
-  const ranked = rankMissions(S.log.missions, goal, level), totalXp = ranked.totalXp;
+  const ranked = rankMissions(S.log.missions, goal, level, S.log.thresholds), totalXp = ranked.totalXp;
   // a search narrows the ranking (its goal and order kept)
   const matching = query.trim() ? new Set(searchMissions(S.log.missions, query).map((n) => n.m.i)) : null;
   const rows = matching ? ranked.rows.filter((r) => matching.has(r.m.i)) : ranked.rows;
@@ -109,6 +109,7 @@ function bestHtml(query = "") {
       `<span class="mbody"><span class="mn">${nameHtml(m)} ${levelBadge(m, player)}</span>${sub ? `<span class="msub">${esc(sub)}</span>` : ""}</span>` +
       `<span class="mval">${values}</span></div>`;
   }).join("") + `</div>`;
+  if (ranked.tooHigh) html += `<div class="muted mhidden">${esc(t("best.tooHigh", { n: ranked.tooHigh, lv: ranked.minTooHigh }))}</div>`;
   return html;
 }
 

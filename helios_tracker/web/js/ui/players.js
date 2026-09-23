@@ -65,7 +65,7 @@ export function updatePlayerVitals(now = performance.now()) {
     set("sh", p && p.s, p && p.sm);
     set("hp", p && p.h, p && p.m);
     // The action skill: ready / running (a draining bar) / cooling down (seconds left)
-    const chip = row.querySelector(".askill"), ak = p && p.ak;
+    const chip = row.querySelector(".askill"), ak = p && p.ak && p.ak[0] !== "u" ? p.ak : null; // ("u": last use only - the Info tab)
     const kind = ak ? ak[0] : "";
     if (chip.dataset.k !== kind) { chip.dataset.k = kind; chip.className = "askill" + (kind ? " " + kind : ""); }
     if (ak) { // ["r", name] / ["a" | "c", fraction left, seconds left, name]
