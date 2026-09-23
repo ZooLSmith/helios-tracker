@@ -5,8 +5,9 @@ import { connect } from "./data.js";
 import { applyI18n } from "./i18n.js";
 import { applyIcons } from "./icons.js";
 import { initInput } from "./input.js";
+import { applyLook } from "./look.js";
 import { invalidate } from "./scheduler.js";
-import { initColors } from "./shapes.js";
+import { COLORS, initColors } from "./shapes.js";
 import { initInspector } from "./ui/inspector.js";
 import { initLayers } from "./ui/layers.js";
 import { initMission } from "./ui/mission.js";
@@ -18,6 +19,7 @@ import { initView } from "./view.js";
 export function start() {
   applyIcons();
   initColors();
+  applyLook(COLORS.bg); // the page's background, as see-through as the map's
   initView();
   initPanel();
   initLayers();

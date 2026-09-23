@@ -251,10 +251,17 @@ const itemLog = new Map([
   ["new", { i: "new", st: "NotStarted" }], ["old", { i: "old", st: "Complete" }]]);
 const items = [{ k: "for", i: "act", oi: 1 }, { k: "for", i: "act", oi: 2 }, { k: "for", i: "act", oi: 0 }, { k: "for", i: "new", oi: 0 },
   { k: "gives", i: "new" }, { k: "gives", i: "old" }, { k: "for", i: "nowhere", oi: 0 }].map((ms) => missionItemWanted(ms, itemLog));
+const { look, withAlpha } = await load("js/look.js");
+const { settings: lookSettings } = await load("js/settings.js");
+const lookDefault = look();
+lookSettings.view.bgOpacity = 140; lookSettings.view.mapOpacity = -5; lookSettings.view.uiScale = 900; lookSettings.view.panelOpacity = 3; lookSettings.view.markerScale = 1; // out of range: clamped
+const lookClamped = look();
+lookSettings.view.bgOpacity = 100; lookSettings.view.mapOpacity = 100; lookSettings.view.uiScale = 100; lookSettings.view.panelOpacity = 90; lookSettings.view.markerScale = 100;
+const lookOut = { lookDefault, lookClamped, rgba: withAlpha("#0b1116", 0.4) };
 const { objectCategory } = await load("js/model.js");
 const vaultCat = objectCategory({ d: "IO_VaultRoy", n: "Vault Roy", c: "WillowInteractiveObject" })
   + "," + objectCategory({ d: "CatchARideTerminal", n: "Catch-A-Ride", c: "WillowVehicleSpawnStationTerminal" });
-const missionsOut = { vaultCat, items, fallback, where, tooHigh, finish, difficulty, best, search, infoHtml, areas, gameText, story: flat(tree.story), other: flat(tree.other), counts: missionCounts(log),
+const missionsOut = { lookOut, vaultCat, items, fallback, where, tooHigh, finish, difficulty, best, search, infoHtml, areas, gameText, story: flat(tree.story), other: flat(tree.other), counts: missionCounts(log),
   objectives: objectiveStates(log[1]).map((s) => s.state) };
 console.log(JSON.stringify({ sha: crypto.createHash("sha256").update(rgba).digest("hex"), err, back, right, raw, modules, missions: missionsOut,
   migrated, checked: { enemy: checked.layers.enemy, view: checked.view, openLayers: checked.ui.openLayers, drawer: checked.ui.drawer, badDrawer }, i18nKeys, unknownSettings, lootLayers, gameRarity, freeRects }));
@@ -1018,6 +1025,9 @@ def check_helios_tracker() -> None:  # noqa: PLR0915
     assert mis["finish"] == "f4:7,f1:5,f2:1", mis["finish"]
     # its objective current (to do) / later step / done / mission not started; gives: not started / done; unknown mission
     assert mis["items"] == [True, False, False, False, True, False, True], mis["items"]
+    lk = mis["lookOut"]  # the see-through settings: 100 % by default, clamped to 0-100, the colour with its alpha
+    assert (lk["lookDefault"], lk["lookClamped"], lk["rgba"]) == ({"bg": 100, "map": 100, "panel": 90, "ui": 100, "marker": 100},
+                                                                   {"bg": 100, "map": 0, "panel": 20, "ui": 200, "marker": 50}, "rgba(11, 17, 22, 0.4)"), lk
     assert mis["vaultCat"] == "vaultsymbol,station", ("a vault symbol: its own layer; Catch-A-Ride: a station", mis["vaultCat"])
     fb = mis["fallback"]  # a reward not known for the player's level: the local player's level's, else any
     assert fb["own"] == {"xp": 900} and fb["toLocal"] == {"xp": 1100, "from": 15} and fb["toAny"] == {"xp": 900, "from": 12} and fb["none"] is None, fb

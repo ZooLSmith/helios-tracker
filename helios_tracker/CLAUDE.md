@@ -119,7 +119,9 @@ and interactive objects on it, with zoom / pan. Read the root `../CLAUDE.md` fir
   No global names / floors / rarity settings any
   more - the loot filter will come back as a Loot setting (to design).
 - **Settings tab**: Who (host / a player, saved by name) + Follow / Rotate (map turns to their
-  heading; only while following, greyed out otherwise); Movement: game updates only (the mod sends its rate, `hz`), a fps cap, or smooth.
+  heading; only while following, greyed out otherwise); Movement: game updates only (the mod sends its rate, `hz`), a fps cap, or smooth;
+  See-through: Background / Map / Panels opacity (`look.js`; in OBS via its browser source's "Interact"); Interface size 70-200 %;
+  Map markers 50-200 % (every marker, its label and bars - times its layer's Size).
 - **Storage**: one `helios.settings` localStorage object (`js/settings.js`): `layers.<id>` (each
   layer's settings), `view`, `ui` (incl. `drawer`: what the drawer shows); validated against the defaults on load (unknown / invalid values
   dropped), the old one-key-per-setting storage migrated once.

@@ -55,9 +55,14 @@ export function square(x, y, r, fill) {
   ctx.lineWidth = 1; ctx.strokeStyle = "rgba(0,0,0,.8)"; ctx.strokeRect(x - r, y - r, 2 * r, 2 * r);
 }
 
+// The global marker size (Settings: Map markers): the labels' font and offset follow it (set per frame)
+let markerScale = 1;
+export function setMarkerScale(s) { markerScale = s; }
+
 export function label(x, y, text, color, raw) { // raw: a made-up name ending in " ?", the "?" drawn dimmer
-  const main = raw ? text.slice(0, -2) : text;
-  ctx.font = "600 11px 'Segoe UI', system-ui, sans-serif";
+  const main = raw ? text.slice(0, -2) : text, s = markerScale;
+  ctx.font = `600 ${11 * s}px 'Segoe UI', system-ui, sans-serif`;
+  x += 8 * s - 8; y += 4 * s - 4; // (the offsets below: 8 right, 4 down, at 100 %)
   ctx.lineWidth = 3; ctx.strokeStyle = "rgba(5,10,14,.9)"; ctx.fillStyle = color;
   ctx.strokeText(main, x + 8, y + 4); ctx.fillText(main, x + 8, y + 4);
   if (!raw) return;
@@ -80,15 +85,15 @@ export function menuBadge(x, y, k = 1) { // a player in a menu: a "..." pill at 
   for (let i = 0; i < 3; i++) { ctx.beginPath(); ctx.arc(bx + w * (i + 1) / 4, by + h / 2, 1.1 * k, 0, Math.PI * 2); ctx.fill(); }
 }
 
-export function vitalBars(x, y, p) { // health, and the shield above it when there is one
-  const w = 16, clamp = (v) => Math.max(0, Math.min(1, v));
+export function vitalBars(x, y, p, k = 1) { // health, and the shield above it when there is one (k: the marker's size)
+  const w = 16 * k, bh = 2 * k, gap = 3 * k, clamp = (v) => Math.max(0, Math.min(1, v));
   const bars = [];
   if (p.sm > 0) bars.push([COLORS.shield, clamp(p.s / p.sm)]);
   if (p.m > 0) bars.push([COLORS.health, clamp(p.h / p.m)]);
-  let top = y + 7;
-  ctx.fillStyle = "rgba(0,0,0,.7)"; ctx.fillRect(x - w / 2 - 1, top - 1, w + 2, bars.length * 3 + 1);
+  let top = y + 7 * k;
+  ctx.fillStyle = "rgba(0,0,0,.7)"; ctx.fillRect(x - w / 2 - 1, top - 1, w + 2, bars.length * gap + 1);
   for (const [color, frac] of bars) {
-    ctx.fillStyle = color; ctx.fillRect(x - w / 2, top, w * frac, 2);
-    top += 3;
+    ctx.fillStyle = color; ctx.fillRect(x - w / 2, top, w * frac, bh);
+    top += gap;
   }
 }

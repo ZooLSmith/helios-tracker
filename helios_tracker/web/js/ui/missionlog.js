@@ -177,12 +177,15 @@ function treeHtml() {
   const missions = S.log.missions, showLocked = !!settings.ui.showLockedMissions;
   const grouping = GROUPINGS.includes(settings.ui.missionGroup) ? settings.ui.missionGroup : "chain";
   const c = missionCounts(missions);
-  return `<input type="search" id="mSearch" class="msearch" placeholder="${esc(t("mlog.search"))}" value="${esc(S.missionView.query || "")}">` +
+  const closed = !!settings.ui.missionFiltersClosed, query = S.missionView.query || "";
+  // the filters fold away (the header's chevron, like the Helios panel's)
+  return `<div class="mfilters${closed ? " closed" : ""}">` +
+    `<input type="search" id="mSearch" class="msearch" placeholder="${esc(t("mlog.search"))}" value="${esc(query)}">` +
     `<div class="mtools"><span class="seg">` + GROUPINGS.map((g) =>
     `<button data-mgroup="${g}" class="${g === grouping ? "on" : ""}">${esc(t("mlog.by." + g))}</button>`).join("") + `</span>` +
     (grouping === "best" ? "" : `<label class="row mlocked"><input type="checkbox" id="mShowLocked"${showLocked ? " checked" : ""}>` +
     `<span>${esc(t("mlog.showLocked", { n: c.locked }))}</span></label>`) + `</div>` +
-    `<div id="mHead">${headHtml()}</div><div id="mList">${listHtml()}</div>` +
+    `<div id="mHead">${headHtml()}</div></div><div id="mList">${listHtml()}</div>` +
     `<button class="mtotop" id="mToTop" title="${esc(t("mlog.toTop"))}">${icon("chevronUp")}</button>`;
 }
 
@@ -325,6 +328,7 @@ export function renderMissionLog(resetScroll) {
   if (!S.log || !S.log.missions.length) {
     $("iwho").textContent = t("mlog.title");
     $("isub").textContent = "";
+    $("ifold").hidden = true;
     body.classList.remove("mlistview");
     body.innerHTML = `<div class="note">${esc(t("mlog.none"))}</div>`;
     return;
@@ -338,12 +342,18 @@ export function renderMissionLog(resetScroll) {
     $("isub").textContent = [state, t(m.plot ? "mdetail.story" : "mdetail.side"), S.log.tracked === m.i ? t("mdetail.tracked") : ""]
       .filter(Boolean).join(" · ");
     body.classList.remove("mlistview");
+    $("ifold").hidden = true;
     body.innerHTML = detailHtml(m, tree);
   } else {
     const c = missionCounts(S.log.missions);
     $("iwho").textContent = t("mlog.title");
+    const folded = !!settings.ui.missionFiltersClosed, query = (S.missionView.query || "").trim();
     $("isub").textContent = t("mlog.summary", { done: c.done, active: c.active + c.ready, available: c.available, unknown: c.unknown }) +
-      (c.ready ? " · " + t("mlog.ready", { n: c.ready }) : "");
+      (c.ready ? " · " + t("mlog.ready", { n: c.ready }) : "") + (folded && query ? " " + t("mlog.searching", { q: query }) : "");
+    const fold = $("ifold"); // the filters' chevron, next to the close button
+    fold.hidden = false;
+    fold.innerHTML = icon(folded ? "chevronRight" : "chevronDown");
+    fold.title = t(folded ? "mlog.showFilters" : "mlog.hideFilters");
     body.classList.add("mlistview"); // the list scrolls alone, under its filters
     body.innerHTML = treeHtml();
     body.scrollTop = 0;
@@ -379,6 +389,12 @@ export function initMissionLog() {
     if (open) { openMissionLog(open.dataset.openMission); return; }
     if (!S.missionView) return;
     if (e.target.closest("#mBack")) { goBack(); return; }
+    if (e.target.closest("#ifold")) { // the filters folded / unfolded (the list keeps its scroll)
+      settings.ui.missionFiltersClosed = !settings.ui.missionFiltersClosed;
+      saveSettings();
+      renderMissionLog();
+      return;
+    }
     if (e.target.closest("#mToTop")) { $("mList").scrollTo({ top: 0, behavior: "smooth" }); return; }
     const goal = e.target.closest("[data-mgoal]");
     if (goal) { settings.ui.missionGoal = goal.dataset.mgoal; saveSettings(); refreshList(); return; }

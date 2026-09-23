@@ -74,6 +74,10 @@
 .pips i { width: 7px; height: 7px; border-radius: 1px; background: #243847; }
 .pips i.on { background: var(--accent); }
 /* the mission log: the tree (rows indented by depth), a mission's details */
+/* the list's filters, folded away by the header's chevron (#ifold, like the Helios panel's) */
+.mfilters.closed { display: none; }
+.ifold[hidden] { display: none; }
+
 .msearch { width: 100%; margin: 2px 0 6px; padding: 5px 8px; background: #13212b; color: var(--text); font: inherit;
   font-size: 12.5px; border: 1px solid var(--panel-edge); border-radius: 4px; outline: none; }
 .msearch:focus { border-color: var(--accent); }

@@ -276,10 +276,15 @@ item's `DefinitionData.ItemDefinition` (a `UsableItemDefinition`):
   player's (XP drops when outlevelled: "do it soon"), item reward rarity, other currencies (eridium
   / seraph), best area (rewards summed per area), unlock value.
 
-- **Background opacity** (user, 2026-09-23, "later"): for OBS / overlays - the map's background
-  (the canvas fill `COLORS.bg` + the page's `--bg`, `#0b1116`) with an opacity setting down to
-  transparent (OBS browser sources render a transparent page see-through); also as a URL parameter
-  (e.g. `?bg=0`): OBS's browser source keeps its own localStorage, apart from the user's browser.
+- **Background / map opacity: DONE** (2026-09-24, js/look.js): Settings tab "See-through" -
+  Background (the canvas fill `COLORS.bg` + the page's `--page-bg`), Map (the image) 0-100 %,
+  Panels (`--panel`: the panel, the drawer, the tooltips, the status) 20-100 %. No URL parameters
+  (dropped, user: OBS's "Interact" window reaches the Settings tab). OBS renders a transparent page
+  see-through - a normal browser tab never does.
+  The map textures are cut out already (checked on the game files, DXT5 alpha): Southern Shelf 75 %
+  / Sanctuary 55 % fully transparent (outside the playable area), 4-7 % partial (the edges), and no
+  baked background in the opaque part (none near #0b1116, none very dark; average #2d5365, cyan):
+  background 0 % leaves only the level's shape.
 
 - **Loot rarity only for real gear** (user, 2026-09-23): rarity colours, the bigger marker for high
   rarity, and the loot filter must only apply to pickups that go into the inventory (weapons,

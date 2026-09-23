@@ -2,6 +2,8 @@
 // layers.js.
 import { $, esc } from "../dom.js";
 import { renderLevel } from "../data.js";
+import { LOOK_RANGES, applyLook, look } from "../look.js";
+import { COLORS } from "../shapes.js";
 import { CATALOG, langPref, setLanguage, t } from "../i18n.js";
 import { icon } from "../icons.js";
 import { invalidate } from "../scheduler.js";
@@ -71,6 +73,21 @@ export function initPanel() {
     invalidate();
   };
   $("target").onchange = (e) => { settings.view.target = e.target.value; saveSettings(); renderPlayers(); invalidate(); };
+  // How see-through: the map's background, the map image, the panels; and the interface size
+  for (const [id, key] of [["bgOpacity", "bg"], ["mapOpacity", "map"], ["panelOpacity", "panel"], ["uiScale", "ui"], ["markerScale", "marker"]]) {
+    const el = $(id), [min, max] = LOOK_RANGES[id];
+    el.min = min; el.max = max;
+    const show = () => {
+      const v = look()[key];
+      el.value = v;
+      $(id + "Val").textContent = t("unit.percent", { n: v });
+    };
+    const apply = () => { settings.view[id] = +el.value; saveSettings(); show(); applyLook(COLORS.bg); invalidate(); };
+    // (the size: applied on release - resizing the panel while dragging moves the slider under the pointer)
+    if (key === "ui") { el.oninput = () => { $(id + "Val").textContent = t("unit.percent", { n: +el.value }); }; el.onchange = apply; }
+    else el.oninput = apply;
+    show();
+  }
   $("fit").onclick = () => fit();
 
   const langBox = $("lang");
@@ -85,8 +102,15 @@ export function initPanel() {
   // Tabs, collapse
   for (const b of $("ptabs").querySelectorAll("button")) b.onclick = () => showPanelTab(b.dataset.ptab);
   showPanelTab(settings.ui.panelTab);
+  // Folded or not: remembered (a refresh keeps it)
+  const fold = (collapsed) => {
+    $("panel").classList.toggle("collapsed", collapsed);
+    $("collapse").innerHTML = icon(collapsed ? "chevronRight" : "chevronDown");
+  };
+  fold(!!settings.ui.panelCollapsed);
   $("collapse").onclick = () => {
-    $("panel").classList.toggle("collapsed");
-    $("collapse").innerHTML = icon($("panel").classList.contains("collapsed") ? "chevronRight" : "chevronDown");
+    settings.ui.panelCollapsed = !settings.ui.panelCollapsed;
+    saveSettings();
+    fold(settings.ui.panelCollapsed);
   };
 }

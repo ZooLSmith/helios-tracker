@@ -26,9 +26,15 @@ export function defaults() {
       // Movement: 0 = only redraw on a change (markers jump), a number = interpolated at most that
       // many fps, "smooth" = every frame
       motion: "smooth",
+      // how see-through the map's background / the map image / the panels are, % (look.js)
+      bgOpacity: 100, mapOpacity: 100, panelOpacity: 90,
+      uiScale: 100, // the interface size, % (70-200: look.js)
+      markerScale: 100, // every map marker's size (and its label, bars), % (50-200: look.js)
     },
     ui: { lang: "auto", panelTab: "info", inspectorTab: "info", openLayers: [], closedGroups: [], showLockedMissions: false,
       missionGroup: "chain", missionGoal: "xp",
+      missionFiltersClosed: false, // the mission list's filters folded away (more room for the list)
+      panelCollapsed: false, // the left panel folded (its title row and the level only)
       // what the drawer shows, reopened on a refresh (ui/drawer.js): {} (closed), { k: "player", name },
       // { k: "mission", id } ("": the list), { k: "detail", kind, id }
       drawer: {} },

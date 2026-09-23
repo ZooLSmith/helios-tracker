@@ -4,10 +4,6 @@
   backdrop-filter: blur(4px); user-select: none; }
 /* collapsed: only the title row, the level's name and its area level stay */
 #panel.collapsed .body > :not(#level):not(#levelLv) { display: none; }
-/* collapsed (only the title row left): a more see-through background, the map shows through */
-#panel { transition: background-color .2s; }
-#panel.collapsed { background: rgba(12, 19, 25, 0.3); }
-#panel.collapsed #collapse { background: rgba(12, 19, 25, 0.55); border-radius: 4px; padding: 2px 4px; } /* still reads as a button */
 .ptabs { display: flex; margin: 10px -12px 2px; padding: 0 8px; border-bottom: 1px solid var(--panel-edge); }
 .ptabs button { flex: 1; background: none; border: 0; color: var(--dim); font: inherit; font-size: 12px; padding: 5px 4px;
   cursor: pointer; border-bottom: 2px solid transparent; margin-bottom: -1px; }

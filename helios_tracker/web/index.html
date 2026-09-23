@@ -45,6 +45,13 @@
     <h3 data-i18n="view.motion" data-i18n-title="view.motionTip"></h3>
     <select id="motion" data-i18n-title="view.motionTip"></select>
     <button class="act" id="fit"><span data-i18n="view.fit"></span> <span style="color:var(--dim)">(0)</span></button>
+    <h3 data-i18n="view.look" data-i18n-title="view.lookTip"></h3>
+    <div class="cset"><span class="clabel" data-i18n="view.bgOpacity"></span><input type="range" id="bgOpacity" min="0" max="100" step="5"><span class="cval" id="bgOpacityVal"></span></div>
+    <div class="cset"><span class="clabel" data-i18n="view.mapOpacity"></span><input type="range" id="mapOpacity" min="0" max="100" step="5"><span class="cval" id="mapOpacityVal"></span></div>
+    <div class="cset"><span class="clabel" data-i18n="view.panelOpacity"></span><input type="range" id="panelOpacity" min="20" max="100" step="5"><span class="cval" id="panelOpacityVal"></span></div>
+    <h3 data-i18n="view.uiScale" data-i18n-title="view.uiScaleTip"></h3>
+    <div class="cset"><span class="clabel" data-i18n="view.uiScaleLabel"></span><input type="range" id="uiScale" min="70" max="200" step="10"><span class="cval" id="uiScaleVal"></span></div>
+    <div class="cset" data-i18n-title="view.markerScaleTip"><span class="clabel" data-i18n="view.markerScale"></span><input type="range" id="markerScale" min="50" max="200" step="10"><span class="cval" id="markerScaleVal"></span></div>
     <h3 data-i18n="view.language"></h3>
     <select id="lang"></select>
     <div class="hint" data-i18n="view.hint"></div>
@@ -53,7 +60,7 @@
 </div>
 <div id="inspector">
   <div class="ihead">
-    <div class="row1"><div class="who" id="iwho"></div><button class="iclose" id="iclose" data-icon="close" data-i18n-title="insp.close"></button></div>
+    <div class="row1"><div class="who" id="iwho"></div><button class="iclose ifold" id="ifold" hidden></button><button class="iclose" id="iclose" data-icon="close" data-i18n-title="insp.close"></button></div>
     <div class="sub" id="isub"></div>
     <div class="tabs" id="itabs">
       <button data-tab="info" data-i18n="tab.info"></button><button data-tab="gear" data-i18n="tab.gear"></button><button data-tab="backpack" data-i18n="tab.backpack"></button><button data-tab="skills" data-i18n="tab.skills"></button>

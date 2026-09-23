@@ -3,9 +3,10 @@
 // click, updates the layer counts.
 import { UU_PER_METER, worldToMap, yawToAngle } from "./geo.js";
 import { FLOOR_UU, LAYERS, LAYER_COLOR, chestTier, isGear, lootLayer, nameText, rarity } from "./model.js";
+import { look, withAlpha } from "./look.js";
 import { missionItemWanted } from "./missions.js";
 import { settings } from "./settings.js";
-import { COLORS, arrow, bang, diamond, dot, label, menuBadge, respawnRing, ring, square, triangle, vitalBars } from "./shapes.js";
+import { COLORS, arrow, bang, diamond, dot, label, menuBadge, respawnRing, ring, setMarkerScale, square, triangle, vitalBars } from "./shapes.js";
 import { S, frame, pawnPos, trackedPawn } from "./state.js";
 import { tooltip } from "./tooltip.js";
 import { refreshPlayerInfo } from "./ui/inspector.js";
@@ -36,8 +37,12 @@ function drawGrid(f) { // areas without a map: a 10 m grid so movement still rea
 export function draw() {
   const now = performance.now();
   ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-  ctx.fillStyle = COLORS.bg;
-  ctx.fillRect(0, 0, W, H);
+  // the background around the map, as opaque as asked (0: none - an overlay, OBS shows through)
+  const lk = look();
+  const G = lk.marker / 100; // every marker's size (Settings: Map markers), on top of its layer's
+  setMarkerScale(G); // the labels and bars too (shapes.js)
+  ctx.clearRect(0, 0, W, H);
+  if (lk.bg > 0) { ctx.fillStyle = withAlpha(COLORS.bg, lk.bg / 100); ctx.fillRect(0, 0, W, H); }
   const f = frame();
   if (!f) return;
   if (!S.fitted && (S.images.length || S.meId)) fit(true); // first time: fits; after a level change: keeps the zoom
@@ -52,10 +57,12 @@ export function draw() {
   ctx.translate(W / 2, H / 2); ctx.rotate(-S.view.rot); ctx.scale(S.view.zoom, S.view.zoom);
   ctx.translate(-S.view.cx, -S.view.cy);
   ctx.imageSmoothingEnabled = S.view.zoom < 4;
+  ctx.globalAlpha = lk.map / 100; // the map image itself (cut out: transparent outside the level)
   for (const img of S.images) {
     const [x0, x1, y0, y1] = img.bounds;
     ctx.drawImage(img.canvas, x0, y0, x1 - x0, y1 - y0);
   }
+  ctx.globalAlpha = 1;
   if (!S.images.length) drawGrid(f);
   ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
 
@@ -73,7 +80,7 @@ export function draw() {
     if (otherFloor && cfg.floors === "hide") return null;
     if (count) counts[id]++;
     if (cfg.on === false) return null;
-    return { alpha: otherFloor && cfg.floors === "dim" ? 0.4 : 1, k: (cfg.size ?? 100) / 100, names: !!cfg.names };
+    return { alpha: otherFloor && cfg.floors === "dim" ? 0.4 : 1, k: (cfg.size ?? 100) / 100 * G, names: !!cfg.names };
   };
   const questShown = (mk) => mk.tracked || !L.objective.trackedOnly;
   const objColor = LAYER_COLOR.objective;
@@ -168,7 +175,7 @@ export function draw() {
     if (isPlayer) { // the tracked player: the yellow arrow; the others white
       if (p === tracked) arrow(sx, sy, angle, 9 * st.k, "#ffcc33", "#1a1200");
       else arrow(sx, sy, angle, 8 * st.k, LAYER_COLOR.player, "#00131a");
-      if (hurt && !p.rs && !p.dd) vitalBars(sx, sy + 3 * st.k, { ...p, h: pos.h, s: pos.s });
+      if (hurt && !p.rs && !p.dd) vitalBars(sx, sy + 3 * st.k, { ...p, h: pos.h, s: pos.s }, st.k);
       if (p.rs) respawnRing(sx, sy, 12 * st.k, p === tracked ? "#ffcc33" : LAYER_COLOR.player);
       else if (p.dd) respawnRing(sx, sy, 12 * st.k, COLORS.dead); // died: grey, where their body is
       // crippled (down, fighting for their life): the same ring, red
@@ -179,7 +186,7 @@ export function draw() {
     else {
       if (p.k === "enemy") diamond(sx, sy, 5 * st.k, LAYER_COLOR.enemy); // like the game's minimap
       else ring(sx, sy, 4.5 * st.k, LAYER_COLOR[p.k], st.k); // NPCs: a hollow ring (pickups are dots, mission items a filled "!")
-      if (hurt) vitalBars(sx, sy, { ...p, h: pos.h, s: pos.s });
+      if (hurt) vitalBars(sx, sy, { ...p, h: pos.h, s: pos.s }, st.k);
     }
     if (st.names) label(sx, sy, nameText(p), p === tracked ? "#ffcc33" : LAYER_COLOR[layer], p.raw);
     hits.push({ sx, sy, r: 6 * st.k, kind: p.k, item: p, pos });
