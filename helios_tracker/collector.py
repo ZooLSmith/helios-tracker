@@ -24,7 +24,7 @@ from unrealsdk.unreal import WeakPointer
 from .inspector import read_players
 from .server import Hub
 from .tacmap import MapImage, load_tactical_map
-from .util import addr, call_str, def_name, exp_level, log, log_error, named, try_
+from .util import addr, call_str, def_name, exp_level, item_name, log, log_error, named, player_info, try_
 
 MOVIE_SCALE = 4  # movie px per volume "pixel": UnrealUnitsPerPixel is 32, the fit gave 128 uu / px
 LEVEL_CHECK_EVERY = 1.0  # s
@@ -36,6 +36,8 @@ OBJECTS_EVERY = 120.0  # s between full interactive object scans: a safety net (
 PLAYERS_EVERY = 2.0  # s between player inspections (gear, backpack, skills)
 MISSIONS_EVERY = 1.0  # s between quest marker reads (owners can move: escorts, NPCs)
 MAX_PAWNS = 1000  # PawnList walk guard
+LOOTED_EVERY = 1.0  # s between checks of unlooted containers (two property reads each, round robin)
+LOOTED_PER_PASS = 60
 SLOW_MS = 4.0  # a task taking longer than this on the game thread is reported (it can cause a hitch)
 SLOW_REPORT_EVERY = 30.0  # s between console reports of slow tasks
 
@@ -86,6 +88,45 @@ def pretty_map_name(name: str) -> str:
     return "".join(out)
 
 
+# balance definition address -> (item pool names, most items one opening spawns, loot list names)
+# - static per type
+_loot_info: dict[int, tuple[list[str], int, list[str]]] = {}
+
+
+def _configs_info(configs: Any) -> tuple[list[str], int]:
+    """Loot configurations [{ConfigurationName, Weight, ItemAttachments[{ItemPool}]}] -> their pool
+    names, and the most item slots (attachments: one item each) any single configuration has."""
+    pools, slots = [], 0
+    for cfg in try_(lambda: list(configs), []) or []:
+        attachments = try_(lambda c=cfg: list(c.ItemAttachments), []) or []
+        slots = max(slots, len(attachments))
+        for att in attachments:
+            if (pool := try_(lambda a=att: a.ItemPool)) is not None:
+                pools.append(str(pool.Name))
+    return pools, slots
+
+
+def loot_info(io: Any, balance: Any) -> tuple[list[str], int, list[str]]:
+    """What a container can hold, as (item pools, most items per opening, loot list names): its
+    loot is rolled from those pools when it's opened (the items themselves only exist then). From
+    its balance (per type, cached) - default loot + the loot lists it includes (named by the game's
+    tier: EpicChestRedLoot, WeaponChestWhiteLoot...) - else the object's own Loot."""
+    key = try_(lambda: balance._get_address()) if balance is not None else None
+    if key is not None and key not in _loot_info:
+        pools, slots = _configs_info(try_(lambda: balance.DefaultLoot))
+        lists = []
+        for lst in try_(lambda: list(balance.DefaultIncludedLootLists), []) or []:
+            lists.append(str(lst.Name))
+            more, more_slots = _configs_info(try_(lambda l=lst: l.LootData))
+            pools += more
+            slots = max(slots, more_slots)
+        _loot_info[key] = (list(dict.fromkeys(pools)), slots, lists)  # pools unique, in order
+    if key is not None and (_loot_info[key][0] or _loot_info[key][2]):
+        return _loot_info[key]
+    pools, slots = _configs_info(try_(lambda: io.Loot))
+    return list(dict.fromkeys(pools)), slots, []
+
+
 class _ImageCache:
     """Extracted map images per (package file, mtime, movie): revisiting a level is free."""
 
@@ -119,7 +160,9 @@ class Collector:
         self._images = _ImageCache()
         self._classes: dict[str, Any] = {}
         self._timings = _Timings()
+        self.rate = 10.0  # updates per second (the mod's option; sent so the page can align on it)
         self._hook_seen = False
+        self._vars_logged: set[str] = set()  # pawn kinds whose health / shield "Var" properties were compared
         self.reset()
 
     def reset(self) -> None:
@@ -138,7 +181,8 @@ class Collector:
         self._tracker: WeakPointer | None = None  # the MissionTracker, found at each scan
         self._active = False  # a page was connected last tick
         self._pickups: dict[int, WeakPointer] = {}  # by address: from scans and the spawn hook
-        self._health: dict[int, tuple[float, float]] = {}  # pawn address -> (health, max), read every HEALTH_EVERY
+        # pawn address -> (health, max, shield, shield max), read every HEALTH_EVERY updates
+        self._health: dict[int, tuple[float, float, float, float]] = {}
         self._state_n = 0
         self._info: dict[int, dict[str, Any]] = {}  # per-actor cached name/kind, by address
         self._objects_json = "[]"
@@ -146,6 +190,8 @@ class Collector:
         self._object_records: dict[tuple[int, str], dict[str, Any] | None] = {}
         self._objects: dict[tuple[int, str], dict[str, Any]] = {}  # what the objects payload shows
         self._objects_dirty = False  # hooks changed it: publish on the next tick (batched)
+        self._unlooted: dict[tuple[int, str], WeakPointer] = {}  # lootable containers not opened yet
+        self._next_looted = 0.0
 
     # region Level
 
@@ -184,6 +230,9 @@ class Collector:
         if now >= self._next_missions:
             self._next_missions = now + MISSIONS_EVERY
             run("missions", self._publish_missions)
+        if now >= self._next_looted and self._unlooted:
+            self._next_looted = now + LOOTED_EVERY
+            run("looted", self._check_looted)
 
     def _check_level(self) -> None:
         wi = ENGINE.GetCurrentWorldInfo()
@@ -307,6 +356,8 @@ class Collector:
                     records[key] = self._object_record(io) if self._in_world(io) else None
                 if (record := records[key]) is not None and not io.bHidden and not io.bDeleteMe:
                     objects[key] = record
+                    if record.get("lootable") and not record.get("looted"):
+                        self._unlooted.setdefault(key, WeakPointer(io))
             except Exception as ex:  # noqa: BLE001
                 log_error("interactive object", ex)
         self._objects = objects
@@ -336,12 +387,46 @@ class Collector:
         if not io.bHidden:
             self._objects[key] = record
             self._objects_dirty = True
+            if record.get("lootable") and not record.get("looted"):
+                self._unlooted[key] = WeakPointer(io)
 
     def object_destroyed(self, io: Any) -> None:
         key = (io._get_address(), str(io.Name))
         self._object_records.pop(key, None)
+        self._unlooted.pop(key, None)
         if self._objects.pop(key, None) is not None:
             self._objects_dirty = True
+
+    def _check_looted(self) -> None:
+        """Containers opened since: flagged looted (the page shows them in their own layer)."""
+        changed = False
+        for key in list(self._unlooted)[:LOOTED_PER_PASS]:
+            io = self._unlooted.pop(key)()
+            record = self._object_records.get(key)
+            if io is None or record is None:
+                continue
+            if self._is_looted(io):
+                record["looted"] = 1  # in place: the published list holds this dict
+                changed = True
+            else:
+                self._unlooted[key] = WeakPointer(io)  # to the back of the queue
+        if changed:
+            self._publish_objects()
+
+    @staticmethod
+    def _is_looted(io: Any) -> bool:
+        """Opened (verified in game, tools/probe_containers.txt): an opened container's animation
+        state is 7 and it's no longer usable (bCanBeUsed[0] 1 -> 0); unopened ones are 4 / usable."""
+        return try_(lambda: int(io.SimpleAnimState), 0) == 7 and not try_(lambda: io.bCanBeUsed[0], 1)
+
+    @staticmethod
+    def _lootable(io: Any, balance: Any) -> bool:
+        """Has loot: its own Loot configurations, or its balance's default loot / loot lists."""
+        return bool(
+            try_(lambda: len(io.Loot), 0)
+            or (balance is not None and (try_(lambda: len(balance.DefaultLoot), 0)
+                                         or try_(lambda: len(balance.DefaultIncludedLootLists), 0))),
+        )
 
     @staticmethod
     def _object_record(io: Any) -> dict[str, Any]:
@@ -351,7 +436,7 @@ class Collector:
         # DefaultDisplayName, else what targeting it shows
         balance = try_(lambda: io.BalanceDefinitionState.BalanceDefinition)
         display = try_(lambda: str(balance.DefaultDisplayName), "") or call_str(io.GetTargetName)
-        return {
+        record = {
             "i": addr(io),
             **named(display, def_name(definition), call_str(io.GetHumanReadableName), str(io.Class.Name)),
             "d": str(definition.Name) if definition is not None else "",
@@ -360,6 +445,18 @@ class Collector:
             "y": round(loc.Y),
             "z": round(loc.Z),
         }
+        if Collector._lootable(io, balance):
+            record["lootable"] = 1
+            pools, slots, lists = loot_info(io, balance)
+            if pools:
+                record["loot"] = pools
+            if lists:
+                record["lists"] = lists  # the page: an "Epic..." list = a chest
+            if slots:
+                record["slots"] = slots  # the page sizes containers by it
+            if Collector._is_looted(io):
+                record["looted"] = 1
+        return record
 
     def _pawn_info(self, pawn: Any, me: Any) -> dict[str, Any]:
         addr = pawn._get_address()
@@ -376,7 +473,7 @@ class Collector:
         else:
             kind = "npc"
         if kind in ("me", "player"):
-            name = named(try_(lambda: str(pawn.PlayerReplicationInfo.PlayerName), ""), "Player")
+            name = named(try_(lambda: str(player_info(pawn).PlayerName), ""), "Player")
         else:
             # What the game shows when aiming at it; else the map's name, or the transformed variant
             # (the AIPawnBalanceDefinition's per-playthrough DisplayName behind all three)
@@ -394,7 +491,7 @@ class Collector:
         if (info := self._info.get(addr)) is not None:
             return info
         inv = try_(lambda: p.Inventory)
-        name = call_str(inv.GetShortHumanReadableName) if inv is not None else ""
+        name = item_name(inv)
         info = {
             "i": f"{addr:x}",
             **named(name, def_name(inv.Class) if inv is not None else "", str(p.Class.Name)),
@@ -424,14 +521,17 @@ class Collector:
                 if not pawn.bDeleteMe and not pawn.bIsDead:
                     info = self._pawn_info(pawn, me)
                     loc = pawn.Location
-                    # Health: 2 function calls per pawn, so each pawn is read every HEALTH_EVERY
+                    # Health / shield: function calls, so each pawn is read every HEALTH_EVERY
                     # updates (staggered), new ones at once
                     key = pawn._get_address()
-                    hp = self._health.get(key)
-                    if hp is None or (n + self._state_n) % HEALTH_EVERY == 0:
-                        hp_max = try_(pawn.GetMaxHealth, 0)
-                        hp = (try_(pawn.GetHealth, 0) if hp_max else 0, hp_max)
+                    hp = self._vitals_vars(pawn)  # cheap properties: every update
+                    if hp is None:  # no usable properties: function calls, staggered
+                        hp = self._health.get(key)
+                        if hp is None or (n + self._state_n) % HEALTH_EVERY == 0:
+                            hp = self._vitals(pawn)
                     health[key] = hp
+                    if len(self._vars_logged) < 3:
+                        self._check_vitals(pawn)
                     pawns.append(
                         {
                             **info,
@@ -441,6 +541,7 @@ class Collector:
                             "r": view_yaw if info["k"] == "me" else pawn.Rotation.Yaw,
                             "h": hp[0],
                             "m": hp[1],
+                            **({"s": hp[2], "sm": hp[3]} if hp[3] else {}),
                         },
                     )
             except Exception as ex:  # noqa: BLE001
@@ -460,8 +561,50 @@ class Collector:
                 pickups.append({**self._pickup_info(p), "x": round(loc.X), "y": round(loc.Y), "z": round(loc.Z)})
             except Exception as ex:  # noqa: BLE001
                 log_error("pickup", ex)
-        state = {"level": self.level_id, "t": round(now, 3), "pawns": pawns, "pickups": pickups}
+        state = {"level": self.level_id, "t": round(now, 3), "hz": self.rate, "pawns": pawns, "pickups": pickups}
         self.hub.publish("state", json.dumps(state, separators=(",", ":")))
+
+    @staticmethod
+    def _vitals_vars(pawn: Any) -> tuple[float, float, float, float] | None:
+        """(health, max, shield, max shield) from the pawn's replicated properties - plain reads, much
+        cheaper than the function calls. Verified on the player pawn (2026-09-23): HealthVar /
+        HealthMaxVar exact, ShieldVar / ShieldMaxVar the shield rounded down. None if unusable."""
+        hp_max = try_(lambda: float(pawn.HealthMaxVar), 0.0)
+        if not hp_max:
+            return None
+        sh_max = try_(lambda: float(pawn.ShieldMaxVar), 0.0)
+        return (
+            try_(lambda: float(pawn.HealthVar), 0.0),
+            hp_max,
+            try_(lambda: float(pawn.ShieldVar), 0.0) if sh_max else 0.0,
+            sh_max,
+        )
+
+    def _vitals(self, pawn: Any) -> tuple[float, float, float, float]:
+        """(health, max health, shield, max shield) from the functions; the shield only asked for
+        when it has one. The fallback for pawns whose properties read 0."""
+        hp_max = try_(pawn.GetMaxHealth, 0) or 0
+        hp = try_(pawn.GetHealth, 0) if hp_max else 0
+        sh_max = try_(pawn.GetMaxShieldStrength, 0) if hasattr(pawn, "GetMaxShieldStrength") else 0
+        sh = try_(pawn.GetShieldStrength, 0) if sh_max else 0
+        return (hp, hp_max, sh or 0, sh_max or 0)
+
+    def _check_vitals(self, pawn: Any) -> None:
+        """Once per pawn kind: the properties next to the functions, in the log (to verify them)."""
+        name = str(pawn.Class.Name)
+        kind = "player" if "PlayerPawn" in name else "vehicle" if "Vehicle" in name else "ai"
+        if kind in self._vars_logged:
+            return
+        hp, hp_max, sh, sh_max = self._vitals(pawn)
+        if hp_max:
+            self._vars_logged.add(kind)
+            log(
+                f"vitals check ({kind}) on {pawn.Name}: GetHealth={hp} GetMaxHealth={hp_max}"
+                f" HealthVar={try_(lambda: pawn.HealthVar)} HealthMaxVar={try_(lambda: pawn.HealthMaxVar)};"
+                f" GetShieldStrength={sh} GetMaxShieldStrength={sh_max}"
+                f" ShieldVar={try_(lambda: pawn.ShieldVar)} ShieldMaxVar={try_(lambda: pawn.ShieldMaxVar)}"
+                f" bHasShieldVar={try_(lambda: pawn.bHasShieldVar)}",
+            )
 
     def _publish_missions(self) -> None:
         """Quest markers the game shows: every mission waypoint component that is bActive.

@@ -16,6 +16,8 @@
     --warn: #ffb03b;
     --bad: #ff5b4f;
     --grid: rgba(120, 170, 200, 0.08);
+    --shield: #3fa3f0;
+    --health: #d9372f; /* red, like the game's health bars */
     --objective: #7cf58a; /* light green, like the game's objective markers */
     color-scheme: dark;
   }
@@ -28,6 +30,14 @@
     background: var(--panel); border: 1px solid var(--panel-edge); border-radius: 6px; padding: 10px 12px;
     backdrop-filter: blur(4px); user-select: none; }
   #panel.collapsed .body { display: none; }
+  .ptabs { display: flex; margin: 10px -12px 2px; padding: 0 8px; border-bottom: 1px solid var(--panel-edge); }
+  .ptabs button { flex: 1; background: none; border: 0; color: var(--dim); font: inherit; font-size: 12px; padding: 5px 4px;
+    cursor: pointer; border-bottom: 2px solid transparent; margin-bottom: -1px; }
+  .ptabs button:hover { color: var(--text); }
+  .ptabs button.on { color: var(--text); border-bottom-color: var(--accent); }
+  .ptab { display: none; padding-top: 4px; }
+  .ptab.on { display: block; }
+  .ptab > h3:first-child { margin-top: 6px; }
   .head { display: flex; align-items: center; gap: 8px; }
   .title { font-weight: 700; letter-spacing: .12em; font-size: 12px; color: var(--accent); flex: 1; }
   #collapse { background: none; border: 0; color: var(--dim); cursor: pointer; font-size: 14px; padding: 0 2px; }
@@ -39,24 +49,42 @@
   h3 { font-size: 11px; letter-spacing: .1em; color: var(--dim); margin: 12px 0 4px; font-weight: 600; }
   label.row { display: flex; align-items: center; gap: 8px; padding: 2px 0; cursor: pointer; }
   label.row input { margin: 0; accent-color: var(--accent); }
-  .sw { width: 10px; height: 10px; border-radius: 2px; flex: none; }
+  .sw { width: 12px; height: 12px; flex: none; display: flex; } /* the layer's marker shape (SVG) */
   .count { margin-left: auto; color: var(--dim); font-variant-numeric: tabular-nums; }
   select, button.act { width: 100%; background: #13212b; color: var(--text); border: 1px solid var(--panel-edge);
     border-radius: 4px; padding: 4px 6px; font: inherit; }
   button.act { cursor: pointer; margin-top: 6px; }
+  .btnrow { display: flex; gap: 6px; margin: 4px 0 6px; }
+  .checkrow { display: flex; gap: 12px; margin-top: 4px; }
+  .checkrow label.row { flex: 1; }
+  .btnrow button.act { flex: 1; margin-top: 0; }
   button.act:hover { border-color: var(--accent); }
   .hint { color: var(--dim); font-size: 11px; margin-top: 10px; }
   #tip { position: fixed; pointer-events: none; background: var(--panel); border: 1px solid var(--panel-edge);
     border-radius: 4px; padding: 5px 8px; display: none; white-space: nowrap; font-size: 12px; z-index: 2; }
   #tip b { display: block; font-size: 13px; }
-  #tip span { color: var(--dim); }
+  #tip .tl { display: block; color: var(--dim); } /* the lines under the name, one block each */
+  #tip .tlist { display: block; margin: 1px 0 2px 8px; font-size: 11px; } /* e.g. a container's contents */
+  #tip .tli { display: block; }
+  #tip .tli::before { content: "· "; color: var(--dim); }
   #coords { position: fixed; right: 10px; bottom: 8px; color: var(--dim); font-size: 11px;
     font-variant-numeric: tabular-nums; pointer-events: none; }
   #msg { position: fixed; left: 50%; top: 50%; transform: translate(-50%, -50%); color: var(--dim);
     font-size: 15px; text-align: center; pointer-events: none; }
-  .players .prow { display: flex; align-items: baseline; gap: 6px; padding: 3px 4px; margin: 0 -4px;
-    border-radius: 3px; cursor: pointer; }
-  .players .prow:hover, .players .prow.sel { background: #16293a; }
+  .players .pentry { padding: 3px 4px 4px; margin: 0 -4px 2px; border-radius: 3px; cursor: pointer; }
+  .players .pentry:hover, .players .pentry.sel { background: #16293a; }
+  .players .prow { display: flex; align-items: baseline; gap: 6px; }
+  .vital { display: none; margin-top: 2px; } /* 2 px between the shield and health bars */
+  .vital.on { display: block; }
+  .vbar { position: relative; display: block; height: 12px; background: #1c2d38; border-radius: 2px; overflow: hidden; }
+  .vbar i { display: block; height: 100%; width: 0; }
+  .vital.sh .vbar i { background: var(--shield); }
+  .vital.hp .vbar i { background: var(--health); }
+  /* the numbers inside the bar, left, vertically centred; a dark outline to read on any fill */
+  .vnum { position: absolute; left: 5px; top: 50%; transform: translateY(-50%); font-size: 9.5px; line-height: 1;
+    font-weight: 700; color: #fff; font-variant-numeric: tabular-nums; white-space: nowrap;
+    text-shadow: -1px 0 1px #000, 1px 0 1px #000, 0 -1px 1px #000, 0 1px 1px #000, 0 0 3px #000; }
+  .vnum .vmax { opacity: .7; }
   .players .pname { color: #3fd5ff; font-weight: 600; }
   .players .pname.me { color: var(--accent); }
   .players .pinfo { color: var(--dim); font-size: 12px; margin-left: auto; white-space: nowrap; }
@@ -91,15 +119,38 @@
   .item .idetail { display: none; margin-top: 6px; font-size: 12px; }
   .item.expanded .idetail { display: block; }
   .kv { display: grid; grid-template-columns: auto 1fr; gap: 1px 10px; }
-  .kv span:nth-child(odd) { color: var(--dim); }
-  .kv span:nth-child(even) { overflow-wrap: anywhere; }
+  .kv > span:nth-child(odd) { color: var(--dim); }
+  .plist { font-size: 12px; } .plist div { padding: 1px 0; border-bottom: 1px solid #16242e; }
+  .kv > span:nth-child(even) { overflow-wrap: anywhere; }
   .branch { margin: 8px 0 12px; }
   .branch .bhead { display: flex; justify-content: space-between; font-weight: 600; margin-bottom: 4px; }
-  .branch .bhead span { color: var(--dim); font-weight: 400; font-size: 12px; }
+  .branch .bhead .bpts { color: var(--dim); font-weight: 400; font-size: 12px; }
   .skill { display: flex; align-items: center; gap: 8px; padding: 2px 0; }
   .skill.zero { opacity: .45; }
   .skill .sname { flex: 1; }
   .skill .tier { color: var(--dim); font-size: 11px; width: 34px; }
+  /* one tab per skill tree: like the inspector's tabs */
+  .stabs { display: flex; gap: 2px; margin: 6px 0 8px; border-bottom: 1px solid var(--panel-edge); }
+  .stabs button { flex: 1; min-width: 0; display: flex; justify-content: center; align-items: baseline; gap: 4px;
+    background: none; border: 0; border-bottom: 2px solid transparent; margin-bottom: -1px; color: var(--dim);
+    font: inherit; font-size: 12px; padding: 5px 4px; cursor: pointer; white-space: nowrap; }
+  .stabs button:hover { color: var(--text); }
+  .stabs button.on { color: var(--text); border-bottom-color: var(--accent); }
+  /* only the name shrinks (ellipsis): the points always show */
+  .stabs button .nm { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+  .stabs button .spts { flex: none; color: var(--dim); font-size: 11px; }
+  /* the skill tree grid: a row per tier, the columns as in the game's menu */
+  .sgrid { display: grid; gap: 4px; margin-top: 4px; }
+  .scell { background: #101b23; border: 1px solid #1e3444; border-radius: 4px; padding: 4px 5px; min-height: 40px;
+    display: flex; flex-direction: column; justify-content: space-between; gap: 3px; cursor: help; }
+  .scell.empty { background: none; border: 0; cursor: default; }
+  .scell.zero { opacity: .5; }
+  .scell.invested { border-color: color-mix(in srgb, var(--accent) 55%, #1e3444); }
+  .scell.locked { opacity: .28; }
+  .scell .sn { font-size: 11px; line-height: 1.2; overflow-wrap: anywhere; }
+  .scell .sg { display: flex; align-items: center; justify-content: space-between; gap: 4px;
+    font-size: 10px; color: var(--dim); font-variant-numeric: tabular-nums; }
+  .scell .pips i { width: 5px; height: 5px; }
   .pips { display: flex; gap: 2px; }
   .pips i { width: 7px; height: 7px; border-radius: 1px; background: #243847; }
   .pips i.on { background: var(--accent); }
@@ -120,11 +171,19 @@
   <div class="body">
     <div id="level">—</div>
     <div id="status"><i></i><span></span></div>
-    <h3 data-i18n="h.players"></h3>
-    <div id="players" class="players"><div class="muted">—</div></div>
-    <h3 data-i18n="h.mission"></h3>
-    <div id="mission"><div class="muted" data-i18n="mission.none"></div></div>
-    <h3 data-i18n="h.show"></h3>
+    <div class="ptabs" id="ptabs">
+      <button data-ptab="info" data-i18n="ptab.info"></button><button data-ptab="layers" data-i18n="ptab.layers"></button><button data-ptab="settings" data-i18n="ptab.settings"></button>
+    </div>
+    <section class="ptab" data-ptab="info">
+      <h3 data-i18n="h.mission"></h3>
+      <div id="mission"><div class="muted" data-i18n="mission.none"></div></div>
+      <h3 data-i18n="h.players"></h3>
+      <div id="players" class="players"><div class="muted">—</div></div>
+    </section>
+    <section class="ptab" data-ptab="layers">
+    <div class="btnrow">
+      <button class="act" id="layersAll" data-i18n="layers.all"></button><button class="act" id="layersNone" data-i18n="layers.none"></button>
+    </div>
     <div id="layers"></div>
     <h3 data-i18n="h.loot"></h3>
     <select id="rarity">
@@ -135,15 +194,24 @@
       <option value="4" data-i18n="loot.4"></option>
       <option value="5" data-i18n="loot.5"></option>
     </select>
+    </section>
+    <section class="ptab" data-ptab="settings">
+    <h3 data-i18n="h.who"></h3>
+    <select id="target"></select>
+    <div class="checkrow">
+      <label class="row"><input type="checkbox" id="follow"> <span data-i18n="view.follow"></span> <span class="count">F</span></label>
+      <label class="row"><input type="checkbox" id="rotate"> <span data-i18n="view.rotate"></span></label>
+    </div>
     <h3 data-i18n="h.view"></h3>
-    <label class="row"><input type="checkbox" id="follow"> <span data-i18n="view.follow"></span> <span class="count">F</span></label>
     <label class="row"><input type="checkbox" id="labels"> <span data-i18n="view.labels"></span> <span class="count">N</span></label>
     <label class="row"><input type="checkbox" id="height"> <span data-i18n="view.height"></span></label>
-    <label class="row" data-i18n-title="view.smoothTip"><input type="checkbox" id="smooth"> <span data-i18n="view.smooth"></span></label>
+    <h3 data-i18n="view.motion" data-i18n-title="view.motionTip"></h3>
+    <select id="motion" data-i18n-title="view.motionTip"></select>
     <button class="act" id="fit"><span data-i18n="view.fit"></span> <span style="color:var(--dim)">(0)</span></button>
     <h3 data-i18n="view.language"></h3>
     <select id="lang"></select>
     <div class="hint" data-i18n="view.hint"></div>
+    </section>
   </div>
 </div>
 <div id="inspector">
@@ -166,7 +234,7 @@
 // Pure helpers (no DOM): world -> map transform, texture decoding. Tested offline under Node.
 // ---------------------------------------------------------------------------------------------
 
-const UU_PER_METER = 50; // UE3 convention (1 uu = 2 cm)
+const UU_PER_METER = 100; // 1 uu = 1 cm - measured (tools/probe_scale.py): Salvador (1.62 m) is 152-160 uu tall
 
 /** World (X, Y) -> tactical map movie px. World +X is up (north), +Y is right. */
 function worldToMap(level, x, y) {
@@ -263,7 +331,8 @@ function decodeTexture(format, w, h, data) {
   return out;
 }
 
-// RarityLevel -> [name key, colour]. A guess (see the notes): the page shows the raw number too.
+// RarityLevel -> [name key, colour] (names confirmed by the user in game; colours still ours - the
+// game's own table is in the backlog). The inspector shows the number next to the name.
 const RARITY = {
   0: ["misc", "#9aa7ad"], 1: ["common", "#f2f2f2"], 2: ["uncommon", "#45d145"], 3: ["rare", "#3b8dff"],
   4: ["epic", "#b45cff"], 5: ["legendary", "#ff9a1f"], 6: ["etech", "#ff4fd2"], 500: ["pearl", "#3fefff"],
@@ -271,9 +340,10 @@ const RARITY = {
 function rarity(q) { return RARITY[q] || (q > 500 ? ["pearl", "#3fefff"] : ["unknown", "#e0e0e0"]); }
 
 /** A made-up name from an object / class name, readable and marked as a guess:
- *  "BullymongPile" -> "Bullymong Pile ?", "WillowAIPawn" -> "Willow AI Pawn ?" (no-break space). */
+ *  "BullymongPile" -> "Bullymong Pile ?", "WillowAIPawn" -> "AI Pawn ?" (no-break space; the
+ *  engine's "Willow" class prefix dropped). */
 function prettyRaw(s) {
-  const words = String(s || "").replace(/_/g, " ")
+  const words = String(s || "").replace(/^Willow(?=[A-Z_])/, "").replace(/_/g, " ")
     .replace(/([a-z\d])([A-Z])/g, "$1 $2")
     .replace(/([A-Z]+)([A-Z][a-z])/g, "$1 $2")
     .replace(/\s+/g, " ").trim();
@@ -283,8 +353,24 @@ function prettyRaw(s) {
 /** Display text of anything with a name ("n"), made-up ones ("raw": 1) prettified. */
 function nameText(o) { return o.raw ? prettyRaw(o.n) : String(o.n || "?"); }
 
+/** Real gear (goes into the backpack) vs other pickups, by the item's class. */
+const GEAR_CLASSES = ["WillowWeapon", "WillowShield", "WillowGrenadeMod", "WillowClassMod", "WillowArtifact"];
+function isGear(cls) { return GEAR_CLASSES.some((g) => String(cls || "").startsWith(g)); }
+
+/** Chest tier from the game's loot list names: 2 = an "Epic" list (the red chests: EpicChestRedLoot),
+ *  1 = a "WeaponChest" one (metal crates, bandit weapon chests: WeaponChestWhiteLoot...), 0 = none. */
+function chestTier(o) {
+  const lists = o.lists || [];
+  return lists.some((l) => /epic/i.test(l)) ? 2 : lists.some((l) => /weaponchest/i.test(l)) ? 1 : 0;
+}
+function isChest(o) { return chestTier(o) > 0; }
+
 /** Interactive objects -> category, from their definition / class name. */
 function objectCategory(o) {
+  if (o.looted) return "looted";
+  // The game's loot lists are named by tier: an "Epic" one (EpicChestRedLoot...) = a chest
+  const tier = chestTier(o);
+  if (tier) return tier === 2 ? "chest" : "weaponchest";
   const s = (o.d + " " + o.n + " " + o.c).toLowerCase();
   if (/vending|vendor|shop/.test(s)) return "vendor";
   if (/fasttravel|fast travel|travelstation|newu|respawn|quickchange|customiz/.test(s)) return "station";
@@ -308,16 +394,19 @@ if (typeof document !== "undefined") (() => {
     { id: "vehicle", color: "#c08bff", on: true },
     { id: "objective", color: "#7cf58a", on: true },
     { id: "loot", color: "#ffb52e", on: true },
+    { id: "chest", color: "#ff6b2c", on: true }, // orange-red, like the red chests
+    { id: "weaponchest", color: "#e8943a", on: true },
     { id: "container", color: "#e2c170", on: false },
     { id: "vendor", color: "#4fd1c5", on: true },
     { id: "station", color: "#f0f0f0", on: false },
     { id: "other", color: "#7f8f99", on: false },
+    { id: "looted", color: "#56646d", on: false }, // opened containers: nothing left to find
   ];
   const FLOOR_UU = 600; // "another floor": more than this above / below me
 
   const $ = (id) => document.getElementById(id);
   const css = getComputedStyle(document.documentElement);
-  const COLORS = { bg: css.getPropertyValue("--bg").trim(), grid: css.getPropertyValue("--grid").trim() };
+  const COLORS = Object.fromEntries(["bg", "grid", "shield", "health"].map((k) => [k, css.getPropertyValue("--" + k).trim()]));
   const canvas = $("map"), ctx = canvas.getContext("2d");
   const store = {
     get(k, d) { try { const v = localStorage.getItem("helios." + k); return v === null ? d : JSON.parse(v); } catch { return d; } },
@@ -351,42 +440,113 @@ if (typeof document !== "undefined") (() => {
     level: null, images: [], // [{canvas, bounds}]
     pawns: new Map(), pickups: [], objects: [],
     meId: null, fallback: null, // map frame for areas without a tactical map
-    interval: 100, lastState: 0,
-    view: { cx: 0, cy: 0, zoom: 1 }, fitted: false,
-    follow: store.get("follow", false), labels: store.get("labels", false), height: store.get("height", true),
-    smooth: store.get("smooth", true),
+    interval: 100, lastState: 0, hz: 0, // hz: the game's updates per second (sent with each state)
+    view: { cx: 0, cy: 0, zoom: 1, rot: 0 }, fitted: false, // rot: map rotation (rad, the target's heading)
+    follow: !!store.get("follow", false), labels: store.get("labels", false), height: store.get("height", true),
+    rotate: store.get("rotate", false), target: store.get("target", "me"), // "me" (the host) or a player's name
+    // Movement: 0 = only redraw on a change (markers jump), a number = interpolated at most that many
+    // fps, "smooth" = every frame. The old checkbox ("smooth": true / false) carries over.
+    motion: store.get("motion", store.get("smooth", true) ? "smooth" : 0),
+    lastDraw: 0,
     pending: false, // a frame is requested
     minRarity: store.get("minRarity", 1),
     layers: Object.fromEntries(LAYERS.map((l) => [l.id, store.get("layer." + l.id, l.on)])),
     hits: [], mouse: null, counts: {},
     missions: { tracked: null, markers: [] },
-    players: [], inspect: null, // inspected player: { id, name } (ids change when a level loads)
-    tab: store.get("tab", "gear"), expanded: new Set(),
+    players: [], inspect: null, detail: null, // detail: a clicked map object { kind, id } // inspected player: { id, name } (ids change when a level loads)
+    tab: store.get("tab", "gear"), expanded: new Set(), skillTab: null, // null: the tree with the most points
   };
 
   // --- panel -------------------------------------------------------------------------------
-  const layerBox = $("layers");
+  // The layer's marker as drawn on the map (12 px SVG)
+  function layerIcon(l) {
+    const c = l.color, o = `stroke="rgba(0,0,0,.8)" stroke-width="1"`;
+    const shape = {
+      player: `<polygon points="6,1 10.3,10.8 6,8.3 1.7,10.8" fill="${c}" ${o}/>`,
+      enemy: `<polygon points="6,1 11,6 6,11 1,6" fill="${c}" ${o}/>`,
+      npc: `<circle cx="6" cy="6" r="3.5" fill="${c}" ${o}/>`,
+      vehicle: `<rect x="1.5" y="1.5" width="9" height="9" fill="${c}" ${o}/>`,
+      objective: `<polygon points="6,1 11,6 6,11 1,6" fill="${c}" ${o}/><circle cx="6" cy="6" r="1.5" fill="#1a1200"/>`,
+      loot: `<polygon points="6,1.5 10.5,9.5 1.5,9.5" fill="${c}" ${o}/>`,
+      chest: `<rect x="0.5" y="0.5" width="11" height="11" fill="${c}" ${o}/>`,
+      weaponchest: `<rect x="1.5" y="1.5" width="9" height="9" fill="${c}" ${o}/>`,
+      other: `<rect x="3.5" y="3.5" width="5" height="5" fill="${c}" ${o}/>`,
+      looted: `<rect x="3.5" y="3.5" width="5" height="5" fill="${c}" opacity=".6" ${o}/>`,
+    }[l.id] || `<rect x="2.5" y="2.5" width="7" height="7" fill="${c}" ${o}/>`; // containers, vendors, stations
+    return `<svg width="12" height="12" viewBox="0 0 12 12" aria-hidden="true">${shape}</svg>`;
+  }
+  const layerBox = $("layers"), layerBoxes = [];
   for (const l of LAYERS) {
     const row = document.createElement("label");
     row.className = "row";
-    row.innerHTML = `<input type="checkbox"><span class="sw" style="background:${l.color}"></span><span data-i18n="layer.${l.id}"></span><span class="count" data-count="${l.id}"></span>`;
+    row.innerHTML = `<input type="checkbox"><span class="sw">${layerIcon(l)}</span><span data-i18n="layer.${l.id}"></span><span class="count" data-count="${l.id}"></span>`;
     const box = row.querySelector("input");
     box.checked = S.layers[l.id];
     box.onchange = () => { S.layers[l.id] = box.checked; store.set("layer." + l.id, box.checked); invalidate(); };
     layerBox.appendChild(row);
+    layerBoxes.push([l.id, box]);
   }
+  function setAllLayers(on) {
+    for (const [id, box] of layerBoxes) {
+      box.checked = on; S.layers[id] = on; store.set("layer." + id, on);
+    }
+    invalidate();
+  }
+  $("layersAll").onclick = () => setAllLayers(true);
+  $("layersNone").onclick = () => setAllLayers(false);
   const bindBox = (id, key) => {
     const el = $(id);
     el.checked = S[key];
     el.onchange = () => {
       S[key] = el.checked; store.set(key, el.checked); invalidate();
-      if (key === "follow" && el.checked) centerOnMe();
+      if (key === "follow" && el.checked) centerOnTarget();
     };
   };
-  bindBox("follow", "follow"); bindBox("labels", "labels"); bindBox("height", "height"); bindBox("smooth", "smooth");
+  bindBox("follow", "follow"); bindBox("rotate", "rotate");
+  bindBox("labels", "labels"); bindBox("height", "height");
+  const MOTIONS = [0, 5, 10, 15, 20, 30, 60, "smooth"];
+  function renderMotion() {
+    const box = $("motion");
+    box.innerHTML = MOTIONS.map((m) => `<option value="${m}">${esc(
+      m === 0 ? (S.hz ? t("motion.updatesRate", { n: S.hz }) : t("motion.updates"))
+        : m === "smooth" ? t("motion.smooth") : t("motion.fps", { n: m }))}</option>`).join("");
+    box.value = String(S.motion);
+  }
+  renderMotion();
+  $("motion").onchange = (e) => {
+    const v = e.target.value;
+    S.motion = v === "smooth" ? v : +v;
+    store.set("motion", S.motion);
+    invalidate();
+  };
+  $("target").onchange = (e) => { S.target = e.target.value; store.set("target", S.target); invalidate(); };
+
+  function renderTargets() { // "Who": the host, then the other players (by name: ids change per level)
+    const box = $("target");
+    const names = S.players.filter((p) => !p.local).map((p) => p.n);
+    if (S.target !== "me" && !names.includes(S.target)) names.push(S.target); // saved, not here now
+    box.innerHTML = `<option value="me">${esc(t("who.host"))}</option>` +
+      names.map((n) => `<option value="${esc(n)}">${esc(n)}</option>`).join("");
+    box.value = S.target;
+  }
+
+  function targetPawn() {
+    if (S.target === "me") return S.meId ? S.pawns.get(S.meId) : null;
+    const player = S.players.find((p) => !p.local && p.n === S.target);
+    return player ? S.pawns.get(player.i) : null;
+  }
   $("rarity").value = String(S.minRarity);
   $("rarity").onchange = (e) => { S.minRarity = +e.target.value; store.set("minRarity", S.minRarity); invalidate(); };
   $("fit").onclick = () => fit();
+  let panelTab = store.get("ptab", "info");
+  function showPanelTab(name) {
+    if (!document.querySelector(`.ptab[data-ptab="${name}"]`)) name = "info";
+    panelTab = name;
+    store.set("ptab", name);
+    for (const el of document.querySelectorAll("#ptabs button, .ptab")) el.classList.toggle("on", el.dataset.ptab === name);
+  }
+  for (const b of $("ptabs").querySelectorAll("button")) b.onclick = () => showPanelTab(b.dataset.ptab);
+  showPanelTab(panelTab);
   $("collapse").onclick = () => {
     $("panel").classList.toggle("collapsed");
     $("collapse").textContent = $("panel").classList.contains("collapsed") ? "▸" : "▾";
@@ -409,7 +569,7 @@ if (typeof document !== "undefined") (() => {
   langBox.value = CATALOG[langPref] ? langPref : "auto";
   langBox.onchange = () => {
     langPref = langBox.value; lang = pickLang(langPref); store.set("lang", langPref);
-    applyI18n(); setStatus(...status); setMessage(...message); renderPlayers(); renderInspector(); renderMission(); invalidate();
+    applyI18n(); setStatus(...status); setMessage(...message); renderPlayers(); renderTargets(); renderMotion(); renderInspector(); renderMission(); invalidate();
   };
 
   // --- data --------------------------------------------------------------------------------
@@ -465,7 +625,10 @@ if (typeof document !== "undefined") (() => {
     if (!S.level || st.level !== S.level.id) return;
     invalidate();
     const now = performance.now();
-    if (S.lastState) S.interval = S.interval * 0.8 + Math.min(1000, now - S.lastState) * 0.2;
+    if (st.hz > 0) { // the game's update rate: interpolate exactly from one update to the next
+      if (S.hz !== st.hz) { S.hz = st.hz; renderMotion(); }
+      S.interval = 1000 / st.hz;
+    } else if (S.lastState) S.interval = S.interval * 0.8 + Math.min(1000, now - S.lastState) * 0.2;
     S.lastState = now;
     const seen = new Set();
     S.meId = null;
@@ -480,6 +643,7 @@ if (typeof document !== "undefined") (() => {
     }
     for (const id of S.pawns.keys()) if (!seen.has(id)) S.pawns.delete(id);
     S.pickups = st.pickups;
+    updatePlayerVitals();
     if (!S.level.center && !S.fallback && S.meId) {
       const me = S.pawns.get(S.meId);
       S.fallback = { center: [me.x, me.y], upp: 128, north: 0 };
@@ -489,12 +653,14 @@ if (typeof document !== "undefined") (() => {
   function onObjects(msg) {
     if (!S.level || msg.level !== S.level.id) return;
     for (const o of msg.objects) o.cat = objectCategory(o);
+    msg.objects.sort((a, b) => a.z - b.z); // drawn bottom to top: a higher object covers a lower one
     S.objects = msg.objects;
+    if (S.detail) renderDetail();
     invalidate();
   }
 
   function pawnPos(p, now) { // interpolated between the last two states
-    if (!S.smooth) return { x: p.x, y: p.y, z: p.z, r: p.r };
+    if (!S.motion) return { x: p.x, y: p.y, z: p.z, r: p.r }; // "updates only": no interpolation
     const t = Math.min(1, (now - p.t0) / Math.max(16, S.interval));
     let dr = (((p.r - p.fr) % 65536) + 98304) % 65536 - 32768; // shortest turn
     return { x: p.fx + (p.x - p.fx) * t, y: p.fy + (p.y - p.fy) * t, z: p.fz + (p.z - p.fz) * t, r: p.fr + dr * t };
@@ -553,6 +719,8 @@ if (typeof document !== "undefined") (() => {
     const p = S.players.find((q) => q.i === id);
     if (!p) return;
     S.inspect = { id: p.i, name: p.n };
+    S.detail = null;
+    S.skillTab = null; // back to their tree with the most points
     $("inspector").classList.add("open");
     renderPlayers();
     renderInspector(true);
@@ -560,6 +728,7 @@ if (typeof document !== "undefined") (() => {
 
   function closeInspector() {
     S.inspect = null;
+    S.detail = null;
     $("inspector").classList.remove("open");
     renderPlayers();
   }
@@ -573,11 +742,38 @@ if (typeof document !== "undefined") (() => {
     const box = $("players");
     if (!S.players.length) { box.innerHTML = '<div class="muted">—</div>'; return; }
     const sel = findPlayer();
+    const vital = (cls) => `<div class="vital ${cls}"><span class="vbar"><i></i><span class="vnum"><b></b><span class="vmax"></span></span></span></div>`;
     box.innerHTML = S.players.map((p) =>
-      `<div class="prow${sel && sel.i === p.i ? " sel" : ""}" data-id="${esc(p.i)}">` +
-      `<span class="pname${p.local ? " me" : ""}">${nameHtml(p)}</span>` +
-      `<span class="pinfo">${esc(playerSub(p))}</span></div>`).join("");
-    for (const row of box.querySelectorAll(".prow")) row.onclick = () => openInspector(row.dataset.id);
+      `<div class="pentry${sel && sel.i === p.i ? " sel" : ""}" data-id="${esc(p.i)}">` +
+      `<div class="prow"><span class="pname${p.local ? " me" : ""}">${nameHtml(p)}</span>` +
+      `<span class="pinfo">${esc(playerSub(p))}</span></div>` +
+      vital("sh") + vital("hp") + `</div>`).join("");
+    for (const row of box.querySelectorAll(".pentry")) row.onclick = () => openInspector(row.dataset.id);
+    updatePlayerVitals();
+    renderTargets();
+  }
+
+  // Shield, then health, under each player: from the live state (their marker), not the slower
+  // players payload - only widths / numbers change, the list isn't rebuilt
+  function updatePlayerVitals() {
+    for (const row of document.querySelectorAll("#players .pentry")) {
+      const p = S.pawns.get(row.dataset.id);
+      const set = (cls, cur, max) => {
+        const el = row.querySelector(".vital." + cls);
+        const on = !!p && max > 0;
+        el.classList.toggle("on", on);
+        if (!on) return;
+        const frac = Math.max(0, Math.min(1, cur / max));
+        const bar = el.querySelector("i");
+        bar.style.width = (frac * 100).toFixed(1) + "%";
+        const curText = num(Math.round(cur)), maxText = ` / ${num(Math.round(max))}`; // "/ max" at 70%
+        const curEl = el.querySelector(".vnum b"), maxEl = el.querySelector(".vnum .vmax");
+        if (curEl.textContent !== curText) curEl.textContent = curText;
+        if (maxEl.textContent !== maxText) maxEl.textContent = maxText;
+      };
+      set("sh", p && p.s, p && p.sm);
+      set("hp", p && p.h, p && p.m);
+    }
   }
 
   function rarityName(q) {
@@ -645,9 +841,21 @@ if (typeof document !== "undefined") (() => {
 
   function skillsHtml(p) {
     if (!p.skills) return `<div class="note">${esc(t("why.skills." + (p.skillsWhy || "unavailable")))}</div>`;
-    let html = p.skillPoints != null ? `<div class="muted">${esc(t("skills.spent", { n: p.skillPoints }))}</div>` : "";
-    for (const b of p.skills) {
-      html += `<div class="branch"><div class="bhead">${b.n ? nameHtml(b) : esc(t("skills.other"))}<span>${esc(t("skills.pts", { n: b.pts }))}</span></div>`;
+    let html = "";
+    // The trees with a layout: one tab each. The rest (the root branch: just the action skill) isn't
+    // shown - unless no tree has a layout, then everything is listed as a fallback
+    const trees = p.skills.filter((b) => b.tiers && b.tiers.length && !b.root);
+    if (trees.length) {
+      const most = trees.reduce((best, b, i) => (b.pts > trees[best].pts ? i : best), 0);
+      const sel = S.skillTab == null ? most : Math.min(Math.max(0, S.skillTab), trees.length - 1);
+      html += `<div class="stabs">` + trees.map((b, i) =>
+        `<button data-stab="${i}" class="${i === sel ? "on" : ""}" title="${esc(nameText(b))}">` +
+        `${b.n ? nameHtml(b) : `<span class="nm">${esc(t("skills.other"))}</span>`}` +
+        `<span class="spts">· ${esc(num(b.pts))}</span></button>`).join("") + `</div>`;
+      html += `<div class="branch">${skillGrid(trees[sel])}</div>`;
+    }
+    for (const b of trees.length ? [] : p.skills) {
+      html += `<div class="branch"><div class="bhead">${b.n ? nameHtml(b) : esc(t("skills.other"))}<span class="bpts">${esc(t("skills.pts", { n: b.pts }))}</span></div>`;
       for (const sk of b.skills) {
         const pips = Array.from({ length: Math.max(sk.m, 0) }, (_, i) => `<i class="${i < sk.g ? "on" : ""}"></i>`).join("");
         html += `<div class="skill${sk.g ? "" : " zero"}" title="${esc(cleanText(sk.d))}">` +
@@ -659,8 +867,94 @@ if (typeof document !== "undefined") (() => {
     return html;
   }
 
+  function skillGrid(b) {
+    const cols = Math.max(1, ...b.tiers.map((tier) => tier.cells.length));
+    let need = 0, html = `<div class="sgrid" style="grid-template-columns: repeat(${cols}, 1fr)">`;
+    for (const tier of b.tiers) {
+      const locked = b.pts < need; // points in this branch needed to reach the tier
+      for (let c = 0; c < cols; c++) {
+        const sk = tier.cells[c];
+        if (!sk) { html += `<div class="scell empty"></div>`; continue; }
+        const pips = Array.from({ length: Math.max(sk.m, 0) }, (_, i) => `<i class="${i < sk.g ? "on" : ""}"></i>`).join("");
+        const cls = ["scell", sk.g ? "invested" : "zero", locked ? "locked" : ""].filter(Boolean).join(" ");
+        html += `<div class="${cls}" title="${esc(cleanText(sk.d))}"><div class="sn">${nameHtml(sk)}</div>` +
+          `<div class="sg"><span class="pips">${pips}</span><span>${sk.g}/${sk.m}</span></div></div>`;
+      }
+      need += tier.need;
+    }
+    return html + "</div>";
+  }
+
+  // --- the detail panel: a clicked object (not a player), in the inspector's drawer ---------
+  // Numbered variants of a pool merged: "Pool_Money_1", "Pool_Money_2" -> "Money"
+  function poolKinds(pools) {
+    return [...new Set(pools.map((n) => String(n).replace(/^Pool_/, "").replace(/_?\d+$/, "")))];
+  }
+
+  function openDetail(kind, id) {
+    S.detail = { kind, id };
+    S.inspect = null;
+    $("inspector").classList.add("open");
+    renderPlayers();
+    renderInspector(true);
+  }
+
+  function findDetail() {
+    const d = S.detail;
+    if (!d) return null;
+    if (d.kind === "loot") return S.pickups.find((p) => p.i === d.id);
+    if (d.kind === "objective" || d.kind === "directive") return S.missions.markers.find((m) => m.i === d.id);
+    return S.objects.find((o) => o.i === d.id) || S.pawns.get(d.id) || null;
+  }
+
+  function renderDetail(resetScroll) {
+    const body = $("ibody"), scroll = body.scrollTop;
+    $("itabs").style.display = "none";
+    const it = findDetail(), kind = S.detail.kind;
+    if (!it) {
+      $("iwho").textContent = "";
+      $("isub").textContent = "";
+      body.innerHTML = `<div class="note">${esc(t("detail.gone"))}</div>`;
+      return;
+    }
+    const mission = kind === "objective" || kind === "directive";
+    $("iwho").innerHTML = mission ? nameHtml(it.objective || it.mission) : nameHtml(it);
+    const gear = kind === "loot" && isGear(it.c);
+    const kindText = kind === "loot" ? (gear ? rarityName(it.q) + " · " : "") + nameText({ n: String(it.c || "Pickup"), raw: 1 })
+      : t("tip." + kind, null, kind);
+    $("isub").textContent = [kindText, it.l && (kind !== "loot" || gear) ? t("insp.level", { n: it.l }) : ""]
+      .filter(Boolean).join(" · ");
+    const rows = [];
+    const f = frame(), me = S.meId && S.pawns.get(S.meId);
+    if (me) {
+      const pos = it.fx !== undefined ? pawnPos(it, performance.now()) : it;
+      rows.push([t("detail.distance"), t("unit.meters", { n: num(Math.hypot(pos.x - me.x, pos.y - me.y, pos.z - me.z) / UU_PER_METER, 0) })]);
+    }
+    if (it.sm > 0) rows.push([t("detail.shield"), `${num(Math.round(it.s))} / ${num(Math.round(it.sm))}`]);
+    if (it.m > 0) rows.push([t("detail.health"), `${num(Math.round(it.h))} / ${num(Math.round(it.m))}`]);
+    if (mission) {
+      rows.push([t("detail.mission"), null, nameHtml(it.mission)]);
+      if (it.rad) rows.push([t("detail.area"), t("unit.meters", { n: num(it.rad / UU_PER_METER, 0) })]);
+      rows.push([t("detail.tracked"), t(it.tracked ? "detail.yes" : "detail.no")]);
+    }
+    if (it.lootable) rows.push([t("detail.status"), t(it.looted ? "detail.looted" : "detail.unlooted")]);
+    if (it.slots) rows.push([t("detail.slots"), num(it.slots)]);
+    if (it.lists && it.lists.length) rows.push([t("detail.lists"), null, it.lists.map((n) => nameHtml({ n, raw: 1 })).join(", ")]);
+    if (it.c && kind !== "loot") rows.push([t("item.class"), null, classHtml(it.c)]);
+    if (it.d) rows.push([t("detail.definition"), it.d]);
+    let html = `<div class="kv">` + rows.map(([k, v, h]) => `<span>${esc(k)}</span><span>${h ?? esc(v)}</span>`).join("") + `</div>`;
+    if (it.loot && it.loot.length) { // every pool its loot is rolled from, one per line
+      html += `<div class="group">${esc(t("detail.contents"))}</div><div class="plist">` +
+        it.loot.map((n) => `<div>${nameHtml({ n: String(n).replace(/^Pool_/, ""), raw: 1 })}</div>`).join("") + `</div>`;
+    }
+    body.innerHTML = html;
+    body.scrollTop = resetScroll ? 0 : scroll;
+  }
+
   function renderInspector(resetScroll) {
     const box = $("inspector");
+    if (S.detail) { renderDetail(resetScroll); return; }
+    $("itabs").style.display = "";
     if (!S.inspect) { box.classList.remove("open"); return; }
     const body = $("ibody");
     const scroll = body.scrollTop;
@@ -689,6 +983,9 @@ if (typeof document !== "undefined") (() => {
     }
     body.innerHTML = html;
     body.scrollTop = resetScroll ? 0 : scroll;
+    for (const b of body.querySelectorAll(".stabs button")) {
+      b.onclick = () => { S.skillTab = +b.dataset.stab; renderInspector(); };
+    }
     for (const el of body.querySelectorAll(".item")) {
       el.onclick = () => {
         const id = el.dataset.id;
@@ -699,7 +996,7 @@ if (typeof document !== "undefined") (() => {
   }
 
   for (const b of $("itabs").querySelectorAll("button")) {
-    b.onclick = () => { S.tab = b.dataset.tab; store.set("tab", S.tab); renderInspector(true); };
+    b.onclick = () => { S.tab = b.dataset.tab; store.set("tab", S.tab); S.skillTab = null; renderInspector(true); };
   }
   $("iclose").onclick = closeInspector;
 
@@ -714,8 +1011,18 @@ if (typeof document !== "undefined") (() => {
   window.addEventListener("resize", resize);
   resize();
 
-  const toScreen = (mx, my) => [(mx - S.view.cx) * S.view.zoom + W / 2, (my - S.view.cy) * S.view.zoom + H / 2];
-  const toMap = (sx, sy) => [(sx - W / 2) / S.view.zoom + S.view.cx, (sy - H / 2) / S.view.zoom + S.view.cy];
+  // map px <-> screen px: screen = R(-rot) * (map - centre) * zoom + screen centre (canvas y-down:
+  // a positive angle turns clockwise); rot = the target's heading, so it points up
+  const rotate = (x, y, a) => { const c = Math.cos(a), s = Math.sin(a); return [x * c - y * s, x * s + y * c]; };
+  const toScreen = (mx, my) => {
+    const [x, y] = rotate(mx - S.view.cx, my - S.view.cy, -S.view.rot);
+    return [x * S.view.zoom + W / 2, y * S.view.zoom + H / 2];
+  };
+  const screenToMapDelta = (dx, dy) => rotate(dx / S.view.zoom, dy / S.view.zoom, S.view.rot);
+  const toMap = (sx, sy) => {
+    const [x, y] = screenToMapDelta(sx - W / 2, sy - H / 2);
+    return [x + S.view.cx, y + S.view.cy];
+  };
 
   function fit() {
     let x0 = Infinity, x1 = -Infinity, y0 = Infinity, y1 = -Infinity;
@@ -735,10 +1042,10 @@ if (typeof document !== "undefined") (() => {
     invalidate();
   }
 
-  function centerOnMe() {
-    const f = frame(), me = S.pawns.get(S.meId);
-    if (!f || !me) return;
-    const p = pawnPos(me, performance.now());
+  function centerOnTarget() {
+    const f = frame(), target = targetPawn();
+    if (!f || !target) return;
+    const p = pawnPos(target, performance.now());
     [S.view.cx, S.view.cy] = worldToMap(f, p.x, p.y);
   }
 
@@ -746,9 +1053,10 @@ if (typeof document !== "undefined") (() => {
     const [mx, my] = toMap(sx, sy);
     S.view.zoom = Math.min(80, Math.max(0.05, S.view.zoom * factor));
     invalidate();
-    if (S.follow) return; // zoom around the player
-    S.view.cx = mx - (sx - W / 2) / S.view.zoom;
-    S.view.cy = my - (sy - H / 2) / S.view.zoom;
+    if (S.follow) return; // zoom around the followed player
+    const [dx, dy] = screenToMapDelta(sx - W / 2, sy - H / 2); // keep the point under the cursor
+    S.view.cx = mx - dx;
+    S.view.cy = my - dy;
   }
 
   function stopFollow() { if (S.follow) { S.follow = false; $("follow").checked = false; store.set("follow", false); } }
@@ -786,8 +1094,9 @@ if (typeof document !== "undefined") (() => {
     }
     if (pointers.size === 1 && (cur.x !== prev.x || cur.y !== prev.y)) {
       stopFollow();
-      S.view.cx -= (cur.x - prev.x) / S.view.zoom;
-      S.view.cy -= (cur.y - prev.y) / S.view.zoom;
+      const [dx, dy] = screenToMapDelta(cur.x - prev.x, cur.y - prev.y);
+      S.view.cx -= dx;
+      S.view.cy -= dy;
     }
   });
   const release = (e) => {
@@ -798,14 +1107,30 @@ if (typeof document !== "undefined") (() => {
     if (pointers.size < 2) pinch = null;
     if (!pointers.size) canvas.classList.remove("dragging");
   };
-  function clickAt(x, y) {
-    let best = null, bestD = 14;
-    for (const h of S.hits) {
-      if (h.kind !== "me" && h.kind !== "player") continue;
+  // The marker under the cursor: the one drawn on top wins (an item lying on its container, a player
+  // next to a chest...), the nearest among those. Drawn bottom to top: objects, quest markers,
+  // loot, pawns - pawns are small, loot is what you look for: loot first.
+  const HIT_LAYER = { loot: 4, me: 3, player: 3, enemy: 3, npc: 3, vehicle: 3, objective: 2, directive: 2 };
+  function hitAt(x, y, radius) {
+    // Rank: the layer (loot > pawns > quest markers > objects), then being inside the marker - the
+    // last drawn of those, i.e. the visible one - then the nearest centre
+    let best = null, bestKey = null;
+    S.hits.forEach((h, order) => {
       const d = Math.hypot(h.sx - x, h.sy - y);
-      if (d < bestD) { best = h; bestD = d; }
-    }
-    if (best) openInspector(best.item.i);
+      if (d >= radius) return;
+      const inside = d <= (h.r || 4) + 1.5;
+      const key = [HIT_LAYER[h.kind] || 1, inside ? 1 : 0, inside ? order : -d];
+      if (!bestKey || key[0] > bestKey[0] || (key[0] === bestKey[0] &&
+          (key[1] > bestKey[1] || (key[1] === bestKey[1] && key[2] > bestKey[2])))) { best = h; bestKey = key; }
+    });
+    return best;
+  }
+
+  function clickAt(x, y) {
+    const best = hitAt(x, y, 14);
+    if (!best) return;
+    if (best.kind === "me" || best.kind === "player") openInspector(best.item.i);
+    else openDetail(best.kind, best.item.i);
   }
   canvas.addEventListener("pointerup", release);
   canvas.addEventListener("pointercancel", release);
@@ -824,15 +1149,16 @@ if (typeof document !== "undefined") (() => {
   });
 
   // --- drawing -----------------------------------------------------------------------------
-  function drawGrid(f) { // areas without a map: a 10 m grid so movement still reads
-    const step = (10 * UU_PER_METER / f.upp) * S.view.zoom;
-    if (step < 6) return;
-    const [ox, oy] = toScreen(0, 0);
+  function drawGrid(f) { // areas without a map: a 10 m grid so movement still reads (map transform set)
+    const step = 10 * UU_PER_METER / f.upp; // map px
+    if (step * S.view.zoom < 6) return;
+    const r = Math.hypot(W, H) / 2 / S.view.zoom; // covers the screen whatever the rotation
+    const x0 = Math.floor((S.view.cx - r) / step) * step, y0 = Math.floor((S.view.cy - r) / step) * step;
     ctx.strokeStyle = COLORS.grid;
-    ctx.lineWidth = 1;
+    ctx.lineWidth = 1 / S.view.zoom;
     ctx.beginPath();
-    for (let x = ((ox % step) + step) % step; x < W; x += step) { ctx.moveTo(x, 0); ctx.lineTo(x, H); }
-    for (let y = ((oy % step) + step) % step; y < H; y += step) { ctx.moveTo(0, y); ctx.lineTo(W, y); }
+    for (let x = x0; x < S.view.cx + r; x += step) { ctx.moveTo(x, S.view.cy - r); ctx.lineTo(x, S.view.cy + r); }
+    for (let y = y0; y < S.view.cy + r; y += step) { ctx.moveTo(S.view.cx - r, y); ctx.lineTo(S.view.cx + r, y); }
     ctx.stroke();
   }
 
@@ -889,23 +1215,37 @@ if (typeof document !== "undefined") (() => {
     ctx.globalAlpha = alpha;
   }
 
-  function healthBar(x, y, frac) {
-    const w = 16;
-    ctx.fillStyle = "rgba(0,0,0,.7)"; ctx.fillRect(x - w / 2 - 1, y + 6, w + 2, 4);
-    ctx.fillStyle = frac > 0.5 ? "#6fe06f" : frac > 0.25 ? "#ffc23d" : "#ff5040";
-    ctx.fillRect(x - w / 2, y + 7, w * Math.max(0, Math.min(1, frac)), 2);
+  function vitalBars(x, y, p) { // health, and the shield above it when there is one
+    const w = 16, clamp = (v) => Math.max(0, Math.min(1, v));
+    const bars = [];
+    if (p.sm > 0) bars.push([COLORS.shield, clamp(p.s / p.sm)]);
+    if (p.m > 0) bars.push([COLORS.health, clamp(p.h / p.m)]);
+    let top = y + 7;
+    ctx.fillStyle = "rgba(0,0,0,.7)"; ctx.fillRect(x - w / 2 - 1, top - 1, w + 2, bars.length * 3 + 1);
+    for (const [color, frac] of bars) {
+      ctx.fillStyle = color; ctx.fillRect(x - w / 2, top, w * frac, 2);
+      top += 3;
+    }
   }
 
   // Frames are requested, not looped: with smoothing on every frame asks for the next one
   // (movement is interpolated); off, only a change (data, view, input) asks for one.
+  // Frames: "smooth" = every animation frame; an fps cap = a timer at that interval (animation frames
+  // only come when the browser renders, which it may stop doing when nothing changes); "updates only"
+  // = one frame per change. Changes (data, input) never draw faster than the cap.
   function invalidate() {
     if (S.pending) return;
     S.pending = true;
-    requestAnimationFrame(() => {
+    const capped = typeof S.motion === "number" && S.motion > 0;
+    const wait = capped ? Math.max(0, 1000 / S.motion - (performance.now() - S.lastDraw)) : 0;
+    const frame = () => {
       S.pending = false;
+      S.lastDraw = performance.now();
       draw();
-      if (S.smooth) invalidate();
-    });
+      if (S.motion) invalidate(); // interpolating: keep going; "updates only": wait for a change
+    };
+    if (capped) setTimeout(frame, wait);
+    else requestAnimationFrame(frame);
   }
 
   function draw() {
@@ -916,18 +1256,21 @@ if (typeof document !== "undefined") (() => {
     const f = frame();
     if (!f) return;
     if (!S.fitted && (S.images.length || S.meId)) fit();
-    if (S.follow) centerOnMe();
+    if (S.follow) centerOnTarget();
+    const target = S.rotate ? targetPawn() : null; // the map turns so their heading points up
+    S.view.rot = target ? yawToAngle(f, pawnPos(target, now).r) : 0;
 
-    // map images, in movie px
-    ctx.setTransform(S.view.zoom * dpr, 0, 0, S.view.zoom * dpr,
-      (W / 2 - S.view.cx * S.view.zoom) * dpr, (H / 2 - S.view.cy * S.view.zoom) * dpr);
+    // map images (and the grid), in movie px
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    ctx.translate(W / 2, H / 2); ctx.rotate(-S.view.rot); ctx.scale(S.view.zoom, S.view.zoom);
+    ctx.translate(-S.view.cx, -S.view.cy);
     ctx.imageSmoothingEnabled = S.view.zoom < 4;
     for (const img of S.images) {
       const [x0, x1, y0, y1] = img.bounds;
       ctx.drawImage(img.canvas, x0, y0, x1 - x0, y1 - y0);
     }
-    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
     if (!S.images.length) drawGrid(f);
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
 
     const me = S.meId && S.pawns.get(S.meId);
     const mePos = me ? pawnPos(me, now) : null;
@@ -959,10 +1302,13 @@ if (typeof document !== "undefined") (() => {
       if (!S.layers[o.cat]) continue;
       const [sx, sy] = place(o.x, o.y);
       if (!visible(sx, sy)) continue;
-      ctx.globalAlpha = floorAlpha(o.z);
-      square(sx, sy, o.cat === "other" ? 2.5 : 3.5, layerColor[o.cat]);
+      ctx.globalAlpha = floorAlpha(o.z) * (o.cat === "looted" ? 0.55 : 1);
+      // Containers (looted ones too, just dimmed): chests biggest, others by how many items they spawn
+      const tier = chestTier(o);
+      const size = o.cat === "other" ? 2.5 : tier === 2 ? 7 : tier === 1 ? 5.5 : o.slots ? 2.5 + Math.min(o.slots, 4) * 0.6 : 3.5;
+      square(sx, sy, size, layerColor[o.cat]);
       if (S.labels && o.cat !== "other") label(sx, sy, nameText(o), layerColor[o.cat], o.raw);
-      hits.push({ sx, sy, kind: o.cat, item: o });
+      hits.push({ sx, sy, r: size, kind: o.cat, item: o });
     }
     // quest markers: point objectives, quest givers; areas are hit-tested at their centre too
     for (const mk of S.missions.markers) {
@@ -974,22 +1320,25 @@ if (typeof document !== "undefined") (() => {
       if (mk.k === "directive") bang(sx, sy, objColor);
       else if (!mk.rad) { diamond(sx, sy, 7, objColor); ctx.beginPath(); ctx.arc(sx, sy, 2, 0, Math.PI * 2); ctx.fillStyle = "#1a1200"; ctx.fill(); }
       if (S.labels && mk.objective) label(sx, sy, nameText(mk.objective), objColor, mk.objective.raw);
-      hits.push({ sx, sy, kind: mk.k, item: mk });
+      hits.push({ sx, sy, r: 7, kind: mk.k, item: mk });
     }
     ctx.globalAlpha = 1;
     // loot
     for (const p of S.pickups) {
       const tier = p.q || 0;
-      if (tier < S.minRarity && !(S.minRarity === 1 && p.c && tier === 0)) continue;
+      // The rarity filter is for gear; other pickups (cash, ammo...: fake rarity levels) only with the
+      // first two options
+      if (isGear(p.c) ? tier < S.minRarity && !(S.minRarity === 1 && tier === 0) : S.minRarity > 1) continue;
       counts.loot++;
       if (!S.layers.loot) continue;
       const [sx, sy] = place(p.x, p.y);
       if (!visible(sx, sy)) continue;
       const [, color] = rarity(tier);
       ctx.globalAlpha = floorAlpha(p.z);
-      triangle(sx, sy, tier >= 5 ? 6.5 : 5, color);
+      if (isGear(p.c)) triangle(sx, sy, tier >= 5 ? 6.5 : 5, color);
+      else dot(sx, sy, 3.5, layerColor.loot); // not gear (ammo, cash, ECHO logs...): no rarity colour
       if (S.labels) label(sx, sy, nameText(p), color, p.raw);
-      hits.push({ sx, sy, kind: "loot", item: p });
+      hits.push({ sx, sy, r: 6, kind: "loot", item: p });
     }
     // pawns, players on top
     const order = { npc: 0, enemy: 1, vehicle: 2, player: 3, me: 4 };
@@ -1002,17 +1351,20 @@ if (typeof document !== "undefined") (() => {
       const [sx, sy] = place(pos.x, pos.y);
       if (!visible(sx, sy) && p.k !== "me") continue;
       ctx.globalAlpha = p.k === "me" ? 1 : floorAlpha(pos.z);
-      const angle = yawToAngle(f, pos.r);
-      if (p.k === "me") arrow(sx, sy, angle, 9, "#ffcc33", "#1a1200");
-      else if (p.k === "player") { arrow(sx, sy, angle, 8, layerColor.player, "#00131a"); label(sx, sy, nameText(p), layerColor.player, p.raw); }
+      const angle = yawToAngle(f, pos.r) - S.view.rot;
+      if (p.k === "me" || p.k === "player") {
+        if (p.k === "me") arrow(sx, sy, angle, 9, "#ffcc33", "#1a1200");
+        else { arrow(sx, sy, angle, 8, layerColor.player, "#00131a"); label(sx, sy, nameText(p), layerColor.player, p.raw); }
+        if ((p.m > 0 && p.h < p.m) || (p.sm > 0 && p.s < p.sm)) vitalBars(sx, sy + 3, p);
+      }
       else if (p.k === "vehicle") square(sx, sy, 5, layerColor.vehicle);
       else {
         if (p.k === "enemy") diamond(sx, sy, 5, layerColor.enemy); // like the game's minimap
         else dot(sx, sy, 3.5, layerColor[p.k]);
-        if (p.m > 0 && p.h < p.m) healthBar(sx, sy, p.h / p.m);
+        if ((p.m > 0 && p.h < p.m) || (p.sm > 0 && p.s < p.sm)) vitalBars(sx, sy, p);
         if (S.labels) label(sx, sy, nameText(p), layerColor[p.k], p.raw);
       }
-      hits.push({ sx, sy, kind: p.k, item: p, pos });
+      hits.push({ sx, sy, r: 6, kind: p.k, item: p, pos });
     }
     ctx.globalAlpha = 1;
     S.hits = hits;
@@ -1032,35 +1384,37 @@ if (typeof document !== "undefined") (() => {
     let ux = mx, uy = my;
     if (f.north) { const a = -f.north * Math.PI / 180, c = Math.cos(a), s = Math.sin(a); [ux, uy] = [ux * c - uy * s, ux * s + uy * c]; }
     coords.textContent = `X ${num(Math.round(f.center[0] - uy * f.upp))}  Y ${num(Math.round(f.center[1] + ux * f.upp))}`;
-    let best = null, bestD = 12;
-    for (const h of S.hits) {
-      const d = Math.hypot(h.sx - S.mouse.x, h.sy - S.mouse.y);
-      if (d < bestD) { best = h; bestD = d; }
-    }
+    const best = hitAt(S.mouse.x, S.mouse.y, 12);
     if (!best) { tip.style.display = "none"; return; }
     const it = best.item, pos = best.pos || it;
     const lines = [];
     if (best.kind === "objective" || best.kind === "directive") {
-      lines.push(`<span>${esc(t("tip." + best.kind))}${it.rad ? " · " + esc(t("tip.area", { d: Math.round(it.rad / UU_PER_METER) })) : ""}</span>`);
-      lines.push(`<span>${nameHtml(it.mission)}${it.tracked ? " · " + esc(t("tip.tracked")) : ""}</span>`);
-      if (mePos) lines.push(`<span>${esc(t("tip.away", { d: Math.round(Math.hypot(it.x - mePos.x, it.y - mePos.y, it.z - mePos.z) / UU_PER_METER) }))}</span>`);
-      tip.innerHTML = `<b>${it.objective ? nameHtml(it.objective) : nameHtml(it.mission)}</b>` + lines.join("<br>");
+      lines.push(`<span class="tl">${esc(t("tip." + best.kind))}${it.rad ? " · " + esc(t("tip.area", { d: Math.round(it.rad / UU_PER_METER) })) : ""}</span>`);
+      lines.push(`<span class="tl">${nameHtml(it.mission)}${it.tracked ? " · " + esc(t("tip.tracked")) : ""}</span>`);
+      if (mePos) lines.push(`<span class="tl">${esc(t("tip.away", { d: Math.round(Math.hypot(it.x - mePos.x, it.y - mePos.y, it.z - mePos.z) / UU_PER_METER) }))}</span>`);
+      tip.innerHTML = `<b>${it.objective ? nameHtml(it.objective) : nameHtml(it.mission)}</b>` + lines.join("");
       placeTip(tip);
       return;
     }
-    const kindHtml = best.kind === "loot" ? esc(rarityName(it.q)) + (it.c ? " · " + classHtml(it.c) : "")
+    if (it.loot && it.loot.length) { // a container: the details (its pools) are in the click panel
+      lines.push(`<span class="tl">${esc(t("tip.contentsCount", { n: poolKinds(it.loot).length }))}</span>`);
+    }
+    // Loot: rarity only means something for gear - cash / ammo carry fake levels (e.g. 181) for colour
+    const gear = best.kind === "loot" && isGear(it.c);
+    const kindHtml = best.kind === "loot" ? (gear ? esc(rarityName(it.q)) + " · " : "") + classHtml(it.c || "Pickup")
       : best.kind === "other" ? classHtml(it.c) : esc(t("tip." + best.kind, null, best.kind));
-    lines.push(`<span>${kindHtml}</span>`);
-    if (it.l) lines.push(`<span>${esc(t("insp.level", { n: it.l }))}</span>`);
-    if (it.m > 0) lines.push(`<span>${esc(t("tip.health", { h: Math.round(it.h), m: Math.round(it.m) }))}</span>`);
+    lines.push(`<span class="tl">${kindHtml}</span>`);
+    if (it.l && (best.kind !== "loot" || gear)) lines.push(`<span class="tl">${esc(t("insp.level", { n: it.l }))}</span>`);
+    if (it.sm > 0) lines.push(`<span class="tl">${esc(t("tip.shield", { s: Math.round(it.s), m: Math.round(it.sm) }))}</span>`);
+    if (it.m > 0) lines.push(`<span class="tl">${esc(t("tip.health", { h: Math.round(it.h), m: Math.round(it.m) }))}</span>`);
     if (mePos && best.kind !== "me") {
       const dist = Math.hypot(pos.x - mePos.x, pos.y - mePos.y, pos.z - mePos.z) / UU_PER_METER;
       const dz = (pos.z - mePos.z) / UU_PER_METER;
       let text = t("tip.away", { d: Math.round(dist) });
       if (Math.abs(dz) >= 3) text += ", " + t(dz > 0 ? "tip.above" : "tip.below", { d: Math.round(Math.abs(dz)) });
-      lines.push(`<span>${esc(text)}</span>`);
+      lines.push(`<span class="tl">${esc(text)}</span>`);
     }
-    tip.innerHTML = `<b>${nameHtml(it)}</b>` + lines.join("<br>");
+    tip.innerHTML = `<b>${nameHtml(it)}</b>` + lines.join("");
     placeTip(tip);
   }
 
@@ -1072,15 +1426,17 @@ if (typeof document !== "undefined") (() => {
   }
 
   // A game class name, as a made-up name: "WillowInteractiveObject" -> "Interactive Object" + dim "?"
-  function classHtml(c) { return c ? nameHtml({ n: String(c).replace(/^Willow/, ""), raw: 1 }) : ""; }
+  function classHtml(c) { return c ? nameHtml({ n: c, raw: 1 }) : ""; } // prettyRaw drops "Willow"
 
-  function nameHtml(o) { // a made-up name: readable words, then a dim "?"
-    return o.raw ? `${esc(prettyRaw(o.n).slice(0, -2))}&nbsp;<span class="raw">?</span>` : esc(o.n || "?");
+  function nameHtml(o) { // one element, whatever the container; a made-up name: words, then a dim "?"
+    return o.raw ? `<span class="nm">${esc(prettyRaw(o.n).slice(0, -2))}&nbsp;<span class="raw">?</span></span>`
+      : `<span class="nm">${esc(o.n || "?")}</span>`;
   }
 
   function esc(s) { return String(s).replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c])); }
 
   applyI18n();
+  renderTargets();
   setStatus(...status);
   setMessage(...message);
   connect();

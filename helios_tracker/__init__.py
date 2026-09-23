@@ -143,7 +143,8 @@ def on_post_render(obj: UObject, args: WrappedStruct, ret: Any, func: BoundFunct
     now = time.monotonic()
     if now < _next[0]:
         return
-    _next[0] = now + 1.0 / max(1.0, rate.value)
+    _collector.rate = max(1.0, float(rate.value))
+    _next[0] = now + 1.0 / _collector.rate
     try:
         _collector.tick(now)
     except Exception as ex:  # noqa: BLE001

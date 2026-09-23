@@ -107,6 +107,24 @@ def exp_level(obj: Any) -> int:
     return 0
 
 
+def player_info(pawn: Any) -> Any:
+    """A player pawn's PlayerReplicationInfo - its vehicle's while it drives one (the vehicle takes
+    it over: seen in game, the driver pawn's is None meanwhile)."""
+    return try_(lambda: pawn.PlayerReplicationInfo) or try_(lambda: pawn.DrivenVehicle.PlayerReplicationInfo)
+
+
+def item_name(inv: Any) -> str:
+    """An inventory item's name, in the game's language: its full name (weapons, gear), else its
+    definition's ItemName - e.g. usable items (cash, ammo, health vials) have no full name."""
+    if inv is None:
+        return ""
+    return (
+        call_str(inv.GetShortHumanReadableName)
+        or try_(lambda: str(inv.GeneratedItemName), "")
+        or try_(lambda: str(inv.DefinitionData.ItemDefinition.ItemName), "")
+    )
+
+
 def addr(obj: Any) -> str:
     """Stable id of a live object (its address, hex) - also the page's marker ids."""
     return f"{obj._get_address():x}"

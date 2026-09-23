@@ -356,7 +356,8 @@ for (const [x, y, mx, my] of samples) {
   err = Math.max(err, Math.hypot(a - mx, b - my));
 }
 const right = P.yawToAngle(level, 16384);
-const raw = ["BullymongPile", "WillowAIPawn", "Fire_Barrel02"].map(P.prettyRaw).concat([P.nameText({ n: "Zer0" })]);
+const raw = ["BullymongPile", "WillowAIPawn", "Fire_Barrel02", "WillowInteractiveObject", "Willowtree"].map(P.prettyRaw)
+  .concat([P.nameText({ n: "Zer0" })]);
 console.log(JSON.stringify({ sha: crypto.createHash("sha256").update(rgba).digest("hex"), err, right, raw }));
 """
 
@@ -437,14 +438,18 @@ def check_helios_tracker() -> None:  # noqa: PLR0915
         return ns(
             _get_address=lambda: addr, Name=name, Class=ns(Name="WillowAIPawn"), bDeleteMe=False, bIsDead=False,
             Location=ns(X=x, Y=y, Z=3690.0), Rotation=ns(Yaw=16384), GetMaxHealth=lambda: 100.0,
-            GetHealth=lambda: 40.0, IsEnemy=lambda other: enemy, GetExpLevel=lambda: 12, GetTargetName=lambda *out: (..., name.title()) if out else ...,  # out param only
+            GetHealth=lambda: 40.0, IsEnemy=lambda other: enemy, GetExpLevel=lambda: 12,
+            GetShieldStrength=lambda: 25.0, GetMaxShieldStrength=lambda: 50.0 if enemy else 0.0, GetTargetName=lambda *out: (..., name.title()) if out else ...,  # out param only
             NextPawn=nxt, PlayerReplicationInfo=None,
         )
 
     enemy = pawn(0x200, "bullymong", 10000.0, 3000.0, enemy=True)
     me = pawn(0x100, "me", 10635.4, 5702.0, nxt=enemy)
     me.Class = ns(Name="WillowPlayerPawn", SuperField=None)
-    me.PlayerReplicationInfo = ns(PlayerName="Zer0", ExpLevel=30)
+    # Driving: the vehicle has taken the PlayerReplicationInfo (as seen in game)
+    me.PlayerReplicationInfo = None
+    me.DrivenVehicle = ns(PlayerReplicationInfo=ns(PlayerName="Zer0", ExpLevel=30))
+    me.HealthVar, me.HealthMaxVar, me.ShieldVar, me.ShieldMaxVar = 141.0, 141.0, 60, 120
     def struct(**values: object) -> object:  # a WrappedStruct stand-in: _type._fields() + _get_field
         kinds = {int: "IntProperty"}
         fields = [ns(Name=k, Class=ns(Name=kinds.get(type(v), "ObjectProperty"))) for k, v in values.items()]
@@ -470,15 +475,21 @@ def check_helios_tracker() -> None:  # noqa: PLR0915
         DefinitionData=None,
     )
     me.InvManager = ns(InventoryChain=weapon, ItemChain=None, Backpack=[shield])
-    branch = ns(_get_address=lambda: 0x400, Name="Branch_Sniping", BranchName="Sniping")
-    skill = ns(_get_address=lambda: 0x401, Name="Headsh0t", SkillName="Headsh0t", MaxGrade=5,
-               SkillDescription="[skill]Critical Hit[-skill] damage")
+    skill_def = ns(_get_address=lambda: 0x401, Name="Headsh0t", SkillName="Headsh0t", MaxGrade=5,
+                   SkillDescription="[skill]Critical Hit[-skill] damage")
+    branch = ns(  # the static layout: tier 1 = [skill, empty, empty]
+        _get_address=lambda: 0x400, Name="Branch_Sniping", BranchName="Sniping",
+        Tiers=[ns(Skills=[skill_def], PointsToUnlockNextTier=5)],
+        Layout=ns(Tiers=[ns(bCellIsOccupied=[True, False, False])]),
+    )
+    skill = skill_def
     me.Controller = ns(
         _get_address=lambda: 0x110,
         PlayerClass=ns(Name="CharClass_Assassin"),
-        PlayerSkillTree=ns(
-            Branches=[ns(BranchDefinition=branch, PointsSpentInBranch=4)],
-            Skills=[ns(SkillDefinition=skill, SkillGrade=4, TierNumber=1, ParentBranchDefinition=branch)],
+        PlayerSkillTree=ns(  # as the game has it: PlayerSkillTree{Branch,Tier,Skill}Data, linked by index
+            Branches=[ns(Definition=branch, TierIndices=[0], ParentBranchIndex=3)],  # a child of the root
+            Tiers=[ns(TierNumber=1, ParentBranchIndex=0, SkillIndices=[0], bUnlocked=True)],
+            Skills=[ns(Definition=skill, Grade=4, ParentTierIndex=0)],
             GetSkillPointsSpentInTree=lambda: 4,
         ),
     )
@@ -533,6 +544,9 @@ def check_helios_tracker() -> None:  # noqa: PLR0915
     kinds = {p["n"]: p["k"] for p in state["pawns"]}
     assert not any(p.get("raw") for p in state["pawns"]), state["pawns"]  # both have game names
     assert all(p.get("l") == 12 for p in state["pawns"]), state["pawns"]
+    assert state["hz"] == 10.0, state.get("hz")
+    shields = {p["n"]: (p.get("s"), p.get("sm")) for p in state["pawns"]}
+    assert shields == {"Zer0": (60.0, 120.0), "Bullymong": (25.0, 50.0)}, shields  # properties / functions
     assert kinds == {"Zer0": "me", "Bullymong": "enemy"}, kinds
     print(f"  collector: level {level['name']!r} {level['status']}, pawns {kinds}")
     (player,) = json.loads(hub._channels["players"][1])["players"]
@@ -548,13 +562,31 @@ def check_helios_tracker() -> None:  # noqa: PLR0915
     tank = ns(**{**vars(barrel), "Name": "WillowInteractiveObject_9", "_get_address": lambda: 0x501,
                  "BalanceDefinitionState": ns(BalanceDefinition=ns(DefaultDisplayName="Explosive Gas Tank"))})
     c.object_spawned(tank)  # an area activated: the hook, no scan
+    chest = ns(**{**vars(barrel), "Name": "WillowInteractiveObject_10", "_get_address": lambda: 0x502,
+                  "Loot": [ns(ItemAttachments=[ns(ItemPool=ns(Name="Pool_Money_1"))])],
+                  "SimpleAnimState": 4, "bCanBeUsed": (1, 0),
+                  "BalanceDefinitionState": ns(BalanceDefinition=ns(
+                      _get_address=lambda: 0x503, DefaultDisplayName="Treasure Chest", DefaultLoot=[],
+                      DefaultIncludedLootLists=[ns(Name="EpicChestRedLoot", LootData=[
+                          ns(ItemAttachments=[ns(ItemPool=ns(Name="Pool_GunsAndGear"))] * 4)])]))})
+    c.object_spawned(chest)
     c.tick(1001.3)
     names = [o["n"] for o in json.loads(hub._channels["objects"][1])["objects"]]
-    assert names == ["Incendiary Barrel", "Explosive Gas Tank"], names
+    assert names == ["Incendiary Barrel", "Explosive Gas Tank", "Treasure Chest"], names
+    chest.SimpleAnimState, chest.bCanBeUsed = 7, (0, 0)  # opened
+    c._next_looted = 0.0
+    c.tick(1001.35)
+    looted = {o["n"]: (o.get("lootable"), o.get("looted")) for o in json.loads(hub._channels["objects"][1])["objects"]}
+    assert looted["Treasure Chest"] == (1, 1) and looted["Incendiary Barrel"] == (None, None), looted
+    contents = {o["n"]: o.get("loot") for o in json.loads(hub._channels["objects"][1])["objects"]}
+    objs = {o["n"]: o for o in json.loads(hub._channels["objects"][1])["objects"]}
+    chest_rec = objs["Treasure Chest"]
+    assert (chest_rec["loot"], chest_rec["slots"], chest_rec["lists"]) == (["Pool_GunsAndGear"], 4, ["EpicChestRedLoot"]), chest_rec
+    assert "loot" not in objs["Incendiary Barrel"], objs["Incendiary Barrel"]
     c.object_destroyed(barrel)  # it exploded
     c.tick(1001.4)
     names = [o["n"] for o in json.loads(hub._channels["objects"][1])["objects"]]
-    assert names == ["Explosive Gas Tank"], names
+    assert names == ["Explosive Gas Tank", "Treasure Chest"], names
     missions = json.loads(hub._channels["missions"][1])
     assert missions["tracked"] == {"n": "Ménage à Liar's Berg"}, missions
     obj_mk, giver = missions["markers"]  # the inactive objective is left out
@@ -563,6 +595,9 @@ def check_helios_tracker() -> None:  # noqa: PLR0915
     assert (giver["k"], giver["rad"], "objective" in giver) == ("directive", 0, False), giver
     assert [b["k"] for b in player["backpack"]] == ["shield"], player["backpack"]
     assert player["skills"][0]["n"] == "Sniping" and player["skills"][0]["skills"][0]["g"] == 4, player["skills"]
+    assert player["skills"][0]["pts"] == 4 and not player["skills"][0].get("root"), player["skills"]
+    (tier,) = player["skills"][0]["tiers"]
+    assert tier["need"] == 5 and tier["cells"][0]["g"] == 4 and tier["cells"][1:] == [None, None], tier
     print(f"  inspector: {player['n']} Lv{player['lvl']} {player['cls']}, {len(player['equipped'])} equipped,"
           f" {len(player['backpack'])} in backpack, skills {[b['n'] for b in player['skills']]};"
           f" gun '{gun['type']}' by '{gun['maker']}'; object '{obj['n']}'")
@@ -648,7 +683,8 @@ def check_helios_tracker() -> None:  # noqa: PLR0915
     assert js["err"] < 0.1, js
     assert abs(js["right"] - 3.141592653589793 / 2) < 1e-9, js
     nbsp = "\u00a0"
-    assert js["raw"] == [f"Bullymong Pile{nbsp}?", f"Willow AI Pawn{nbsp}?", f"Fire Barrel02{nbsp}?", "Zer0"], js["raw"]
+    assert js["raw"] == [f"Bullymong Pile{nbsp}?", f"AI Pawn{nbsp}?", f"Fire Barrel02{nbsp}?",
+                         f"Interactive Object{nbsp}?", f"Willowtree{nbsp}?", "Zer0"], js["raw"]
     print(f"  page JS: DXT5 decode matches, world->map within {js['err']:.3f} px of the probe samples")
 
 

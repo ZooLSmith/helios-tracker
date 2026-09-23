@@ -54,6 +54,13 @@ by it - unverified), or several map images (`_I2`...; handled, unverified).
 - `LevelDependencyList.GetFriendlyLevelNameFromMapName` (localized level names - not used yet).
 - `StatusMenuMapGFxObject.PlaceCustomObjective` (map screen waypoint - possible page -> game feature).
 
+## World scale (probe_scale.py, in game)
+
+Player pawn (Salvador, the Gunzerker: 1.62 m tall per the wiki): collision cylinder half height 80
+(160 uu tall), radius 42, BaseEyeHeight 56 (eyes 136 uu above the feet), mesh bounds 152 uu tall, run
+speed 440 uu/s, JumpZ 630. 152-160 uu for 1.62 m: **~100 uu per metre, 1 uu = 1 cm** (not UE3's
+usual 50 / 2 cm, which made heights look doubled). The page and the inspector use 100.
+
 ## Display names (localized properties)
 
 Localized properties hold the game's text in its current language at runtime (on disk:
@@ -86,7 +93,8 @@ tidies the name ("Normal", "Tediore").
   neutral style and aren't filtered by rarity. Classify by the pickup's inventory class (as the
   inspector's `ITEM_KINDS` does: `WillowWeapon` / `WillowShield` / `WillowGrenadeMod` /
   `WillowClassMod` / `WillowArtifact` vs `WillowUsableItem` / `WillowMissionItem`), and check the
-  real `RarityLevel` values of each tier in game (the page's names / colours are a guess).
+  real `RarityLevel` values of each tier in game (the page's tier names were confirmed correct by the
+  user for inventory items, 2026-09-23; the colours are still ours).
   **Use the game's own rarity colours** (user): `GlobalsDefinition.RarityLevelColors` (array of
   `RarityLevelColor`: `RarityRating` + colour, probably a RarityLevel range) - send them with the
   level payload, colour loot / items from it, drop the page's guessed palette. Also
