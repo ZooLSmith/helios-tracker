@@ -31,7 +31,9 @@ export function tooltip(mePos, f) {
   // Loot: rarity only means something for gear - cash / ammo carry fake levels (e.g. 181) for colour
   const gear = best.kind === "loot" && isGear(it.c);
   const kindHtml = best.kind === "loot" ? (gear ? esc(rarityName(it.q)) + " · " : "") + classHtml(it.c || "Pickup")
-    : best.kind === "other" ? classHtml(it.c) : esc(t("tip." + best.kind, null, best.kind));
+    : best.kind === "other" ? classHtml(it.c)
+    : (best.kind === "me" || best.kind === "player") && S.players.some((p) => p.i === it.i && p.host) ? esc(t("tip.host"))
+    : esc(t("tip." + best.kind, null, best.kind));
   lines.push(`<span class="tl">${kindHtml}</span>`);
   if (it.rs) lines.push(`<span class="tl">${esc(t("tip.respawning"))}</span>`);
   else if (it.dd) lines.push(`<span class="tl">${esc(t("vital.dead"))}</span>`);

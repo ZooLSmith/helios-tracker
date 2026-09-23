@@ -14,6 +14,11 @@ Verified in game (tools/probe_passives.txt, tools/probe_cooldown*.py via skill_t
   bar's), GetSkillCooldownTime() its full length; MeleeSkillCooldownPool / GetMeleeSkillCooldownTime()
   the same for the melee skill. pc.SavedSkillTreeSkill: the action skill's definition (seen: Gunzerking).
 
+Hidden helper skills: some timed effects run as a helper that no skill tree lists, with dev text
+for a name (Krieg's Blood Overdrive runs "BloodOverdriveChild": "Blood Overdrive Child - If you are
+reading this please bug it!"). The helper uses its skill's icon (SkillIcon: unique per tree skill,
+shared with its helpers - tools/probe_child_skill.txt): shown under that tree skill's name.
+
 The manager is read once per pass (every SKILLS_EVERY s) for everyone; definitions are cached forever
 (static game data); the full cooldown lengths are function calls, refreshed every MAX_EVERY s.
 """
@@ -29,6 +34,36 @@ MAX_EVERY = 5.0  # s between reads of a player's full cooldown lengths (function
 
 # SkillDefinition address -> (localized name, SkillType name, DurationType name)
 _defs: dict[int, tuple[str, str, str]] = {}
+# Controller address -> (its tree's skill definition addresses, SkillIcon path -> tree skill name):
+# a skill tree's definitions never change (static per class)
+_trees: dict[int, tuple[set[int], dict[str, str]]] = {}
+
+
+def _tree_names(pc: Any) -> tuple[set[int], dict[str, str]]:
+    """The player's tree skills: their definitions, and their names by icon (read once per controller)."""
+    key = pc._get_address()
+    if (cached := _trees.get(key)) is None:
+        defs: set[int] = set()
+        by_icon: dict[str, str] = {}
+        for s in try_(lambda: list(pc.PlayerSkillTree.Skills), []) or []:
+            d = try_(lambda s=s: s.Definition)
+            if d is None:
+                continue
+            defs.add(d._get_address())
+            icon = try_(lambda d=d: d.SkillIcon._path_name())
+            if icon and (name := try_(lambda d=d: str(d.SkillName), "")):
+                by_icon.setdefault(icon, name)
+        cached = _trees[key] = (defs, by_icon)
+    return cached
+
+
+def _shown_name(skill_def: Any, name: str, pc: Any) -> str:
+    """A tree skill's own name; a hidden helper's (not in the player's tree): the tree skill with its icon."""
+    defs, by_icon = _tree_names(pc)
+    if not defs or skill_def._get_address() in defs:
+        return name
+    icon = try_(lambda: skill_def.SkillIcon._path_name())
+    return by_icon.get(icon, name) if icon else name
 
 
 def _enum_name(value: Any) -> str:
@@ -88,7 +123,7 @@ class SkillReader:
             if kind == "SKILL_TYPE_Action":
                 entry["act"] = (name, left, duration)
             else:
-                entry["timed"].append((name, left, duration))
+                entry["timed"].append((try_(lambda d=skill_def, n=name, c=instigator: _shown_name(d, n, c), name), left, duration))
         self._by_pc = by_pc
 
     def player(self, pawn: Any, now: float) -> dict[str, Any]:
@@ -96,7 +131,8 @@ class SkillReader:
         left, seconds left, name] running, ["c", fraction left, seconds left, name] cooling down),
         "ps" (timed passive effects: [[name, seconds left, duration]]), "mk" (melee skill cooling down:
         [fraction left, seconds left]). Empty without their controller (a co-op client only has its own)."""
-        pc = try_(lambda: field(pawn, "Controller"))
+        # (driving, the controller possesses the vehicle: the player pawn's own is None meanwhile)
+        pc = try_(lambda: field(pawn, "Controller")) or try_(lambda: field(pawn, "DrivenVehicle").Controller)
         if pc is None or try_(lambda: field(pc, "SkillCooldownPool")) is None:
             return self._remote(pawn)
         key = pc._get_address()

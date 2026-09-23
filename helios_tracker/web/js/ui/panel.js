@@ -23,12 +23,16 @@ export function renderMotion() {
   box.value = String(settings.view.motion);
 }
 
-export function renderTargets() { // "Who": you (whoever runs the mod: host or not), then the others (by name: ids change per level)
+export function renderTargets() { // "Who": the mod's player ("me"), then the others (by name: ids change per level)
+  // By name, the host marked: anyone may be looking at the page ("you" would mean nothing)
   const box = $("target"), target = settings.view.target;
-  const names = S.players.filter((p) => !p.local).map((p) => p.n), self = S.players.find((p) => p.local);
-  if (target !== "me" && !names.includes(target)) names.push(target); // saved, not here now
-  box.innerHTML = `<option value="me">${esc(self ? t("who.youNamed", { name: self.n }) : t("who.you"))}</option>` +
-    names.map((n) => `<option value="${esc(n)}">${esc(n)}</option>`).join("");
+  const label = (p) => (p.host ? t("who.host", { name: p.n }) : p.n);
+  const others = S.players.filter((p) => !p.local), self = S.players.find((p) => p.local);
+  const names = others.map((p) => p.n);
+  const saved = target !== "me" && !names.includes(target) ? [target] : []; // saved, not here now
+  box.innerHTML = `<option value="me">${esc(self ? label(self) : t("who.player"))}</option>` +
+    others.map((p) => `<option value="${esc(p.n)}">${esc(label(p))}</option>`).join("") +
+    saved.map((n) => `<option value="${esc(n)}">${esc(n)}</option>`).join("");
   box.value = target;
 }
 

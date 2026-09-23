@@ -229,8 +229,26 @@ item's `DefinitionData.ItemDefinition` (a `UsableItemDefinition`):
   `NextActionSkillActiveAbilityTime` (= `...CooldownAbilityTime`) is the world time of their last
   action skill use (tools/probe_coop_skill.py: jumps to the current time on use, nothing when ready
   again): the Info tab shows "last used N s ago".
-- **Player inspection, co-op host**: to check (tools/probe_inventory.py, hosting with a friend in):
-  the host should have every player's controller and inventory manager. Candidates: `InvManager.Backpack` / `InventoryChain` /
+- **Player inspection, co-op host: DONE** (seen in game, 2026-09-23). The host has every player's
+  controller and inventory manager: skill tree, XP (ExpPool), equipped gear, cooldowns, passives.
+  Not their backpack: `Backpack` empty and no item objects of theirs besides the equipped ones
+  (tools/probe_backpack.py); their `BackpackInventoryCount` isn't their count (24 one session, 0 then
+  negative after a drop in another) - nothing of it is shown. Who hosts: NetMode 3 = client, then the
+  party leader (`PlayerReplicationInfo.bIsPartyLeader`); the page names players, the host marked.
+- **Skill tree extras** (tools/probe_skill_layout.py, probe_child_skill.py): a branch tier's `Skills[]`
+  can list hidden helpers after the real ones (Krieg: `_Bloodlust`, `FireStatusDetector`...), more
+  than the layout's occupied cells - left out of the grid. Timed effects can run as helpers in no
+  tree, with dev text for a name ("BloodOverdriveChild - If you are reading this please bug it!");
+  a helper shares its skill's `SkillIcon` (unique per tree skill): shown under that skill's name.
+- **Driving** (a player in a vehicle): the controller possesses the vehicle (`pawn.Controller` None:
+  through `DrivenVehicle.Controller`), and the pawn's health properties went wrong (max = health):
+  the functions then, both logged once ("vitals check (player driving)") - to confirm in the log.
+- **Rarity: the game's** (tools/probe_rarity*.py): `GlobalsDefinition.RarityLevelColors` reads empty,
+  but `GetRarityColorForLevel(level)` / `GetRarityLevelColorsIndexforLevel(level)` work: levels sharing
+  a colour entry are one tier (5 and 7-10 legendary; 6 E-tech; 500 pearl, 501 Seraph, 506 "Rainbow"
+  = effervescent; `GetRarityForLevel` gives EItemRarity but files E-tech under VeryRare). Sent with
+  the level payload (`rarity`); the page names tiers by colour entry, colours are the game's.
+- (history) Player inspection candidates, before the probes: `InvManager.Backpack` / `InventoryChain` /
   `ItemChain`, `pawn.EquippedItems` / `HolsteredWeaponSlots`, item `DefinitionData`, `RarityLevel`,
   `ExpLevel`, card stat modifiers; `pc.PlayerSkillTree.Skills` / `Branches`; replicated to everyone:
   `PlayerReplicationInfo.StandInGear`, `TrackedSkills`, `ClassModNamePart`.

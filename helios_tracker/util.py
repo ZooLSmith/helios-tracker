@@ -166,6 +166,33 @@ def pickup_kind(inv: Any) -> str:
     return kind
 
 
+# The game's rarity per RarityLevel (tools/probe_rarity3.txt): GlobalsDefinition.GetRarityColorForLevel
+# (the colour it draws) and GetRarityLevelColorsIndexforLevel (its colour entry: levels sharing one
+# are one tier - e.g. 5 and 7-10 are all legendary). The table itself (RarityLevelColors) reads empty.
+RARITY_LEVELS = (*range(0, 16), *range(500, 521))
+_rarity: dict[str, list[Any]] = {}
+
+
+def rarity_table() -> dict[str, list[Any]]:
+    """{"level": [colour entry index, "#rrggbb"]} for the rarity levels the game colours (read once:
+    static game data; again later while the globals aren't loaded)."""
+    if _rarity:
+        return _rarity
+    import unrealsdk  # noqa: PLC0415 - game only
+
+    globals_def = try_(lambda: unrealsdk.find_object("GlobalsDefinition", "GD_Globals.General.Globals"))
+    if globals_def is None:
+        return {}
+    for level in RARITY_LEVELS:
+        index = try_(lambda lv=level: int(globals_def.GetRarityLevelColorsIndexforLevel(lv)), -1)
+        color = try_(lambda lv=level: globals_def.GetRarityColorForLevel(lv))
+        rgb = try_(lambda: (int(color.R), int(color.G), int(color.B)))
+        if index < 0 or rgb is None or rgb == (0, 0, 0):  # not a colour entry (-1) / an empty one
+            continue
+        _rarity[str(level)] = [index, "#{:02x}{:02x}{:02x}".format(*rgb)]
+    return _rarity
+
+
 def player_info(pawn: Any) -> Any:
     """A player pawn's PlayerReplicationInfo - its vehicle's while it drives one (the vehicle takes
     it over: seen in game, the driver pawn's is None meanwhile)."""

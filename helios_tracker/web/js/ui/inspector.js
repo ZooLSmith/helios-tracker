@@ -1,7 +1,7 @@
 // The right drawer: a player's Gear / Backpack / Skills (or a clicked object: detail.js, the
 // mission log: missionlog.js).
 import { $, esc } from "../dom.js";
-import { t } from "../i18n.js";
+import { num, t } from "../i18n.js";
 import { nameText } from "../model.js";
 import { saveSettings, settings } from "../settings.js";
 import { S, findPlayer } from "../state.js";
@@ -48,7 +48,7 @@ export function renderInspector(resetScroll) {
     body.innerHTML = `<div class="note">${esc(t("insp.gone"))}</div>`;
     return;
   }
-  $("iwho").textContent = p.local ? t("insp.host", { name: nameText(p) }) : nameText(p);
+  $("iwho").textContent = p.host ? t("who.host", { name: nameText(p) }) : nameText(p);
   $("isub").textContent = playerSub(p);
   let html = "";
   const tab = settings.ui.inspectorTab;
@@ -61,7 +61,12 @@ export function renderInspector(resetScroll) {
     html += (p.equipped || []).length ? itemsByKind(p.equipped) : `<div class="muted">${esc(t("insp.nothing"))}</div>`;
   } else if (tab === "backpack") {
     if (p.inventory !== "full") html = `<div class="note">${esc(t("why.inventory." + (p.inventoryWhy || "unavailable")))}</div>`;
-    else html = `<div class="muted">${esc(t("insp.items", { n: p.backpack.length }))}</div>` +
+    else if (p.backpackWhy) {
+      html = (p.slots ? `<div class="muted">${esc(t("insp.slots", { n: num(p.slots[0]), max: num(p.slots[1]) }))}</div>` : "") +
+        `<div class="note">${esc(t("why.backpack." + p.backpackWhy))}</div>`;
+    }
+    else html = `<div class="muted">${esc(p.slots ? t("insp.slots", { n: num(p.slots[0]), max: num(p.slots[1]) })
+      : t("insp.items", { n: p.backpack.length }))}</div>` +
       (p.backpack.length ? itemsByKind(p.backpack) : "");
   } else {
     html = skillsHtml(p);

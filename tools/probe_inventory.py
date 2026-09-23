@@ -3,6 +3,7 @@
 # Run it solo first, then in co-op (ideally once as host and once as client).
 # Writes E:\Projects\python\borderlands-2\tools\probe_inventory.txt (appends)
 #   py exec(open(r"E:\Projects\python\borderlands-2\tools\probe_inventory.py").read())
+from enum import Enum
 from pathlib import Path
 
 import unrealsdk
@@ -32,6 +33,12 @@ def _brief(value, depth: int = 0) -> str:  # noqa: ANN001
     """Compact struct / object / array rendering (objects by name, structs field by field)."""
     if value is None:
         return "None"
+    if isinstance(value, Enum):  # first: flag enums iterate over themselves (endless recursion)
+        return str(value.name)
+    if isinstance(value, (str, int, bool)):
+        return str(value)
+    if depth > 4:
+        return "..."
     if hasattr(value, "_type"):  # WrappedStruct
         if depth > 2:
             return "{...}"
@@ -167,6 +174,9 @@ for pc in unrealsdk.find_all("WillowPlayerController", exact=False):
         continue
     pri = _try(lambda p=pc: p.PlayerReplicationInfo, None)
     lines.append(f"  PC {pc._path_name()} player={_try(lambda: pri.PlayerName, None)!r} local={pc == me}")
+    lines.append(f"    level={_try(lambda: pri.ExpLevel)} ExpPool={_try(lambda p=pc: p.ExpPool.Data.CurrentValue)}"
+                 f" NextLevelAt={_try(lambda: pri.ExpPointsNextLevelAt)}"
+                 f" RequiredFor(level)={_try(lambda p=pc: p.GetExpPointsRequiredForLevel(pri.ExpLevel))}")
     _skills(pc, "    ")
 
 lines.append("== Player pawns")

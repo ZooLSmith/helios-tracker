@@ -379,7 +379,7 @@ const raw = ["BullymongPile", "WillowAIPawn", "Fire_Barrel02", "WillowInteractiv
   .concat([nameText({ n: "Zer0" })]);
 // Settings: the old one-key-per-setting storage carries over; saved values are validated
 const { merge, fromLegacy } = await load("js/settings.js");
-const { LAYERS, LAYER_GROUPS, LAYER_SETTINGS, layerNameKey, lootLayer } = await load("js/model.js");
+const { LAYERS, LAYER_GROUPS, LAYER_SETTINGS, layerNameKey, lootLayer, rarity, setRarityTable } = await load("js/model.js");
 const legacy = { "layer.enemy": false, "layer.loot": false, labels: true, height: false, zoom: 2.5, smooth: false, lang: "fr", tab: "skills" };
 const migrated = merge(fromLegacy((k, d) => (k in legacy ? legacy[k] : d)));
 const checked = merge({ layers: { enemy: { on: "yes", size: 999, floors: "nope", bogus: 1 }, nosuch: {} },
@@ -395,6 +395,10 @@ for (const [k, s] of Object.entries(LAYER_SETTINGS)) {
 const lootLayers = [[1, "WillowWeapon"], [5, "WillowShield"], [500, "WillowArtifact"], [520, "WillowWeapon"], [0, "WillowClassMod"],
   [77, "WillowGrenadeMod"], [5, "WillowUsableItem"], [181, "", "cash"], [0, "WillowUsableItem", "ammo"], [171, "WillowUsableItem", "health"],
   [0, "WillowUsableItem", "bogus"], [2, "WillowUsableCustomizationItem"], [0, "WillowUsableItem", "eridium"]].map(([q, c, pk]) => lootLayer({ q, c, pk }));
+// The game's rarity table (tools/probe_rarity3.txt): 7-10 share legendary's colour entry; 503 has no name
+setRarityTable({ "5": [5, "#ffb400"], "9": [7, "#ffb400"], "501": [13, "#ff9ab8"], "503": [15, "#9132c8"] });
+const gameRarity = [5, 9, 501, 503].map((q) => rarity(q)).concat([lootLayer({ q: 9, c: "WillowWeapon" })]);
+setRarityTable(null);
 const unknownSettings = LAYERS.flatMap((l) => l.settings.filter((k) => !LAYER_SETTINGS[k]).map((k) => l.id + "." + k));
 // Missions: state (available = every mission it needs done), the tree, objective states
 const { missionTree, objectiveStates, missionCounts, missionAreas } = await load("js/missions.js");
@@ -463,7 +467,7 @@ const difficulty = [[9, 4], [6, 4], [4, 4], [2, 4], [1, 5], [3, 0]].map(([ml, le
 const missionsOut = { tooHigh, finish, difficulty, best, search, infoHtml, areas, gameText, story: flat(tree.story), other: flat(tree.other), counts: missionCounts(log),
   objectives: objectiveStates(log[1]).map((s) => s.state) };
 console.log(JSON.stringify({ sha: crypto.createHash("sha256").update(rgba).digest("hex"), err, back, right, raw, modules, missions: missionsOut,
-  migrated, checked: { enemy: checked.layers.enemy, view: checked.view, openLayers: checked.ui.openLayers }, i18nKeys, unknownSettings, lootLayers }));
+  migrated, checked: { enemy: checked.layers.enemy, view: checked.view, openLayers: checked.ui.openLayers }, i18nKeys, unknownSettings, lootLayers, gameRarity }));
 """
 
 
@@ -654,6 +658,20 @@ def check_helios_tracker() -> None:  # noqa: PLR0915
     reader.update(player_pc, 1640.0, 11.0)
     assert reader.player(ns(Controller=player_pc), 11.0) == {"ak": ["r", "Gunzerking"], "mk": [0.5, 7.5]}
     assert reader.player(ns(Controller=None), 11.0) == {}, "no controller (co-op client)"
+    driving = reader.player(ns(Controller=None, DrivenVehicle=ns(Controller=player_pc)), 11.0)
+    assert driving == {"ak": ["r", "Gunzerking"], "mk": [0.5, 7.5]}, ("driving: the vehicle's controller", driving)
+    # a hidden helper (Krieg's BloodOverdriveChild, dev text for a name, in no tree): shown as the tree
+    # skill with its icon (tools/probe_child_skill.txt)
+    icon = ns(_path_name=lambda: "UI_Lilac_SharedSkillIcons_Psyc.SkillIcon-Psycho04")
+    overdrive = skill_def(0x904, "Surcharge sanglante", skill_type.SKILL_TYPE_Passive, timed=False)
+    overdrive.SkillIcon = icon
+    child = skill_def(0x905, "Blood Overdrive Child - If you are reading this please bug it!", skill_type.SKILL_TYPE_Passive)
+    child.SkillIcon = icon
+    krieg_pc = ns(_get_address=lambda: 0x951, PlayerSkillTree=ns(Skills=[ns(Definition=overdrive)]))
+    manager.ActiveSkills = [ns(Definition=child, SkillState=skill_state.SKILL_Active, StartTime=1640.0, Duration=8.0,
+                               SkillInstigator=krieg_pc)]
+    reader.update(player_pc, 1642.0, 12.0)
+    assert reader._by_pc[0x951]["timed"] == [("Surcharge sanglante", 6.0, 8.0)], reader._by_pc
     assert respawn_state(ns(bHidden=True, bAwaitingInjuredRespawn=True, AwaitingRespawnResurrectLocation=spot)) == (True, spot)
     assert respawn_state(ns(bHidden=False, bAwaitingInjuredRespawn=True, AwaitingRespawnResurrectLocation=spot)) == (False, None)
     assert respawn_state(ns(bHidden=True, AwaitingRespawnResurrectLocation=spot)) == (False, None), "hidden alone"
@@ -686,7 +704,10 @@ def check_helios_tracker() -> None:  # noqa: PLR0915
     me.DrivenVehicle = ns(PlayerReplicationInfo=ns(PlayerName="Zer0", ExpLevel=30, ExpPointsNextLevelAt=78861, CharacterNameIdDef=ns(
         Name="Assassin", LocalizedCharacterName="Zer0",
         CharacterClassId=ns(Name="Assassin", LocalizedClassNameNonCaps="Assassin"))))
-    me.HealthVar, me.HealthMaxVar, me.ShieldVar, me.ShieldMaxVar = 141.0, 141.0, 60, 120
+    me.HealthVar, me.HealthMaxVar, me.ShieldVar, me.ShieldMaxVar = 141.0, 999.0, 60, 999  # (wrong while driving)
+    # Driving: the functions, not the properties (seen: max health = health in a vehicle)
+    me.GetHealth, me.GetMaxHealth = (lambda: 141.0), (lambda: 141.0)
+    me.GetShieldStrength, me.GetMaxShieldStrength = (lambda: 60.0), (lambda: 120.0)
     def struct(**values: object) -> object:  # a WrappedStruct stand-in: _type._fields() + _get_field
         kinds = {int: "IntProperty"}
         fields = [ns(Name=k, Class=ns(Name=kinds.get(type(v), "ObjectProperty"))) for k, v in values.items()]
@@ -716,7 +737,8 @@ def check_helios_tracker() -> None:  # noqa: PLR0915
                    SkillDescription="[skill]Critical Hit[-skill] damage")
     branch = ns(  # the static layout: tier 1 = [skill, empty, empty]
         _get_address=lambda: 0x400, Name="Branch_Sniping", BranchName="Sniping",
-        Tiers=[ns(Skills=[skill_def], PointsToUnlockNextTier=5)],
+        # (a hidden helper after the real skill, as Krieg's trees have: not in the grid)
+        Tiers=[ns(Skills=[skill_def, ns(_get_address=lambda: 0x402, Name="_Helper")], PointsToUnlockNextTier=5)],
         Layout=ns(Tiers=[ns(bCellIsOccupied=[True, False, False])]),
     )
     skill = skill_def
@@ -913,6 +935,7 @@ def check_helios_tracker() -> None:  # noqa: PLR0915
     tracked = next(m for m in merged_log()["missions"] if m["i"] == tracked["i"])
     assert tracked["p"] == [1, 4, 0], tracked
     assert [b["k"] for b in player["backpack"]] == ["shield"], player["backpack"]
+    assert player["host"] is True, "solo / listen server: the mod's player hosts"
     assert player["skills"][0]["n"] == "Sniping" and player["skills"][0]["skills"][0]["g"] == 4, player["skills"]
     assert player["skills"][0]["pts"] == 4 and not player["skills"][0].get("root"), player["skills"]
     (tier,) = player["skills"][0]["tiers"]
@@ -1030,6 +1053,8 @@ def check_helios_tracker() -> None:  # noqa: PLR0915
     assert js["lootLayers"] == ["loot.common", "loot.legendary", "loot.pearl", "loot.pearl", "loot.misc", "loot.misc",
                                 "pickup.other", "pickup.cash", "pickup.ammo", "pickup.health", "pickup.other",
                                 "loot.uncommon", "pickup.eridium"], js["lootLayers"]
+    assert js["gameRarity"] == [["legendary", "#ffb400"], ["legendary", "#ffb400"], ["seraph", "#ff9ab8"],
+                                ["unknown", "#9132c8"], "loot.legendary"], js["gameRarity"]
     assert mig["layers"]["player"] == {"names": True, "floors": "show", "size": 100}, mig["layers"]["player"]
     assert mig["view"]["zoom"] == 2.5 and mig["view"]["motion"] == 0, mig["view"]
     assert mig["ui"]["lang"] == "fr" and mig["ui"]["inspectorTab"] == "skills", mig["ui"]

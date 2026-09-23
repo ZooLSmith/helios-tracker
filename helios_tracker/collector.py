@@ -26,7 +26,8 @@ from .missions import MissionLog
 from .skills import SkillReader
 from .server import Hub
 from .tacmap import MapImage, load_tactical_map
-from .util import addr, call_str, clear_fields, def_name, exp_level, field, item_name, log, log_error, named, pickup_kind, player_info, try_
+from .util import (addr, call_str, clear_fields, def_name, exp_level, field, item_name, log, log_error, named,
+                   pickup_kind, player_info, rarity_table, try_)
 
 MOVIE_SCALE = 4  # movie px per volume "pixel": UnrealUnitsPerPixel is 32, the fit gave 128 uu / px
 LEVEL_CHECK_EVERY = 1.0  # s
@@ -202,6 +203,7 @@ class Collector:
         self._hook_seen = False
         self._usability_hook_seen = False
         self._vars_logged: set[str] = set()  # pawn kinds whose health / shield "Var" properties were compared
+        self._drive_logged = False  # a driving player's health properties vs functions: logged once
         self.reset()
 
     def reset(self) -> None:
@@ -305,7 +307,8 @@ class Collector:
         with self._lock:
             self.level_id += 1
             level_id = self.level_id
-        level: dict[str, Any] = {"id": level_id, "map": name, "name": pretty_map_name(name), "images": []}
+        level: dict[str, Any] = {"id": level_id, "map": name, "name": pretty_map_name(name), "images": [],
+                                 "rarity": try_(rarity_table, {}) or {}}  # the game's rarity colours
         if vol is None or movie is None:
             level["status"] = "none"
         else:
@@ -651,7 +654,12 @@ class Collector:
                     # Health / shield: function calls, so each pawn is read every HEALTH_EVERY
                     # updates (staggered), new ones at once
                     key = pawn._get_address()
-                    hp = self._vitals_vars(pawn)  # cheap properties: every update
+                    # Driving, a player's properties go wrong (seen: max health = health): the functions
+                    driving = info["k"] in ("me", "player") and try_(lambda p=pawn: field(p, "DrivenVehicle")) is not None
+                    if driving and not self._drive_logged:
+                        self._drive_logged = True
+                        self._check_driving(pawn)
+                    hp = None if driving else self._vitals_vars(pawn)  # cheap properties: every update
                     if hp is None:  # no usable properties: function calls, staggered
                         hp = self._health.get(key)
                         if hp is None or (n + self._state_n) % HEALTH_EVERY == 0:
@@ -760,6 +768,14 @@ class Collector:
             try_(lambda: float(field(pawn, "ShieldVar")), 0.0) if sh_max else 0.0,
             sh_max,
         )
+
+    def _check_driving(self, pawn: Any) -> None:
+        """Once: a driving player's health properties next to the functions, in the log (to verify
+        which to trust while driving)."""
+        log(f"vitals check (player driving) on {pawn.Name}: GetHealth={try_(pawn.GetHealth)}"
+            f" GetMaxHealth={try_(pawn.GetMaxHealth)} HealthVar={try_(lambda: pawn.HealthVar)}"
+            f" HealthMaxVar={try_(lambda: pawn.HealthMaxVar)}; vehicle {try_(lambda: pawn.DrivenVehicle.Name)}"
+            f" GetHealth={try_(lambda: pawn.DrivenVehicle.GetHealth())} GetMaxHealth={try_(lambda: pawn.DrivenVehicle.GetMaxHealth())}")
 
     def _vitals(self, pawn: Any) -> tuple[float, float, float, float]:
         """(health, max health, shield, max shield) from the functions; the shield only asked for

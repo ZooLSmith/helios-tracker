@@ -11,20 +11,32 @@ export const LAYER_SETTINGS = {
 };
 const COMMON = ["names", "floors", "size", "range"];
 
-// RarityLevel -> [name key, colour] (names confirmed by the user in game; colours still ours - the
-// game's own table is in the backlog). The inspector shows the number next to the name.
+// RarityLevel -> [name key, colour]. The game's own, sent with the level (setRarityTable): its colour
+// per level and its colour entry - levels sharing an entry are one tier (5 and 7-10: legendary,
+// tools/probe_rarity3.txt). The names are ours (the game has none for rarities: the user confirmed
+// them in game), by colour entry; an entry without one shows its number ("Rarity 503") in its colour.
+const TIER_BY_ENTRY = { 0: "misc", 1: "common", 2: "uncommon", 3: "rare", 4: "epic", 5: "legendary", 6: "etech",
+  7: "legendary", 12: "pearl", 13: "seraph", 17: "effervescent" };
+// Before the game's table (or without it): the usual levels, in the game's colours
 const RARITY = {
-  0: ["misc", "#9aa7ad"], 1: ["common", "#f2f2f2"], 2: ["uncommon", "#45d145"], 3: ["rare", "#3b8dff"],
-  4: ["epic", "#b45cff"], 5: ["legendary", "#ff9a1f"], 6: ["etech", "#ff4fd2"], 500: ["pearl", "#3fefff"],
+  0: ["misc", "#cdc1af"], 1: ["common", "#ffffff"], 2: ["uncommon", "#3dd20b"], 3: ["rare", "#3c8eff"],
+  4: ["epic", "#a83fe5"], 5: ["legendary", "#ffb400"], 6: ["etech", "#ca00a8"], 500: ["pearl", "#00ffff"],
+  501: ["seraph", "#ff9ab8"], 506: ["effervescent", "#f2ffa1"],
 };
-export function rarity(q) { return RARITY[q] || (q > 500 ? ["pearl", "#3fefff"] : ["unknown", "#e0e0e0"]); }
+let gameRarity = {}; // "level" -> [colour entry, "#rrggbb"]
+export function setRarityTable(table) { gameRarity = table && typeof table === "object" ? table : {}; }
+export function rarity(q) {
+  const game = gameRarity[String(q)];
+  if (game) return [TIER_BY_ENTRY[game[0]] || "unknown", game[1]];
+  return RARITY[q] || (q > 500 ? ["pearl", RARITY[500][1]] : ["unknown", "#e0e0e0"]);
+}
 const RARITY_COLOR = Object.fromEntries(Object.values(RARITY));
 
 // The panel's categories, in order
 export const LAYER_GROUPS = ["characters", "loot", "world"];
 
 // Gear on the ground: a layer per rarity (misc: rarity 0 and unknown levels), in the Gear folder
-const LOOT_RARITIES = ["common", "uncommon", "rare", "epic", "legendary", "etech", "pearl", "misc"];
+const LOOT_RARITIES = ["common", "uncommon", "rare", "epic", "legendary", "etech", "pearl", "seraph", "effervescent", "misc"];
 // Other pickups: a layer per kind (the collector's "pk", from the game's inventory card), in the
 // Pickups folder; anything else (ECHO logs, other currencies...) is "other"
 const PICKUP_KINDS = [["ammo", "#d8c07a"], ["cash", "#6fd46f"], ["eridium", "#c77dff"], ["health", "#ff6f7d"], ["other", "#9aa7ad"]];

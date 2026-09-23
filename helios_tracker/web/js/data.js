@@ -1,7 +1,7 @@
 // The game's data: the SSE stream (/events) and what each event does to the state.
 import { $ } from "./dom.js";
 import { decodeTexture } from "./dxt.js";
-import { objectCategory } from "./model.js";
+import { objectCategory, setRarityTable } from "./model.js";
 import { invalidate } from "./scheduler.js";
 import { S, findDetail, pawnPos } from "./state.js";
 import { renderDetail } from "./ui/detail.js";
@@ -57,6 +57,7 @@ function onLevel(level) {
   }
   const wasReady = S.level && S.level.id === level.id && S.level.status === "ready";
   S.level = level;
+  if (level.rarity) setRarityTable(level.rarity);
   $("level").textContent = level.name || level.map || "—";
   document.title = (level.name ? level.name + " · " : "") + "Helios Tracker";
   if (level.status === "loading") setMessage("msg.loading");

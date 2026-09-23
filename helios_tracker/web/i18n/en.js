@@ -65,8 +65,8 @@ export default {
 
   "view.follow": "Follow",
   "h.who": "WHO",
-  "who.you": "You",
-  "who.youNamed": "You ({name})",
+  "who.player": "Player",
+  "who.host": "{name} (host)",
   "view.rotate": "Rotate map",
   "view.motion": "MOVEMENT",
   "view.motionTip": "How often the map is redrawn. Updates only: markers jump to each update, the page only redraws when something changes (lightest, for a weak / integrated GPU). A number: movement is smoothed, at most that many frames per second. Smooth: every frame.",
@@ -78,7 +78,8 @@ export default {
   "view.language": "Language",
   "view.hint": "Wheel / pinch to zoom, drag to pan. Click a player to inspect them.",
 
-  "tip.me": "You",
+  "tip.me": "Player",
+  "tip.host": "Player · host",
   "tip.player": "Player",
   "tip.enemy": "Enemy",
   "tip.npc": "NPC / ally",
@@ -123,10 +124,11 @@ export default {
   "rarity.legendary": "Legendary",
   "rarity.etech": "E-tech",
   "rarity.pearl": "Pearlescent",
+  "rarity.seraph": "Seraph",
+  "rarity.effervescent": "Effervescent",
   "rarity.unknown": "Rarity {n}",
 
   "insp.close": "Close (Esc)",
-  "insp.host": "{name} (you)",
   "insp.level": "Level {n}",
   "vital.ffyl": "Crippled",
   "skill.ready": "Ready",
@@ -140,6 +142,7 @@ export default {
   "insp.nothing": "Nothing equipped.",
   "insp.heldOnly": "Only their equipped gear is known.",
   "insp.items": "{n} items",
+  "insp.slots": "{n} / {max} slots used",
   "tab.info": "Info",
   "pinfo.state": "State",
   "pinfo.fine": "Fine",
@@ -157,6 +160,7 @@ export default {
 
   "why.inventory.coopClient": "The game doesn't send other players' inventories to co-op clients.",
   "why.inventory.unavailable": "Inventory not available.",
+  "why.backpack.notSent": "The game doesn't send other players' backpacks, even to the host.",
   "why.skills.coopClient": "The game doesn't send other players' skill trees to co-op clients.",
   "why.skills.unavailable": "Skills not available.",
 

@@ -64,8 +64,8 @@ export default {
 
   "view.follow": "Suivre",
   "h.who": "QUI",
-  "who.you": "Vous",
-  "who.youNamed": "Vous ({name})",
+  "who.player": "Joueur",
+  "who.host": "{name} (hôte)",
   "view.rotate": "Pivoter la carte",
   "view.motion": "MOUVEMENT",
   "view.motionTip": "Fréquence de rafraîchissement de la carte. Aux mises à jour : les marqueurs sautent à chaque mise à jour, la page ne se redessine que si quelque chose change (le plus léger, pour un GPU faible / intégré). Un nombre : mouvement lissé, au plus ce nombre d'images par seconde. Fluide : à chaque image.",
@@ -77,7 +77,8 @@ export default {
   "view.language": "Langue",
   "view.hint": "Molette / pincer pour zoomer, glisser pour déplacer. Cliquez sur un joueur pour l'inspecter.",
 
-  "tip.me": "Vous",
+  "tip.me": "Joueur",
+  "tip.host": "Joueur · hôte",
   "tip.player": "Joueur",
   "tip.enemy": "Ennemi",
   "tip.npc": "PNJ / allié",
@@ -121,11 +122,12 @@ export default {
   "rarity.epic": "Épique",
   "rarity.legendary": "Légendaire",
   "rarity.etech": "E-tech",
+  "rarity.seraph": "Séraphin",
+  "rarity.effervescent": "Effervescent",
   "rarity.pearl": "Nacré",
   "rarity.unknown": "Rareté {n}",
 
   "insp.close": "Fermer (Échap)",
-  "insp.host": "{name} (vous)",
   "insp.level": "Niveau {n}",
   "vital.ffyl": "Estropié",
   "skill.ready": "Prête",
@@ -139,6 +141,7 @@ export default {
   "insp.nothing": "Rien d'équipé.",
   "insp.heldOnly": "Seul leur équipement porté est connu.",
   "insp.items": "{n} objets",
+  "insp.slots": "{n} / {max} emplacements utilisés",
   "tab.info": "Infos",
   "pinfo.state": "État",
   "pinfo.fine": "En forme",
@@ -156,6 +159,7 @@ export default {
 
   "why.inventory.coopClient": "Le jeu n'envoie pas l'inventaire des autres joueurs aux clients en coop.",
   "why.inventory.unavailable": "Inventaire indisponible.",
+  "why.backpack.notSent": "Le jeu n'envoie pas le sac à dos des autres joueurs, même à l'hôte.",
   "why.skills.coopClient": "Le jeu n'envoie pas l'arbre de compétences des autres joueurs aux clients en coop.",
   "why.skills.unavailable": "Compétences indisponibles.",
 

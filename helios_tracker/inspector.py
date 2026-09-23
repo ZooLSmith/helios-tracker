@@ -7,7 +7,11 @@ is reported (as a reason code the page translates), not guessed. Stats are sent 
 - inventory: `pawn.InvManager` - our own; on the host probably everyone's, on a client only ours.
   A client still gets the others' equipped gear, replicated on their pawn (seen in game,
   tools/probe_coop.py): `Weapon` (in hand), `HolsteredWeaponSlots` (the other carried weapons) and
-  `EquippedItems` (shield, grenade, class mod, relic) - not their backpack;
+  `EquippedItems` (shield, grenade, class mod, relic) - not their backpack. The host has everyone's
+  inventory manager, but not the others' backpack items (`Backpack` empty, no item objects of theirs
+  besides the equipped ones: tools/probe_backpack.txt). Their `BackpackInventoryCount` there isn't
+  their count either: it read 24 one session, 0 then negative (after a drop) in another - it seems to
+  only count what the host saw them pick up / drop. So nothing of their backpack is shown;
 - skills: `pawn.Controller.PlayerSkillTree` - our own; on the host probably everyone's (the host
   has every player's controller), never the others' on a client.
 """
@@ -213,6 +217,11 @@ def _inventory(pawn: Any, player: dict[str, Any]) -> None:
     player["equipped"] = equipped
     player["backpack"] = backpack
     player["inventory"] = "full"
+    slots = try_(lambda: int(inv_mgr.InventorySlotMax_Misc), None)
+    if player["local"] and slots:
+        player["slots"] = [len(backpack), slots]  # backpack slots used / available (ours: our items)
+    if not player["local"] and not backpack:  # (as host) the others' items aren't sent
+        player["backpackWhy"] = "notSent"
 
 
 def _static_info(obj: Any, fn) -> dict[str, Any]:  # noqa: ANN001
@@ -319,7 +328,9 @@ def _branch_grid(bd: Any) -> list[dict[str, Any]]:
             occupied = [True] * len(skills)  # no layout: the skills side by side
         queue = iter(skills)
         cells = [(next(queue, None) if on else None) for on in occupied]
-        cells += list(queue)  # more skills than occupied cells (shouldn't happen): keep them
+        # More skills than occupied cells: hidden helpers the menu never shows, listed after the real
+        # ones (Krieg: "_Bloodlust" the stack counter, "FireStatusDetector"... - tools/probe_skill_layout.txt).
+        # Left out: appended, they widened the grid and shifted every row.
         grid.append({
             "need": try_(lambda t=tier: int(t.PointsToUnlockNextTier), 0) or 0,
             "cells": [s._get_address() if s is not None else None for s in cells],
@@ -392,6 +403,9 @@ def read_players(world_info: Any, me: Any, pc: Any = None) -> list[dict[str, Any
             cache.clear()
     players = []
     me_addr = addr(me) if me is not None else None
+    # Who hosts: us unless we're a client (NetMode 3); then the party leader (the host's player info
+    # has bIsPartyLeader on a client: tools/probe_coop.txt)
+    client = try_(lambda: int(world_info.NetMode), 0) == 3
     pawn = world_info.PawnList
     for _ in range(1000):
         if pawn is None:
@@ -410,6 +424,8 @@ def read_players(world_info: Any, me: Any, pc: Any = None) -> list[dict[str, Any
                     "n": try_(lambda: str(pri.PlayerName), "") or "Player",
                     "local": addr(pawn) == me_addr,
                     "lvl": try_(lambda: int(pri.ExpLevel), 0),
+                    "host": (bool(try_(lambda: pri.bIsPartyLeader, False)) if client
+                             else addr(pawn) == me_addr),
                     **_class_name(ctrl, pri),
                     **_xp(ctrl, pri, try_(lambda: int(pri.ExpLevel), 0)),
                 }
