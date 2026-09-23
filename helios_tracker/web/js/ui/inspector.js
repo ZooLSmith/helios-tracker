@@ -1,4 +1,5 @@
-// The right drawer: a player's Gear / Backpack / Skills (or a clicked object: detail.js).
+// The right drawer: a player's Gear / Backpack / Skills (or a clicked object: detail.js, the
+// mission log: missionlog.js).
 import { $, esc } from "../dom.js";
 import { t } from "../i18n.js";
 import { nameText } from "../model.js";
@@ -6,7 +7,9 @@ import { saveSettings, settings } from "../settings.js";
 import { S, findPlayer } from "../state.js";
 import { renderDetail } from "./detail.js";
 import { itemsByKind } from "./items.js";
+import { renderMissionLog } from "./missionlog.js";
 import { playerSub, renderPlayers } from "./players.js";
+import { playerInfoHtml } from "./playerinfo.js";
 import { skillsHtml } from "./skills.js";
 
 export function openInspector(id) {
@@ -14,6 +17,7 @@ export function openInspector(id) {
   if (!p) return;
   S.inspect = { id: p.i, name: p.n };
   S.detail = null;
+  S.missionView = null;
   S.skillTab = null; // back to their tree with the most points
   $("inspector").classList.add("open");
   renderPlayers();
@@ -23,12 +27,14 @@ export function openInspector(id) {
 export function closeInspector() {
   S.inspect = null;
   S.detail = null;
+  S.missionView = null;
   $("inspector").classList.remove("open");
   renderPlayers();
 }
 
 export function renderInspector(resetScroll) {
   const box = $("inspector");
+  if (S.missionView) { renderMissionLog(resetScroll); return; }
   if (S.detail) { renderDetail(resetScroll); return; }
   $("itabs").style.display = "";
   if (!S.inspect) { box.classList.remove("open"); return; }
@@ -46,7 +52,9 @@ export function renderInspector(resetScroll) {
   $("isub").textContent = playerSub(p);
   let html = "";
   const tab = settings.ui.inspectorTab;
-  if (tab === "gear") {
+  if (tab === "info") {
+    html = playerInfoHtml(p);
+  } else if (tab === "gear") {
     if (p.inventory === "partial") {
       html += `<div class="note">${esc(t("why.inventory." + (p.inventoryWhy || "unavailable")))} ${esc(t("insp.heldOnly"))}</div>`;
     }
@@ -59,6 +67,7 @@ export function renderInspector(resetScroll) {
     html = skillsHtml(p);
   }
   body.innerHTML = html;
+  body.dataset.info = tab === "info" ? html : "";
   body.scrollTop = resetScroll ? 0 : scroll;
   for (const b of body.querySelectorAll(".stabs button")) {
     b.onclick = () => { S.skillTab = +b.dataset.stab; renderInspector(); };
@@ -70,6 +79,20 @@ export function renderInspector(resetScroll) {
       el.classList.toggle("expanded");
     };
   }
+}
+
+let nextInfo = 0, infoState = 0;
+/** From the frames: the Info tab follows the game's data - only when a new update arrived (the
+ *  game's rate), at most every 250 ms, and the DOM only touched when its content changed. */
+export function refreshPlayerInfo(now) {
+  if (!S.inspect || S.detail || S.missionView || settings.ui.inspectorTab !== "info") return;
+  if (now < nextInfo || S.lastState === infoState) return;
+  nextInfo = now + 250;
+  infoState = S.lastState;
+  const p = findPlayer();
+  if (!p) return;
+  const html = playerInfoHtml(p), body = $("ibody");
+  if (body.dataset.info !== html) { body.dataset.info = html; body.innerHTML = html; }
 }
 
 export function initInspector() {

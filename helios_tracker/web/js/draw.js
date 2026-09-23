@@ -4,9 +4,10 @@
 import { UU_PER_METER, worldToMap, yawToAngle } from "./geo.js";
 import { FLOOR_UU, LAYERS, LAYER_COLOR, chestTier, isGear, lootLayer, nameText, rarity } from "./model.js";
 import { settings } from "./settings.js";
-import { COLORS, arrow, bang, diamond, dot, label, square, triangle, vitalBars } from "./shapes.js";
+import { COLORS, arrow, bang, diamond, dot, label, respawnRing, square, triangle, vitalBars } from "./shapes.js";
 import { S, frame, pawnPos, trackedPawn } from "./state.js";
 import { tooltip } from "./tooltip.js";
+import { refreshPlayerInfo } from "./ui/inspector.js";
 import { updatePlayerVitals } from "./ui/players.js";
 import { H, W, centerOnTarget, ctx, dpr, fit, toScreen } from "./view.js";
 
@@ -136,19 +137,24 @@ export function draw() {
   const rank = (p) => (p === tracked ? 4 : order[p.k]);
   const pawns = [...S.pawns.values()].sort((a, b) => rank(a) - rank(b));
   for (const p of pawns) {
+    if (p.rs === 2) continue; // respawning, the game doesn't say where: its position means nothing
     const pos = pawnPos(p, now);
     const isPlayer = p.k === "me" || p.k === "player", layer = isPlayer ? "player" : p.k; // the host is one of the players
     const st = style(layer, pos);
     if (!st) continue;
     const [sx, sy] = place(pos.x, pos.y);
     if (!visible(sx, sy) && p !== tracked) continue;
-    ctx.globalAlpha = st.alpha;
+    ctx.globalAlpha = st.alpha * (p.rs || p.dd ? 0.5 : 1); // respawning (at their New-U) / dead (their body): faded
     const angle = yawToAngle(f, pos.r) - S.view.rot;
     const hurt = (p.m > 0 && p.h < p.m) || (p.sm > 0 && p.s < p.sm);
     if (isPlayer) { // the tracked player: the yellow arrow; the others white
       if (p === tracked) arrow(sx, sy, angle, 9 * st.k, "#ffcc33", "#1a1200");
       else arrow(sx, sy, angle, 8 * st.k, LAYER_COLOR.player, "#00131a");
-      if (hurt) vitalBars(sx, sy + 3 * st.k, { ...p, h: pos.h, s: pos.s });
+      if (hurt && !p.rs && !p.dd) vitalBars(sx, sy + 3 * st.k, { ...p, h: pos.h, s: pos.s });
+      if (p.rs) respawnRing(sx, sy, 12 * st.k, p === tracked ? "#ffcc33" : LAYER_COLOR.player);
+      else if (p.dd) respawnRing(sx, sy, 12 * st.k, COLORS.dead); // died: grey, where their body is
+      // crippled (down, fighting for their life): the same ring, red
+      else if (p.dn || (p.m > 0 && pos.h <= 0 && !(p.sm > 0 && pos.s > 0))) respawnRing(sx, sy, 12 * st.k, COLORS.health);
     }
     else if (p.k === "vehicle") square(sx, sy, 5 * st.k, LAYER_COLOR.vehicle);
     else {
@@ -170,4 +176,5 @@ export function draw() {
   }
   tooltip(mePos, f);
   updatePlayerVitals(now); // with the frames: follows the Movement setting
+  refreshPlayerInfo(now);
 }

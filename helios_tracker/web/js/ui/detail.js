@@ -11,6 +11,7 @@ import { renderPlayers } from "./players.js";
 export function openDetail(kind, id) {
   S.detail = { kind, id };
   S.inspect = null;
+  S.missionView = null;
   $("inspector").classList.add("open");
   renderPlayers();
   renderInspector(true);

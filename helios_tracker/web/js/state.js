@@ -14,6 +14,10 @@ export const S = {
   pending: false, // a frame is requested
   hits: [], mouse: null,
   missions: { tracked: null, markers: [] },
+  log: null, // the mission log (every mission of the playthrough: not per level)
+  // the drawer shows the log: { id, history } - id: a mission's details, null: the tree; history:
+  // where Back goes ({ id, scroll }, the last one first)
+  missionView: null,
   // inspect: the inspected player { id, name } (ids change when a level loads);
   // detail: a clicked map object { kind, id }
   players: [], inspect: null, detail: null,

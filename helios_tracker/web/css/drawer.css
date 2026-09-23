@@ -7,7 +7,7 @@
 .ihead .row1 { display: flex; align-items: center; gap: 8px; }
 .ihead .who { font-size: 17px; font-weight: 600; flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; }
 .ihead .sub { color: var(--dim); font-size: 12px; margin-top: 2px; }
-.iclose { background: none; border: 0; color: var(--dim); cursor: pointer; font-size: 18px; line-height: 1; }
+.iclose { background: none; border: 0; color: var(--dim); cursor: pointer; font-size: 15px; line-height: 1; padding: 2px; }
 .iclose:hover { color: var(--text); }
 .tabs { display: flex; gap: 2px; margin-top: 10px; border-bottom: 1px solid var(--panel-edge); }
 .tabs button { background: none; border: 0; color: var(--dim); font: inherit; padding: 6px 10px; cursor: pointer;
@@ -59,6 +59,68 @@
 .pips { display: flex; gap: 2px; }
 .pips i { width: 7px; height: 7px; border-radius: 1px; background: #243847; }
 .pips i.on { background: var(--accent); }
+/* the mission log: the tree (rows indented by depth), a mission's details */
+.mtools { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin: 2px 0 4px; }
+.mtools .seg { margin-left: 0; }
+.mlocked { font-size: 12px; color: var(--dim); }
+.mtree { margin-bottom: 4px; }
+.mrow { display: flex; align-items: baseline; gap: 6px; padding: 2px 4px 2px calc(4px + var(--depth, 0) * 14px);
+  margin: 0 -4px; border-radius: 3px; cursor: pointer; font-size: 12.5px; }
+.mrow:hover { background: #16293a; }
+.mrow .mico { flex: none; width: 10px; text-align: center; font-size: 11px; }
+.mrow .mn { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+/* the name: story (main) missions yellow, side missions grey; the icon: the state */
+.mrow .mn { color: var(--side); }
+.mrow.story .mn { color: var(--story); }
+.mrow.link .mn { color: var(--text); } /* requires / unlocks: neutral (not the mission shown) */
+.mrow.done { opacity: .55; }
+.mrow.done .mico { color: var(--live); }
+.mrow.active .mico { color: var(--objective); }
+.mrow.active .mn { font-weight: 600; }
+.mrow.available .mico { color: var(--text); }
+.mrow.unknown { opacity: .7; } /* not offered yet: its giver is still to be found */
+.mrow.unknown .mico { color: var(--dim); }
+.mrow.locked { opacity: .35; }
+.mflag { flex: none; font-size: 10px; color: var(--story); border: 1px solid color-mix(in srgb, var(--story) 45%, transparent);
+  border-radius: 3px; padding: 0 4px; font-weight: 400; }
+.who .mflag { vertical-align: 2px; margin-left: 6px; }
+.who .mtitle.story { color: var(--story); }
+.who .mtitle.side { color: var(--side); }
+.mrow .mtag { flex: none; font-size: 10px; color: var(--objective); border: 1px solid color-mix(in srgb, var(--objective) 50%, transparent);
+  border-radius: 3px; padding: 0 4px; }
+.mrow.link { padding-left: 4px; }
+.mback { background: none; border: 0; color: var(--dim); cursor: pointer; font-size: 15px; line-height: 1; padding: 0 6px 0 0;
+  vertical-align: 1px; }
+.mback:hover { color: var(--text); }
+.mdesc { font-size: 12.5px; line-height: 1.45; margin: 4px 0 10px; }
+.mobj { display: flex; align-items: baseline; gap: 6px; font-size: 12.5px; padding: 2px 0; }
+.mobj .mico { flex: none; width: 10px; color: var(--objective); font-size: 11px; }
+.mobj .mn { flex: 1; min-width: 0; }
+.mobj .mcount { flex: none; color: var(--dim); font-variant-numeric: tabular-nums; }
+.mobj.done { color: var(--dim); }
+.mrw { font-size: 12.5px; padding: 1px 0; font-variant-numeric: tabular-nums; }
+.mrw.mrwitem { color: var(--side); }
+.mrw.or { color: var(--dim); font-size: 11px; margin-top: 4px; }
+.mobj.done .mico { color: var(--live); }
+/* the player Info tab: labelled bars (vitals, skills), the state */
+.ibar { position: relative; display: flex; align-items: center; gap: 8px; height: 22px; margin: 3px 0; padding: 0 8px;
+  background: #1c2d38; border-radius: 3px; overflow: hidden; font-size: 12.5px; }
+.ibar i { position: absolute; left: 0; top: 0; bottom: 0; }
+.ibar span { position: relative; text-shadow: 0 0 3px #000, 0 1px 1px #000; }
+.ibar .ibl { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ibar .ibv { flex: none; font-variant-numeric: tabular-nums; font-weight: 600; }
+.ibar.sh i { background: var(--shield); }
+.ibar.hp i { background: var(--health); }
+.ibar.xp i { background: var(--xp); }
+.ibar.ready i { background: color-mix(in srgb, var(--live) 70%, transparent); }
+.ibar.active i { background: color-mix(in srgb, var(--accent) 65%, transparent); }
+.ibar.cooldown i { background: color-mix(in srgb, var(--dim) 35%, transparent); }
+.ibar.effect i { background: color-mix(in srgb, var(--objective) 45%, transparent); }
+.pstate { font-weight: 600; }
+.pstate.fine { color: var(--live); }
+.pstate.ffyl { color: var(--health); }
+.pstate.dead { color: var(--dead); }
+.pstate.respawning { color: var(--dim); }
 @media (max-width: 520px) {
   #inspector { left: 12px; right: 12px; width: auto; top: auto; height: 60%; }
 }

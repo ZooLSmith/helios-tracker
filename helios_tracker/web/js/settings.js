@@ -27,7 +27,8 @@ export function defaults() {
       // many fps, "smooth" = every frame
       motion: "smooth",
     },
-    ui: { lang: "auto", panelTab: "info", inspectorTab: "gear", openLayers: [], closedGroups: [] },
+    ui: { lang: "auto", panelTab: "info", inspectorTab: "info", openLayers: [], closedGroups: [], showLockedMissions: false,
+      missionGroup: "chain" },
   };
 }
 
@@ -81,7 +82,7 @@ export function fromLegacy(get) {
       zoom: get("zoom", 0), follow: !!get("follow", false), rotate: !!get("rotate", false), target: get("target", "me"),
       motion: get("motion", get("smooth", true) ? "smooth" : 0),
     },
-    ui: { lang: get("lang", "auto"), panelTab: get("ptab", "info"), inspectorTab: get("tab", "gear") },
+    ui: { lang: get("lang", null), panelTab: get("ptab", null), inspectorTab: get("tab", null) }, // only what was saved (null: the new default)
   };
 }
 

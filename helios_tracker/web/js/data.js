@@ -3,18 +3,27 @@ import { $ } from "./dom.js";
 import { decodeTexture } from "./dxt.js";
 import { objectCategory } from "./model.js";
 import { invalidate } from "./scheduler.js";
-import { S, pawnPos } from "./state.js";
+import { S, findDetail, pawnPos } from "./state.js";
 import { renderDetail } from "./ui/detail.js";
-import { renderInspector } from "./ui/inspector.js";
+import { closeInspector, renderInspector } from "./ui/inspector.js";
 import { renderMission } from "./ui/mission.js";
+import { renderMissionLog } from "./ui/missionlog.js";
 import { renderMotion } from "./ui/panel.js";
 import { renderPlayers } from "./ui/players.js";
 import { isLive, setMessage, setStatus } from "./ui/status.js";
 
+const RETRY_MS = 2000; // lost the game: how often to check whether it's back
+
 export function connect() {
   const es = new EventSource("/events");
   es.onopen = () => setStatus("live", "status.live");
-  es.onerror = () => setStatus("bad", "status.bad");
+  // Lost the connection (game closed, mod reloaded, server restarted): no half-stale reconnect -
+  // wait until the server answers again, then reload the page (a plain F5: fresh state and code)
+  es.onerror = () => {
+    es.close();
+    setStatus("bad", "status.bad");
+    reloadWhenBack();
+  };
   const on = (name, fn) => es.addEventListener(name, (e) => {
     if (es.readyState === EventSource.OPEN && !isLive()) setStatus("live", "status.live");
     fn(JSON.parse(e.data));
@@ -24,6 +33,17 @@ export function connect() {
   on("objects", onObjects);
   on("players", onPlayers);
   on("missions", onMissions);
+  on("missionlog", onMissionLog);
+}
+
+function reloadWhenBack() {
+  setTimeout(async () => {
+    try {
+      const res = await fetch("/", { cache: "no-store" }); // the page itself (small; the server has no HEAD)
+      if (res.ok) { location.reload(); return; }
+    } catch { /* still down */ }
+    reloadWhenBack();
+  }, RETRY_MS);
 }
 
 function onLevel(level) {
@@ -86,7 +106,7 @@ function onState(st) {
     // Rebuilt from each state (not merged into the old one): a field the game stopped sending,
     // like the made-up-name flag "r" once the real name is known, must go away
     const old = S.pawns.get(p.i);
-    const from = old ? pawnPos(old, now) : p;
+    const from = old && !old.rs === !p.rs ? pawnPos(old, now) : p; // respawn start / end: no slide
     S.pawns.set(p.i, { ...p, fx: from.x, fy: from.y, fz: from.z, fr: from.r, fh: from.h, fs: from.s, t0: now });
   }
   for (const id of S.pawns.keys()) if (!seen.has(id)) S.pawns.delete(id);
@@ -95,6 +115,13 @@ function onState(st) {
     const me = S.pawns.get(S.meId);
     S.fallback = { center: [me.x, me.y], upp: 128, north: 0 };
   }
+  closeIfGone();
+}
+
+/** The drawer shows a map object (loot, a pawn, a marker) that isn't there any more (picked up,
+ *  killed, done): close it. */
+function closeIfGone() {
+  if (S.detail && !findDetail()) closeInspector();
 }
 
 function onObjects(msg) {
@@ -102,7 +129,7 @@ function onObjects(msg) {
   for (const o of msg.objects) o.cat = objectCategory(o);
   msg.objects.sort((a, b) => a.z - b.z); // drawn bottom to top: a higher object covers a lower one
   S.objects = msg.objects;
-  if (S.detail) renderDetail();
+  if (S.detail) { if (findDetail()) renderDetail(); else closeInspector(); }
   invalidate();
 }
 
@@ -113,9 +140,16 @@ function onPlayers(msg) {
   renderInspector();
 }
 
+function onMissionLog(msg) { // the whole playthrough's missions: kept across levels
+  S.log = msg;
+  renderMission();
+  if (S.missionView) renderMissionLog();
+}
+
 function onMissions(msg) {
   if (!S.level || msg.level !== S.level.id) return;
   S.missions = msg;
   renderMission();
+  closeIfGone();
   invalidate();
 }

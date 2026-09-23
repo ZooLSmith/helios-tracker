@@ -1,9 +1,10 @@
-// The panel's Layers tab: categories (plain headings that fold), a row per layer (enabled, count, ⚙) and
+// The panel's Layers tab: categories (plain headings that fold), a row per layer (enabled, count, settings) and
 // its settings panel under it, built from model.js's LAYER_SETTINGS. A folder layer (Gear,
 // Pickups, Containers) is a row that folds / turns on and off the layers under it. Rebuilt on any
 // structural change (fold, open / close, language); one set of delegated handlers on #layers.
 import { $, esc } from "../dom.js";
 import { t } from "../i18n.js";
+import { icon } from "../icons.js";
 import { LAYERS, LAYER_GROUPS, LAYER_SETTINGS, layerNameKey } from "../model.js";
 import { invalidate } from "../scheduler.js";
 import { layerCfg, saveSettings, settings } from "../settings.js";
@@ -56,7 +57,7 @@ function folderHtml(l) {
   const children = LAYERS.filter((c) => c.parent === l.id);
   return `<div class="lrow lfolder"><label class="row"><input type="checkbox" class="lbox" data-folder="${l.id}">` +
     `<span class="sw">${layerIcon(l)}</span><span class="lname">${layerName(l)}</span><span class="count" data-count="${l.id}"></span></label>` +
-    `<button class="lcfg" data-fold="${foldKey(l.id)}">${closed ? "▸" : "▾"}</button></div>` +
+    `<button class="lcfg" data-fold="${foldKey(l.id)}">${icon(closed ? "chevronRight" : "chevronDown")}</button></div>` +
     (closed ? "" : `<div class="lsub">${children.map(rowHtml).join("")}</div>`);
 }
 
@@ -68,7 +69,7 @@ function rowHtml(l) {
   const tip = l.tip ? ` title="${esc(t(l.tip))}"` : "";
   return `<div class="lrow${open ? " open" : ""}"><label class="row"${tip}>${check}<span class="sw">${layerIcon(l)}</span>` +
     `<span class="lname">${layerName(l)}</span><span class="count" data-count="${l.id}"></span></label>` +
-    `<button class="lcfg" data-open="${l.id}" title="${esc(t("layers.configure"))}">⚙</button></div>` +
+    `<button class="lcfg" data-open="${l.id}" title="${esc(t("layers.configure"))}">${icon("tune")}</button></div>` +
     (open ? `<div class="lcfgbox">${l.settings.map((k) => settingHtml(l, k)).join("")}</div>` : "");
 }
 
@@ -77,7 +78,7 @@ export function renderLayers() {
   box.innerHTML = LAYER_GROUPS.map((g) => {
     const closed = settings.ui.closedGroups.includes(g);
     return `<div class="lgroup${closed ? " closed" : ""}"><div class="lghead" data-fold="${g}">` +
-      `<span class="lgname">${esc(t("lgroup." + g))}</span><span class="lgfold">${closed ? "▸" : "▾"}</span></div>` +
+      `<span class="lgname">${esc(t("lgroup." + g))}</span><span class="lgfold">${icon(closed ? "chevronRight" : "chevronDown")}</span></div>` +
       `<div class="lgbody">${LAYERS.filter((l) => l.group === g && !l.parent).map(rowHtml).join("")}</div></div>`;
   }).join("");
   syncBoxes();

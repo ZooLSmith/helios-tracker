@@ -22,6 +22,8 @@ from mods_base import ENGINE, get_pc
 from unrealsdk.unreal import WeakPointer
 
 from .inspector import read_players
+from .missions import MissionLog
+from .skills import SkillReader
 from .server import Hub
 from .tacmap import MapImage, load_tactical_map
 from .util import addr, call_str, def_name, exp_level, item_name, log, log_error, named, pickup_kind, player_info, try_
@@ -34,7 +36,9 @@ HEALTH_EVERY = 4  # updates between health reads of a pawn (function calls: the 
 OBJECTS_EVERY = 120.0  # s between full interactive object scans: a safety net (~11 ms); objects that
                        # spawn / get their balance / are destroyed later come from hooks
 PLAYERS_EVERY = 2.0  # s between player inspections (gear, backpack, skills)
-MISSIONS_EVERY = 1.0  # s between quest marker reads (owners can move: escorts, NPCs)
+MISSIONS_EVERY = 1.0  # s between quest marker reads (owners can move: escorts, NPCs); also the
+                      # mission log's fast pass (the tracked / active missions only)
+MISSION_LOG_EVERY = 5.0  # s between full mission log passes (every mission's status: ~290 entries)
 MAX_PAWNS = 1000  # PawnList walk guard
 LOOTED_EVERY = 1.0  # s between checks of unlooted containers (two property reads each, round robin)
 LOOTED_PER_PASS = 60
@@ -180,10 +184,13 @@ class Collector:
         self._next_missions = 0.0
         self._missions_json = ""
         self._tracker: WeakPointer | None = None  # the MissionTracker, found at each scan
+        self._next_log = 0.0
+        self._log = MissionLog()
         self._active = False  # a page was connected last tick
         self._pickups: dict[int, WeakPointer] = {}  # by address: from scans and the spawn hook
         # pawn address -> (health, max, shield, shield max), read every HEALTH_EVERY updates
         self._health: dict[int, tuple[float, float, float, float]] = {}
+        self._skills = SkillReader()  # every player's action skill, timed effects, melee cooldown
         self._state_n = 0
         self._info: dict[int, dict[str, Any]] = {}  # per-actor cached name/kind, by address
         self._objects_json = "[]"
@@ -208,7 +215,8 @@ class Collector:
             return
         if not self._active:  # a page just connected: fresh objects and players now
             self._active = True
-            self._next_scan = self._next_objects = self._next_players = self._next_missions = 0.0
+            self._next_scan = self._next_objects = self._next_players = self._next_missions = self._next_log = 0.0
+            self._log.dirty = True  # the new page needs the log
             self._objects_json = self._players_json = self._missions_json = ""
         # At most one heavy task (scans / players) per tick: they'd add up into one hitch
         heavy = False
@@ -228,6 +236,10 @@ class Collector:
         if now >= self._next_players and not heavy:
             self._next_players = now + PLAYERS_EVERY
             run("players", self._publish_players)
+            heavy = True
+        if now >= self._next_log and not heavy and self._tracker is not None:
+            self._next_log = now + MISSION_LOG_EVERY
+            run("mission log", self._full_log)
         if now >= self._next_missions:
             self._next_missions = now + MISSIONS_EVERY
             run("missions", self._publish_missions)
@@ -556,6 +568,8 @@ class Collector:
         me = try_(lambda: pc.MyWillowPawn)
         view_yaw = try_(lambda: pc.Rotation.Yaw, 0)
         self._state_n += 1
+        self._skills.update(pc, try_(lambda: float(wi.TimeSeconds), 0.0), now)
+        players = []  # player pawns seen this update (the skill reader forgets the others)
         pawns = []
         health = {}
         pawn = wi.PawnList
@@ -579,6 +593,17 @@ class Collector:
                     health[key] = hp
                     if len(self._vars_logged) < 3:
                         self._check_vitals(pawn)
+                    # A player respawning (dead, the New-U effect): the game parks the pawn somewhere,
+                    # hidden - show where they'll come back instead (rs 1), or nothing if it doesn't say
+                    # (rs 2: the position is meaningless)
+                    is_player = info["k"] in ("me", "player")
+                    if is_player:
+                        players.append(pawn)
+                    respawning, spot = self._respawn_state(pawn) if is_player else (False, None)
+                    down = self._down_state(pawn) if is_player and not respawning else ""
+                    skills = self._skills.player(pawn, now) if is_player else {}
+                    if spot is not None:
+                        loc = spot
                     pawns.append(
                         {
                             **info,
@@ -589,12 +614,16 @@ class Collector:
                             "h": hp[0],
                             "m": hp[1],
                             **({"s": hp[2], "sm": hp[3]} if hp[3] else {}),
+                            **({"rs": 1 if spot is not None else 2} if respawning else {}),
+                            **({"dn": 1} if down == "crippled" else {"dd": 1} if down == "dead" else {}),
+                            **skills,
                         },
                     )
             except Exception as ex:  # noqa: BLE001
                 log_error("pawn", ex)
             pawn = try_(lambda p=pawn: p.NextPawn)
         self._health = health  # drops the pawns that are gone
+        self._skills.forget({a for a in (try_(lambda p=p: p.Controller._get_address()) for p in players) if a})
         pickups = []
         for key, ptr in list(self._pickups.items()):
             p = ptr()
@@ -610,6 +639,35 @@ class Collector:
                 log_error("pickup", ex)
         state = {"level": self.level_id, "t": round(now, 3), "hz": self.rate, "pawns": pawns, "pickups": pickups}
         self.hub.publish("state", json.dumps(state, separators=(",", ":")))
+
+    @staticmethod
+    def _down_state(pawn: Any) -> str:
+        """"crippled" (down, fighting for their life), "dead" (died: ragdoll / death camera, before the
+        respawn) or "". Seen in game (tools/probe_respawn.txt): crippled = InjuredState
+        INJURED_Targeted + InjuredDeadState INJUREDDEAD_None; dead = InjuredState still
+        INJURED_Targeted, InjuredDeadState INJUREDDEAD_InitRagdoll; respawning / fine: INJURED_Not.
+        Plain property reads."""
+        injured = getattr(try_(lambda: pawn.InjuredState), "name", None)
+        if injured is None or injured == "INJURED_Not":
+            return ""
+        dead = getattr(try_(lambda: pawn.InjuredDeadState), "name", None)
+        return "dead" if dead not in (None, "INJUREDDEAD_None") else "crippled"
+
+    @staticmethod
+    def _respawn_state(pawn: Any) -> tuple[bool, Any]:
+        """(respawning, where they'll come back or None). Seen in game (tools/probe_respawn.txt, during
+        the respawn effect): the pawn hidden, parked somewhere (where: up to the game - never assumed),
+        bAwaitingInjuredRespawn set, AwaitingRespawnResurrectLocation = the spot (at
+        AwaitingRespawnTravelStation, a ResurrectTravelStation). Plain property reads."""
+        if not try_(lambda: pawn.bHidden, False):
+            return False, None
+        if not any(try_(lambda f=f: bool(getattr(pawn, f)), False)
+                   for f in ("bAwaitingInjuredRespawn", "bIsAwaitingRespawn", "bAwaitingRespawn")):
+            return False, None
+        spot = try_(lambda: pawn.AwaitingRespawnResurrectLocation)
+        if spot is None or (spot.X == 0 and spot.Y == 0 and spot.Z == 0):
+            return True, None
+        return True, spot
 
     @staticmethod
     def _vitals_vars(pawn: Any) -> tuple[float, float, float, float] | None:
@@ -700,6 +758,22 @@ class Collector:
         if missions_json != self._missions_json:
             self._missions_json = missions_json
             self.hub.publish("missions", missions_json)
+        # The mission log's fast pass: the tracked / active missions' objectives, every second
+        if not self._log.fast(tracker):
+            self._next_log = 0.0  # the list changed (a mission started...): a full pass next tick
+        self._publish_log()
+
+    def _full_log(self) -> None:
+        tracker = self._tracker() if self._tracker is not None else None
+        if tracker is not None:
+            self._log.full(tracker, get_pc(possibly_loading=True))
+            self._publish_log()
+
+    def _publish_log(self) -> None:
+        """The mission log, only when something in it changed (definitions are cached: a change is
+        a status / progress / current step / tracked mission)."""
+        if self._log.dirty:
+            self.hub.publish("missionlog", json.dumps(self._log.payload(self.level_id), separators=(",", ":")))
 
     def _publish_players(self) -> None:
         wi = ENGINE.GetCurrentWorldInfo()

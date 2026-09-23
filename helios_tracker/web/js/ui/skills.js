@@ -1,10 +1,8 @@
 // The inspector's Skills tab: one tab per tree, the game's grid layout.
 import { esc, nameHtml } from "../dom.js";
 import { num, t } from "../i18n.js";
-import { nameText } from "../model.js";
+import { cleanGameText as cleanText, nameText } from "../model.js";
 import { S } from "../state.js";
-
-function cleanText(s) { return String(s || "").replace(/\[-?[a-z_]+\]/gi, "").replace(/\s+/g, " ").trim(); }
 
 export function skillsHtml(p) {
   if (!p.skills) return `<div class="note">${esc(t("why.skills." + (p.skillsWhy || "unavailable")))}</div>`;

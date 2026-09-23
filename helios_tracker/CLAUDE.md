@@ -28,8 +28,38 @@ and interactive objects on it, with zoom / pan. Read the root `../CLAUDE.md` fir
 - **Quest markers** ("Objectives" layer): the game's active mission waypoints - area objectives as
   dashed circles (radius = the waypoint's AreaRadius), point objectives as diamonds, quest givers as
   "!" badges; other missions' markers fainter than the tracked one's. Tooltip: objective, mission,
-  area radius, distance. Panel "Mission" section: tracked mission + its shown objectives. Read every
-  1 s from `MissionTracker.MissionWaypoints` (only `bActive` components), sent on change.
+  area radius, distance. Read every 1 s from `MissionTracker.MissionWaypoints` (only `bActive`
+  components), sent on change.
+- **Mission log** (`missions.py`, the `missionlog` payload): every mission of the playthrough from
+  `MissionTracker.MissionList` - status, objectives with progress, the current step
+  (`ActiveObjectiveSet`), dependencies, texts (see notes). Definitions read once (cached forever); a
+  full pass every 5 s (a heavy task), a fast pass over the tracked / active missions every 1 s;
+  published only when the live part changes. Panel "Mission" section: the tracked mission and every
+  objective of its current step (done / to do, counts, optional); its name opens its details, "All
+  missions" the tree. The tree (drawer): story missions in order with the side missions each one
+  unlocks under it (`Dependencies`), done / active / available (every dependency done, offered:
+  `bHeardKickoff`) / unknown (dependencies done, not offered yet: the game titles it "Inconnu") /
+  locked (hidden unless asked). A mission's details: description, giver, turn in, base level,
+  objectives done + current step, reward (XP, currency, items; alternative), requires / unlocks
+  (neutral links with their state; Back walks the history). Rewards: `GetExperienceReward` /
+  `GetCurrencyReward` (function calls: only active / available / tracked missions, cached per
+  mission and player level). Story missions: yellow + a flag; side missions: grey. Two views (remembered): story chain, or
+  by area (`TravelStation.StationDisplayName`, the game's text; areas in story order). Rewards are
+  the local player's (the host's), as the game computes them for their level.
+- The drawer closes when what it shows is gone (loot picked up, pawn dead, marker done).
+- Respawning players (see notes): drawn faded with a dashed ring at the New-U they'll come back at
+  (follow goes there), never at the parked position; "Crippled" / "Respawning" over the bars in the
+  Players list.
+- **Skills** (`skills.py`, see its docstring: verified with tools/probe_passives.txt): every player's
+  action skill (ready / running, from the manager's `SKILL_TYPE_Action` skill instance / cooling down,
+  from the pool), timed passive effects (a passive's triggered buff: `SKILL_TYPE_Passive` +
+  `DURATION_Timed`) and melee skill cooldown. The skill manager is shared: read once per pass (every
+  0.2 s) for everyone; definitions cached; full cooldowns every 5 s. By `SkillInstigator` (the
+  player's controller): every player on the host, only yourself on a co-op client.
+  Players list: an action skill chip right of the name. Player drawer **Info** tab (the default):
+  state, vitals, action skill, melee skill, active effects - refreshed only when a game update
+  arrived (at most every 250 ms), the DOM only written when it changed. Gear stats are the live
+  item's (buffs included): no base / buffed split (the user: pointless).
 - **Containers**: category from the game's loot list names - an "Epic" list = **Big chests** (red
   chests, orange-red, biggest), a "WeaponChest" list = **Weapon chests** (metal crates, bandit weapon
   chests, amber), else Containers sized by item slots (most items one opening spawns). **Looted**
@@ -96,6 +126,7 @@ and interactive objects on it, with zoom / pan. Read the root `../CLAUDE.md` fir
   runs (e.g. a Cloudflare tunnel for sharing the map on stream). It gets `HELIOS_PORT`, runs hidden, and its
   output goes to `autoexec.log`. It sits in a kill-on-close job object: server stop, port / LAN
   restart, mod disable, or the game exiting ends it along with its children.
+- `skills.py`: the players' skills (action skill, timed effects, melee cooldown), per update.
 - `util.py`: shared helpers (`try_`, `call_str`, `def_name`, `addr`, `log_error`).
 - `server.py`: stdlib `ThreadingHTTPServer`; `/` (page, read from disk per request),
   `/<path>.js|css` (any module / stylesheet under `web/`), `/events` (SSE: `level`, `state`, `objects`, `players`, latest
@@ -121,8 +152,10 @@ js/scheduler.js   invalidate(): frame requests per the Movement setting
 js/view.js        canvas, W/H, toScreen / toMap, fit, zoom, follow
 js/draw.js        one frame (markers, S.hits, layer counts)  js/shapes.js  marker shapes, labels, COLORS
 js/input.js       wheel / drag / pinch / click / keys, hitAt   js/tooltip.js  hover tooltip, coordinates
-js/ui/            panel (tabs, Settings), layers (Layers tab), status, mission, players, inspector,
-                  detail, items, skills (HTML panels)
+js/missions.js    the mission log: states, the tree, objective states (pure)
+js/icons.js       the icons: inline SVGs (currentColor), icon(name) - no emoji / glyphs as icons
+js/ui/            panel (tabs, Settings), layers (Layers tab), status, mission (Info panel), missionlog
+                  (drawer: tree, details, back history), players, inspector, detail, items, skills
 ```
 
 - Modules only define things at import time (no DOM access): the offline check imports every one of
@@ -130,6 +163,8 @@ js/ui/            panel (tabs, Settings), layers (Layers tab), status, mission, 
   called from `main.js`.
 - State changes: mutate `S`, then `invalidate()` for the canvas and the relevant `ui/` render function
   for the HTML. Circular imports are fine (only called at runtime).
+- Per-frame code (draw, the Players list's bars / chips) only writes the DOM when a value changed;
+  HTML panels that follow live data refresh at the game's update rate, not per frame.
 - Pure logic (no DOM) goes in `geo.js` / `dxt.js` / `model.js` / `settings.js`, so it can be tested
   under Node.
 - A new per-layer setting: an entry in `LAYER_SETTINGS` (the panel builds its control; `set.<key>`

@@ -82,8 +82,10 @@ export function prettyRaw(s) {
 /** Display text of anything with a name ("n"), made-up ones ("raw": 1) prettified. */
 export function nameText(o) { return o.raw ? prettyRaw(o.n) : String(o.n || "?"); }
 
-/** Real gear (goes into the backpack) vs other pickups, by the item's class. */
-const GEAR_CLASSES = ["WillowWeapon", "WillowShield", "WillowGrenadeMod", "WillowClassMod", "WillowArtifact"];
+/** Real gear (goes into the inventory, has a real rarity) vs other pickups, by the item's class.
+ *  Customization items (skins, heads: probe_pickups.py - RarityLevel 2 on a vehicle skin) count. */
+const GEAR_CLASSES = ["WillowWeapon", "WillowShield", "WillowGrenadeMod", "WillowClassMod", "WillowArtifact",
+  "WillowUsableCustomizationItem"];
 export function isGear(cls) { return GEAR_CLASSES.some((g) => String(cls || "").startsWith(g)); }
 
 /** Chest tier from the game's loot list names: 2 = an "Epic" list (the red chests: EpicChestRedLoot),
@@ -104,6 +106,13 @@ export function objectCategory(o) {
   if (/fasttravel|fast travel|travelstation|newu|respawn|quickchange|customiz/.test(s)) return "station";
   if (/chest|lockbox|lootable|loot|safe|cache|box|crate|locker|dumpster|toilet|cooler|cabinet|stash|pile/.test(s)) return "container";
   return "other";
+}
+
+/** Game text as plain text: its markup dropped - "[place]Sanctuary[-place]" -> "Sanctuary", HTML-ish
+ *  tags too (descriptions can hold a <br>: a space here). For HTML with the line breaks: gameTextHtml. */
+export function cleanGameText(s) {
+  return String(s || "").replace(/<br\s*\/?>/gi, " ").replace(/<\/?[a-z][^<>]*>/gi, "").replace(/\[-?[a-z_]+\]/gi, "")
+    .replace(/\s+/g, " ").trim();
 }
 
 /** Numbered variants of a pool merged: "Pool_Money_1", "Pool_Money_2" -> "Money". */

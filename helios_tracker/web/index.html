@@ -14,11 +14,10 @@
 <div id="panel">
   <div class="head">
     <div class="title">HELIOS TRACKER</div>
-    <button id="collapse" data-i18n-title="panel.collapse">▾</button>
+    <button id="collapse" data-icon="chevronDown" data-i18n-title="panel.collapse"></button>
   </div>
   <div class="body">
     <div id="level">—</div>
-    <div id="status"><i></i><span></span></div>
     <div class="ptabs" id="ptabs">
       <button data-ptab="info" data-i18n="ptab.info"></button><button data-ptab="layers" data-i18n="ptab.layers"></button><button data-ptab="settings" data-i18n="ptab.settings"></button>
     </div>
@@ -52,16 +51,17 @@
 </div>
 <div id="inspector">
   <div class="ihead">
-    <div class="row1"><div class="who" id="iwho"></div><button class="iclose" id="iclose" data-i18n-title="insp.close">×</button></div>
+    <div class="row1"><div class="who" id="iwho"></div><button class="iclose" id="iclose" data-icon="close" data-i18n-title="insp.close"></button></div>
     <div class="sub" id="isub"></div>
     <div class="tabs" id="itabs">
-      <button data-tab="gear" data-i18n="tab.gear"></button><button data-tab="backpack" data-i18n="tab.backpack"></button><button data-tab="skills" data-i18n="tab.skills"></button>
+      <button data-tab="info" data-i18n="tab.info"></button><button data-tab="gear" data-i18n="tab.gear"></button><button data-tab="backpack" data-i18n="tab.backpack"></button><button data-tab="skills" data-i18n="tab.skills"></button>
     </div>
   </div>
   <div class="ibody" id="ibody"></div>
 </div>
 <div id="tip"></div>
 <div id="coords"></div>
+<div id="status"><i></i><span></span></div>
 <script type="module">
   import { start } from "./js/main.js";
   start();

@@ -1,0 +1,173 @@
+// The mission log, in the right drawer: the tree (story missions in order, the side missions each
+// one unlocks under it; available / active / done, locked ones on request) and a mission's
+// details (description, giver, objectives with their progress, what it needs / unlocks).
+import { $, esc, gameTextHtml, nameHtml } from "../dom.js";
+import { num, t } from "../i18n.js";
+import { icon } from "../icons.js";
+import { missionAreas, missionCounts, missionState, missionTree, nodeVisible, objectiveStates } from "../missions.js";
+import { cleanGameText } from "../model.js";
+import { saveSettings, settings } from "../settings.js";
+import { S } from "../state.js";
+import { renderPlayers } from "./players.js";
+
+const STATE_ICON = { done: "check", active: "diamond", available: "circle", unknown: "circleDashed", locked: "lock", other: "question" };
+
+/** Opens the log: a mission's details (id), or the tree (no id). Back from a mission opened
+ *  directly: the tree. */
+export function openMissionLog(id = null) {
+  S.missionView = { id, history: [] };
+  S.inspect = null;
+  S.detail = null;
+  $("inspector").classList.add("open");
+  renderPlayers();
+  renderMissionLog(true);
+}
+
+/** The main-mission flag (story missions only: side missions are just grey). */
+const storyFlag = (m) => (m.plot ? `<span class="mflag">${esc(t("mdetail.storyFlag"))}</span>` : "");
+
+const stateText = (node) => (node.state === "other" ? cleanGameText(node.m.st) : t("mstate." + node.state));
+
+function rowHtml(node, depth, showLocked) {
+  if (!nodeVisible(node, showLocked)) return "";
+  const m = node.m, tracked = S.log && S.log.tracked === m.i;
+  const children = node.children.map((c) => rowHtml(c, depth + 1, showLocked)).join("");
+  return `<div class="mrow ${node.state}${m.plot ? " story" : ""}${tracked ? " tracked" : ""}" data-mission="${esc(m.i)}"` +
+    ` style="--depth:${Math.min(depth, 6)}" title="${esc(stateText(node))}"><span class="mico">${icon(STATE_ICON[node.state])}</span>` +
+    `<span class="mn">${nameHtml(m)}</span>${storyFlag(m)}` +
+    `${tracked ? `<span class="mtag">${esc(t("mdetail.tracked"))}</span>` : ""}</div>` + children;
+}
+
+// The log's two views: "chain" (story missions in order, what each unlocks under it) and "area"
+const GROUPINGS = ["chain", "area"];
+
+function treeHtml() {
+  const missions = S.log.missions, showLocked = !!settings.ui.showLockedMissions;
+  const grouping = GROUPINGS.includes(settings.ui.missionGroup) ? settings.ui.missionGroup : "chain";
+  const c = missionCounts(missions);
+  let html = `<div class="mtools"><span class="seg">` + GROUPINGS.map((g) =>
+    `<button data-mgroup="${g}" class="${g === grouping ? "on" : ""}">${esc(t("mlog.by." + g))}</button>`).join("") + `</span>` +
+    `<label class="row mlocked"><input type="checkbox" id="mShowLocked"${showLocked ? " checked" : ""}>` +
+    `<span>${esc(t("mlog.showLocked", { n: c.locked }))}</span></label></div>`;
+  const sections = grouping === "area"
+    ? missionAreas(missions).map((a) => [a.area || t("mlog.noArea"), a.nodes])
+    : (() => { const tree = missionTree(missions); return [[t("mlog.story"), tree.story], [t("mlog.other"), tree.other]]; })();
+  for (const [title, list] of sections) {
+    const rows = list.map((n) => rowHtml(n, 0, showLocked)).join("");
+    if (rows) html += `<div class="group">${esc(title)}</div><div class="mtree">${rows}</div>`;
+  }
+  return html;
+}
+
+/** The reward, as the game computes it for this player (XP, currency, items); an alternative one
+ *  (some missions let you choose) after an "or". */
+function rewardHtml(rw) {
+  const side = (r) => {
+    const rows = [];
+    if (r.xp) rows.push(esc(t("mdetail.xp", { n: r.xp })));
+    if (r.cash) rows.push(esc(r.cur === "Credits" || !r.cur ? "$" + num(r.cash) : `${num(r.cash)} ${cleanGameText(r.cur)}`));
+    const items = [...(r.items || []), ...(r.pools || [])].map(nameHtml);
+    return [...rows.map((x) => `<div class="mrw">${x}</div>`), ...items.map((x) => `<div class="mrw mrwitem">${x}</div>`)].join("");
+  };
+  let html = `<div class="group">${esc(t("mdetail.rewards"))}</div>` + side(rw);
+  if (rw.alt) html += `<div class="mrw or">${esc(t("mdetail.altReward"))}</div>` + side(rw.alt);
+  return html;
+}
+
+function detailHtml(m, tree) {
+  const rows = [];
+  if (m.area) rows.push([t("mdetail.area"), m.area]);
+  if (m.giver) rows.push([t("mdetail.giver"), m.giver]);
+  if (m.turnin) rows.push([t("mdetail.turnin"), m.turnin]);
+  if (m.stage) rows.push([t("mdetail.stage"), num(m.stage)]);
+  const flags = [m.repeat && t("mdetail.repeatable"), m.fail && t("mdetail.canFail")].filter(Boolean);
+  if (flags.length) rows.push([t("mdetail.flags"), flags.join(" · ")]);
+  let html = "";
+  const desc = gameTextHtml(m.desc); // descriptions can hold line breaks (<br>)
+  if (desc) html += `<div class="mdesc">${desc}</div>`;
+  if (rows.length) html += `<div class="kv">` + rows.map(([k, v]) => `<span>${esc(k)}</span><span>${esc(v)}</span>`).join("") + `</div>`;
+  // Objectives: the ones done and the current step (later steps / other branches aren't shown)
+  const objectives = objectiveStates(m).filter((s) => s.state !== "pending");
+  if (objectives.length) {
+    html += `<div class="group">${esc(t("mdetail.objectives"))}</div>` + objectives.map((s) =>
+      `<div class="mobj ${s.state}"><span class="mico">${icon(s.state === "done" ? "check" : "circle")}</span>` +
+      `<span class="mn">${nameHtml(s.o)}${s.o.opt ? ` <span class="mopt">${esc(t("mdetail.optional"))}</span>` : ""}</span>` +
+      (s.o.c > 1 ? `<span class="mcount">${num(Math.min(s.p, s.o.c))}/${num(s.o.c)}</span>` : "") + `</div>`).join("");
+  }
+  if (m.rw) html += rewardHtml(m.rw);
+  // Requires / unlocks: neutral rows (the story flag and colours are for the mission shown, not the
+  // ones it links to), with the linked mission's state
+  const link = (id) => {
+    const other = tree.byId.get(id);
+    if (!other) return "";
+    const state = missionState(other, tree.byId);
+    return `<div class="mrow link ${state}" data-mission="${esc(id)}" title="${esc(stateText({ m: other, state }))}">` +
+      `<span class="mico">${icon(STATE_ICON[state])}</span><span class="mn">${nameHtml(other)}</span></div>`;
+  };
+  const needs = (m.deps || []).map(link).join("");
+  if (needs) html += `<div class="group">${esc(t("mdetail.requires"))}</div>${needs}`;
+  const unlocks = S.log.missions.filter((o) => (o.deps || []).includes(m.i)).sort((a, b) => a.num - b.num).map((o) => link(o.i)).join("");
+  if (unlocks) html += `<div class="group">${esc(t("mdetail.unlocks"))}</div>${unlocks}`;
+  return html;
+}
+
+export function renderMissionLog(resetScroll) {
+  const body = $("ibody"), scroll = body.scrollTop;
+  $("itabs").style.display = "none";
+  if (!S.log || !S.log.missions.length) {
+    $("iwho").textContent = t("mlog.title");
+    $("isub").textContent = "";
+    body.innerHTML = `<div class="note">${esc(t("mlog.none"))}</div>`;
+    return;
+  }
+  const tree = missionTree(S.log.missions);
+  const m = S.missionView.id ? tree.byId.get(S.missionView.id) : null;
+  if (m) {
+    const state = stateText({ m, state: missionState(m, tree.byId) });
+    $("iwho").innerHTML = `<button class="mback" id="mBack" title="${esc(t("mlog.back"))}">${icon("back")}</button>` +
+      `<span class="mtitle ${m.plot ? "story" : "side"}">${nameHtml(m)}</span>${storyFlag(m)}`;
+    $("isub").textContent = [state, t(m.plot ? "mdetail.story" : "mdetail.side"), S.log.tracked === m.i ? t("mdetail.tracked") : ""]
+      .filter(Boolean).join(" · ");
+    body.innerHTML = detailHtml(m, tree);
+  } else {
+    const c = missionCounts(S.log.missions);
+    $("iwho").textContent = t("mlog.title");
+    $("isub").textContent = t("mlog.summary", { done: c.done, active: c.active, available: c.available, unknown: c.unknown });
+    body.innerHTML = treeHtml();
+  }
+  body.scrollTop = resetScroll ? 0 : scroll;
+}
+
+/** To a mission (from the tree or a requires / unlocks link): where we were goes on the history. */
+function goTo(id) {
+  const view = S.missionView;
+  view.history.push({ id: view.id, scroll: $("ibody").scrollTop });
+  view.id = id;
+  renderMissionLog(true);
+}
+
+/** Back one step: the previous mission (its scroll kept), and at the bottom of the history the tree. */
+function goBack() {
+  const view = S.missionView, prev = view.history.pop() || { id: null, scroll: 0 };
+  view.id = prev.id;
+  renderMissionLog(true);
+  $("ibody").scrollTop = prev.scroll;
+}
+
+export function initMissionLog() {
+  // One set of delegated handlers on the drawer (its content is rebuilt on every change)
+  $("inspector").addEventListener("click", (e) => {
+    if (!S.missionView) return;
+    if (e.target.closest("#mBack")) { goBack(); return; }
+    const grouping = e.target.closest("[data-mgroup]");
+    if (grouping) { settings.ui.missionGroup = grouping.dataset.mgroup; saveSettings(); renderMissionLog(true); return; }
+    const row = e.target.closest("[data-mission]");
+    if (row) goTo(row.dataset.mission);
+  });
+  $("inspector").addEventListener("change", (e) => {
+    if (e.target.id !== "mShowLocked") return;
+    settings.ui.showLockedMissions = e.target.checked;
+    saveSettings();
+    renderMissionLog();
+  });
+}

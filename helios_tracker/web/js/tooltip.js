@@ -33,6 +33,9 @@ export function tooltip(mePos, f) {
   const kindHtml = best.kind === "loot" ? (gear ? esc(rarityName(it.q)) + " · " : "") + classHtml(it.c || "Pickup")
     : best.kind === "other" ? classHtml(it.c) : esc(t("tip." + best.kind, null, best.kind));
   lines.push(`<span class="tl">${kindHtml}</span>`);
+  if (it.rs) lines.push(`<span class="tl">${esc(t("tip.respawning"))}</span>`);
+  else if (it.dd) lines.push(`<span class="tl">${esc(t("vital.dead"))}</span>`);
+  else if (it.dn) lines.push(`<span class="tl">${esc(t("vital.ffyl"))}</span>`);
   if (it.l && (best.kind !== "loot" || gear)) lines.push(`<span class="tl">${esc(t("insp.level", { n: it.l }))}</span>`);
   if (it.sm > 0) lines.push(`<span class="tl">${esc(t("tip.shield", { s: Math.round(it.s), m: Math.round(it.sm) }))}</span>`);
   if (it.m > 0) lines.push(`<span class="tl">${esc(t("tip.health", { h: Math.round(it.h), m: Math.round(it.m) }))}</span>`);

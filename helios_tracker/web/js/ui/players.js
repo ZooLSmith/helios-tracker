@@ -21,9 +21,12 @@ export function renderPlayers() {
     `<span class="vnum vright"></span></span></div>`;
   box.innerHTML = S.players.map((p) =>
     `<div class="pentry${sel && sel.i === p.i ? " sel" : ""}" data-id="${esc(p.i)}">` +
-    `<div class="pname${isTrackedPlayer(p) ? " me" : ""}">${nameHtml(p)}</div>` +
+    `<div class="phead"><div class="pname${isTrackedPlayer(p) ? " me" : ""}">${nameHtml(p)}</div>` +
+    `<span class="askill"><i></i><span></span></span></div>` +
     `<div class="pinfo">${esc(playerSub(p))}</div>` +
-    vital("sh") + vital("hp") + vital("xp") + `</div>`).join("");
+    // shield + health together, under the "Fight For Your Life" overlay (shown when both are empty)
+    `<div class="vitals">${vital("sh")}${vital("hp")}<div class="ffyl">${esc(t("vital.ffyl"))}</div></div>` +
+    vital("xp") + `</div>`).join("");
   for (const row of box.querySelectorAll(".pentry")) row.onclick = () => openInspector(row.dataset.id);
   for (const p of S.players) { // XP: from the players payload (it changes with kills, not per frame)
     const el = box.querySelector(`.pentry[data-id="${CSS.escape(p.i)}"] .vital.xp`);
@@ -49,11 +52,11 @@ export function updatePlayerVitals(now = performance.now()) {
     const set = (cls, cur, max) => {
       const el = row.querySelector(".vital." + cls);
       const on = !!p && max > 0;
-      el.classList.toggle("on", on);
+      if (el.classList.contains("on") !== on) el.classList.toggle("on", on);
       if (!on) return;
       const frac = Math.max(0, Math.min(1, cur / max));
-      const bar = el.querySelector("i");
-      bar.style.width = (frac * 100).toFixed(1) + "%";
+      const bar = el.querySelector("i"), width = (frac * 100).toFixed(1) + "%";
+      if (bar.style.width !== width) bar.style.width = width; // only on a change (called with the frames)
       const curText = num(Math.round(cur)), maxText = ` / ${num(Math.round(max))}`; // "/ max" at 70%
       const curEl = el.querySelector(".vnum b"), maxEl = el.querySelector(".vnum .vmax");
       if (curEl.textContent !== curText) curEl.textContent = curText;
@@ -61,5 +64,27 @@ export function updatePlayerVitals(now = performance.now()) {
     };
     set("sh", p && p.s, p && p.sm);
     set("hp", p && p.h, p && p.m);
+    // The action skill: ready / running (a draining bar) / cooling down (seconds left)
+    const chip = row.querySelector(".askill"), ak = p && p.ak;
+    const kind = ak ? ak[0] : "";
+    if (chip.dataset.k !== kind) { chip.dataset.k = kind; chip.className = "askill" + (kind ? " " + kind : ""); }
+    if (ak) { // ["r", name] / ["a" | "c", fraction left, seconds left, name]
+      // Running / cooling down: the seconds left, a bare number (the chip's look tells which)
+      const text = kind === "r" ? t("skill.ready") : String(Math.ceil(ak[2]));
+      const label = chip.querySelector("span"), width = kind === "r" ? "100%" : (ak[1] * 100).toFixed(1) + "%";
+      if (label.textContent !== text) label.textContent = text;
+      const name = (kind === "r" ? ak[1] : ak[3]) || t("skill.tip");
+      const bar = chip.querySelector("i"), title = kind === "r" ? name : `${name} · ${t(kind === "a" ? "skill.active" : "skill.cooldown")}`;
+      if (bar.style.width !== width) bar.style.width = width; // only on a change (called with the frames)
+      if (chip.title !== title) chip.title = title;
+    }
+    // Respawning (at a New-U), dead (before the respawn), or crippled (down / no health, no shield left)
+    const respawning = !!p && !!p.rs, dead = !!p && !!p.dd && !respawning;
+    const down = respawning || dead || (!!p && (!!p.dn || (p.m > 0 && p.h <= 0 && !(p.sm > 0 && p.s > 0))));
+    const box = row.querySelector(".vitals");
+    if (box.classList.contains("down") !== down) box.classList.toggle("down", down);
+    if (box.classList.contains("dead") !== dead) box.classList.toggle("dead", dead);
+    const text = t(respawning ? "vital.respawning" : dead ? "vital.dead" : "vital.ffyl"), label = box.querySelector(".ffyl");
+    if (label.textContent !== text) label.textContent = text;
   }
 }

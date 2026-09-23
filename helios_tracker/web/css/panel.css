@@ -15,10 +15,6 @@
 .title { font-weight: 700; letter-spacing: .12em; font-size: 12px; color: var(--accent); flex: 1; }
 #collapse { background: none; border: 0; color: var(--dim); cursor: pointer; font-size: 14px; padding: 0 2px; }
 #level { font-size: 17px; font-weight: 600; margin: 6px 0 2px; }
-#status { display: flex; align-items: center; gap: 6px; color: var(--dim); font-size: 12px; }
-#status i { width: 8px; height: 8px; border-radius: 50%; background: var(--warn); display: inline-block; }
-#status.live i { background: var(--live); }
-#status.bad i { background: var(--bad); }
 h3 { font-size: 11px; letter-spacing: .1em; color: var(--dim); margin: 12px 0 4px; font-weight: 600; }
 label.row { display: flex; align-items: center; gap: 8px; padding: 2px 0; cursor: pointer; }
 label.row input { margin: 0; accent-color: var(--accent); }
@@ -71,6 +67,14 @@ button.act:hover { border-color: var(--accent); }
 .vital.sh .vbar i { background: var(--shield); }
 .vital.hp .vbar i { background: var(--health); }
 .vital.xp .vbar i { background: var(--xp); }
+/* crippled / respawning: the shield + health bars faded (still there), the word over them in red */
+.vitals { position: relative; }
+.ffyl { display: none; position: absolute; inset: 2px 0 0; align-items: center; justify-content: center;
+  color: var(--health); font-size: 12px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase;
+  white-space: nowrap; overflow: hidden; text-shadow: 0 0 3px #000, 0 0 2px #000, 0 1px 1px #000; }
+.vitals.down .ffyl { display: flex; }
+.vitals.down .vital { opacity: .2; }
+.vitals.dead .ffyl { color: var(--dead); }
 .vital.xp.on { margin-top: 3px; } /* a little apart from shield / health */
 .vital.xp .vbar { height: 16px; } /* thinner than shield / health */
 .vital.xp .vnum { font-size: 11px; }
@@ -80,12 +84,37 @@ button.act:hover { border-color: var(--accent); }
   text-shadow: -1px 0 1px #000, 1px 0 1px #000, 0 -1px 1px #000, 0 1px 1px #000, 0 0 3px #000; }
 .vnum .vmax { opacity: .7; }
 .vnum.vright { left: auto; right: 5px; }
-.players .pname { color: #f4f4f4; font-weight: 600; }
+.players .phead { display: flex; align-items: center; gap: 6px; }
+.players .pname { color: #f4f4f4; font-weight: 600; flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+/* the action skill, right of the name: ready (green), running (the seconds left over a draining bar,
+   a red inner outline), cooling down (the seconds left over the cooldown's bar) */
+.askill { display: none; position: relative; flex: none; min-width: 40px; height: 17px; padding: 0 7px; border-radius: 4px;
+  font-size: 11px; font-weight: 700; line-height: 17px; text-align: center; font-variant-numeric: tabular-nums;
+  overflow: hidden; background: #1c2d38; color: #e6eef2; }
+.askill.r, .askill.a, .askill.c { display: block; }
+.askill i { position: absolute; left: 0; top: 0; bottom: 0; width: 0; }
+.askill span { position: relative; text-shadow: 0 0 2px #000, 0 1px 1px #000; }
+.askill.r { color: #0d1a10; }
+.askill.r span { text-shadow: none; }
+.askill.r i { background: var(--live); }
+.askill.a { color: #fff; box-shadow: inset 0 0 0 1.5px var(--health); }
+.askill.a span { text-shadow: 0 0 3px #000, 0 0 2px #000, 0 1px 1px #000, 1px 0 1px #000, -1px 0 1px #000; }
+.askill.a i { background: color-mix(in srgb, var(--accent) 55%, #3a2a00); } /* a darker yellow: the white timer reads on it */
+.askill.c i { background: color-mix(in srgb, #6f8a99 55%, transparent); }
 .players .pname.me { color: var(--accent); }
 .players .pinfo { color: var(--dim); font-size: 11px; margin-top: 1px; } /* level · class, under the name */
-#mission .mname { font-weight: 600; color: var(--objective); }
-#mission .obj { font-size: 12px; padding-left: 10px; position: relative; }
-#mission .obj::before { content: "◆"; position: absolute; left: 0; color: var(--objective); font-size: 8px; top: 3px; }
+#mission .mname { font-weight: 600; color: var(--side); cursor: pointer; }
+#mission .mname.story { color: var(--story); } /* story (main) mission: yellow; side: grey */
+#mission .mname[data-log]:hover { text-decoration: underline; }
+/* the current step's objectives: done ones ticked and dimmed, counts on the right */
+#mission .obj { display: flex; align-items: baseline; gap: 6px; font-size: 12px; padding: 1px 0; }
+#mission .oico { flex: none; width: 10px; color: var(--objective); font-size: 10px; align-self: center; display: flex; }
+#mission .on { flex: 1; min-width: 0; }
+#mission .ocount { flex: none; color: var(--dim); font-variant-numeric: tabular-nums; }
+#mission .obj.done { color: var(--dim); }
+#mission .obj.done .on { text-decoration: line-through; }
+.mopt { color: var(--dim); font-size: 11px; font-style: italic; }
+button.act.mall { margin-top: 6px; font-size: 12px; padding: 3px 6px; }
 @media (max-width: 520px) {
   #panel { width: calc(100% - 24px); max-height: 45%; }
 }

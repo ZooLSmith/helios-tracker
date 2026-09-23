@@ -394,9 +394,36 @@ for (const [k, s] of Object.entries(LAYER_SETTINGS)) {
 // Pickups -> layer: gear by rarity (unknown levels: misc), the rest by the collector's kind ("pk")
 const lootLayers = [[1, "WillowWeapon"], [5, "WillowShield"], [500, "WillowArtifact"], [520, "WillowWeapon"], [0, "WillowClassMod"],
   [77, "WillowGrenadeMod"], [5, "WillowUsableItem"], [181, "", "cash"], [0, "WillowUsableItem", "ammo"], [171, "WillowUsableItem", "health"],
-  [0, "WillowUsableItem", "bogus"]].map(([q, c, pk]) => lootLayer({ q, c, pk }));
+  [0, "WillowUsableItem", "bogus"], [2, "WillowUsableCustomizationItem"]].map(([q, c, pk]) => lootLayer({ q, c, pk }));
 const unknownSettings = LAYERS.flatMap((l) => l.settings.filter((k) => !LAYER_SETTINGS[k]).map((k) => l.id + "." + k));
-console.log(JSON.stringify({ sha: crypto.createHash("sha256").update(rgba).digest("hex"), err, back, right, raw, modules,
+// Missions: state (available = every mission it needs done), the tree, objective states
+const { missionTree, objectiveStates, missionCounts, missionAreas } = await load("js/missions.js");
+const log = [
+  { i: "a", num: 1, plot: 1, st: "Complete", deps: [] }, { i: "b", num: 2, plot: 1, st: "Active", deps: ["a"],
+    obj: [{ c: 1 }, { c: 5 }, { c: 1, opt: 1 }], p: [1, 3], cur: [1, 2] },
+  { i: "c", num: 3, plot: 1, st: "NotStarted", deps: ["b"] }, { i: "s1", num: 20, plot: 0, st: "NotStarted", deps: ["a"], kick: 1 },
+  { i: "s3", num: 22, plot: 0, st: "NotStarted", deps: ["a"] },
+  { i: "s2", num: 21, plot: 0, st: "NotStarted", deps: ["s1"] }, { i: "o", num: 30, plot: 0, st: "Complete", deps: [] },
+  { i: "x", num: 40, plot: 0, st: "RequiredObjectivesComplete", deps: ["gone"] }];
+const tree = missionTree(log);
+const { gameTextHtml } = await load("js/dom.js");
+const { cleanGameText } = await load("js/model.js");
+const gameText = [gameTextHtml("Go to [place]Sanctuary[-place].<br>Find <font color='#f00'>Roland</font> & <b>win</b><BR/><script>x</script>"),
+  cleanGameText("Line one.<br>Line <i>two</i> [place]here[-place]")];
+const flat = (nodes, d = 0) => nodes.flatMap((n) => [`${"-".repeat(d)}${n.m.i}:${n.state}`, ...flat(n.children, d + 1)]);
+const areaLog = [{ i: "a", num: 5, st: "Complete", deps: [], area: "Sanctuary" }, { i: "b", num: 1, st: "Active", deps: [], area: "Shelf" },
+  { i: "c", num: 9, st: "NotStarted", deps: [] }, { i: "d", num: 3, st: "NotStarted", deps: [], area: "Sanctuary", kick: 1 }];
+const areas = missionAreas(areaLog).map((a) => `${a.area}:${a.nodes.map((n) => n.m.i).join("")}`);
+// The player Info tab, from a pawn in the state: state, vitals, action skill, timed effects, melee cooldown
+const { S } = await load("js/state.js");
+const { playerInfoHtml } = await load("js/ui/playerinfo.js");
+S.pawns.set("p1", { i: "p1", k: "me", h: 60, m: 100, s: 20, sm: 50, x: 0, y: 0, z: 0, r: 0,
+  ak: ["a", 0.6, 12, "Gunzerking"], ps: [["Locked and Loaded - active", 3.4, 5.5]], mk: [0.5, 7.5] });
+S.pawns.set("p2", { i: "p2", k: "player", h: 0, m: 100, s: 0, sm: 0, x: 0, y: 0, z: 0, r: 0, dn: 1 });
+const infoHtml = [playerInfoHtml({ i: "p1", local: 1, lvl: 30, xp: [500, 1000] }), playerInfoHtml({ i: "p2" }), playerInfoHtml({ i: "gone" })];
+const missionsOut = { infoHtml, areas, gameText, story: flat(tree.story), other: flat(tree.other), counts: missionCounts(log),
+  objectives: objectiveStates(log[1]).map((s) => s.state) };
+console.log(JSON.stringify({ sha: crypto.createHash("sha256").update(rgba).digest("hex"), err, back, right, raw, modules, missions: missionsOut,
   migrated, checked: { enemy: checked.layers.enemy, view: checked.view, openLayers: checked.ui.openLayers }, i18nKeys, unknownSettings, lootLayers }));
 """
 
@@ -433,6 +460,7 @@ def _dxt5_rgba(w: int, h: int, data: bytes) -> bytes:
 
 
 def check_helios_tracker() -> None:  # noqa: PLR0915
+    import enum  # noqa: PLC0415
     import hashlib  # noqa: PLC0415
     import http.client  # noqa: PLC0415
     import json  # noqa: PLC0415
@@ -449,6 +477,7 @@ def check_helios_tracker() -> None:  # noqa: PLR0915
     from helios_tracker.server import Hub, TrackerServer  # noqa: PLC0415
     from helios_tracker.tacmap import load_tactical_map  # noqa: PLC0415
     from helios_tracker.util import pickup_kind  # noqa: PLC0415
+
 
     # Pickup kinds: the definition's inventory card (Presentation), resolved once per definition
     class FakeDef:
@@ -487,6 +516,61 @@ def check_helios_tracker() -> None:  # noqa: PLR0915
 
     # A level load through the collector (fake world); the map is extracted on its thread
     ns = types.SimpleNamespace
+    # A respawning player (tools/probe_respawn.txt): hidden + awaiting a respawn -> their New-U spot
+    spot = ns(X=19361.0, Y=-27830.0, Z=1581.0)
+    # Down states (tools/probe_respawn.txt): crippled / dead / fine
+    injured = enum.Enum("EInjuredStage", ["INJURED_Not", "INJURED_Targeted"], start=0)
+    dead_state = enum.Enum("EInjuredDeadState", ["INJUREDDEAD_None", "INJUREDDEAD_InitRagdoll"], start=0)
+    down_state = col.Collector._down_state
+    assert down_state(ns(InjuredState=injured.INJURED_Targeted, InjuredDeadState=dead_state.INJUREDDEAD_None)) == "crippled"
+    assert down_state(ns(InjuredState=injured.INJURED_Targeted, InjuredDeadState=dead_state.INJUREDDEAD_InitRagdoll)) == "dead"
+    assert down_state(ns(InjuredState=injured.INJURED_Not, InjuredDeadState=dead_state.INJUREDDEAD_None)) == ""
+    assert down_state(ns()) == "", "no InjuredState: fine"
+    respawn_state = col.Collector._respawn_state
+    # Skills (tools/probe_passives.txt): the manager's running timed skills by player; the action skill
+    # running / cooling down (its pool) / ready; timed passive effects; melee cooldown
+    from helios_tracker.skills import SkillReader  # noqa: PLC0415
+
+    skill_type = enum.Enum("ESkillType", ["SKILL_TYPE_Passive", "SKILL_TYPE_Action"], start=0)
+    duration_type = enum.Enum("EEffectDurationType", ["DURATION_Infinite", "DURATION_Timed"], start=0)
+    skill_state = enum.Enum("ESkillState", ["SKILL_Inactive", "SKILL_Active"], start=0)
+
+    def skill_def(addr: int, name: str, kind, timed: bool = True):  # noqa: ANN001, ANN202
+        return ns(_get_address=lambda: addr, SkillName=name, SkillType=kind,
+                  DurationType=duration_type.DURATION_Timed if timed else duration_type.DURATION_Infinite)
+
+    gunzerk = skill_def(0x901, "Gunzerking", skill_type.SKILL_TYPE_Action)
+    buff = skill_def(0x902, "Locked and Loaded - active", skill_type.SKILL_TYPE_Passive)
+    always = skill_def(0x903, "Quick Draw", skill_type.SKILL_TYPE_Passive, timed=False)
+    player_pc = ns(_get_address=lambda: 0x950, SavedSkillTreeSkill=gunzerk, GetSkillCooldownTime=lambda: 42.0,
+                   GetMeleeSkillCooldownTime=lambda: 15.0,
+                   SkillCooldownPool=ns(Data=ns(CurrentValue=21.0, ConsumptionRate=2.0)),
+                   MeleeSkillCooldownPool=ns(Data=ns(CurrentValue=0.0, ConsumptionRate=1.0)))
+
+    def active(d, start: float, duration: float):  # noqa: ANN001, ANN202
+        return ns(Definition=d, SkillState=skill_state.SKILL_Active, StartTime=start, Duration=duration, SkillInstigator=player_pc)
+
+    manager = ns(ActiveSkills=[active(always, 0.0, 0.0), active(buff, 1630.0, 5.5)])
+    player_pc.GetSkillManager = lambda: manager
+    reader = SkillReader()
+    reader.update(player_pc, 1631.0, 10.0)
+    got = reader.player(ns(Controller=player_pc), 10.0)
+    assert got == {"ak": ["c", 0.5, 10.5, "Gunzerking"], "ps": [["Locked and Loaded - active", 4.5, 5.5]]}, got
+    manager.ActiveSkills.append(active(gunzerk, 1625.0, 20.0))  # the action skill running
+    player_pc.SkillCooldownPool.Data.CurrentValue = 0.0
+    player_pc.MeleeSkillCooldownPool.Data.CurrentValue = 7.5
+    reader.update(player_pc, 1631.0, 10.5)
+    got = reader.player(ns(Controller=player_pc), 10.5)
+    assert got["ak"] == ["a", 0.7, 14.0, "Gunzerking"] and got["mk"] == [0.5, 7.5], got
+    manager.ActiveSkills = []
+    reader.update(player_pc, 1640.0, 11.0)
+    assert reader.player(ns(Controller=player_pc), 11.0) == {"ak": ["r", "Gunzerking"], "mk": [0.5, 7.5]}
+    assert reader.player(ns(Controller=None), 11.0) == {}, "no controller (co-op client)"
+    assert respawn_state(ns(bHidden=True, bAwaitingInjuredRespawn=True, AwaitingRespawnResurrectLocation=spot)) == (True, spot)
+    assert respawn_state(ns(bHidden=False, bAwaitingInjuredRespawn=True, AwaitingRespawnResurrectLocation=spot)) == (False, None)
+    assert respawn_state(ns(bHidden=True, AwaitingRespawnResurrectLocation=spot)) == (False, None), "hidden alone"
+    assert respawn_state(ns(bHidden=True, bIsAwaitingRespawn=True,
+                            AwaitingRespawnResurrectLocation=ns(X=0.0, Y=0.0, Z=0.0))) == (True, None), "no spot"
     vol = ns(
         _path_name=lambda: "Sanctuary_P.TheWorld:PersistentLevel.WillowTacticalMapVolume_0",
         BrushComponent=ns(Bounds=ns(Origin=ns(X=-3072.0, Y=-10240.0, Z=4096.0), BoxExtent=ns(X=23552.0, Y=22528.0, Z=8192.0))),
@@ -576,15 +660,39 @@ def check_helios_tracker() -> None:  # noqa: PLR0915
     )
     # The mission tracker (as seen in game, tools/probe_missions.txt): one tracked mission with an
     # active area objective and an inactive one, plus an active quest giver on an NPC
-    mission = ns(_get_address=lambda: 0x600, Name="M_Ep2a_MoreGuns", MissionName="Ménage à Liar's Berg")
+    # The mission log (tools/probe_quests.txt): MissionList entries {MissionDef, Status,
+    # ObjectivesProgress (per ObjectiveDefs entry), ActiveObjectiveSet}; a done story mission, the
+    # tracked one (3 objectives, the current step = the last two), a side mission it unlocked
+    # (available) and one needing the tracked mission (locked)
+    status = enum.Enum("EMissionStatus", ["MS_NotStarted", "MS_Active", "MS_Complete"], start=0)
+    secure = ns(Name="Securethetown", ProgressMessage="Sécuriser la ville", ObjectiveCount=1, _get_address=lambda: 0x650)
+    kill = ns(Name="KillBandits", ProgressMessage="Tuer des bandits", ObjectiveCount=5, _get_address=lambda: 0x651)
+    extra = ns(Name="Bonus", ProgressMessage="Bonus", ObjectiveCount=1, bObjectiveIsOptional=True, _get_address=lambda: 0x652)
+
+    def mission_def(addr: int, path: str, name: str, number: int, plot: bool, deps: list, objectives: list = ()) -> object:
+        return ns(_get_address=lambda: addr, _path_name=lambda: path, Name=path.split(".")[-1], MissionName=name,
+                  MissionNumber=number, bPlotCritical=plot, Dependencies=deps, ObjectiveDefs=list(objectives),
+                  MissionDescription="[place]Liar's Berg[-place] needs you.", MissionGiver="Claptrap", GameStage=3,
+                  TravelStation=ns(StationDisplayName="Southern Shelf") if number < 20 else None)
+
+    henchman = mission_def(0x610, "GD_Episode02.M_Ep2_Henchman", "Aveugle", 1, True, [])
+    mission = mission_def(0x600, "GD_Episode02.M_Ep2a_MoreGuns", "Ménage à Liar's Berg", 2, True, [henchman], [secure, kill, extra])
+    side = mission_def(0x620, "GD_Z1_Side.M_Side", "Side job", 20, False, [henchman])
+    later = mission_def(0x630, "GD_Z1_Later.M_Later", "Later job", 21, False, [mission])
+    log_entries = [
+        ns(MissionDef=henchman, Status=status.MS_Complete, ObjectivesProgress=[]),
+        ns(MissionDef=mission, Status=status.MS_Active, ObjectivesProgress=[1, 3, 0],
+           ActiveObjectiveSet=ns(ObjectiveDefinitions=[kill, extra]), SubObjectiveSets=[]),
+        ns(MissionDef=side, Status=status.MS_NotStarted, ObjectivesProgress=[], bHeardKickoff=True),
+        ns(MissionDef=later, Status=status.MS_NotStarted, ObjectivesProgress=[]),
+    ]
     area = ns(Location=ns(X=28354.0, Y=-12060.0, Z=3310.0), AreaRadius=2125)
-    secure = ns(Name="Securethetown", ProgressMessage="Sécuriser la ville")
 
     def waypoint(addr: int, owner: object, active: bool, objective: object = None, cls: str = "MissionObjectiveWaypointComponent") -> object:
         return ns(_get_address=lambda: addr, Class=ns(Name=cls), bActive=active, Owner=owner,
                   WaypointInfo=ns(LinkedObjective=objective))
 
-    tracker = ns(Name="MissionTracker_0", ActiveMission=mission, MissionWaypoints=[ns(Mission=mission, Waypoints=[
+    tracker = ns(Name="MissionTracker_0", ActiveMission=mission, MissionList=log_entries, MissionWaypoints=[ns(Mission=mission, Waypoints=[
         waypoint(0x700, area, True, secure),
         waypoint(0x701, ns(Location=ns(X=1.0, Y=2.0, Z=3.0), AreaRadius=0), False, ns(Name="MeetBrewster", ProgressMessage="x")),
         waypoint(0x702, ns(Location=ns(X=5.0, Y=6.0, Z=7.0)), True, cls="MissionDirectiveWaypointComponent"),
@@ -662,6 +770,25 @@ def check_helios_tracker() -> None:  # noqa: PLR0915
     assert (obj_mk["k"], obj_mk["rad"], obj_mk["tracked"], obj_mk["objective"]) == (
         "objective", 2125, True, {"n": "Sécuriser la ville"}), obj_mk
     assert (giver["k"], giver["rad"], "objective" in giver) == ("directive", 0, False), giver
+    # The mission log: full pass (every entry, definitions cached), then the fast pass (the tracked /
+    # active missions, every second) picks up progress
+    log = json.loads(hub._channels["missionlog"][1])
+    by_id = {m["i"]: m for m in log["missions"]}
+    tracked = by_id["GD_Episode02.M_Ep2a_MoreGuns"]
+    assert log["tracked"] == tracked["i"] and tracked["st"] == "Active" and tracked["plot"] == 1, log["tracked"]
+    assert (tracked["p"], tracked["cur"], tracked["deps"]) == ([1, 3, 0], [1, 2], ["GD_Episode02.M_Ep2_Henchman"]), tracked
+    assert [(o["n"], o["c"], o.get("opt")) for o in tracked["obj"]] == [
+        ("Sécuriser la ville", 1, None), ("Tuer des bandits", 5, None), ("Bonus", 1, 1)], tracked["obj"]
+    assert [by_id[k]["st"] for k in ("GD_Episode02.M_Ep2_Henchman", "GD_Z1_Side.M_Side")] == ["Complete", "NotStarted"], by_id
+    assert tracked["area"] == "Southern Shelf" and "area" not in by_id["GD_Z1_Side.M_Side"], "mission area (TravelStation)"
+    assert by_id["GD_Z1_Side.M_Side"].get("kick") == 1 and "kick" not in by_id["GD_Z1_Later.M_Later"], "offered flag (bHeardKickoff)"
+    version = hub._channels["missionlog"][0]
+    c.tick(1001.5)  # nothing changed: not published again
+    assert hub._channels["missionlog"][0] == version, "mission log republished with no change"
+    log_entries[1].ObjectivesProgress = [1, 4, 0]  # a kill
+    c.tick(1002.6)  # the next marker read (1 s): the fast pass
+    tracked = next(m for m in json.loads(hub._channels["missionlog"][1])["missions"] if m["i"] == tracked["i"])
+    assert tracked["p"] == [1, 4, 0], tracked
     assert [b["k"] for b in player["backpack"]] == ["shield"], player["backpack"]
     assert player["skills"][0]["n"] == "Sniping" and player["skills"][0]["skills"][0]["g"] == 4, player["skills"]
     assert player["skills"][0]["pts"] == 4 and not player["skills"][0].get("root"), player["skills"]
@@ -671,7 +798,8 @@ def check_helios_tracker() -> None:  # noqa: PLR0915
           f" {len(player['backpack'])} in backpack, skills {[b['n'] for b in player['skills']]};"
           f" gun '{gun['type']}' by '{gun['maker']}'; object '{obj['n']}'")
     print(f"  missions: tracked {missions['tracked']['n']!r}, markers"
-          f" {[(m['k'], m['rad'], m.get('objective', {}).get('n')) for m in missions['markers']]}")
+          f" {[(m['k'], m['rad'], m.get('objective', {}).get('n')) for m in missions['markers']]};"
+          f" log {len(log['missions'])} missions, tracked progress {tracked['p']}")
     hub.clients = 0
 
     # The server: page, SSE stream, image
@@ -709,11 +837,11 @@ def check_helios_tracker() -> None:  # noqa: PLR0915
         res = sse.getresponse()
         assert res.headers["Content-Type"] == "text/event-stream", res.headers
         events = set()
-        while len(events) < 5:
+        while len(events) < 6:
             line = res.fp.readline().decode()
             if line.startswith("event: "):
                 events.add(line[7:].strip())
-        assert events == {"level", "state", "objects", "players", "missions"}, events
+        assert events == {"level", "state", "objects", "players", "missions", "missionlog"}, events
         print(f"  server: page {len(page)} bytes + {len(web_files)} js / css files, image {len(image)} bytes,"
               f" SSE events {sorted(events)}")
     finally:
@@ -770,7 +898,8 @@ def check_helios_tracker() -> None:  # noqa: PLR0915
     assert not mig["layers"]["loot.rare"]["on"] and not mig["layers"]["pickup.ammo"]["on"], "old Loot toggle not carried over"
     assert not {"gear", "pickups", "containers"} & set(mig["layers"]), "a folder has no settings"
     assert js["lootLayers"] == ["loot.common", "loot.legendary", "loot.pearl", "loot.pearl", "loot.misc", "loot.misc",
-                                "pickup.other", "pickup.cash", "pickup.ammo", "pickup.health", "pickup.other"], js["lootLayers"]
+                                "pickup.other", "pickup.cash", "pickup.ammo", "pickup.health", "pickup.other",
+                                "loot.uncommon"], js["lootLayers"]
     assert mig["layers"]["player"] == {"names": True, "floors": "show", "size": 100}, mig["layers"]["player"]
     assert mig["view"]["zoom"] == 2.5 and mig["view"]["motion"] == 0, mig["view"]
     assert mig["ui"]["lang"] == "fr" and mig["ui"]["inspectorTab"] == "skills", mig["ui"]
@@ -780,6 +909,18 @@ def check_helios_tracker() -> None:  # noqa: PLR0915
     assert not js["unknownSettings"], js["unknownSettings"]
     missing = sorted(k for k in js["i18nKeys"] if k not in langs["en"])
     assert not missing, ("layer panel keys missing from the catalogs", missing)
+    mis = js["missions"]
+    assert mis["story"] == ["a:done", "-s1:available", "--s2:locked", "-s3:unknown", "b:active", "c:locked"], mis["story"]
+    assert mis["other"] == ["o:done", "x:other"], mis["other"]
+    assert mis["counts"] == {"done": 2, "active": 1, "available": 1, "unknown": 1, "locked": 2, "other": 1}, mis["counts"]
+    assert mis["objectives"] == ["done", "current", "current"], mis["objectives"]
+    assert mis["areas"] == ["Shelf:b", "Sanctuary:da", ":c"], mis["areas"]
+    me_info, down_info, gone_info = mis["infoHtml"]
+    for want in ("Fine", "Shield", "60 / 100", "Level 30", "500 / 1,000", "Gunzerking", "Active · 12 s", "Locked and Loaded - active", "4 s", "Melee skill", "8 s"):
+        assert want in me_info, (want, me_info)
+    assert "Crippled" in down_info and "Not known here" in down_info, down_info
+    assert "Not in this area" in gone_info, gone_info
+    assert mis["gameText"] == ["Go to Sanctuary.<br>Find Roland &amp; win<br>x", "Line one. Line two here"], mis["gameText"]
     print(f"  page JS: {len(js['modules'])} modules import under Node, DXT5 decode matches,"
           f" world->map within {js['err']:.3f} px of the probe samples")
 

@@ -2,6 +2,7 @@
 // layers.js.
 import { $, esc } from "../dom.js";
 import { CATALOG, langPref, setLanguage, t } from "../i18n.js";
+import { icon } from "../icons.js";
 import { invalidate } from "../scheduler.js";
 import { saveSettings, settings } from "../settings.js";
 import { S } from "../state.js";
@@ -81,6 +82,6 @@ export function initPanel() {
   showPanelTab(settings.ui.panelTab);
   $("collapse").onclick = () => {
     $("panel").classList.toggle("collapsed");
-    $("collapse").textContent = $("panel").classList.contains("collapsed") ? "▸" : "▾";
+    $("collapse").innerHTML = icon($("panel").classList.contains("collapsed") ? "chevronRight" : "chevronDown");
   };
 }

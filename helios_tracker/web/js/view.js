@@ -60,6 +60,7 @@ export function centerOnTarget() {
   const f = frame(), target = trackedPawn(); // the "Who" player, else the host
   if (!f || !target) return;
   const p = pawnPos(target, performance.now());
+  if (target.rs === 2) return; // respawning, the game doesn't say where: stay where we are
   [S.view.cx, S.view.cy] = worldToMap(f, p.x, p.y);
 }
 

@@ -107,8 +107,62 @@ item's `DefinitionData.ItemDefinition` (a `UsableItemDefinition`):
 - The made-up rarity levels: `ItemDefinition.BaseRarity.BaseValueConstant` (health 171, cash 181,
   ammo 0).
 - A pickup lying in an opened container has `Base` = that `WillowInteractiveObject` (e.g. a Locker).
+- Customization items (skins / heads) are gear: `WillowUsableCustomizationItem`, a real `RarityLevel`
+  (2 on a vehicle skin), `ItemFrame` `customization_vehicle`, card `Customization_VehicleSkin`.
+
+## Mission log (probe_quests.py, in game, 2026-09-23)
+
+- `MissionTracker.MissionList` (287 entries in a normal-mode playthrough): `{MissionDef, Status,
+  ObjectivesProgress, ActiveObjectiveSet, SubObjectiveSets, bInitialized, bHeardKickoff, bFiltered}`.
+  `Status` = `EMissionStatus`: `MS_NotStarted` (0), `MS_Active` (1), `MS_Complete` (4) seen; 2 / 3
+  (ready to turn in?) and 5 not seen yet - the page shows unknown names as the game's.
+  `ObjectivesProgress[i]` = count of `MissionDef.ObjectiveDefs[i]` (empty before the mission starts).
+- `MissionDefinition`: `MissionName`, `MissionDescription`, `MissionSummary`, `TurnInDescription`,
+  `MissionGiver`, `MissionTurnInLocation` (localized; `[place]...[-place]` markup), `bPlotCritical`
+  (story), `MissionNumber`, `GameStage`, `Dependencies` (missions), `NextMissionInChain`,
+  `ObjectiveDefs`, `ObjectiveSetDefs`, `InitialObjectiveSet`, `bRepeatable`, `bCanBeFailed`,
+  `Reward` / `AlternativeReward` (XP / cash as attribute-based multipliers, `RewardItems`,
+  `RewardItemPools`; the numbers the game shows: `MissionDefinition.GetExperienceReward(pc, bAlt)` /
+  `GetCurrencyReward(pc, bAlt)` / `GetCurrencyRewardType(bAlt)` - tools/probe_rewards.txt; the XP
+  attribute's own `GetValue(pc)` gives the 0.1 multiplier, not the XP), `bEnableAltReward`,
+  `TravelStation` / `TurnInStation` (FastTravelStationDefinition: the area, e.g. "Three Horns -
+  Divide": `StationDisplayName` - tools/probe_mission_areas.txt; also `StationSign`, sometimes
+  longer: "Windshear Waste - Claptrap's Place"; LevelTravelStationDefinition has it too; the
+  regions (`GameStageRegion`) have no text), `DlcExpansion`.
+- `MissionList[].bHeardKickoff`: false on missions not started (probe); taken as "offered" (the
+  game shows an undiscovered mission as "Inconnu") - to confirm in game.
+- `MissionObjectiveSetDefinition`: `ObjectiveDefinitions`, `NextSet`, `bCanCompleteMission`.
+  `MissionObjectiveDefinition`: `ProgressMessage` (localized), `ObjectiveCount`, `bObjectiveIsOptional`.
+- `tracker.GetMissionStatus(mission)` works; `GetCurrentObjectives` / `GetObjectivesProgress` have
+  out params (not needed: the list has it all).
+
+
+## Respawning (probe_respawn.py, in game, 2026-09-23, during the New-U effect)
+
+- The player pawn stays (same object), `bHidden` True, parked by the game somewhere (seen: Z -184462;
+  the user has seen it high up too - never assume where), full health, `IsInjured()` False.
+- `WillowPlayerPawn.bAwaitingInjuredRespawn` True (`bIsAwaitingRespawn` / `bAwaitingRespawn`
+  False at that moment), `AwaitingRespawnResurrectLocation` = where they come back,
+  `AwaitingRespawnTravelStation` = the `ResurrectTravelStation` (New-U); also the camera path
+  (`AwaitingRespawnStart/EndCameraLoc`), `AwaitingRespawnLerpTime` (3 s).
+- The collector: hidden + one of those flags = respawning; the spot sent instead of the parked
+  position (`rs` 1), or `rs` 2 (no spot: not drawn / followed). The downed overlay says
+  "Crippled" or "Respawning".
+- Crippled (probe_respawn.txt, while down): `WillowPawn.InjuredState` = `INJURED_Targeted`
+  (`INJURED_Not` otherwise, respawning too), `IsInjured()` True, `GetHealth()` 0; `InjuredStartTime`
+  + `InjuredBaseDelay` (12 s): a countdown if wanted. The collector sends `dn` 1 when
+  `InjuredState` isn't `INJURED_Not` (the page's empty-bars rule is only a fallback).
+- Dead (after FFYL runs out, before the respawn): `InjuredState` still `INJURED_Targeted`, but
+  `InjuredDeadState` = `INJUREDDEAD_InitRagdoll` (`INJUREDDEAD_None` while crippled),
+  `bInjuredDeadCameraActive` True, the pawn visible where it died, `bIsDead` False. The collector
+  sends `dd` 1 (dead: faded, grey ring, "Dead") instead of `dn` then.
 
 ## Backlog
+
+- **Background opacity** (user, 2026-09-23, "later"): for OBS / overlays - the map's background
+  (the canvas fill `COLORS.bg` + the page's `--bg`, `#0b1116`) with an opacity setting down to
+  transparent (OBS browser sources render a transparent page see-through); also as a URL parameter
+  (e.g. `?bg=0`): OBS's browser source keeps its own localStorage, apart from the user's browser.
 
 - **Loot rarity only for real gear** (user, 2026-09-23): rarity colours, the bigger marker for high
   rarity, and the loot filter must only apply to pickups that go into the inventory (weapons,

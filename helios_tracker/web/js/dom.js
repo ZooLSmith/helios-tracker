@@ -1,9 +1,15 @@
 // Small DOM / HTML helpers.
-import { prettyRaw } from "./model.js";
+import { cleanGameText, prettyRaw } from "./model.js";
 
 export const $ = (id) => document.getElementById(id);
 
 export function esc(s) { return String(s).replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c])); }
+
+/** Game text (a mission description...) as HTML: everything escaped, only its line breaks kept
+ *  (<br> / <br/>); other tags and the [place] markup dropped. */
+export function gameTextHtml(s) {
+  return String(s || "").split(/<br\s*\/?>/i).map((part) => esc(cleanGameText(part))).join("<br>").replace(/^(<br>)+|(<br>)+$/g, "");
+}
 
 /** One element, whatever the container; a made-up name: words, then a dim "?". */
 export function nameHtml(o) {

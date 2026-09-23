@@ -5,7 +5,7 @@ import { ctx } from "./view.js";
 export const COLORS = {};
 export function initColors() {
   const css = getComputedStyle(document.documentElement);
-  for (const k of ["bg", "grid", "shield", "health"]) COLORS[k] = css.getPropertyValue("--" + k).trim();
+  for (const k of ["bg", "grid", "shield", "health", "dead"]) COLORS[k] = css.getPropertyValue("--" + k).trim();
 }
 
 export function arrow(x, y, angle, size, fill, stroke) {
@@ -59,6 +59,11 @@ export function label(x, y, text, color, raw) { // raw: a made-up name ending in
   ctx.globalAlpha = alpha * 0.7;
   ctx.strokeText("?", qx, y + 4); ctx.fillText("?", qx, y + 4);
   ctx.globalAlpha = alpha;
+}
+
+export function respawnRing(x, y, r, color) { // a dashed ring around a player: respawning here, or crippled (red)
+  ctx.beginPath(); ctx.arc(x, y, r, 0, Math.PI * 2);
+  ctx.setLineDash([3, 3]); ctx.lineWidth = 1.5; ctx.strokeStyle = color; ctx.stroke(); ctx.setLineDash([]);
 }
 
 export function vitalBars(x, y, p) { // health, and the shield above it when there is one

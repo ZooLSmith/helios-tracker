@@ -43,7 +43,7 @@ function partRow([slot, tech, group, text]) {
 function itemHtml(it) {
   const [, color] = rarity(it.q || 0);
   const meta = [it.type || t("kind." + it.k, null, it.k), it.maker, it.l ? t("item.level", { n: it.l }) : "",
-    it.slot ? t("item.slot", { n: it.slot }) : "", it.v ? "$" + num(it.v) : ""].filter(Boolean).join(" · ");
+    it.v ? "$" + num(it.v) : ""].filter(Boolean).join(" · "); // (no equip slot: obvious)
   const rows = [...(it.stats || []).map(statRow),
     [t("item.rarityLevel"), t("item.rarityGuess", { n: String(it.q), name: rarityName(it.q) })],
     ...(it.parts || []).map(partRow), [t("item.class"), null, it.c, classHtml(it.c)]];

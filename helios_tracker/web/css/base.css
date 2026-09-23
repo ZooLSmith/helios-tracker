@@ -12,13 +12,19 @@
   --grid: rgba(120, 170, 200, 0.08);
   --shield: #3fa3f0;
   --health: #d9372f; /* red, like the game's health bars */
+  --dead: #8a9aa3; /* a dead player (before the respawn) */
   --xp: #3fae49; /* green, like the game's experience bar */
   --objective: #7cf58a; /* light green, like the game's objective markers */
+  --story: #ffcc33; /* story (main) missions: yellow; side missions: grey */
+  --side: #a9b6bd;
   --scroll: #2a5068; /* scrollbars: a muted blue, close to the panel's colours; brighter on hover */
   --scroll-hover: #3a7399;
   color-scheme: dark;
 }
 * { box-sizing: border-box; }
+/* icons.js: inline SVGs, 1em, coloured by currentColor */
+.icon { display: inline-block; width: 1em; height: 1em; flex: none; vertical-align: -0.125em; }
+button > .icon { vertical-align: middle; }
 /* Thin blue scrollbars (panel, drawer): Chrome / Edge / Safari, then Firefox */
 ::-webkit-scrollbar { width: 6px; height: 6px; }
 ::-webkit-scrollbar-track { background: transparent; }
@@ -40,6 +46,13 @@ canvas.dragging { cursor: grabbing; }
 #tip .tlist { display: block; margin: 1px 0 2px 8px; font-size: 11px; } /* e.g. a container's contents */
 #tip .tli { display: block; }
 #tip .tli::before { content: "· "; color: var(--dim); }
+/* the connection status: bottom left of the page, only while connecting / disconnected */
+#status { position: fixed; left: 10px; bottom: 8px; display: flex; align-items: center; gap: 6px; z-index: 2;
+  color: var(--dim); font-size: 12px; background: var(--panel); border: 1px solid var(--panel-edge); border-radius: 4px;
+  padding: 3px 8px; pointer-events: none; }
+#status i { width: 8px; height: 8px; border-radius: 50%; background: var(--warn); display: inline-block; }
+#status.live { display: none; }
+#status.bad i { background: var(--bad); }
 #coords { position: fixed; right: 10px; bottom: 8px; color: var(--dim); font-size: 11px;
   font-variant-numeric: tabular-nums; pointer-events: none; }
 #msg { position: fixed; left: 50%; top: 50%; transform: translate(-50%, -50%); color: var(--dim);
