@@ -217,6 +217,11 @@ item's `DefinitionData.ItemDefinition` (a `UsableItemDefinition`):
   `GetFriendlyLevelNameFromMapName` (once per map); the area level (GetGameStageFromRegion) removed.
   Next: faulthandler (util.start_log) writes the Python traceback of a native crash to
   `helios_crash.log` - the line that called into the game.
+  **Found (3rd crash, 22:41, helios_crash.log):** `_publish_state` > `_pawn_info` > `call_str` - the
+  pawn name functions (`GetTargetName` / `GetMapDisplayName` / `GetTransformedName`, old code) on some
+  pawn in Tundra Express. Now: the balance's `PlayThroughs[].DisplayName` read as a property
+  (collector.pawn_display_name; that the property path is right is NOT verified in game - wrong: the
+  pawns get made-up names marked "?"). The two calls removed after the 1st crash were innocent.
   Rule: prefer property reads; a new function call in a loop = a crash risk, keep them rare and cached.
 - The collector sends, for active missions, where to go (`go`): the step's objective / step station
   override (GetLevelForMission no longer: see the crash below); the page's whereTo: that (active; none:
@@ -329,6 +334,17 @@ item's `DefinitionData.ItemDefinition` (a `UsableItemDefinition`):
   `ItemChain`, `pawn.EquippedItems` / `HolsteredWeaponSlots`, item `DefinitionData`, `RarityLevel`,
   `ExpLevel`, card stat modifiers; `pc.PlayerSkillTree.Skills` / `Branches`; replicated to everyone:
   `PlayerReplicationInfo.StandInGear`, `TrackedSkills`, `ClassModNamePart`.
+- **Mission markers on a co-op client** (tools/probe_client_markers.py / probe_minimap_icons.py /
+  probe_client_waypoints.py, 2026-09-23): the client's MissionTracker has the full MissionList and
+  ActiveMission but an empty `MissionWaypoints`, and no waypoint components exist at all (the host
+  registers them: `RegisterWaypoint(component, mission)`). The HUD minimap's `Icons_*` are fixed pools
+  of GFx clips {Object, bVisible, MapPos (minimap px, player-relative)}: clamped to its ~60 m rim, no
+  mission / radius - unusable. The level's `WillowWaypoint` actors are there (hidden) and each has
+  `WaypointInfo = {LinkedObjective, ObjectiveSetRestrictions}` + `AreaRadius`: the collector
+  (`_client_markers`, client only, actors listed at each objects scan) shows one when its objective's
+  mission is picked up, the objective isn't done, and it's in the current step (a restriction = a
+  current set, or none and the objective in one). Quest givers ("!"): none on a client. Unverified in
+  game (built from the dumps).
 - **Mission markers: DONE** (verified in game, Southern Shelf, tools/probe_missions.txt):
   `MissionTracker` (find_all, one instance) `.MissionWaypoints[] = {Mission, Waypoints[]}`; waypoints
   are `MissionObjectiveWaypointComponent` (objective marker: `WaypointInfo.LinkedObjective`,

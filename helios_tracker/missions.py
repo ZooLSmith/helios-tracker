@@ -125,6 +125,12 @@ def _definition(mdef: Any) -> tuple[dict[str, Any], dict[int, int]]:
     return record, index
 
 
+def objective_index(mdef: Any) -> dict[int, int]:
+    """A mission's {objective definition address: its index in ObjectiveDefs / ObjectivesProgress}
+    (from the cached definition)."""
+    return _definition(mdef)[1]
+
+
 def _reward_side(mdef: Any, pc: Any, alt: bool) -> dict[str, Any]:
     """One reward (normal / alternative): XP and currency for this player, item rewards."""
     out: dict[str, Any] = {}
@@ -415,6 +421,10 @@ class MissionLog:
                     self._watch.append(k)
                 return True
         return False
+
+    def entry_addresses(self) -> list[tuple[int, int]]:
+        """(MissionList index, MissionDefinition address) per entry, as of the last full pass."""
+        return list(self._addrs)
 
     def defs_payload(self) -> dict[str, Any]:
         """The definitions, in the list's order (static: sent when the list changes)."""

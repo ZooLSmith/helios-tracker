@@ -29,7 +29,8 @@ and interactive objects on it, with zoom / pan. Read the root `../CLAUDE.md` fir
   dashed circles (radius = the waypoint's AreaRadius), point objectives as diamonds, quest givers as
   "!" badges; other missions' markers fainter than the tracked one's. Tooltip: objective, mission,
   area radius, distance. Read every 1 s from `MissionTracker.MissionWaypoints` (only `bActive`
-  components), sent on change.
+  components), sent on change. A co-op client has none: its objective markers come from the level's
+  `WillowWaypoint` actors (their linked objective + step restrictions vs the mission log; no quest givers).
 - **Mission log** (`missions.py`, the `missionlog` payload): every mission of the playthrough from
   `MissionTracker.MissionList` - status, objectives with progress, the current step
   (`ActiveObjectiveSet`), dependencies, texts (see notes). Definitions read once (cached forever); a
@@ -106,7 +107,7 @@ and interactive objects on it, with zoom / pan. Read the root `../CLAUDE.md` fir
   per layer (enabled, marker icon, count, ⚙) and its settings panel inline under it (several can
   be open; Close all). Players can't be hidden (no enabled box), only configured. Folder rows (a tri-state box
   turning their layers on / off, they fold): **Gear** (a layer per rarity; `misc` = rarity 0 /
-  unknown), **Pickups** (not gear, a layer per kind: Ammo, Cash, Health, Other - the collector's
+  unknown), **Pickups** (not gear, a layer per kind: Ammo, Cash, Eridium, Health, Mission items (WillowMissionItem: ECHO logs, objective items; the objectives' green), Other - the collector's
   `pk`, from the item definition's inventory card `Presentation`, resolved once per definition:
   see notes; eridium not probed yet, so Other), **Containers** (Big chests, Weapon
   chests, Other containers, Looted). Per-layer
@@ -138,7 +139,7 @@ and interactive objects on it, with zoom / pan. Read the root `../CLAUDE.md` fir
     payload and starts the map extraction thread.
   - pawns: `WorldInfo.PawnList` / `NextPawn`, every update. Kind: me (`pc.MyWillowPawn`),
     `WillowPlayerPawn`, `WillowVehicle`, `IsEnemy(me)` -> enemy, else npc. Names: PRI.PlayerName
-    / `GetTargetName()` / AIClass. Health: `GetHealth()` / `GetMaxHealth()`.
+    / the balance's `PlayThroughs[].DisplayName` (a property: the name functions crashed the game) / AIClass. Health: `GetHealth()` / `GetMaxHealth()`.
   - pickups (`WillowPickup`) and interactive objects (`WillowInteractiveObject`): `find_all` every
     3 s (walks every object - never per update); pickups held as WeakPointers, positions read per
     update; objects are static (sent as their own `objects` payload on change).

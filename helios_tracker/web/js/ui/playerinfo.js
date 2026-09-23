@@ -35,6 +35,8 @@ export function playerInfoHtml(p) {
   if (p.xp) {
     const [cur, size] = p.xp;
     html += barRow(t("insp.level", { n: p.lvl }), size ? `${num(cur)} / ${num(size)}` : num(cur), size ? cur / size : 1, "xp");
+  } else if (p.lvl) { // the XP isn't known (a co-op client, another player): the level, an empty bar
+    html += barRow(t("insp.level", { n: p.lvl }), "", 0, "xp");
   }
   // The action skill
   const ak = pawn.ak;

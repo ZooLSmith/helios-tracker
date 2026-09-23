@@ -23,6 +23,7 @@ from unrealsdk.unreal import WeakPointer
 
 from .inspector import read_players
 from .missions import MissionLog, mission_id
+from .missions import objective_index as _mission_index
 from .skills import SkillReader
 from .server import Hub
 from .tacmap import MapImage, load_tactical_map
@@ -134,6 +135,18 @@ def level_name(map_name: str) -> str:
                 break
         _level_names[map_name] = cached
     return cached
+
+
+def pawn_display_name(pawn: Any) -> str:
+    """An AI pawn's name as the game shows it, from properties only (no function call: the name
+    functions crashed the game): its AIPawnBalanceDefinition's PlayThroughs[].DisplayName - the entry
+    of the current playthrough (the controller's CurrentPlaythrough, 0-based; the entries' PlayThrough
+    is 1-based) if it has a name, else the first one that has. "" if none."""
+    balance = try_(lambda: pawn.BalanceDefinitionState.BalanceDefinition)
+    entries = try_(lambda: list(balance.PlayThroughs), []) or [] if balance is not None else []
+    names = [(try_(lambda e=e: int(e.PlayThrough), 0), try_(lambda e=e: str(e.DisplayName), "") or "") for e in entries]
+    current = try_(lambda: int(get_pc(possibly_loading=True).CurrentPlaythrough), -1)
+    return next((n for pt, n in names if n and pt == current + 1), "") or next((n for _, n in names if n), "")
 
 
 def pickup_mission(inv: Any) -> dict[str, str] | None:
@@ -259,6 +272,9 @@ class Collector:
         self._next_missions = 0.0
         self._missions_json = ""
         self._tracker: WeakPointer | None = None  # the MissionTracker, found at each scan
+        # A co-op client: the level's WillowWaypoint actors (no waypoint components there: the
+        # markers are worked out from them - _client_markers), found at each objects scan
+        self._waypoints: list[WeakPointer] = []
         self._next_log = 0.0
         self._log = MissionLog()
         self._active = False  # a page was connected last tick
@@ -485,6 +501,11 @@ class Collector:
                 (WeakPointer(t) for t in unrealsdk.find_all("MissionTracker", exact=False) if not t.Name.startswith("Default__")),
                 None,
             )
+        # A co-op client has no mission waypoint components: its markers come from the waypoint actors
+        wi = ENGINE.GetCurrentWorldInfo()
+        client = getattr(try_(lambda: wi.NetMode), "name", "") == "NM_Client"
+        self._waypoints = [WeakPointer(w) for w in unrealsdk.find_all("WillowWaypoint", exact=False)
+                           if not w.Name.startswith("Default__")] if client else []
         self._publish_objects()
 
     def _build_pending_records(self) -> None:
@@ -637,11 +658,10 @@ class Collector:
             name = named(try_(lambda: str(pawn.VehicleDef.DisplayName), "") or call_str(pawn.GetCustomizableName),
                          def_name(try_(lambda: pawn.VehicleDef)), str(pawn.Class.Name))
         else:
-            # What the game shows when aiming at it; else the map's name, or the transformed variant
-            # (the AIPawnBalanceDefinition's per-playthrough DisplayName behind all three)
-            game_name = next((text for fn in ("GetTargetName", "GetMapDisplayName", "GetTransformedName")
-                              if hasattr(pawn, fn) and (text := call_str(getattr(pawn, fn)))), "")
-            name = named(game_name, def_name(try_(lambda: pawn.AIClass)), str(pawn.Class.Name))
+            # Its balance's per-playthrough DisplayName: what GetTargetName / GetMapDisplayName /
+            # GetTransformedName give - read as a property: calling those crashed the game (a native
+            # fatal error from call_str here, helios_crash.log, 2026-09-23, Tundra Express)
+            name = named(pawn_display_name(pawn), def_name(try_(lambda: pawn.AIClass)), str(pawn.Class.Name))
         info = {"i": f"{addr:x}", "k": kind, **name}
         if level := exp_level(pawn):  # re-read at each scan (enemies can level up)
             info["l"] = level
@@ -858,6 +878,71 @@ class Collector:
                 f" bHasShieldVar={try_(lambda: pawn.bHasShieldVar)}",
             )
 
+    def _client_markers(self, tracker: Any, active_addr: int | None) -> list[dict[str, Any]]:
+        """The objective markers on a co-op client, where the game registers no waypoint components
+        (tools/probe_client_markers.txt): from the level's WillowWaypoint actors, each carrying its
+        WaypointInfo {LinkedObjective, ObjectiveSetRestrictions} (tools/probe_client_waypoints.txt).
+        One is shown - as the host's active components are - when its objective's mission is picked up,
+        the objective isn't done, and it belongs to the mission's current step: one of its restrictions
+        is a current objective set (ActiveObjectiveSet / SubObjectiveSets), or with none, the objective
+        is in one. Property reads only. No quest givers (a client has nothing for them)."""
+        entries = try_(lambda: tracker.MissionList)
+        if entries is None:
+            return []
+        by_mission = {a: n for n, a in self._log.entry_addresses()}  # mission address -> MissionList index
+        steps: dict[int, tuple[set[int], set[int], tuple[int, ...]] | None] = {}  # per mission, read once
+
+        def current(mission: Any) -> tuple[set[int], set[int], tuple[int, ...]] | None:
+            """(its current sets, their objectives, its progress) if picked up, else None."""
+            key = mission._get_address()
+            if key not in steps:
+                steps[key] = None
+                n = by_mission.get(key)
+                entry = try_(lambda: entries[n]) if n is not None else None
+                status = str(getattr(try_(lambda: entry.Status), "name", "")) if entry is not None else ""
+                if status not in ("", "MS_NotStarted", "MS_Complete"):
+                    sets = [s for s in [try_(lambda: entry.ActiveObjectiveSet)] + list(try_(lambda: list(entry.SubObjectiveSets), []) or [])
+                            if s is not None]
+                    objectives = {o._get_address() for s in sets for o in try_(lambda s=s: list(s.ObjectiveDefinitions), []) or []
+                                  if o is not None}
+                    progress = tuple(int(v) for v in try_(lambda: list(entry.ObjectivesProgress), []) or [])
+                    steps[key] = ({s._get_address() for s in sets}, objectives, progress)
+            return steps[key]
+
+        markers = []
+        for ptr in self._waypoints:
+            w = ptr()
+            if w is None:
+                continue
+            try:
+                info = try_(lambda w=w: w.WaypointInfo)
+                objective = try_(lambda: info.LinkedObjective)
+                mission = try_(lambda o=objective: o.Outer) if objective is not None else None
+                if mission is None or not hasattr(mission, "ObjectiveDefs") or (step := current(mission)) is None:
+                    continue
+                sets, objectives, progress = step
+                restrictions = {s._get_address() for s in try_(lambda: list(info.ObjectiveSetRestrictions), []) or [] if s is not None}
+                if not (restrictions & sets if restrictions else objective._get_address() in objectives):
+                    continue
+                i = _mission_index(mission).get(objective._get_address())
+                if i is not None and i < len(progress) and progress[i] >= (try_(lambda o=objective: int(o.ObjectiveCount), 1) or 1):
+                    continue  # done
+                loc = w.Location
+                markers.append({
+                    "i": addr(w),
+                    "k": "objective",
+                    "x": round(loc.X),
+                    "y": round(loc.Y),
+                    "z": round(loc.Z),
+                    "rad": try_(lambda w=w: int(w.AreaRadius), 0) or 0,
+                    "tracked": mission._get_address() == active_addr,
+                    "mission": named(try_(lambda m=mission: str(m.MissionName), ""), def_name(mission)),
+                    "objective": named(try_(lambda o=objective: str(o.ProgressMessage), ""), def_name(objective)),
+                })
+            except Exception as ex:  # noqa: BLE001
+                log_error("client mission marker", ex)
+        return markers
+
     def _publish_missions(self) -> None:
         """Quest markers the game shows: every mission waypoint component that is bActive.
 
@@ -896,6 +981,8 @@ class Collector:
                     markers.append(marker)
                 except Exception as ex:  # noqa: BLE001
                     log_error("mission marker", ex)
+        if not markers and self._waypoints:  # a co-op client: none registered here
+            markers = self._client_markers(tracker, active_addr)
         payload = {
             "level": self.level_id,
             "tracked": named(try_(lambda: str(active.MissionName), ""), def_name(active)) if active is not None else None,

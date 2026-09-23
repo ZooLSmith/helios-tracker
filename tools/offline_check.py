@@ -366,10 +366,23 @@ def check_helios_tracker() -> None:  # noqa: PLR0915
                                  DefinitionData=types.SimpleNamespace(ItemDefinition=types.SimpleNamespace(
                                      ItemName="Data Log", MissionDirective=echo_mission, AssociatedMissionObjective=None)))
     assert col.item_name(echo) == "Data Log", col.item_name(echo)
+    echo.Class = types.SimpleNamespace(Name="WillowMissionItem")
+    assert col.pickup_kind(echo) == "mission", "a mission item: the Mission items layer"
     assert col.pickup_mission(echo) == {"i": "gd_z1_nohardfeelings.M_NoHardFeelings", "n": "No Hard Feelings", "k": "gives"}
     part = types.SimpleNamespace(ProgressMessage="Collect parts", Outer=echo_mission)
     echo.DefinitionData.ItemDefinition.MissionDirective, echo.DefinitionData.ItemDefinition.AssociatedMissionObjective = None, part
     assert col.pickup_mission(echo) == {"i": "gd_z1_nohardfeelings.M_NoHardFeelings", "n": "No Hard Feelings", "k": "for", "o": "Collect parts"}
+    # A pawn's name: its balance's PlayThroughs[].DisplayName - the current playthrough's (0-based on the
+    # controller, 1-based in the entries), else the first named one; nothing: ""
+    brute = types.SimpleNamespace(BalanceDefinitionState=types.SimpleNamespace(BalanceDefinition=types.SimpleNamespace(PlayThroughs=[
+        types.SimpleNamespace(PlayThrough=1, DisplayName="Bruiser"), types.SimpleNamespace(PlayThrough=2, DisplayName="Badass Bruiser")])))
+    saved_get_pc = col.get_pc
+    col.get_pc = lambda **k: types.SimpleNamespace(CurrentPlaythrough=1)
+    tvhm = col.pawn_display_name(brute)
+    col.get_pc = lambda **k: None
+    unknown_pt = col.pawn_display_name(brute)
+    col.get_pc = saved_get_pc
+    assert (tvhm, unknown_pt, col.pawn_display_name(types.SimpleNamespace())) == ("Badass Bruiser", "Bruiser", ""), (tvhm, unknown_pt)
     # The level's name as the game shows it (tools/probe_area.txt): a list per game / DLC, each knowing its maps
     lists = [types.SimpleNamespace(Name="Default__LevelDependencyList", GetFriendlyLevelNameFromMapName=lambda m: "wrong"),
              types.SimpleNamespace(Name="LevelList", GetFriendlyLevelNameFromMapName=lambda m: {"Ice_P": "Three Horns - Divide"}.get(m, "")),
@@ -516,7 +529,12 @@ def check_helios_tracker() -> None:  # noqa: PLR0915
             _get_address=lambda: addr, Name=name, Class=ns(Name="WillowAIPawn"), bDeleteMe=False, bIsDead=False,
             Location=ns(X=x, Y=y, Z=3690.0), Rotation=ns(Yaw=16384), GetMaxHealth=lambda: 100.0,
             GetHealth=lambda: 40.0, IsEnemy=lambda other: enemy, GetExpLevel=lambda: 12,
-            GetShieldStrength=lambda: 25.0, GetMaxShieldStrength=lambda: 50.0 if enemy else 0.0, GetTargetName=lambda *out: (..., name.title()) if out else ...,  # out param only
+            GetShieldStrength=lambda: 25.0, GetMaxShieldStrength=lambda: 50.0 if enemy else 0.0,
+            # the name: its balance's per-playthrough DisplayName (a property); the name functions
+            # crashed the game - never called (they'd fail the check)
+            BalanceDefinitionState=ns(BalanceDefinition=ns(PlayThroughs=[
+                ns(PlayThrough=1, DisplayName=name.title()), ns(PlayThrough=2, DisplayName="Badass " + name.title())])),
+            GetTargetName=lambda *a: (_ for _ in ()).throw(AssertionError("GetTargetName called on a pawn")),
             NextPawn=nxt, PlayerReplicationInfo=None,
         )
 
@@ -744,6 +762,29 @@ def check_helios_tracker() -> None:  # noqa: PLR0915
     assert mlog._waiting_on(waiter, {}, {0x600: (1, 5, 0)}) is None, "objective done (its count reached)"
     assert mlog._waiting_on(waiter, {"GD_Episode02.M_Ep2a_MoreGuns": "Complete"}, {}) is None, "its mission done"
     assert mlog._waiting_on(ns(ObjectiveDependency=ns(Objective=None, Status=dep_status.EODS_Complete)), {}, {}) is None
+    # A co-op client's markers (tools/probe_client_waypoints.txt): no waypoint components - the level's
+    # WillowWaypoint actors, each with WaypointInfo {LinkedObjective, ObjectiveSetRestrictions}
+    step_set, other_set = ns(_get_address=lambda: 0x6b0), ns(_get_address=lambda: 0x6b1)
+    saved_step = log_entries[1].ActiveObjectiveSet
+    step_set.ObjectiveDefinitions = saved_step.ObjectiveDefinitions  # the tracked mission's current step: kill, extra
+    log_entries[1].ActiveObjectiveSet = step_set
+    for o in (secure, kill, extra):
+        o.Outer = mission
+
+    def waypoint_actor(a: int, objective: object, restrictions: list, radius: int = 0) -> object:
+        w = ns(_get_address=lambda: a, WaypointInfo=ns(LinkedObjective=objective, ObjectiveSetRestrictions=restrictions),
+               Location=ns(X=float(a), Y=2.0, Z=3.0), AreaRadius=radius)
+        return lambda: w
+
+    c._waypoints = [waypoint_actor(0x6c0, kill, [step_set], 500),  # its step: shown (3 / 5)
+                    waypoint_actor(0x6c1, secure, []),  # done (1 / 1), not in the step anyway
+                    waypoint_actor(0x6c2, kill, [other_set]),  # another step's
+                    waypoint_actor(0x6c3, extra, [])]  # no restrictions, in the current step: shown
+    client_marks = c._client_markers(tracker, mission._get_address())
+    log_entries[1].ActiveObjectiveSet = saved_step
+    c._waypoints = []
+    assert [(m["i"], m["rad"], m["tracked"], m["objective"]["n"]) for m in client_marks] == [
+        ("6c0", 500, True, "Tuer des bandits"), ("6c3", 0, True, "Bonus")], client_marks
     assert (tracked["ml"], tracked.get("mlk")) == (3, 1), "picked up: its level, locked"
     assert (by_id["GD_Z1_Side.M_Side"]["ml"], by_id["GD_Z1_Side.M_Side"].get("mlk")) == (3, None), "not picked up: the level it would lock at"
     assert "ml" not in by_id["GD_Episode02.M_Ep2_Henchman"], "done: no level read"

@@ -178,9 +178,14 @@ _pickup_kinds: dict[int, str] = {}
 
 
 def pickup_kind(inv: Any) -> str:
-    """ "ammo" / "cash" / "eridium" / "health" for a usable item (a non-gear pickup), "" for anything else.
-    Weapons / gear / mission items aren't looked at; each definition is resolved once."""
-    if inv is None or inv.Class.Name != "WillowUsableItem":
+    """ "ammo" / "cash" / "eridium" / "health" for a usable item (a non-gear pickup), "mission" for a
+    mission item (WillowMissionItem: ECHO logs, Princess Fluffybutt... - tools/probe_pickups.txt), ""
+    for anything else. Weapons / gear aren't looked at; each definition is resolved once."""
+    if inv is None:
+        return ""
+    if inv.Class.Name == "WillowMissionItem":
+        return "mission"
+    if inv.Class.Name != "WillowUsableItem":
         return ""
     item_def = try_(lambda: inv.DefinitionData.ItemDefinition)
     if item_def is None:

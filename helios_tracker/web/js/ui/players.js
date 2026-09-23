@@ -9,8 +9,8 @@ import { renderTargets } from "./panel.js";
 export function playerSub(p) {
   let cls = p.cls ? (p.clsRaw ? prettyRaw(p.cls) : p.cls) : "";
   if (p.char && p.char !== p.n) cls = cls ? `${cls} (${p.char})` : p.char; // "Gunzerker (Salvador)"
-  // The level is in the XP bar when there is one
-  return [p.lvl && !p.xp ? t("insp.level", { n: p.lvl }) : "", cls].filter(Boolean).join(" · ");
+  // The level is in the XP bar (an empty one when the XP isn't known: co-op client, another player)
+  return cls;
 }
 
 export function renderPlayers() {
@@ -31,10 +31,12 @@ export function renderPlayers() {
   for (const row of box.querySelectorAll(".pentry")) row.onclick = () => openInspector(row.dataset.id);
   for (const p of S.players) { // XP: from the players payload (it changes with kills, not per frame)
     const el = box.querySelector(`.pentry[data-id="${CSS.escape(p.i)}"] .vital.xp`);
-    if (!el || !p.xp) continue;
-    const [cur, size] = p.xp;
+    if (!el || (!p.xp && !p.lvl)) continue;
+    // no XP known (a co-op client doesn't get the others'): an empty bar, the level on the right
+    const [cur, size] = p.xp || [0, 0];
     el.classList.add("on");
-    el.querySelector("i").style.width = (size ? Math.max(0, Math.min(1, cur / size)) * 100 : 100).toFixed(1) + "%";
+    el.title = p.xp ? "" : t("pinfo.unknown");
+    el.querySelector("i").style.width = (!p.xp ? 0 : size ? Math.max(0, Math.min(1, cur / size)) * 100 : 100).toFixed(1) + "%";
     // XP on the left (like the other bars' numbers), the level on the right
     el.querySelector(".vnum b").textContent = size ? num(cur) : "";
     el.querySelector(".vnum .vmax").textContent = size ? ` / ${num(size)}` : "";
