@@ -1,0 +1,1091 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<title>Helios Tracker</title>
+<style>
+  :root {
+    --bg: #0b1116;
+    --panel: rgba(12, 19, 25, 0.9);
+    --panel-edge: #24506a;
+    --text: #d7e6ee;
+    --dim: #7e98a6;
+    --accent: #ffcc33;
+    --live: #5fd35f;
+    --warn: #ffb03b;
+    --bad: #ff5b4f;
+    --grid: rgba(120, 170, 200, 0.08);
+    --objective: #7cf58a; /* light green, like the game's objective markers */
+    color-scheme: dark;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; height: 100%; overflow: hidden; background: var(--bg); color: var(--text);
+    font: 13px/1.35 "Segoe UI", system-ui, sans-serif; }
+  canvas { position: fixed; inset: 0; width: 100%; height: 100%; display: block; cursor: grab; touch-action: none; }
+  canvas.dragging { cursor: grabbing; }
+  #panel { position: fixed; top: 12px; left: 12px; width: 236px; max-height: calc(100% - 24px); overflow: auto;
+    background: var(--panel); border: 1px solid var(--panel-edge); border-radius: 6px; padding: 10px 12px;
+    backdrop-filter: blur(4px); user-select: none; }
+  #panel.collapsed .body { display: none; }
+  .head { display: flex; align-items: center; gap: 8px; }
+  .title { font-weight: 700; letter-spacing: .12em; font-size: 12px; color: var(--accent); flex: 1; }
+  #collapse { background: none; border: 0; color: var(--dim); cursor: pointer; font-size: 14px; padding: 0 2px; }
+  #level { font-size: 17px; font-weight: 600; margin: 6px 0 2px; }
+  #status { display: flex; align-items: center; gap: 6px; color: var(--dim); font-size: 12px; }
+  #status i { width: 8px; height: 8px; border-radius: 50%; background: var(--warn); display: inline-block; }
+  #status.live i { background: var(--live); }
+  #status.bad i { background: var(--bad); }
+  h3 { font-size: 11px; letter-spacing: .1em; color: var(--dim); margin: 12px 0 4px; font-weight: 600; }
+  label.row { display: flex; align-items: center; gap: 8px; padding: 2px 0; cursor: pointer; }
+  label.row input { margin: 0; accent-color: var(--accent); }
+  .sw { width: 10px; height: 10px; border-radius: 2px; flex: none; }
+  .count { margin-left: auto; color: var(--dim); font-variant-numeric: tabular-nums; }
+  select, button.act { width: 100%; background: #13212b; color: var(--text); border: 1px solid var(--panel-edge);
+    border-radius: 4px; padding: 4px 6px; font: inherit; }
+  button.act { cursor: pointer; margin-top: 6px; }
+  button.act:hover { border-color: var(--accent); }
+  .hint { color: var(--dim); font-size: 11px; margin-top: 10px; }
+  #tip { position: fixed; pointer-events: none; background: var(--panel); border: 1px solid var(--panel-edge);
+    border-radius: 4px; padding: 5px 8px; display: none; white-space: nowrap; font-size: 12px; z-index: 2; }
+  #tip b { display: block; font-size: 13px; }
+  #tip span { color: var(--dim); }
+  #coords { position: fixed; right: 10px; bottom: 8px; color: var(--dim); font-size: 11px;
+    font-variant-numeric: tabular-nums; pointer-events: none; }
+  #msg { position: fixed; left: 50%; top: 50%; transform: translate(-50%, -50%); color: var(--dim);
+    font-size: 15px; text-align: center; pointer-events: none; }
+  .players .prow { display: flex; align-items: baseline; gap: 6px; padding: 3px 4px; margin: 0 -4px;
+    border-radius: 3px; cursor: pointer; }
+  .players .prow:hover, .players .prow.sel { background: #16293a; }
+  .players .pname { color: #3fd5ff; font-weight: 600; }
+  .players .pname.me { color: var(--accent); }
+  .players .pinfo { color: var(--dim); font-size: 12px; margin-left: auto; white-space: nowrap; }
+  .muted { color: var(--dim); font-size: 12px; }
+  #mission .mname { font-weight: 600; color: var(--objective); }
+  #mission .obj { font-size: 12px; padding-left: 10px; position: relative; }
+  #mission .obj::before { content: "◆"; position: absolute; left: 0; color: var(--objective); font-size: 8px; top: 3px; }
+  /* the "?" after a made-up name (from an object name, not the game's text): the title's colour, a bit faded */
+  .raw { color: color-mix(in srgb, currentColor 70%, transparent); }
+  #inspector { position: fixed; top: 12px; right: 12px; bottom: 12px; width: 380px; display: none;
+    flex-direction: column; background: var(--panel); border: 1px solid var(--panel-edge); border-radius: 6px;
+    backdrop-filter: blur(4px); z-index: 3; }
+  #inspector.open { display: flex; }
+  .ihead { padding: 10px 12px 0; }
+  .ihead .row1 { display: flex; align-items: center; gap: 8px; }
+  .ihead .who { font-size: 17px; font-weight: 600; flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+  .ihead .sub { color: var(--dim); font-size: 12px; margin-top: 2px; }
+  .iclose { background: none; border: 0; color: var(--dim); cursor: pointer; font-size: 18px; line-height: 1; }
+  .iclose:hover { color: var(--text); }
+  .tabs { display: flex; gap: 2px; margin-top: 10px; border-bottom: 1px solid var(--panel-edge); }
+  .tabs button { background: none; border: 0; color: var(--dim); font: inherit; padding: 6px 10px; cursor: pointer;
+    border-bottom: 2px solid transparent; margin-bottom: -1px; }
+  .tabs button.on { color: var(--text); border-bottom-color: var(--accent); }
+  .ibody { overflow: auto; padding: 8px 12px 12px; flex: 1; }
+  .note { color: var(--dim); font-size: 12px; background: #13212b; border-radius: 4px; padding: 6px 8px; margin: 6px 0; }
+  .group { font-size: 11px; letter-spacing: .1em; color: var(--dim); margin: 10px 0 4px; font-weight: 600; }
+  .item { border-left: 3px solid var(--c, #888); background: #101b23; border-radius: 3px; padding: 5px 8px;
+    margin: 4px 0; cursor: pointer; }
+  .item:hover { background: #142430; }
+  .item .iname { color: var(--c, #ddd); font-weight: 600; }
+  .item .imeta { color: var(--dim); font-size: 12px; }
+  .item .idetail { display: none; margin-top: 6px; font-size: 12px; }
+  .item.expanded .idetail { display: block; }
+  .kv { display: grid; grid-template-columns: auto 1fr; gap: 1px 10px; }
+  .kv span:nth-child(odd) { color: var(--dim); }
+  .kv span:nth-child(even) { overflow-wrap: anywhere; }
+  .branch { margin: 8px 0 12px; }
+  .branch .bhead { display: flex; justify-content: space-between; font-weight: 600; margin-bottom: 4px; }
+  .branch .bhead span { color: var(--dim); font-weight: 400; font-size: 12px; }
+  .skill { display: flex; align-items: center; gap: 8px; padding: 2px 0; }
+  .skill.zero { opacity: .45; }
+  .skill .sname { flex: 1; }
+  .skill .tier { color: var(--dim); font-size: 11px; width: 34px; }
+  .pips { display: flex; gap: 2px; }
+  .pips i { width: 7px; height: 7px; border-radius: 1px; background: #243847; }
+  .pips i.on { background: var(--accent); }
+  @media (max-width: 520px) {
+    #panel { width: calc(100% - 24px); max-height: 45%; }
+    #inspector { left: 12px; right: 12px; width: auto; top: auto; height: 60%; }
+  }
+</style>
+</head>
+<body>
+<canvas id="map"></canvas>
+<div id="msg"></div>
+<div id="panel">
+  <div class="head">
+    <div class="title">HELIOS TRACKER</div>
+    <button id="collapse" data-i18n-title="panel.collapse">▾</button>
+  </div>
+  <div class="body">
+    <div id="level">—</div>
+    <div id="status"><i></i><span></span></div>
+    <h3 data-i18n="h.players"></h3>
+    <div id="players" class="players"><div class="muted">—</div></div>
+    <h3 data-i18n="h.mission"></h3>
+    <div id="mission"><div class="muted" data-i18n="mission.none"></div></div>
+    <h3 data-i18n="h.show"></h3>
+    <div id="layers"></div>
+    <h3 data-i18n="h.loot"></h3>
+    <select id="rarity">
+      <option value="0" data-i18n="loot.0"></option>
+      <option value="1" data-i18n="loot.1"></option>
+      <option value="2" data-i18n="loot.2"></option>
+      <option value="3" data-i18n="loot.3"></option>
+      <option value="4" data-i18n="loot.4"></option>
+      <option value="5" data-i18n="loot.5"></option>
+    </select>
+    <h3 data-i18n="h.view"></h3>
+    <label class="row"><input type="checkbox" id="follow"> <span data-i18n="view.follow"></span> <span class="count">F</span></label>
+    <label class="row"><input type="checkbox" id="labels"> <span data-i18n="view.labels"></span> <span class="count">N</span></label>
+    <label class="row"><input type="checkbox" id="height"> <span data-i18n="view.height"></span></label>
+    <label class="row" data-i18n-title="view.smoothTip"><input type="checkbox" id="smooth"> <span data-i18n="view.smooth"></span></label>
+    <button class="act" id="fit"><span data-i18n="view.fit"></span> <span style="color:var(--dim)">(0)</span></button>
+    <h3 data-i18n="view.language"></h3>
+    <select id="lang"></select>
+    <div class="hint" data-i18n="view.hint"></div>
+  </div>
+</div>
+<div id="inspector">
+  <div class="ihead">
+    <div class="row1"><div class="who" id="iwho"></div><button class="iclose" id="iclose" data-i18n-title="insp.close">×</button></div>
+    <div class="sub" id="isub"></div>
+    <div class="tabs" id="itabs">
+      <button data-tab="gear" data-i18n="tab.gear"></button><button data-tab="backpack" data-i18n="tab.backpack"></button><button data-tab="skills" data-i18n="tab.skills"></button>
+    </div>
+  </div>
+  <div class="ibody" id="ibody"></div>
+</div>
+<div id="tip"></div>
+<div id="coords"></div>
+<script src="/i18n.js"></script>
+<script>
+"use strict";
+
+// ---------------------------------------------------------------------------------------------
+// Pure helpers (no DOM): world -> map transform, texture decoding. Tested offline under Node.
+// ---------------------------------------------------------------------------------------------
+
+const UU_PER_METER = 50; // UE3 convention (1 uu = 2 cm)
+
+/** World (X, Y) -> tactical map movie px. World +X is up (north), +Y is right. */
+function worldToMap(level, x, y) {
+  let mx = (y - level.center[1]) / level.upp;
+  let my = -(x - level.center[0]) / level.upp;
+  if (level.north) { // volume's NorthOffsetInDegreesClockwise (0 on every level checked so far)
+    const a = level.north * Math.PI / 180, c = Math.cos(a), s = Math.sin(a);
+    [mx, my] = [mx * c - my * s, mx * s + my * c];
+  }
+  return [mx, my];
+}
+
+/** UE yaw (65536 = full turn, 0 = +X) -> clockwise screen angle in radians (0 = up). */
+function yawToAngle(level, yaw) {
+  return ((yaw % 65536) / 65536) * 2 * Math.PI + (level.north || 0) * Math.PI / 180;
+}
+
+function rgb565(c, out, o) {
+  out[o] = ((c >> 11) & 31) * 255 / 31 | 0;
+  out[o + 1] = ((c >> 5) & 63) * 255 / 63 | 0;
+  out[o + 2] = (c & 31) * 255 / 31 | 0;
+}
+
+/** Colour part of a DXT block at `o` -> 16 RGBA pixels (alpha 255) into `px`. */
+function dxtColours(d, o, px, dxt1) {
+  const c0 = d[o] | d[o + 1] << 8, c1 = d[o + 2] | d[o + 3] << 8;
+  const pal = new Uint8Array(16);
+  rgb565(c0, pal, 0); rgb565(c1, pal, 4);
+  pal[3] = pal[7] = pal[11] = pal[15] = 255;
+  if (c0 > c1 || !dxt1) {
+    for (let k = 0; k < 3; k++) {
+      pal[8 + k] = (2 * pal[k] + pal[4 + k]) / 3 | 0;
+      pal[12 + k] = (pal[k] + 2 * pal[4 + k]) / 3 | 0;
+    }
+  } else {
+    for (let k = 0; k < 3; k++) pal[8 + k] = (pal[k] + pal[4 + k]) / 2 | 0;
+    pal[12] = pal[13] = pal[14] = pal[15] = 0; // DXT1 punch-through
+  }
+  const bits = (d[o + 4] | d[o + 5] << 8 | d[o + 6] << 16 | d[o + 7] << 24) >>> 0;
+  for (let k = 0; k < 16; k++) {
+    const i = ((bits >>> (2 * k)) & 3) * 4;
+    px[k * 4] = pal[i]; px[k * 4 + 1] = pal[i + 1]; px[k * 4 + 2] = pal[i + 2]; px[k * 4 + 3] = pal[i + 3];
+  }
+}
+
+/** Texture bytes (UE3 EPixelFormat) -> RGBA Uint8ClampedArray of w*h*4. */
+function decodeTexture(format, w, h, data) {
+  const out = new Uint8ClampedArray(w * h * 4);
+  if (format === "PF_A8R8G8B8") { // stored BGRA
+    for (let i = 0; i < w * h; i++) {
+      out[i * 4] = data[i * 4 + 2]; out[i * 4 + 1] = data[i * 4 + 1];
+      out[i * 4 + 2] = data[i * 4]; out[i * 4 + 3] = data[i * 4 + 3];
+    }
+    return out;
+  }
+  if (format === "PF_G8") {
+    for (let i = 0; i < w * h; i++) { out[i * 4] = out[i * 4 + 1] = out[i * 4 + 2] = data[i]; out[i * 4 + 3] = 255; }
+    return out;
+  }
+  const kind = { PF_DXT1: 1, PF_DXT3: 3, PF_DXT5: 5 }[format];
+  if (!kind) throw new Error("unsupported texture format " + format);
+  const blockSize = kind === 1 ? 8 : 16, bw = (w + 3) >> 2, bh = (h + 3) >> 2;
+  const px = new Uint8Array(64), alpha = new Uint8Array(16), apal = new Uint8Array(8);
+  for (let by = 0; by < bh; by++) {
+    for (let bx = 0; bx < bw; bx++) {
+      const o = (by * bw + bx) * blockSize;
+      if (o + blockSize > data.length) continue;
+      if (kind === 1) {
+        dxtColours(data, o, px, true);
+      } else {
+        dxtColours(data, o + 8, px, false);
+        if (kind === 3) {
+          for (let k = 0; k < 16; k++) alpha[k] = ((data[o + (k >> 1)] >> ((k & 1) * 4)) & 15) * 17;
+        } else {
+          const a0 = data[o], a1 = data[o + 1];
+          apal[0] = a0; apal[1] = a1;
+          if (a0 > a1) for (let k = 1; k < 7; k++) apal[k + 1] = ((7 - k) * a0 + k * a1) / 7 | 0;
+          else { for (let k = 1; k < 5; k++) apal[k + 1] = ((5 - k) * a0 + k * a1) / 5 | 0; apal[6] = 0; apal[7] = 255; }
+          // 48 bits of 3-bit indices: two 24-bit halves (JS bit ops are 32-bit)
+          const lo = data[o + 2] | data[o + 3] << 8 | data[o + 4] << 16;
+          const hi = data[o + 5] | data[o + 6] << 8 | data[o + 7] << 16;
+          for (let k = 0; k < 8; k++) { alpha[k] = apal[(lo >> (3 * k)) & 7]; alpha[k + 8] = apal[(hi >> (3 * k)) & 7]; }
+        }
+        for (let k = 0; k < 16; k++) px[k * 4 + 3] = alpha[k];
+      }
+      for (let k = 0; k < 16; k++) {
+        const x = bx * 4 + (k & 3), y = by * 4 + (k >> 2);
+        if (x >= w || y >= h) continue;
+        const t = (y * w + x) * 4;
+        out[t] = px[k * 4]; out[t + 1] = px[k * 4 + 1]; out[t + 2] = px[k * 4 + 2]; out[t + 3] = px[k * 4 + 3];
+      }
+    }
+  }
+  return out;
+}
+
+// RarityLevel -> [name key, colour]. A guess (see the notes): the page shows the raw number too.
+const RARITY = {
+  0: ["misc", "#9aa7ad"], 1: ["common", "#f2f2f2"], 2: ["uncommon", "#45d145"], 3: ["rare", "#3b8dff"],
+  4: ["epic", "#b45cff"], 5: ["legendary", "#ff9a1f"], 6: ["etech", "#ff4fd2"], 500: ["pearl", "#3fefff"],
+};
+function rarity(q) { return RARITY[q] || (q > 500 ? ["pearl", "#3fefff"] : ["unknown", "#e0e0e0"]); }
+
+/** A made-up name from an object / class name, readable and marked as a guess:
+ *  "BullymongPile" -> "Bullymong Pile ?", "WillowAIPawn" -> "Willow AI Pawn ?" (no-break space). */
+function prettyRaw(s) {
+  const words = String(s || "").replace(/_/g, " ")
+    .replace(/([a-z\d])([A-Z])/g, "$1 $2")
+    .replace(/([A-Z]+)([A-Z][a-z])/g, "$1 $2")
+    .replace(/\s+/g, " ").trim();
+  return (words || "?") + "\u00a0?";
+}
+
+/** Display text of anything with a name ("n"), made-up ones ("raw": 1) prettified. */
+function nameText(o) { return o.raw ? prettyRaw(o.n) : String(o.n || "?"); }
+
+/** Interactive objects -> category, from their definition / class name. */
+function objectCategory(o) {
+  const s = (o.d + " " + o.n + " " + o.c).toLowerCase();
+  if (/vending|vendor|shop/.test(s)) return "vendor";
+  if (/fasttravel|fast travel|travelstation|newu|respawn|quickchange|customiz/.test(s)) return "station";
+  if (/chest|lockbox|lootable|loot|safe|cache|box|crate|locker|dumpster|toilet|cooler|cabinet|stash|pile/.test(s)) return "container";
+  return "other";
+}
+
+if (typeof module !== "undefined") {
+  module.exports = { worldToMap, yawToAngle, decodeTexture, rarity, objectCategory, prettyRaw, nameText };
+}
+
+// ---------------------------------------------------------------------------------------------
+// The page
+// ---------------------------------------------------------------------------------------------
+
+if (typeof document !== "undefined") (() => {
+  const LAYERS = [
+    { id: "player", color: "#3fd5ff", on: true },
+    { id: "enemy", color: "#ff4b3e", on: true },
+    { id: "npc", color: "#63e06a", on: true },
+    { id: "vehicle", color: "#c08bff", on: true },
+    { id: "objective", color: "#7cf58a", on: true },
+    { id: "loot", color: "#ffb52e", on: true },
+    { id: "container", color: "#e2c170", on: false },
+    { id: "vendor", color: "#4fd1c5", on: true },
+    { id: "station", color: "#f0f0f0", on: false },
+    { id: "other", color: "#7f8f99", on: false },
+  ];
+  const FLOOR_UU = 600; // "another floor": more than this above / below me
+
+  const $ = (id) => document.getElementById(id);
+  const css = getComputedStyle(document.documentElement);
+  const COLORS = { bg: css.getPropertyValue("--bg").trim(), grid: css.getPropertyValue("--grid").trim() };
+  const canvas = $("map"), ctx = canvas.getContext("2d");
+  const store = {
+    get(k, d) { try { const v = localStorage.getItem("helios." + k); return v === null ? d : JSON.parse(v); } catch { return d; } },
+    set(k, v) { try { localStorage.setItem("helios." + k, JSON.stringify(v)); } catch { /* private mode */ } },
+  };
+
+  // --- i18n: catalogs in i18n.js; t("key", {vars}) with English fallback -------------------
+  const CATALOG = window.HELIOS_I18N || { en: {} };
+  let langPref = store.get("lang", "auto"), lang = pickLang(langPref);
+  function pickLang(pref) {
+    if (pref !== "auto" && CATALOG[pref]) return pref;
+    for (const l of navigator.languages || [navigator.language || "en"]) {
+      const base = String(l).toLowerCase().split("-")[0];
+      if (CATALOG[base]) return base;
+    }
+    return "en";
+  }
+  function t(key, vars, fallback) {
+    let text = (CATALOG[lang] || {})[key] ?? (CATALOG.en || {})[key] ?? fallback ?? key;
+    if (vars) text = text.replace(/\{(\w+)\}/g, (m, k) => (k in vars ? (typeof vars[k] === "number" ? num(vars[k]) : vars[k]) : m));
+    return text;
+  }
+  const num = (n, digits = 0) => new Intl.NumberFormat(lang, { minimumFractionDigits: digits, maximumFractionDigits: digits }).format(n);
+  function applyI18n() {
+    document.documentElement.lang = lang;
+    for (const el of document.querySelectorAll("[data-i18n]")) el.textContent = t(el.dataset.i18n);
+    for (const el of document.querySelectorAll("[data-i18n-title]")) el.title = t(el.dataset.i18nTitle);
+  }
+
+  const S = {
+    level: null, images: [], // [{canvas, bounds}]
+    pawns: new Map(), pickups: [], objects: [],
+    meId: null, fallback: null, // map frame for areas without a tactical map
+    interval: 100, lastState: 0,
+    view: { cx: 0, cy: 0, zoom: 1 }, fitted: false,
+    follow: store.get("follow", false), labels: store.get("labels", false), height: store.get("height", true),
+    smooth: store.get("smooth", true),
+    pending: false, // a frame is requested
+    minRarity: store.get("minRarity", 1),
+    layers: Object.fromEntries(LAYERS.map((l) => [l.id, store.get("layer." + l.id, l.on)])),
+    hits: [], mouse: null, counts: {},
+    missions: { tracked: null, markers: [] },
+    players: [], inspect: null, // inspected player: { id, name } (ids change when a level loads)
+    tab: store.get("tab", "gear"), expanded: new Set(),
+  };
+
+  // --- panel -------------------------------------------------------------------------------
+  const layerBox = $("layers");
+  for (const l of LAYERS) {
+    const row = document.createElement("label");
+    row.className = "row";
+    row.innerHTML = `<input type="checkbox"><span class="sw" style="background:${l.color}"></span><span data-i18n="layer.${l.id}"></span><span class="count" data-count="${l.id}"></span>`;
+    const box = row.querySelector("input");
+    box.checked = S.layers[l.id];
+    box.onchange = () => { S.layers[l.id] = box.checked; store.set("layer." + l.id, box.checked); invalidate(); };
+    layerBox.appendChild(row);
+  }
+  const bindBox = (id, key) => {
+    const el = $(id);
+    el.checked = S[key];
+    el.onchange = () => {
+      S[key] = el.checked; store.set(key, el.checked); invalidate();
+      if (key === "follow" && el.checked) centerOnMe();
+    };
+  };
+  bindBox("follow", "follow"); bindBox("labels", "labels"); bindBox("height", "height"); bindBox("smooth", "smooth");
+  $("rarity").value = String(S.minRarity);
+  $("rarity").onchange = (e) => { S.minRarity = +e.target.value; store.set("minRarity", S.minRarity); invalidate(); };
+  $("fit").onclick = () => fit();
+  $("collapse").onclick = () => {
+    $("panel").classList.toggle("collapsed");
+    $("collapse").textContent = $("panel").classList.contains("collapsed") ? "▸" : "▾";
+  };
+
+  let status = ["", "status.connecting"], message = ["msg.connecting"];
+  function setStatus(kind, key) {
+    status = [kind, key];
+    $("status").className = kind;
+    $("status").querySelector("span").textContent = t(key);
+  }
+  function setMessage(key, vars) {
+    message = [key, vars];
+    $("msg").textContent = key ? t(key, vars) : "";
+  }
+
+  const langBox = $("lang");
+  langBox.innerHTML = `<option value="auto" data-i18n="lang.auto"></option>` +
+    Object.keys(CATALOG).map((c) => `<option value="${c}">${esc(CATALOG[c]["lang.name"] || c)}</option>`).join("");
+  langBox.value = CATALOG[langPref] ? langPref : "auto";
+  langBox.onchange = () => {
+    langPref = langBox.value; lang = pickLang(langPref); store.set("lang", langPref);
+    applyI18n(); setStatus(...status); setMessage(...message); renderPlayers(); renderInspector(); renderMission(); invalidate();
+  };
+
+  // --- data --------------------------------------------------------------------------------
+  function frame() { // the level's transform, or a fallback centred where we first saw the player
+    if (S.level && S.level.center) return S.level;
+    return S.fallback;
+  }
+
+  function onLevel(level) {
+    invalidate();
+    const changed = !S.level || S.level.id !== level.id;
+    if (changed) {
+      S.images = []; S.pawns.clear(); S.pickups = []; S.objects = []; S.fitted = false; S.fallback = null;
+      S.players = []; renderPlayers(); renderInspector();
+      S.missions = { tracked: null, markers: [] }; renderMission();
+    }
+    const wasReady = S.level && S.level.id === level.id && S.level.status === "ready";
+    S.level = level;
+    $("level").textContent = level.name || level.map || "—";
+    document.title = (level.name ? level.name + " · " : "") + "Helios Tracker";
+    if (level.status === "loading") setMessage("msg.loading");
+    else if (level.status === "none") setMessage(level.map && level.map.toLowerCase() === "menumap" ? "msg.menu" : "msg.noMap");
+    else if (level.status === "error") setMessage("msg.mapError", { error: level.error });
+    else setMessage(null);
+    if (level.status === "ready" && !wasReady) loadImages(level);
+  }
+
+  async function loadImages(level) {
+    const out = [];
+    for (const img of level.images) {
+      try {
+        const res = await fetch(img.url);
+        if (!res.ok) throw new Error(res.status + " " + res.statusText);
+        const data = new Uint8Array(await res.arrayBuffer());
+        const rgba = decodeTexture(img.format, img.width, img.height, data);
+        const c = document.createElement("canvas");
+        c.width = img.width; c.height = img.height;
+        c.getContext("2d").putImageData(new ImageData(rgba, img.width, img.height), 0, 0);
+        out.push({ canvas: c, bounds: img.bounds });
+      } catch (err) {
+        console.error("map image", img.name, err);
+        setMessage("msg.imageError", { error: err.message });
+      }
+    }
+    if (S.level && S.level.id === level.id) {
+      S.images = out;
+      S.fitted = false;
+      invalidate();
+    }
+  }
+
+  function onState(st) {
+    if (!S.level || st.level !== S.level.id) return;
+    invalidate();
+    const now = performance.now();
+    if (S.lastState) S.interval = S.interval * 0.8 + Math.min(1000, now - S.lastState) * 0.2;
+    S.lastState = now;
+    const seen = new Set();
+    S.meId = null;
+    for (const p of st.pawns) {
+      seen.add(p.i);
+      if (p.k === "me") S.meId = p.i;
+      // Rebuilt from each state (not merged into the old one): a field the game stopped sending,
+      // like the made-up-name flag "r" once the real name is known, must go away
+      const old = S.pawns.get(p.i);
+      const from = old ? pawnPos(old, now) : p;
+      S.pawns.set(p.i, { ...p, fx: from.x, fy: from.y, fz: from.z, fr: from.r, t0: now });
+    }
+    for (const id of S.pawns.keys()) if (!seen.has(id)) S.pawns.delete(id);
+    S.pickups = st.pickups;
+    if (!S.level.center && !S.fallback && S.meId) {
+      const me = S.pawns.get(S.meId);
+      S.fallback = { center: [me.x, me.y], upp: 128, north: 0 };
+    }
+  }
+
+  function onObjects(msg) {
+    if (!S.level || msg.level !== S.level.id) return;
+    for (const o of msg.objects) o.cat = objectCategory(o);
+    S.objects = msg.objects;
+    invalidate();
+  }
+
+  function pawnPos(p, now) { // interpolated between the last two states
+    if (!S.smooth) return { x: p.x, y: p.y, z: p.z, r: p.r };
+    const t = Math.min(1, (now - p.t0) / Math.max(16, S.interval));
+    let dr = (((p.r - p.fr) % 65536) + 98304) % 65536 - 32768; // shortest turn
+    return { x: p.fx + (p.x - p.fx) * t, y: p.fy + (p.y - p.fy) * t, z: p.fz + (p.z - p.fz) * t, r: p.fr + dr * t };
+  }
+
+  function connect() {
+    const es = new EventSource("/events");
+    es.onopen = () => setStatus("live", "status.live");
+    es.onerror = () => setStatus("bad", "status.bad");
+    const on = (name, fn) => es.addEventListener(name, (e) => {
+      if (es.readyState === EventSource.OPEN && status[0] !== "live") setStatus("live", "status.live");
+      fn(JSON.parse(e.data));
+    });
+    on("level", onLevel);
+    on("state", onState);
+    on("objects", onObjects);
+    on("players", onPlayers);
+    on("missions", onMissions);
+  }
+
+  // --- missions ----------------------------------------------------------------------------
+  function onMissions(msg) {
+    if (!S.level || msg.level !== S.level.id) return;
+    S.missions = msg;
+    renderMission();
+    invalidate();
+  }
+
+  function renderMission() { // the tracked mission and its shown objectives
+    const box = $("mission"), m = S.missions;
+    if (!m.tracked) { box.innerHTML = `<div class="muted">${esc(t("mission.none"))}</div>`; return; }
+    const objectives = [];
+    for (const mk of m.markers) {
+      if (mk.tracked && mk.objective && !objectives.some((o) => o.n === mk.objective.n)) objectives.push(mk.objective);
+    }
+    box.innerHTML = `<div class="mname">${nameHtml(m.tracked)}</div>` +
+      objectives.map((o) => `<div class="obj">${nameHtml(o)}</div>`).join("");
+  }
+
+  // --- players & inspector -----------------------------------------------------------------
+  const KIND_ORDER = ["weapon", "shield", "grenade", "classmod", "relic", "usable", "mission", "item"];
+
+  function onPlayers(msg) {
+    if (!S.level || msg.level !== S.level.id) return;
+    S.players = msg.players;
+    renderPlayers();
+    renderInspector();
+  }
+
+  function findPlayer() {
+    if (!S.inspect) return null;
+    return S.players.find((p) => p.i === S.inspect.id) || S.players.find((p) => p.n === S.inspect.name) || null;
+  }
+
+  function openInspector(id) {
+    const p = S.players.find((q) => q.i === id);
+    if (!p) return;
+    S.inspect = { id: p.i, name: p.n };
+    $("inspector").classList.add("open");
+    renderPlayers();
+    renderInspector(true);
+  }
+
+  function closeInspector() {
+    S.inspect = null;
+    $("inspector").classList.remove("open");
+    renderPlayers();
+  }
+
+  function playerSub(p) {
+    const cls = p.cls ? (p.clsRaw ? prettyRaw(p.cls) : p.cls) : "";
+    return [p.lvl ? t("insp.level", { n: p.lvl }) : "", cls].filter(Boolean).join(" · ");
+  }
+
+  function renderPlayers() {
+    const box = $("players");
+    if (!S.players.length) { box.innerHTML = '<div class="muted">—</div>'; return; }
+    const sel = findPlayer();
+    box.innerHTML = S.players.map((p) =>
+      `<div class="prow${sel && sel.i === p.i ? " sel" : ""}" data-id="${esc(p.i)}">` +
+      `<span class="pname${p.local ? " me" : ""}">${nameHtml(p)}</span>` +
+      `<span class="pinfo">${esc(playerSub(p))}</span></div>`).join("");
+    for (const row of box.querySelectorAll(".prow")) row.onclick = () => openInspector(row.dataset.id);
+  }
+
+  function rarityName(q) {
+    const [key] = rarity(q || 0);
+    return t("rarity." + key, { n: q || 0 });
+  }
+
+  function statRow([key, v, extra]) { // raw numbers from the game, formatted here
+    const one = (x) => num(x, 1);
+    const value = {
+      damage: () => num(v) + (extra > 1 ? " " + t("unit.times", { n: num(extra) }) : ""),
+      fireRate: () => t("unit.perSecond", { n: one(v) }),
+      reload: () => t("unit.seconds", { n: one(v) }),
+      fuse: () => t("unit.seconds", { n: one(v) }),
+      blastRadius: () => t("unit.meters", { n: one(v) }),
+      elementChance: () => t("unit.times", { n: num(v, 2) }),
+    }[key];
+    return [t("stat." + key), value ? value() : num(v)];
+  }
+
+  // "DamageRadius_ExtraLarge" in group "DamageRadius" -> "Extra Large"; "SMG_Barrel_Hyperion" -> "Hyperion"
+  function tidyPart(tech, group) {
+    const g = String(group || "").toLowerCase().replace(/\d+$/, "");
+    const toks = String(tech).split("_");
+    const i = g ? toks.findIndex((tok) => tok.toLowerCase().replace(/\d+$/, "") === g) : -1;
+    const rest = (i >= 0 ? toks.slice(i + 1) : toks).join(" ");
+    return (rest || String(tech)).replace(/([a-z])([A-Z])/g, "$1 $2");
+  }
+
+  // [slot, technical name, group, localized name]: labelled by the part's role (its package
+  // group) when we know it, else by the slot; the game's own name when it has one
+  function partRow([slot, tech, group, text]) {
+    const label = t("role." + group, null, "") || t("part." + slot, null, slot);
+    return [label, text || tidyPart(tech, group), tech];
+  }
+
+  function itemHtml(it) {
+    const [, color] = rarity(it.q || 0);
+    const meta = [it.type || t("kind." + it.k, null, it.k), it.maker, it.l ? t("item.level", { n: it.l }) : "",
+      it.slot ? t("item.slot", { n: it.slot }) : "", it.v ? "$" + num(it.v) : ""].filter(Boolean).join(" · ");
+    const rows = [...(it.stats || []).map(statRow),
+      [t("item.rarityLevel"), t("item.rarityGuess", { n: String(it.q), name: rarityName(it.q) })],
+      ...(it.parts || []).map(partRow), [t("item.class"), null, it.c, classHtml(it.c)]];
+    const kv = rows.map(([k, v, title, html]) =>
+      `<span>${esc(k)}</span><span${title ? ` title="${esc(title)}"` : ""}>${html ?? esc(v)}</span>`).join("");
+    return `<div class="item${S.expanded.has(it.i) ? " expanded" : ""}" data-id="${esc(it.i)}" style="--c:${color}">` +
+      `<div class="iname">${nameHtml(it)}</div><div class="imeta">${esc(meta)}</div>` +
+      `<div class="idetail"><div class="kv">${kv}</div></div></div>`;
+  }
+
+  function itemsByKind(items) {
+    const groups = new Map();
+    for (const k of KIND_ORDER) groups.set(k, []);
+    for (const it of items) (groups.get(it.k) || groups.get("item")).push(it);
+    let html = "";
+    for (const [k, list] of groups) {
+      if (!list.length) continue;
+      list.sort((a, b) => (b.q || 0) - (a.q || 0) || (b.l || 0) - (a.l || 0) || a.n.localeCompare(b.n));
+      html += `<div class="group">${esc(t("group." + k))} · ${num(list.length)}</div>` + list.map(itemHtml).join("");
+    }
+    return html;
+  }
+
+  function cleanText(t) { return String(t || "").replace(/\[-?[a-z_]+\]/gi, "").replace(/\s+/g, " ").trim(); }
+
+  function skillsHtml(p) {
+    if (!p.skills) return `<div class="note">${esc(t("why.skills." + (p.skillsWhy || "unavailable")))}</div>`;
+    let html = p.skillPoints != null ? `<div class="muted">${esc(t("skills.spent", { n: p.skillPoints }))}</div>` : "";
+    for (const b of p.skills) {
+      html += `<div class="branch"><div class="bhead">${b.n ? nameHtml(b) : esc(t("skills.other"))}<span>${esc(t("skills.pts", { n: b.pts }))}</span></div>`;
+      for (const sk of b.skills) {
+        const pips = Array.from({ length: Math.max(sk.m, 0) }, (_, i) => `<i class="${i < sk.g ? "on" : ""}"></i>`).join("");
+        html += `<div class="skill${sk.g ? "" : " zero"}" title="${esc(cleanText(sk.d))}">` +
+          `<span class="tier">${esc(t("skills.tier", { n: sk.t }))}</span><span class="sname">${nameHtml(sk)}</span>` +
+          `<span class="pips">${pips}</span><span class="muted">${sk.g}/${sk.m}</span></div>`;
+      }
+      html += "</div>";
+    }
+    return html;
+  }
+
+  function renderInspector(resetScroll) {
+    const box = $("inspector");
+    if (!S.inspect) { box.classList.remove("open"); return; }
+    const body = $("ibody");
+    const scroll = body.scrollTop;
+    const p = findPlayer();
+    for (const b of $("itabs").querySelectorAll("button")) b.classList.toggle("on", b.dataset.tab === S.tab);
+    if (!p) {
+      $("iwho").textContent = S.inspect.name;
+      $("isub").textContent = "";
+      body.innerHTML = `<div class="note">${esc(t("insp.gone"))}</div>`;
+      return;
+    }
+    $("iwho").textContent = p.local ? t("insp.host", { name: nameText(p) }) : nameText(p);
+    $("isub").textContent = playerSub(p);
+    let html = "";
+    if (S.tab === "gear") {
+      if (p.inventory === "partial") {
+        html += `<div class="note">${esc(t("why.inventory." + (p.inventoryWhy || "unavailable")))} ${esc(t("insp.heldOnly"))}</div>`;
+      }
+      html += (p.equipped || []).length ? itemsByKind(p.equipped) : `<div class="muted">${esc(t("insp.nothing"))}</div>`;
+    } else if (S.tab === "backpack") {
+      if (p.inventory !== "full") html = `<div class="note">${esc(t("why.inventory." + (p.inventoryWhy || "unavailable")))}</div>`;
+      else html = `<div class="muted">${esc(t("insp.items", { n: p.backpack.length }))}</div>` +
+        (p.backpack.length ? itemsByKind(p.backpack) : "");
+    } else {
+      html = skillsHtml(p);
+    }
+    body.innerHTML = html;
+    body.scrollTop = resetScroll ? 0 : scroll;
+    for (const el of body.querySelectorAll(".item")) {
+      el.onclick = () => {
+        const id = el.dataset.id;
+        if (S.expanded.has(id)) S.expanded.delete(id); else S.expanded.add(id);
+        el.classList.toggle("expanded");
+      };
+    }
+  }
+
+  for (const b of $("itabs").querySelectorAll("button")) {
+    b.onclick = () => { S.tab = b.dataset.tab; store.set("tab", S.tab); renderInspector(true); };
+  }
+  $("iclose").onclick = closeInspector;
+
+  // --- view --------------------------------------------------------------------------------
+  let W = 0, H = 0, dpr = 1;
+  function resize() {
+    dpr = window.devicePixelRatio || 1;
+    W = window.innerWidth; H = window.innerHeight;
+    canvas.width = Math.round(W * dpr); canvas.height = Math.round(H * dpr);
+    invalidate();
+  }
+  window.addEventListener("resize", resize);
+  resize();
+
+  const toScreen = (mx, my) => [(mx - S.view.cx) * S.view.zoom + W / 2, (my - S.view.cy) * S.view.zoom + H / 2];
+  const toMap = (sx, sy) => [(sx - W / 2) / S.view.zoom + S.view.cx, (sy - H / 2) / S.view.zoom + S.view.cy];
+
+  function fit() {
+    let x0 = Infinity, x1 = -Infinity, y0 = Infinity, y1 = -Infinity;
+    for (const img of S.images) {
+      const [a, b, c, d] = img.bounds;
+      x0 = Math.min(x0, a); x1 = Math.max(x1, b); y0 = Math.min(y0, c); y1 = Math.max(y1, d);
+    }
+    if (!isFinite(x0)) { // no image: around the player
+      const f = frame(), me = S.pawns.get(S.meId);
+      if (!f || !me) return;
+      const [mx, my] = worldToMap(f, me.x, me.y);
+      x0 = mx - 60; x1 = mx + 60; y0 = my - 60; y1 = my + 60;
+    }
+    S.view.cx = (x0 + x1) / 2; S.view.cy = (y0 + y1) / 2;
+    S.view.zoom = Math.min(W / (x1 - x0), H / (y1 - y0)) * 0.92;
+    S.fitted = true;
+    invalidate();
+  }
+
+  function centerOnMe() {
+    const f = frame(), me = S.pawns.get(S.meId);
+    if (!f || !me) return;
+    const p = pawnPos(me, performance.now());
+    [S.view.cx, S.view.cy] = worldToMap(f, p.x, p.y);
+  }
+
+  function zoomAt(sx, sy, factor) {
+    const [mx, my] = toMap(sx, sy);
+    S.view.zoom = Math.min(80, Math.max(0.05, S.view.zoom * factor));
+    invalidate();
+    if (S.follow) return; // zoom around the player
+    S.view.cx = mx - (sx - W / 2) / S.view.zoom;
+    S.view.cy = my - (sy - H / 2) / S.view.zoom;
+  }
+
+  function stopFollow() { if (S.follow) { S.follow = false; $("follow").checked = false; store.set("follow", false); } }
+
+  canvas.addEventListener("wheel", (e) => {
+    e.preventDefault();
+    zoomAt(e.clientX, e.clientY, Math.exp(-e.deltaY * (e.deltaMode ? 0.05 : 0.0015)));
+  }, { passive: false });
+
+  const pointers = new Map();
+  let pinch = null;
+  let downAt = null;
+  canvas.addEventListener("pointerdown", (e) => {
+    canvas.setPointerCapture(e.pointerId);
+    downAt = pointers.size ? null : { x: e.clientX, y: e.clientY };
+    pointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
+    canvas.classList.add("dragging");
+    if (pointers.size === 2) {
+      const [a, b] = [...pointers.values()];
+      pinch = { d: Math.hypot(a.x - b.x, a.y - b.y), zoom: S.view.zoom };
+    }
+  });
+  canvas.addEventListener("pointermove", (e) => {
+    S.mouse = { x: e.clientX, y: e.clientY };
+    invalidate(); // tooltip / coordinates
+    const prev = pointers.get(e.pointerId);
+    if (!prev) return;
+    const cur = { x: e.clientX, y: e.clientY };
+    pointers.set(e.pointerId, cur);
+    if (pointers.size === 2 && pinch) {
+      const [a, b] = [...pointers.values()];
+      const d = Math.hypot(a.x - b.x, a.y - b.y);
+      zoomAt((a.x + b.x) / 2, (a.y + b.y) / 2, (pinch.zoom * d / pinch.d) / S.view.zoom);
+      return;
+    }
+    if (pointers.size === 1 && (cur.x !== prev.x || cur.y !== prev.y)) {
+      stopFollow();
+      S.view.cx -= (cur.x - prev.x) / S.view.zoom;
+      S.view.cy -= (cur.y - prev.y) / S.view.zoom;
+    }
+  });
+  const release = (e) => {
+    if (e.type === "pointerup" && downAt && pointers.size === 1 &&
+        Math.hypot(e.clientX - downAt.x, e.clientY - downAt.y) < 5) clickAt(e.clientX, e.clientY);
+    downAt = null;
+    pointers.delete(e.pointerId);
+    if (pointers.size < 2) pinch = null;
+    if (!pointers.size) canvas.classList.remove("dragging");
+  };
+  function clickAt(x, y) {
+    let best = null, bestD = 14;
+    for (const h of S.hits) {
+      if (h.kind !== "me" && h.kind !== "player") continue;
+      const d = Math.hypot(h.sx - x, h.sy - y);
+      if (d < bestD) { best = h; bestD = d; }
+    }
+    if (best) openInspector(best.item.i);
+  }
+  canvas.addEventListener("pointerup", release);
+  canvas.addEventListener("pointercancel", release);
+  canvas.addEventListener("pointerleave", () => { S.mouse = null; invalidate(); });
+  canvas.addEventListener("dblclick", (e) => zoomAt(e.clientX, e.clientY, 2));
+
+  window.addEventListener("keydown", (e) => {
+    if (e.target.tagName === "SELECT" || e.ctrlKey || e.metaKey || e.altKey) return;
+    const k = e.key.toLowerCase();
+    if (k === "escape") { closeInspector(); return; }
+    if (k === "f") { $("follow").click(); }
+    else if (k === "n") { $("labels").click(); }
+    else if (k === "0") { stopFollow(); fit(); }
+    else if (k === "+" || k === "=") zoomAt(W / 2, H / 2, 1.25);
+    else if (k === "-") zoomAt(W / 2, H / 2, 0.8);
+  });
+
+  // --- drawing -----------------------------------------------------------------------------
+  function drawGrid(f) { // areas without a map: a 10 m grid so movement still reads
+    const step = (10 * UU_PER_METER / f.upp) * S.view.zoom;
+    if (step < 6) return;
+    const [ox, oy] = toScreen(0, 0);
+    ctx.strokeStyle = COLORS.grid;
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    for (let x = ((ox % step) + step) % step; x < W; x += step) { ctx.moveTo(x, 0); ctx.lineTo(x, H); }
+    for (let y = ((oy % step) + step) % step; y < H; y += step) { ctx.moveTo(0, y); ctx.lineTo(W, y); }
+    ctx.stroke();
+  }
+
+  function arrow(x, y, angle, size, fill, stroke) {
+    ctx.save();
+    ctx.translate(x, y); ctx.rotate(angle);
+    ctx.beginPath();
+    ctx.moveTo(0, -size); ctx.lineTo(size * 0.72, size * 0.8); ctx.lineTo(0, size * 0.38); ctx.lineTo(-size * 0.72, size * 0.8);
+    ctx.closePath();
+    ctx.fillStyle = fill; ctx.fill();
+    ctx.lineWidth = 1.5; ctx.strokeStyle = stroke; ctx.stroke();
+    ctx.restore();
+  }
+
+  function dot(x, y, r, fill) {
+    ctx.beginPath(); ctx.arc(x, y, r, 0, Math.PI * 2);
+    ctx.fillStyle = fill; ctx.fill();
+    ctx.lineWidth = 1; ctx.strokeStyle = "rgba(0,0,0,.75)"; ctx.stroke();
+  }
+
+  function diamond(x, y, r, fill) {
+    ctx.beginPath(); ctx.moveTo(x, y - r); ctx.lineTo(x + r, y); ctx.lineTo(x, y + r); ctx.lineTo(x - r, y); ctx.closePath();
+    ctx.fillStyle = fill; ctx.fill();
+    ctx.lineWidth = 1; ctx.strokeStyle = "rgba(0,0,0,.8)"; ctx.stroke();
+  }
+
+  function bang(x, y, fill) { // quest giver / turn-in: a "!" badge
+    ctx.beginPath(); ctx.arc(x, y, 7, 0, Math.PI * 2);
+    ctx.fillStyle = fill; ctx.fill(); ctx.lineWidth = 1.5; ctx.strokeStyle = "#1a1200"; ctx.stroke();
+    ctx.fillStyle = "#1a1200"; ctx.font = "700 11px 'Segoe UI', system-ui, sans-serif"; ctx.textAlign = "center";
+    ctx.fillText("!", x, y + 4); ctx.textAlign = "left";
+  }
+
+  function triangle(x, y, r, fill) { // loot
+    ctx.beginPath(); ctx.moveTo(x, y - r); ctx.lineTo(x + r * 0.9, y + r * 0.7); ctx.lineTo(x - r * 0.9, y + r * 0.7); ctx.closePath();
+    ctx.fillStyle = fill; ctx.fill();
+    ctx.lineWidth = 1; ctx.strokeStyle = "rgba(0,0,0,.8)"; ctx.stroke();
+  }
+
+  function square(x, y, r, fill) {
+    ctx.fillStyle = fill; ctx.fillRect(x - r, y - r, 2 * r, 2 * r);
+    ctx.lineWidth = 1; ctx.strokeStyle = "rgba(0,0,0,.8)"; ctx.strokeRect(x - r, y - r, 2 * r, 2 * r);
+  }
+
+  function label(x, y, text, color, raw) { // raw: a made-up name ending in " ?", the "?" drawn dimmer
+    const main = raw ? text.slice(0, -2) : text;
+    ctx.font = "600 11px 'Segoe UI', system-ui, sans-serif";
+    ctx.lineWidth = 3; ctx.strokeStyle = "rgba(5,10,14,.9)"; ctx.fillStyle = color;
+    ctx.strokeText(main, x + 8, y + 4); ctx.fillText(main, x + 8, y + 4);
+    if (!raw) return;
+    const alpha = ctx.globalAlpha, qx = x + 8 + ctx.measureText(main + "\u00a0").width;
+    ctx.globalAlpha = alpha * 0.7;
+    ctx.strokeText("?", qx, y + 4); ctx.fillText("?", qx, y + 4);
+    ctx.globalAlpha = alpha;
+  }
+
+  function healthBar(x, y, frac) {
+    const w = 16;
+    ctx.fillStyle = "rgba(0,0,0,.7)"; ctx.fillRect(x - w / 2 - 1, y + 6, w + 2, 4);
+    ctx.fillStyle = frac > 0.5 ? "#6fe06f" : frac > 0.25 ? "#ffc23d" : "#ff5040";
+    ctx.fillRect(x - w / 2, y + 7, w * Math.max(0, Math.min(1, frac)), 2);
+  }
+
+  // Frames are requested, not looped: with smoothing on every frame asks for the next one
+  // (movement is interpolated); off, only a change (data, view, input) asks for one.
+  function invalidate() {
+    if (S.pending) return;
+    S.pending = true;
+    requestAnimationFrame(() => {
+      S.pending = false;
+      draw();
+      if (S.smooth) invalidate();
+    });
+  }
+
+  function draw() {
+    const now = performance.now();
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    ctx.fillStyle = COLORS.bg;
+    ctx.fillRect(0, 0, W, H);
+    const f = frame();
+    if (!f) return;
+    if (!S.fitted && (S.images.length || S.meId)) fit();
+    if (S.follow) centerOnMe();
+
+    // map images, in movie px
+    ctx.setTransform(S.view.zoom * dpr, 0, 0, S.view.zoom * dpr,
+      (W / 2 - S.view.cx * S.view.zoom) * dpr, (H / 2 - S.view.cy * S.view.zoom) * dpr);
+    ctx.imageSmoothingEnabled = S.view.zoom < 4;
+    for (const img of S.images) {
+      const [x0, x1, y0, y1] = img.bounds;
+      ctx.drawImage(img.canvas, x0, y0, x1 - x0, y1 - y0);
+    }
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    if (!S.images.length) drawGrid(f);
+
+    const me = S.meId && S.pawns.get(S.meId);
+    const mePos = me ? pawnPos(me, now) : null;
+    const objColor = LAYERS.find((l) => l.id === "objective").color;
+    // quest areas ("somewhere in this circle"): under every marker
+    if (S.layers.objective) {
+      for (const mk of S.missions.markers) {
+        if (!mk.rad) continue;
+        const [sx, sy] = toScreen(...worldToMap(f, mk.x, mk.y));
+        const r = mk.rad / f.upp * S.view.zoom;
+        if (sx + r < 0 || sy + r < 0 || sx - r > W || sy - r > H) continue;
+        ctx.globalAlpha = mk.tracked ? 1 : 0.5;
+        ctx.beginPath(); ctx.arc(sx, sy, Math.max(r, 3), 0, Math.PI * 2);
+        ctx.fillStyle = "rgba(124, 245, 138, 0.13)"; ctx.fill();
+        ctx.setLineDash([6, 4]); ctx.lineWidth = 1.5; ctx.strokeStyle = objColor; ctx.stroke(); ctx.setLineDash([]);
+      }
+      ctx.globalAlpha = 1;
+    }
+    const hits = [];
+    const counts = Object.fromEntries(LAYERS.map((l) => [l.id, 0]));
+    const place = (x, y) => toScreen(...worldToMap(f, x, y));
+    const visible = (sx, sy) => sx > -20 && sy > -20 && sx < W + 20 && sy < H + 20;
+    const floorAlpha = (z) => (S.height && mePos && Math.abs(z - mePos.z) > FLOOR_UU ? 0.4 : 1);
+    const layerColor = Object.fromEntries(LAYERS.map((l) => [l.id, l.color]));
+
+    // interactive objects
+    for (const o of S.objects) {
+      counts[o.cat]++;
+      if (!S.layers[o.cat]) continue;
+      const [sx, sy] = place(o.x, o.y);
+      if (!visible(sx, sy)) continue;
+      ctx.globalAlpha = floorAlpha(o.z);
+      square(sx, sy, o.cat === "other" ? 2.5 : 3.5, layerColor[o.cat]);
+      if (S.labels && o.cat !== "other") label(sx, sy, nameText(o), layerColor[o.cat], o.raw);
+      hits.push({ sx, sy, kind: o.cat, item: o });
+    }
+    // quest markers: point objectives, quest givers; areas are hit-tested at their centre too
+    for (const mk of S.missions.markers) {
+      counts.objective++;
+      if (!S.layers.objective) continue;
+      const [sx, sy] = place(mk.x, mk.y);
+      if (!visible(sx, sy)) continue;
+      ctx.globalAlpha = mk.tracked ? 1 : 0.55;
+      if (mk.k === "directive") bang(sx, sy, objColor);
+      else if (!mk.rad) { diamond(sx, sy, 7, objColor); ctx.beginPath(); ctx.arc(sx, sy, 2, 0, Math.PI * 2); ctx.fillStyle = "#1a1200"; ctx.fill(); }
+      if (S.labels && mk.objective) label(sx, sy, nameText(mk.objective), objColor, mk.objective.raw);
+      hits.push({ sx, sy, kind: mk.k, item: mk });
+    }
+    ctx.globalAlpha = 1;
+    // loot
+    for (const p of S.pickups) {
+      const tier = p.q || 0;
+      if (tier < S.minRarity && !(S.minRarity === 1 && p.c && tier === 0)) continue;
+      counts.loot++;
+      if (!S.layers.loot) continue;
+      const [sx, sy] = place(p.x, p.y);
+      if (!visible(sx, sy)) continue;
+      const [, color] = rarity(tier);
+      ctx.globalAlpha = floorAlpha(p.z);
+      triangle(sx, sy, tier >= 5 ? 6.5 : 5, color);
+      if (S.labels) label(sx, sy, nameText(p), color, p.raw);
+      hits.push({ sx, sy, kind: "loot", item: p });
+    }
+    // pawns, players on top
+    const order = { npc: 0, enemy: 1, vehicle: 2, player: 3, me: 4 };
+    const pawns = [...S.pawns.values()].sort((a, b) => order[a.k] - order[b.k]);
+    for (const p of pawns) {
+      const layer = p.k === "me" ? "player" : p.k;
+      if (p.k !== "me") counts[layer] = (counts[layer] || 0) + 1;
+      if (p.k !== "me" && !S.layers[layer]) continue;
+      const pos = pawnPos(p, now);
+      const [sx, sy] = place(pos.x, pos.y);
+      if (!visible(sx, sy) && p.k !== "me") continue;
+      ctx.globalAlpha = p.k === "me" ? 1 : floorAlpha(pos.z);
+      const angle = yawToAngle(f, pos.r);
+      if (p.k === "me") arrow(sx, sy, angle, 9, "#ffcc33", "#1a1200");
+      else if (p.k === "player") { arrow(sx, sy, angle, 8, layerColor.player, "#00131a"); label(sx, sy, nameText(p), layerColor.player, p.raw); }
+      else if (p.k === "vehicle") square(sx, sy, 5, layerColor.vehicle);
+      else {
+        if (p.k === "enemy") diamond(sx, sy, 5, layerColor.enemy); // like the game's minimap
+        else dot(sx, sy, 3.5, layerColor[p.k]);
+        if (p.m > 0 && p.h < p.m) healthBar(sx, sy, p.h / p.m);
+        if (S.labels) label(sx, sy, nameText(p), layerColor[p.k], p.raw);
+      }
+      hits.push({ sx, sy, kind: p.k, item: p, pos });
+    }
+    ctx.globalAlpha = 1;
+    S.hits = hits;
+
+    for (const [id, n] of Object.entries(counts)) {
+      const el = document.querySelector(`[data-count="${id}"]`);
+      if (el && el.textContent !== String(n)) el.textContent = String(n);
+    }
+    tooltip(mePos, f);
+  }
+
+  function tooltip(mePos, f) {
+    const tip = $("tip"), coords = $("coords");
+    if (!S.mouse) { tip.style.display = "none"; coords.textContent = ""; return; }
+    const [mx, my] = toMap(S.mouse.x, S.mouse.y);
+    // inverse of worldToMap (no north offset case is exact; rotation undone too)
+    let ux = mx, uy = my;
+    if (f.north) { const a = -f.north * Math.PI / 180, c = Math.cos(a), s = Math.sin(a); [ux, uy] = [ux * c - uy * s, ux * s + uy * c]; }
+    coords.textContent = `X ${num(Math.round(f.center[0] - uy * f.upp))}  Y ${num(Math.round(f.center[1] + ux * f.upp))}`;
+    let best = null, bestD = 12;
+    for (const h of S.hits) {
+      const d = Math.hypot(h.sx - S.mouse.x, h.sy - S.mouse.y);
+      if (d < bestD) { best = h; bestD = d; }
+    }
+    if (!best) { tip.style.display = "none"; return; }
+    const it = best.item, pos = best.pos || it;
+    const lines = [];
+    if (best.kind === "objective" || best.kind === "directive") {
+      lines.push(`<span>${esc(t("tip." + best.kind))}${it.rad ? " · " + esc(t("tip.area", { d: Math.round(it.rad / UU_PER_METER) })) : ""}</span>`);
+      lines.push(`<span>${nameHtml(it.mission)}${it.tracked ? " · " + esc(t("tip.tracked")) : ""}</span>`);
+      if (mePos) lines.push(`<span>${esc(t("tip.away", { d: Math.round(Math.hypot(it.x - mePos.x, it.y - mePos.y, it.z - mePos.z) / UU_PER_METER) }))}</span>`);
+      tip.innerHTML = `<b>${it.objective ? nameHtml(it.objective) : nameHtml(it.mission)}</b>` + lines.join("<br>");
+      placeTip(tip);
+      return;
+    }
+    const kindHtml = best.kind === "loot" ? esc(rarityName(it.q)) + (it.c ? " · " + classHtml(it.c) : "")
+      : best.kind === "other" ? classHtml(it.c) : esc(t("tip." + best.kind, null, best.kind));
+    lines.push(`<span>${kindHtml}</span>`);
+    if (it.l) lines.push(`<span>${esc(t("insp.level", { n: it.l }))}</span>`);
+    if (it.m > 0) lines.push(`<span>${esc(t("tip.health", { h: Math.round(it.h), m: Math.round(it.m) }))}</span>`);
+    if (mePos && best.kind !== "me") {
+      const dist = Math.hypot(pos.x - mePos.x, pos.y - mePos.y, pos.z - mePos.z) / UU_PER_METER;
+      const dz = (pos.z - mePos.z) / UU_PER_METER;
+      let text = t("tip.away", { d: Math.round(dist) });
+      if (Math.abs(dz) >= 3) text += ", " + t(dz > 0 ? "tip.above" : "tip.below", { d: Math.round(Math.abs(dz)) });
+      lines.push(`<span>${esc(text)}</span>`);
+    }
+    tip.innerHTML = `<b>${nameHtml(it)}</b>` + lines.join("<br>");
+    placeTip(tip);
+  }
+
+  function placeTip(tip) {
+    tip.style.display = "block";
+    const tw = tip.offsetWidth, th = tip.offsetHeight;
+    tip.style.left = Math.min(W - tw - 8, S.mouse.x + 14) + "px";
+    tip.style.top = Math.min(H - th - 8, S.mouse.y + 14) + "px";
+  }
+
+  // A game class name, as a made-up name: "WillowInteractiveObject" -> "Interactive Object" + dim "?"
+  function classHtml(c) { return c ? nameHtml({ n: String(c).replace(/^Willow/, ""), raw: 1 }) : ""; }
+
+  function nameHtml(o) { // a made-up name: readable words, then a dim "?"
+    return o.raw ? `${esc(prettyRaw(o.n).slice(0, -2))}&nbsp;<span class="raw">?</span>` : esc(o.n || "?");
+  }
+
+  function esc(s) { return String(s).replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c])); }
+
+  applyI18n();
+  setStatus(...status);
+  setMessage(...message);
+  connect();
+  invalidate();
+})();
+</script>
+</body>
+</html>
