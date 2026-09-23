@@ -163,8 +163,12 @@ def pickup_mission(inv: Any) -> dict[str, str] | None:
     mission = try_(lambda: objective.Outer) if objective is not None else None
     if mission is None or not hasattr(mission, "MissionName"):
         return None
-    return {"i": mission_id(mission), "n": try_(lambda: str(mission.MissionName), "") or def_name(mission), "k": "for",
-            "o": try_(lambda: str(objective.ProgressMessage), "") or ""}
+    out = {"i": mission_id(mission), "n": try_(lambda: str(mission.MissionName), "") or def_name(mission), "k": "for",
+           "o": try_(lambda: str(objective.ProgressMessage), "") or ""}
+    # its objective's index in the mission (the page shows the item only while that objective is to do)
+    if (index := try_(lambda: _mission_index(mission).get(objective._get_address()))) is not None:
+        out["oi"] = index
+    return out
 
 
 def pretty_map_name(name: str) -> str:
@@ -275,6 +279,7 @@ class Collector:
         # A co-op client: the level's WillowWaypoint actors (no waypoint components there: the
         # markers are worked out from them - _client_markers), found at each objects scan
         self._waypoints: list[WeakPointer] = []
+        self._client = False  # a co-op client (set at each objects scan): containers opened by their state alone
         self._next_log = 0.0
         self._log = MissionLog()
         self._active = False  # a page was connected last tick
@@ -292,6 +297,7 @@ class Collector:
         # objects a scan found, their record not built yet: built a few per tick (a level's first scan
         # has hundreds: one long hitch otherwise)
         self._pending_records: dict[tuple[int, str], WeakPointer] = {}
+        self._incomplete: set[tuple[int, str]] = set()  # records built before their definition: built again
         self._unlooted: dict[tuple[int, str], WeakPointer] = {}  # lootable containers not opened yet
         self._next_looted = 0.0
 
@@ -488,9 +494,10 @@ class Collector:
         for io in unrealsdk.find_all("WillowInteractiveObject", exact=False):
             try:
                 key = (io._get_address(), str(io.Name))
-                if key not in records:  # new: its record is built later, a few per tick
+                if key not in records or key in self._incomplete:  # new / built too early: (again) later, a few per tick
                     self._pending_records.setdefault(key, WeakPointer(io))
-                    continue
+                    if key not in records:
+                        continue
                 if (record := records[key]) is not None and not io.bHidden and not io.bDeleteMe:
                     objects[key] = record
                     if record.get("lootable") and not record.get("looted"):
@@ -505,7 +512,7 @@ class Collector:
             )
         # A co-op client has no mission waypoint components: its markers come from the waypoint actors
         wi = ENGINE.GetCurrentWorldInfo()
-        client = getattr(try_(lambda: wi.NetMode), "name", "") == "NM_Client"
+        client = self._client = getattr(try_(lambda: wi.NetMode), "name", "") == "NM_Client"
         self._waypoints = [WeakPointer(w) for w in unrealsdk.find_all("WillowWaypoint", exact=False)
                            if not w.Name.startswith("Default__")] if client else []
         self._publish_objects()
@@ -518,10 +525,11 @@ class Collector:
             key, ptr = next(iter(self._pending_records.items()))
             del self._pending_records[key]
             io = ptr()
-            if io is None or key in records:
+            if io is None or (key in records and key not in self._incomplete):
                 continue
             try:
-                records[key] = self._object_record(io) if self._in_world(io) else None
+                records[key] = self._object_record(io, self._client) if self._in_world(io) else None
+                self._note_incomplete(key, io)
                 if (record := records[key]) is not None and not io.bHidden and not io.bDeleteMe:
                     self._objects[key] = record
                     self._objects_dirty = True
@@ -545,15 +553,26 @@ class Collector:
         if self._level_key is None or not self.hub.clients or not self._in_world(io):
             return
         key = (io._get_address(), str(io.Name))
-        self._object_records[key] = record = self._object_record(io)
+        self._object_records[key] = record = self._object_record(io, self._client)
+        self._note_incomplete(key, io)
         if not io.bHidden:
             self._objects[key] = record
             self._objects_dirty = True
             if record.get("lootable") and not record.get("looted"):
                 self._unlooted[key] = WeakPointer(io)
 
+    def _note_incomplete(self, key: tuple[int, str], io: Any) -> None:
+        """A record built before the object had its definition (it arrives a moment after the object
+        on a co-op client, maybe after a spawn too): "Interactive Object ?", in "Other", not a
+        container - rebuilt at the next objects scans until it has one."""
+        if try_(lambda: io.InteractiveObjectDefinition) is None:
+            self._incomplete.add(key)
+        else:
+            self._incomplete.discard(key)
+
     def object_destroyed(self, io: Any) -> None:
         key = (io._get_address(), str(io.Name))
+        self._incomplete.discard(key)
         self._object_records.pop(key, None)
         self._unlooted.pop(key, None)
         if self._objects.pop(key, None) is not None:
@@ -583,7 +602,7 @@ class Collector:
             record = self._object_records.get(key)
             if io is None or record is None:
                 continue
-            if self._is_looted(io):
+            if self._is_looted(io, self._client):
                 record["looted"] = 1  # in place: the published list holds this dict
                 changed = True
             else:
@@ -592,10 +611,13 @@ class Collector:
             self._publish_objects()
 
     @staticmethod
-    def _is_looted(io: Any) -> bool:
+    def _is_looted(io: Any, client: bool = False) -> bool:
         """Opened (verified in game, tools/probe_containers.txt): an opened container's animation
-        state is 7 and it's no longer usable (bCanBeUsed[0] 1 -> 0); unopened ones are 4 / usable."""
-        return try_(lambda: int(io.SimpleAnimState), 0) == 7 and not try_(lambda: io.bCanBeUsed[0], 1)
+        state is 7 and it's no longer usable (bCanBeUsed[0] 1 -> 0); unopened ones are 4 / usable.
+        A co-op client (tools/probe_client_containers.txt): the state (replicated) is 7 but bCanBeUsed
+        stays 1 - it isn't sent: the state alone there."""
+        opened = try_(lambda: int(io.SimpleAnimState), 0) == 7
+        return opened and (client or not try_(lambda: io.bCanBeUsed[0], 1))
 
     @staticmethod
     def _lootable(io: Any, balance: Any) -> bool:
@@ -607,7 +629,7 @@ class Collector:
         )
 
     @staticmethod
-    def _object_record(io: Any) -> dict[str, Any]:
+    def _object_record(io: Any, client: bool = False) -> dict[str, Any]:
         loc = io.Location
         definition = try_(lambda: io.InteractiveObjectDefinition)
         # The game's name for it, in the game's language (e.g. "Incendiary Barrel"): the balance's
@@ -634,7 +656,7 @@ class Collector:
                 record["lists"] = lists  # the page: an "Epic..." list = a chest
             if slots:
                 record["slots"] = slots  # the page sizes containers by it
-            if Collector._is_looted(io):
+            if Collector._is_looted(io, client):
                 record["looted"] = 1
         return record
 

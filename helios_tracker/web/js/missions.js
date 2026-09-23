@@ -32,6 +32,21 @@ export function whereTo(m, state) {
   return home;
 }
 
+/** Whether a mission item on the ground matters now (its "ms": the mission it gives / is for - the
+ *  game places them ahead, e.g. pizzas for a step not reached yet, not pickable). One an objective
+ *  asks for ("for"): while its mission is picked up, that objective (oi) in the current step and not
+ *  done. One giving a mission ("gives", an ECHO log): while that mission isn't started or done. No
+ *  link, or the mission not in the log (yet): shown. */
+export function missionItemWanted(ms, missionsById) {
+  const m = ms && missionsById ? missionsById.get(ms.i) : null;
+  if (!m) return true;
+  if (ms.k === "gives") return m.st === "NotStarted";
+  if (!pickedUp(m)) return false;
+  if (ms.oi == null) return true; // (its objective not known: the mission being on is enough)
+  const s = objectiveStates(m)[ms.oi];
+  return !!s && s.state === "current";
+}
+
 /** Whether a place (whereTo / a station) is the level the player is in (map names compared). */
 export function isHere(place, level) {
   return !!(place && place.map && level && level.map && place.map.toLowerCase() === String(level.map).toLowerCase());

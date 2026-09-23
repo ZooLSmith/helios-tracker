@@ -244,7 +244,14 @@ const where = { active: whereTo(placeM, "active"), ready: whereTo(placeM, "ready
 const { rewardFor } = await load("js/missions.js");
 const rwM = { rw: { "12": { xp: 900 }, "15": { xp: 1100 } } };
 const fallback = { own: rewardFor(rwM, 12), toLocal: rewardFor(rwM, 20, 15), toAny: rewardFor(rwM, 20, 30), none: rewardFor({}, 12, 15) };
-const missionsOut = { fallback, where, tooHigh, finish, difficulty, best, search, infoHtml, areas, gameText, story: flat(tree.story), other: flat(tree.other), counts: missionCounts(log),
+const { missionItemWanted } = await load("js/missions.js");
+// mission items placed ahead: shown only while their objective is to do (for) / their mission not started (gives)
+const itemLog = new Map([
+  ["act", { i: "act", st: "Active", obj: [{ c: 1 }, { c: 4 }, { c: 1 }], p: [1, 2, 0], cur: [1] }],
+  ["new", { i: "new", st: "NotStarted" }], ["old", { i: "old", st: "Complete" }]]);
+const items = [{ k: "for", i: "act", oi: 1 }, { k: "for", i: "act", oi: 2 }, { k: "for", i: "act", oi: 0 }, { k: "for", i: "new", oi: 0 },
+  { k: "gives", i: "new" }, { k: "gives", i: "old" }, { k: "for", i: "nowhere", oi: 0 }].map((ms) => missionItemWanted(ms, itemLog));
+const missionsOut = { items, fallback, where, tooHigh, finish, difficulty, best, search, infoHtml, areas, gameText, story: flat(tree.story), other: flat(tree.other), counts: missionCounts(log),
   objectives: objectiveStates(log[1]).map((s) => s.state) };
 console.log(JSON.stringify({ sha: crypto.createHash("sha256").update(rgba).digest("hex"), err, back, right, raw, modules, missions: missionsOut,
   migrated, checked: { enemy: checked.layers.enemy, view: checked.view, openLayers: checked.ui.openLayers, drawer: checked.ui.drawer, badDrawer }, i18nKeys, unknownSettings, lootLayers, gameRarity, freeRects }));
@@ -439,6 +446,11 @@ def check_helios_tracker() -> None:  # noqa: PLR0915
     assert in_menu(ns(bViewingStatusMenu=True, PlayerReplicationInfo=ns(bGFxMenuOpen=0)))
     assert not in_menu(ns(bViewingStatusMenu=False, PlayerReplicationInfo=ns(bGFxMenuOpen=0)))
     assert not in_menu(ns()), "no such properties: not in a menu"
+    # Opened containers: state 7 + no longer usable (host); a client gets the state only (tools/probe_client_containers.txt)
+    opened_box, closed_box = ns(SimpleAnimState=7, bCanBeUsed=(1, 0)), ns(SimpleAnimState=4, bCanBeUsed=(1, 0))
+    looted = col.Collector._is_looted
+    assert (looted(opened_box), looted(opened_box, True), looted(closed_box, True)) == (False, True, False)
+    assert looted(ns(SimpleAnimState=7, bCanBeUsed=(0, 0))), "host: opened and no longer usable"
     respawn_state = col.Collector._respawn_state
     # Skills (tools/probe_passives.txt): the manager's running timed skills by player; the action skill
     # running / cooling down (its pool) / ready; timed passive effects; melee cooldown
@@ -990,6 +1002,8 @@ def check_helios_tracker() -> None:  # noqa: PLR0915
     assert mis["search"] == ["a:done", "b:locked,a:done", "b:locked", "", ""], mis["search"]
     assert mis["difficulty"] == ["impossible", "tough", "normal", "normal", "trivial", None, None], mis["difficulty"]
     assert mis["finish"] == "f4:7,f1:5,f2:1", mis["finish"]
+    # its objective current (to do) / later step / done / mission not started; gives: not started / done; unknown mission
+    assert mis["items"] == [True, False, False, False, True, False, True], mis["items"]
     fb = mis["fallback"]  # a reward not known for the player's level: the local player's level's, else any
     assert fb["own"] == {"xp": 900} and fb["toLocal"] == {"xp": 1100, "from": 15} and fb["toAny"] == {"xp": 900, "from": 12} and fb["none"] is None, fb
     w = mis["where"]  # where to go: the step's station (active), the turn-in one (ready), else its own

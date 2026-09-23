@@ -3,6 +3,7 @@
 // click, updates the layer counts.
 import { UU_PER_METER, worldToMap, yawToAngle } from "./geo.js";
 import { FLOOR_UU, LAYERS, LAYER_COLOR, chestTier, isGear, lootLayer, nameText, rarity } from "./model.js";
+import { missionItemWanted } from "./missions.js";
 import { settings } from "./settings.js";
 import { COLORS, arrow, bang, diamond, dot, label, menuBadge, respawnRing, square, triangle, vitalBars } from "./shapes.js";
 import { S, frame, pawnPos, trackedPawn } from "./state.js";
@@ -10,6 +11,14 @@ import { tooltip } from "./tooltip.js";
 import { refreshPlayerInfo } from "./ui/inspector.js";
 import { updatePlayerVitals } from "./ui/players.js";
 import { H, W, centerOnTarget, ctx, dpr, fit, toScreen } from "./view.js";
+
+/** The mission log by mission id (mission items check their mission): rebuilt only when the log changes. */
+let byIdFor = null, byIdMap = null;
+function logById() {
+  if (!S.log) return null;
+  if (byIdFor !== S.log) { byIdFor = S.log; byIdMap = new Map(S.log.missions.map((m) => [m.i, m])); }
+  return byIdMap;
+}
 
 function drawGrid(f) { // areas without a map: a 10 m grid so movement still reads (map transform set)
   const step = 10 * UU_PER_METER / f.upp; // map px
@@ -118,7 +127,9 @@ export function draw() {
   }
   ctx.globalAlpha = 1;
   // loot: styled by its rarity's layer (gear), or the pickups' (ammo, cash...)
+  const byId = logById();
   for (const p of S.pickups) {
+    if (p.ms && !missionItemWanted(p.ms, byId)) continue; // a mission item placed ahead (its step not reached / done)
     if (offMap(p.z)) continue;
     const layer = lootLayer(p), st = style(layer, p);
     if (!st) continue;

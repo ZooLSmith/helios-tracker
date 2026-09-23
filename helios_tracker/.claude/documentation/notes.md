@@ -117,6 +117,10 @@ item's `DefinitionData.ItemDefinition` (a `UsableItemDefinition`):
   `MissionDirective` = the mission it gives (`M_NoHardFeelings`; the pickup has `bIsMissionDirector`),
   `AssociatedMissionObjective` (the objective it's for; None here), `bMissionWaypoint`. The collector:
   the definition's name, `ms` {mission id, name, "gives" / "for"} - tooltip + a link in the details.
+- Mission items are placed ahead (user, 2026-09-23: pizzas, neither pickable nor visible yet, showed
+  on the map): the page draws one only while it matters (missions.js missionItemWanted) - "for" (its
+  objective `oi`): the mission picked up and that objective in the current step, not done; "gives":
+  the mission not started. No link / mission not in the log: drawn. Seen right in game (the pizzas).
 - Customization items (skins / heads) are gear: `WillowUsableCustomizationItem`, a real `RarityLevel`
   (2 on a vehicle skin), `ItemFrame` `customization_vehicle`, card `Customization_VehicleSkin`.
 
@@ -336,6 +340,15 @@ item's `DefinitionData.ItemDefinition` (a `UsableItemDefinition`):
   `ItemChain`, `pawn.EquippedItems` / `HolsteredWeaponSlots`, item `DefinitionData`, `RarityLevel`,
   `ExpLevel`, card stat modifiers; `pc.PlayerSkillTree.Skills` / `Branches`; replicated to everyone:
   `PlayerReplicationInfo.StandInGear`, `TrackedSkills`, `ClassModNamePart`.
+- **Opened containers on a co-op client** (tools/probe_client_containers.py, Outwash, 2026-09-23):
+  opened ones `SimpleAnimState` / `RepSimpleAnimState` 7, unopened 4 - but `bCanBeUsed` stays (1, 0)
+  on both (not sent to clients): the host's test (7 + no longer usable) never fired. A client: the
+  state alone (`_is_looted(io, client)`; `_client` from the NetMode at each objects scan). Seen
+  working in game (user: containers and all their kinds right, as a client).
+- **Objects shown as "Interactive Object ?"** (user, 2026-09-23): a record built before the object had
+  its `InteractiveObjectDefinition` (it arrives after the object, on a client at least): made-up
+  class name, "Other", not a container. Such records are built again at each objects scan until the
+  definition is there (`_incomplete`). Seen fixed in game (the chests show).
 - **Mission markers on a co-op client** (tools/probe_client_markers.py / probe_minimap_icons.py /
   probe_client_waypoints.py, 2026-09-23): the client's MissionTracker has the full MissionList and
   ActiveMission but an empty `MissionWaypoints`, and no waypoint components exist at all (the host
