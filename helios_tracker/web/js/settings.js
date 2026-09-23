@@ -2,7 +2,7 @@
 //   layers: { <layer id>: { on, names, floors, size, range, ... } }   (model.js: LAYERS, LAYER_SETTINGS;
 //           gear per rarity: "loot.common", "loot.rare"...; pickups per kind: "pickup.ammo"...)
 //   view:   the map (zoom, follow, rotate, who, movement)
-//   ui:     the page (language, open tabs, open layer panels, collapsed categories)
+//   ui:     the page (language, open tabs, open layer panels, collapsed categories, what the drawer shows)
 // Loading validates every value against the defaults (unknown / invalid ones are dropped), so the
 // shape can change without breaking saved settings. Never throws: private mode, blocked storage
 // or Node (the offline check) just get the defaults.
@@ -28,7 +28,10 @@ export function defaults() {
       motion: "smooth",
     },
     ui: { lang: "auto", panelTab: "info", inspectorTab: "info", openLayers: [], closedGroups: [], showLockedMissions: false,
-      missionGroup: "chain", missionGoal: "xp" },
+      missionGroup: "chain", missionGoal: "xp",
+      // what the drawer shows, reopened on a refresh (ui/drawer.js): {} (closed), { k: "player", name },
+      // { k: "mission", id } ("": the list), { k: "detail", kind, id }
+      drawer: {} },
   };
 }
 

@@ -1,12 +1,18 @@
 // The mission log (the collector's "missionlog"): each mission's state, the tree, objective states.
 // Pure (no DOM): tested offline under Node.
 
-/** "done" / "active" / "available" (not started, every mission it needs done, its giver offered
- *  it: "kick") / "unknown" (the same, but not offered yet: still to be found) / "locked", or "other"
- *  for a status the page doesn't know (shown by its game name). */
+/** Picked up and not handed in yet: the game's statuses between Active and Complete (every
+ *  required objective done - tools/probe_turnin.txt). */
+export const READY = ["ReadyToTurnIn", "RequiredObjectivesComplete"];
+const pickedUp = (m) => m.st === "Active" || READY.includes(m.st);
+
+/** "done" / "active" / "ready" (to turn in) / "available" (not started, every mission it needs done,
+ *  its giver offered it: "kick") / "unknown" (the same, but not offered yet: still to be found) /
+ *  "locked", or "other" for a status the page doesn't know (shown by its game name). */
 export function missionState(m, byId) {
   if (m.st === "Complete") return "done";
   if (m.st === "Active") return "active";
+  if (READY.includes(m.st)) return "ready";
   if (m.st !== "NotStarted") return "other";
   if (!(m.deps || []).every((d) => byId.get(d)?.st === "Complete")) return "locked";
   return m.kick ? "available" : "unknown";
@@ -86,7 +92,7 @@ export function objectiveStates(m) {
 /** Counts per state, for the log's summary line. */
 export function missionCounts(missions) {
   const byId = new Map(missions.map((m) => [m.i, m]));
-  const counts = { done: 0, active: 0, available: 0, unknown: 0, locked: 0, other: 0 };
+  const counts = { done: 0, active: 0, ready: 0, available: 0, unknown: 0, locked: 0, other: 0 };
   for (const m of missions) counts[missionState(m, byId)]++;
   return counts;
 }
@@ -109,7 +115,7 @@ export function missionDifficulty(m, playerLevel, thresholds) {
 
 export const GOALS = ["xp", "cash", "balanced", "effort", "finish"];
 
-/** The "Best now" ranking for a player level: the missions doable now (active / available / unknown)
+/** The "Best now" ranking for a player level: the missions doable now (active / ready / available / unknown)
  *  and the locked ones a single step away (every mission they need is done, active or offered -
  *  not merely "unknown": a DLC's first mission, never offered, would pull in its whole DLC; "after"
  *  lists what's left), ranked by goal - xp, cash (credits), balanced (both, scaled to the best
@@ -117,8 +123,9 @@ export const GOALS = ["xp", "cash", "balanced", "effort", "finish"];
  *  the alternative one). { rows: [{ m, state, after, xp, cash, effort, known, score }], totalXp } */
 export function rankMissions(missions, goal, level, thresholds = null) {
   const ranked = rankAll(missions, goal, level);
-  // too high a level to do now (the game's "impossible": 5+ above the player): left out, counted
-  const tooHigh = ranked.rows.filter((r) => missionDifficulty(r.m, level, thresholds) === "impossible");
+  // too high a level to do now (the game's "hard" or "impossible": 3+ above the player; "tough",
+  // 1-2 above, stays): left out, counted
+  const tooHigh = ranked.rows.filter((r) => ["hard", "impossible"].includes(missionDifficulty(r.m, level, thresholds)));
   if (!tooHigh.length) return { ...ranked, tooHigh: 0, minTooHigh: 0 };
   const rows = ranked.rows.filter((r) => !tooHigh.includes(r));
   return { rows, totalXp: rows.reduce((sum, r) => sum + r.xp, 0), tooHigh: tooHigh.length,
@@ -130,7 +137,7 @@ function rankAll(missions, goal, level) {
   // levels up), the furthest below the player first
   if (goal === "finish") {
     const byId = new Map(missions.map((m) => [m.i, m]));
-    const rows = missions.filter((m) => m.st === "Active" && m.mlk).map((m) => {
+    const rows = missions.filter((m) => pickedUp(m) && m.mlk).map((m) => {
       const rw = rewardFor(m, level), sides = rw ? [rw, rw.alt].filter(Boolean) : [];
       return { m, state: missionState(m, byId), after: null, known: !!rw, effort: 1,
         xp: Math.max(0, ...sides.map((r) => r.xp || 0)), cash: Math.max(0, ...sides.map((r) => (!r.cur || r.cur === "Credits" ? r.cash || 0 : 0))),
@@ -140,11 +147,11 @@ function rankAll(missions, goal, level) {
   }
   const byId = new Map(missions.map((m) => [m.i, m]));
   const states = new Map(missions.map((m) => [m.i, missionState(m, byId)]));
-  const doable = (id) => ["active", "available", "unknown"].includes(states.get(id));
-  const underway = (id) => ["active", "available"].includes(states.get(id)); // started or offered
+  const doable = (id) => ["active", "ready", "available", "unknown"].includes(states.get(id));
+  const underway = (id) => ["active", "ready", "available"].includes(states.get(id)); // started or offered
   // DLCs started (one of their missions active or done): a DLC's missions nobody offered yet only
   // count then - its first missions need nothing, so they'd always look doable
-  const started = new Set(missions.filter((m) => m.dlc && (m.st === "Active" || m.st === "Complete")).map((m) => m.dlc));
+  const started = new Set(missions.filter((m) => m.dlc && (pickedUp(m) || m.st === "Complete")).map((m) => m.dlc));
   const rows = [];
   for (const m of missions) {
     const state = states.get(m.i);

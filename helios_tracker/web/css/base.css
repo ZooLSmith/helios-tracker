@@ -13,6 +13,7 @@
   --shield: #3fa3f0;
   --health: #d9372f; /* red, like the game's health bars */
   --dead: #8a9aa3; /* a dead player (before the respawn) */
+  --menu: #d7e6ee; /* a player in a menu: neutral, like the text */
   --xp: #3fae49; /* green, like the game's experience bar */
   --objective: #7cf58a; /* light green, like the game's objective markers */
   --story: #ffcc33; /* story (main) missions: yellow; side missions: grey */

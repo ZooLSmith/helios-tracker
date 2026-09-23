@@ -6,6 +6,7 @@ import { nameText } from "../model.js";
 import { saveSettings, settings } from "../settings.js";
 import { S, findPlayer } from "../state.js";
 import { renderDetail } from "./detail.js";
+import { saveDrawer } from "./drawer.js";
 import { itemsByKind } from "./items.js";
 import { renderMissionLog } from "./missionlog.js";
 import { playerSub, renderPlayers } from "./players.js";
@@ -20,6 +21,7 @@ export function openInspector(id) {
   S.missionView = null;
   S.skillTab = null; // back to their tree with the most points
   $("inspector").classList.add("open");
+  saveDrawer();
   renderPlayers();
   renderInspector(true);
 }
@@ -29,6 +31,7 @@ export function closeInspector() {
   S.detail = null;
   S.missionView = null;
   $("inspector").classList.remove("open");
+  saveDrawer();
   renderPlayers();
 }
 

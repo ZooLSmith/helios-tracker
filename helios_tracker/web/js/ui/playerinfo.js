@@ -1,4 +1,4 @@
-// The player drawer's Info tab: their state (fine / crippled / dead / respawning), health and shield,
+// The player drawer's Info tab: their state (fine / in a menu / crippled / dead / respawning), health and shield,
 // action skill (ready / running / cooldown), timed skill effects and melee skill cooldown - live from
 // their pawn in the state payload (refreshed a few times a second while the tab is open).
 import { esc } from "../dom.js";
@@ -17,6 +17,7 @@ function stateKey(pawn) {
   if (pawn.rs) return "respawning";
   if (pawn.dd) return "dead";
   if (pawn.dn || (pawn.m > 0 && pawn.h <= 0 && !(pawn.sm > 0 && pawn.s > 0))) return "ffyl";
+  if (pawn.mn) return "menu";
   return "fine";
 }
 

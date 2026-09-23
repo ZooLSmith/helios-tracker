@@ -42,7 +42,8 @@ and interactive objects on it, with zoom / pan. Read the root `../CLAUDE.md` fir
   missions" the tree. The tree (drawer): story missions in order with the side missions each one
   unlocks under it (`Dependencies`), done / active / available (every dependency done, offered:
   `bHeardKickoff`) / unknown (dependencies done, not offered yet: the game titles it "Inconnu") /
-  locked (hidden unless asked). A mission's details: description, giver, turn in, base level,
+  locked (hidden unless asked); ready to turn in (`MS_ReadyToTurnIn` / `MS_RequiredObjectivesComplete`) in green, with the
+  panel's tracked mission saying so (and the turn-in text). A mission's details: description, giver, turn in, base level,
   objectives done + current step, reward (XP, currency, items; alternative), requires / unlocks
   (neutral links with their state; Back walks the history). Rewards: `GetExperienceReward` /
   `GetCurrencyReward` (function calls: only active / available / tracked missions, cached per
@@ -61,9 +62,16 @@ and interactive objects on it, with zoom / pan. Read the root `../CLAUDE.md` fir
   selected player; a 5th goal, **Finish first**: picked-up missions, the furthest below the player
   first. GameStage / bGameStageLocked: two property reads per not-done mission per full pass.
 - The drawer closes when what it shows is gone (loot picked up, pawn dead, marker done).
+- **Drawer restored on a refresh (F5)** (`ui/drawer.js`, `ui.drawer`): what it shows is remembered -
+  a player (by name), a mission / the mission list, a map object (by id) - and reopened once its data
+  arrives; gone: its category's list (a mission: the mission list; a player: the Players list), a map
+  object: closed. Opening / closing by hand before then wins.
 - Respawning players (see notes): drawn faded with a dashed ring at the New-U they'll come back at
   (follow goes there), never at the parked position; "Crippled" / "Respawning" over the bars in the
   Players list.
+- **In a menu** (see notes: `PlayerReplicationInfo.bGFxMenuOpen` / the pawn's `bViewingStatusMenu`,
+  `mn` 1): a "..." badge on their marker, "In menu" over the bars (neutral, when not down), in the
+  tooltip and the Info tab's state.
 - **Skills** (`skills.py`, see its docstring: verified with tools/probe_passives.txt): every player's
   action skill (ready / running, from the manager's `SKILL_TYPE_Action` skill instance / cooling down,
   from the pool), timed passive effects (a passive's triggered buff: `SKILL_TYPE_Passive` +
@@ -103,7 +111,7 @@ and interactive objects on it, with zoom / pan. Read the root `../CLAUDE.md` fir
 - **Settings tab**: Who (host / a player, saved by name) + Follow / Rotate (map turns to their
   heading; only while following, greyed out otherwise); Movement: game updates only (the mod sends its rate, `hz`), a fps cap, or smooth.
 - **Storage**: one `helios.settings` localStorage object (`js/settings.js`): `layers.<id>` (each
-  layer's settings), `view`, `ui`; validated against the defaults on load (unknown / invalid values
+  layer's settings), `view`, `ui` (incl. `drawer`: what the drawer shows); validated against the defaults on load (unknown / invalid values
   dropped), the old one-key-per-setting storage migrated once.
 - **Distances**: 100 uu per metre (1 uu = 1 cm), measured (`tools/probe_scale.py`).
 - **Translations**: `web/i18n/<code>.js`, one catalog per language (en, fr; listed in
@@ -174,7 +182,8 @@ js/input.js       wheel / drag / pinch / click / keys, hitAt   js/tooltip.js  ho
 js/missions.js    the mission log: states, the tree, objective states (pure)
 js/icons.js       the icons: inline SVGs (currentColor), icon(name) - no emoji / glyphs as icons
 js/ui/            panel (tabs, Settings), layers (Layers tab), status, mission (Info panel), missionlog
-                  (drawer: tree, details, back history), players, inspector, detail, items, skills
+                  (drawer: tree, details, back history), players, inspector, detail, items, skills,
+                  drawer (what the drawer shows: remembered, restored on a refresh)
 ```
 
 - Modules only define things at import time (no DOM access): the offline check imports every one of

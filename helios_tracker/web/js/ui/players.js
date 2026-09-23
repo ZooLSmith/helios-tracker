@@ -24,9 +24,10 @@ export function renderPlayers() {
     `<div class="phead"><div class="pname${isTrackedPlayer(p) ? " me" : ""}">${nameHtml(p)}</div>` +
     `<span class="askill"><i></i><span></span></span></div>` +
     `<div class="pinfo">${esc(playerSub(p))}</div>` +
-    // shield + health together, under the "Fight For Your Life" overlay (shown when both are empty)
-    `<div class="vitals">${vital("sh")}${vital("hp")}<div class="ffyl">${esc(t("vital.ffyl"))}</div></div>` +
-    vital("xp") + `</div>`).join("");
+    // shield, health and XP (the level) together, under the state overlay (crippled / dead /
+    // respawning / in a menu: the word over all of them)
+    `<div class="vitals">${vital("sh")}${vital("hp")}${vital("xp")}<div class="ffyl">${esc(t("vital.ffyl"))}</div></div>` +
+    `</div>`).join("");
   for (const row of box.querySelectorAll(".pentry")) row.onclick = () => openInspector(row.dataset.id);
   for (const p of S.players) { // XP: from the players payload (it changes with kills, not per frame)
     const el = box.querySelector(`.pentry[data-id="${CSS.escape(p.i)}"] .vital.xp`);
@@ -78,13 +79,16 @@ export function updatePlayerVitals(now = performance.now()) {
       if (bar.style.width !== width) bar.style.width = width; // only on a change (called with the frames)
       if (chip.title !== title) chip.title = title;
     }
-    // Respawning (at a New-U), dead (before the respawn), or crippled (down / no health, no shield left)
+    // Respawning (at a New-U), dead (before the respawn), or crippled (down / no health, no shield left);
+    // else in a menu (the same word over the bars, not red)
     const respawning = !!p && !!p.rs, dead = !!p && !!p.dd && !respawning;
     const down = respawning || dead || (!!p && (!!p.dn || (p.m > 0 && p.h <= 0 && !(p.sm > 0 && p.s > 0))));
+    const menu = !down && !!p && !!p.mn;
     const box = row.querySelector(".vitals");
     if (box.classList.contains("down") !== down) box.classList.toggle("down", down);
     if (box.classList.contains("dead") !== dead) box.classList.toggle("dead", dead);
-    const text = t(respawning ? "vital.respawning" : dead ? "vital.dead" : "vital.ffyl"), label = box.querySelector(".ffyl");
+    if (box.classList.contains("menu") !== menu) box.classList.toggle("menu", menu);
+    const text = t(respawning ? "vital.respawning" : dead ? "vital.dead" : menu ? "vital.menu" : "vital.ffyl"), label = box.querySelector(".ffyl");
     if (label.textContent !== text) label.textContent = text;
   }
 }

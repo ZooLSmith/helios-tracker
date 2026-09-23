@@ -4,7 +4,7 @@
 import { UU_PER_METER, worldToMap, yawToAngle } from "./geo.js";
 import { FLOOR_UU, LAYERS, LAYER_COLOR, chestTier, isGear, lootLayer, nameText, rarity } from "./model.js";
 import { settings } from "./settings.js";
-import { COLORS, arrow, bang, diamond, dot, label, respawnRing, square, triangle, vitalBars } from "./shapes.js";
+import { COLORS, arrow, bang, diamond, dot, label, menuBadge, respawnRing, square, triangle, vitalBars } from "./shapes.js";
 import { S, frame, pawnPos, trackedPawn } from "./state.js";
 import { tooltip } from "./tooltip.js";
 import { refreshPlayerInfo } from "./ui/inspector.js";
@@ -155,6 +155,7 @@ export function draw() {
       else if (p.dd) respawnRing(sx, sy, 12 * st.k, COLORS.dead); // died: grey, where their body is
       // crippled (down, fighting for their life): the same ring, red
       else if (p.dn || (p.m > 0 && pos.h <= 0 && !(p.sm > 0 && pos.s > 0))) respawnRing(sx, sy, 12 * st.k, COLORS.health);
+      else if (p.mn) menuBadge(sx, sy, st.k); // in a menu
     }
     else if (p.k === "vehicle") square(sx, sy, 5 * st.k, LAYER_COLOR.vehicle);
     else {

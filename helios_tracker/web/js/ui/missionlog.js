@@ -9,9 +9,10 @@ import { GOALS, missionAreas, missionCounts, missionDifficulty, missionState, mi
 import { cleanGameText } from "../model.js";
 import { saveSettings, settings } from "../settings.js";
 import { S, isTrackedPlayer } from "../state.js";
+import { saveDrawer } from "./drawer.js";
 import { renderPlayers } from "./players.js";
 
-const STATE_ICON = { done: "check", active: "diamond", available: "circle", unknown: "circleDashed", locked: "lock", other: "question" };
+const STATE_ICON = { done: "check", active: "diamond", ready: "checkCircle", available: "circle", unknown: "circleDashed", locked: "lock", other: "question" };
 
 /** Opens the log: a mission's details (id), or the tree (no id). Back from a mission opened
  *  directly: the tree. */
@@ -20,6 +21,7 @@ export function openMissionLog(id = null) {
   S.inspect = null;
   S.detail = null;
   $("inspector").classList.add("open");
+  saveDrawer();
   renderPlayers();
   renderMissionLog(true);
 }
@@ -233,7 +235,8 @@ export function renderMissionLog(resetScroll) {
   } else {
     const c = missionCounts(S.log.missions);
     $("iwho").textContent = t("mlog.title");
-    $("isub").textContent = t("mlog.summary", { done: c.done, active: c.active, available: c.available, unknown: c.unknown });
+    $("isub").textContent = t("mlog.summary", { done: c.done, active: c.active + c.ready, available: c.available, unknown: c.unknown }) +
+      (c.ready ? " · " + t("mlog.ready", { n: c.ready }) : "");
     body.innerHTML = treeHtml();
     if (caret) { const input = $("mSearch"); input.focus(); input.setSelectionRange(...caret); }
   }
@@ -245,6 +248,7 @@ function goTo(id) {
   const view = S.missionView;
   view.history.push({ id: view.id, scroll: $("ibody").scrollTop });
   view.id = id;
+  saveDrawer();
   renderMissionLog(true);
 }
 
@@ -252,6 +256,7 @@ function goTo(id) {
 function goBack() {
   const view = S.missionView, prev = view.history.pop() || { id: null, scroll: 0 };
   view.id = prev.id;
+  saveDrawer();
   renderMissionLog(true);
   $("ibody").scrollTop = prev.scroll;
 }

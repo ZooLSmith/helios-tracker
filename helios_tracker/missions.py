@@ -3,7 +3,8 @@ The mission log (game thread): every mission of the playthrough with its status,
 progress, and what it depends on - for the page's quest panel and mission tree.
 
 Verified in game (tools/probe_quests.py): MissionTracker.MissionList[] = {MissionDef, Status
-(EMissionStatus: MS_NotStarted / MS_Active / MS_Complete seen), ObjectivesProgress[] (one count per
+(EMissionStatus: MS_NotStarted / MS_Active / MS_RequiredObjectivesComplete / MS_ReadyToTurnIn /
+MS_Complete - tools/probe_turnin.txt), ObjectivesProgress[] (one count per
 MissionDef.ObjectiveDefs entry, same order; empty before the mission starts), ActiveObjectiveSet
 (a MissionObjectiveSetDefinition: its ObjectiveDefinitions are the current step), SubObjectiveSets}.
 
@@ -276,7 +277,8 @@ class MissionLog:
 
         def doable(mission_id: str) -> bool:
             st = status.get(mission_id)
-            return st == "Active" or (st == "NotStarted" and all(status.get(d) == "Complete" for d in records[mission_id]["deps"]))
+            # picked up (active, or ready to turn in: ReadyToTurnIn / RequiredObjectivesComplete)
+            return st not in (None, "NotStarted", "Complete") or (st == "NotStarted" and all(status.get(d) == "Complete" for d in records[mission_id]["deps"]))
 
         rewards = {}
         deadline = time.perf_counter() + REWARDS_SECONDS  # new reward function calls: at most this long per cycle

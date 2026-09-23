@@ -5,7 +5,7 @@ import { ctx } from "./view.js";
 export const COLORS = {};
 export function initColors() {
   const css = getComputedStyle(document.documentElement);
-  for (const k of ["bg", "grid", "shield", "health", "dead"]) COLORS[k] = css.getPropertyValue("--" + k).trim();
+  for (const k of ["bg", "grid", "shield", "health", "dead", "menu"]) COLORS[k] = css.getPropertyValue("--" + k).trim();
 }
 
 export function arrow(x, y, angle, size, fill, stroke) {
@@ -64,6 +64,14 @@ export function label(x, y, text, color, raw) { // raw: a made-up name ending in
 export function respawnRing(x, y, r, color) { // a dashed ring around a player: respawning here, or crippled (red)
   ctx.beginPath(); ctx.arc(x, y, r, 0, Math.PI * 2);
   ctx.setLineDash([3, 3]); ctx.lineWidth = 1.5; ctx.strokeStyle = color; ctx.stroke(); ctx.setLineDash([]);
+}
+
+export function menuBadge(x, y, k = 1) { // a player in a menu: a "..." pill at the top right of their arrow
+  const w = 13 * k, h = 7 * k, bx = x + 6 * k, by = y - 13 * k;
+  ctx.beginPath(); ctx.roundRect(bx, by, w, h, h / 2);
+  ctx.fillStyle = COLORS.menu; ctx.fill(); ctx.lineWidth = 1; ctx.strokeStyle = "rgba(0,0,0,.8)"; ctx.stroke();
+  ctx.fillStyle = "#0b1116";
+  for (let i = 0; i < 3; i++) { ctx.beginPath(); ctx.arc(bx + w * (i + 1) / 4, by + h / 2, 1.1 * k, 0, Math.PI * 2); ctx.fill(); }
 }
 
 export function vitalBars(x, y, p) { // health, and the shield above it when there is one

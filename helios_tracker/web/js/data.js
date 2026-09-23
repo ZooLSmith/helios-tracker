@@ -5,6 +5,7 @@ import { objectCategory, setRarityTable } from "./model.js";
 import { invalidate } from "./scheduler.js";
 import { S, findDetail, pawnPos } from "./state.js";
 import { renderDetail } from "./ui/detail.js";
+import { restoreDrawer } from "./ui/drawer.js";
 import { closeInspector, renderInspector } from "./ui/inspector.js";
 import { renderMission } from "./ui/mission.js";
 import { renderMissionLog } from "./ui/missionlog.js";
@@ -118,6 +119,7 @@ function onState(st) {
     S.fallback = { center: [me.x, me.y], upp: 128, north: 0 };
   }
   closeIfGone();
+  restoreDrawer("state");
 }
 
 /** The drawer shows a map object (loot, a pawn, a marker) that isn't there any more (picked up,
@@ -132,6 +134,7 @@ function onObjects(msg) {
   msg.objects.sort((a, b) => a.z - b.z); // drawn bottom to top: a higher object covers a lower one
   S.objects = msg.objects;
   if (S.detail) { if (findDetail()) renderDetail(); else closeInspector(); }
+  restoreDrawer("objects");
   invalidate();
 }
 
@@ -140,6 +143,7 @@ function onPlayers(msg) {
   S.players = msg.players;
   renderPlayers();
   renderInspector();
+  restoreDrawer("players");
 }
 
 // The mission log, in two payloads (the whole playthrough's missions: kept across levels): the
@@ -158,6 +162,7 @@ function mergeLog() {
   S.log = { ...logLive, missions: logLive.missions.filter((l) => logDefs.has(l.i)).map((l) => ({ ...logDefs.get(l.i), ...l })) };
   renderMission();
   if (S.missionView) renderMissionLog();
+  restoreDrawer("log");
 }
 
 function onMissions(msg) {
@@ -165,5 +170,6 @@ function onMissions(msg) {
   S.missions = msg;
   renderMission();
   closeIfGone();
+  restoreDrawer("missions");
   invalidate();
 }

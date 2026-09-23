@@ -4,6 +4,7 @@ import { UU_PER_METER } from "../geo.js";
 import { num, t } from "../i18n.js";
 import { isGear, nameText } from "../model.js";
 import { S, findDetail, pawnPos, trackedPawn } from "../state.js";
+import { saveDrawer } from "./drawer.js";
 import { renderInspector } from "./inspector.js";
 import { rarityName } from "./items.js";
 import { renderPlayers } from "./players.js";
@@ -13,6 +14,7 @@ export function openDetail(kind, id) {
   S.inspect = null;
   S.missionView = null;
   $("inspector").classList.add("open");
+  saveDrawer();
   renderPlayers();
   renderInspector(true);
 }

@@ -67,7 +67,7 @@ button.act:hover { border-color: var(--accent); }
 .vital.sh .vbar i { background: var(--shield); }
 .vital.hp .vbar i { background: var(--health); }
 .vital.xp .vbar i { background: var(--xp); }
-/* crippled / respawning: the shield + health bars faded (still there), the word over them in red */
+/* crippled / respawning: the shield, health and XP (level) bars faded (still there), the word over them in red */
 .vitals { position: relative; }
 .ffyl { display: none; position: absolute; inset: 2px 0 0; align-items: center; justify-content: center;
   color: var(--health); font-size: 12px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase;
@@ -75,6 +75,9 @@ button.act:hover { border-color: var(--accent); }
 .vitals.down .ffyl { display: flex; }
 .vitals.down .vital { opacity: .2; }
 .vitals.dead .ffyl { color: var(--dead); }
+/* in a menu: the same word over the bars, neutral, the bars less faded (they're still live) */
+.vitals.menu .ffyl { display: flex; color: var(--menu); }
+.vitals.menu .vital { opacity: .35; }
 .vital.xp.on { margin-top: 3px; } /* a little apart from shield / health */
 .vital.xp .vbar { height: 16px; } /* thinner than shield / health */
 .vital.xp .vnum { font-size: 11px; }
@@ -106,6 +109,8 @@ button.act:hover { border-color: var(--accent); }
 #mission .mname { font-weight: 600; color: var(--side); cursor: pointer; }
 #mission .mname.story { color: var(--story); } /* story (main) mission: yellow; side: grey */
 #mission .mname[data-log]:hover { text-decoration: underline; }
+#mission .mname.ready, #mission .mname.story.ready { color: var(--live); } /* ready to turn in: green */
+#mission .mready { display: flex; align-items: baseline; gap: 6px; font-size: 12px; font-weight: 600; color: var(--live); padding: 1px 0; }
 /* the current step's objectives: done ones ticked and dimmed, counts on the right */
 #mission .obj { display: flex; align-items: baseline; gap: 6px; font-size: 12px; padding: 1px 0; }
 #mission .oico { flex: none; width: 10px; color: var(--objective); font-size: 10px; align-self: center; display: flex; }

@@ -5,7 +5,7 @@ import { $, esc, nameHtml } from "../dom.js";
 import { num, t } from "../i18n.js";
 import { icon } from "../icons.js";
 import { cleanGameText } from "../model.js";
-import { objectiveStates } from "../missions.js";
+import { READY, objectiveStates } from "../missions.js";
 import { S } from "../state.js";
 import { openMissionLog } from "./missionlog.js";
 
@@ -30,7 +30,10 @@ export function renderMission() {
     const cur = new Set(m.cur || []);
     const step = objectiveStates(m).filter((s) => cur.has(s.i));
     const summary = cleanGameText(m.summary);
-    box.innerHTML = `<div class="mname${m.plot ? " story" : ""}" data-log="${esc(m.i)}" title="${esc(t("mission.details"))}">${nameHtml(m)}</div>` +
+    // ready to turn in: the name green and a line saying so (with who / where, when the game says)
+    const ready = READY.includes(m.st), turnin = ready ? cleanGameText(m.turnin) : "";
+    box.innerHTML = `<div class="mname${m.plot ? " story" : ""}${ready ? " ready" : ""}" data-log="${esc(m.i)}" title="${esc(t("mission.details"))}">${nameHtml(m)}</div>` +
+      (ready ? `<div class="mready">${icon("checkCircle")}<span>${esc(t("mstate.ready"))}${turnin ? ` · ${esc(turnin)}` : ""}</span></div>` : "") +
       (step.length ? step.map(objectiveHtml).join("") : summary ? `<div class="muted">${esc(summary)}</div>` : "") + all;
     return;
   }

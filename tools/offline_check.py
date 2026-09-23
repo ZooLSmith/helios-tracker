@@ -147,7 +147,8 @@ const { LAYERS, LAYER_GROUPS, LAYER_SETTINGS, layerNameKey, lootLayer, rarity, s
 const legacy = { "layer.enemy": false, "layer.loot": false, labels: true, height: false, zoom: 2.5, smooth: false, lang: "fr", tab: "skills" };
 const migrated = merge(fromLegacy((k, d) => (k in legacy ? legacy[k] : d)));
 const checked = merge({ layers: { enemy: { on: "yes", size: 999, floors: "nope", bogus: 1 }, nosuch: {} },
-  view: { follow: 1, motion: 15 }, ui: { openLayers: ["loot", 3] } });
+  view: { follow: 1, motion: 15 }, ui: { openLayers: ["loot", 3], drawer: { k: "mission", id: "M_Plan" } } });
+const badDrawer = merge({ ui: { drawer: "player" } }).ui.drawer; // what the drawer shows: an object or nothing
 // The translation keys the layer panel builds from the schema
 const i18nKeys = [...LAYERS.map(layerNameKey), ...LAYERS.filter((l) => l.tip).map((l) => l.tip), ...LAYER_GROUPS.map((g) => "lgroup." + g)];
 for (const [k, s] of Object.entries(LAYER_SETTINGS)) {
@@ -172,7 +173,9 @@ const log = [
   { i: "c", num: 3, plot: 1, st: "NotStarted", deps: ["b"] }, { i: "s1", num: 20, plot: 0, st: "NotStarted", deps: ["a"], kick: 1 },
   { i: "s3", num: 22, plot: 0, st: "NotStarted", deps: ["a"] },
   { i: "s2", num: 21, plot: 0, st: "NotStarted", deps: ["s1"] }, { i: "o", num: 30, plot: 0, st: "Complete", deps: [] },
-  { i: "x", num: 40, plot: 0, st: "RequiredObjectivesComplete", deps: ["gone"] }];
+  // ready to turn in (tools/probe_turnin.txt), and a status the page doesn't know (shown by its name)
+  { i: "x", num: 40, plot: 0, st: "RequiredObjectivesComplete", deps: ["gone"] }, { i: "r", num: 41, plot: 0, st: "ReadyToTurnIn", deps: [] },
+  { i: "f", num: 42, plot: 0, st: "Failed", deps: [] }];
 const tree = missionTree(log);
 const { gameTextHtml } = await load("js/dom.js");
 const { cleanGameText } = await load("js/model.js");
@@ -211,11 +214,14 @@ const bestLog = [
   // DLCs: never-offered missions only once the DLC is started (x: DLC 1 not started; y: DLC 2 started by y0)
   { i: "x", num: 10, st: "NotStarted", deps: [], dlc: "DLC1", rw: rwAt(7000, 0) },
   { i: "y0", num: 11, st: "Complete", deps: [], dlc: "DLC2" }, { i: "y", num: 12, st: "NotStarted", deps: [], dlc: "DLC2" }];
-const finishLog = [{ i: "f1", num: 1, st: "Active", deps: [], ml: 3, mlk: 1 }, { i: "f2", num: 2, st: "Active", deps: [], ml: 7, mlk: 1 },
+const finishLog = [{ i: "f1", num: 1, st: "ReadyToTurnIn", deps: [], ml: 3, mlk: 1 }, { i: "f2", num: 2, st: "Active", deps: [], ml: 7, mlk: 1 },
   { i: "f3", num: 3, st: "NotStarted", deps: [], ml: 2 }, { i: "f4", num: 4, st: "Active", deps: [], ml: 1, mlk: 1 }];
 const finish = rankMissions(finishLog, "finish", 8).rows.map((r) => `${r.m.i}:${r.score}`).join(",");
-// a mission the game rates impossible for the player (5+ levels above): left out, counted
+// missions the game rates hard / impossible for the player (3+ levels above): left out, counted;
+// tough (1-2 above) stays
 const highLog = [{ i: "ok", num: 1, st: "Active", deps: [], ml: 9, mlk: 1, rw: { "8": { xp: 100 } } },
+  { i: "t2", num: 3, st: "Active", deps: [], ml: 10, mlk: 1, rw: { "8": { xp: 50 } } },
+  { i: "h3", num: 4, st: "Active", deps: [], ml: 11, mlk: 1, rw: { "8": { xp: 9000 } } },
   { i: "dlc", num: 2, st: "Active", deps: [], ml: 30, mlk: 1, rw: { "8": { xp: 7890 } } }];
 const high = rankMissions(highLog, "effort", 8, { impossible: 5, hard: 3, tough: 1, normal: -3 });
 const tooHigh = { rows: high.rows.map((r) => r.m.i), n: high.tooHigh, lv: high.minTooHigh, total: high.totalXp };
@@ -231,7 +237,7 @@ const difficulty = [[9, 4], [6, 4], [4, 4], [2, 4], [1, 5], [3, 0]].map(([ml, le
 const missionsOut = { tooHigh, finish, difficulty, best, search, infoHtml, areas, gameText, story: flat(tree.story), other: flat(tree.other), counts: missionCounts(log),
   objectives: objectiveStates(log[1]).map((s) => s.state) };
 console.log(JSON.stringify({ sha: crypto.createHash("sha256").update(rgba).digest("hex"), err, back, right, raw, modules, missions: missionsOut,
-  migrated, checked: { enemy: checked.layers.enemy, view: checked.view, openLayers: checked.ui.openLayers }, i18nKeys, unknownSettings, lootLayers, gameRarity, freeRects }));
+  migrated, checked: { enemy: checked.layers.enemy, view: checked.view, openLayers: checked.ui.openLayers, drawer: checked.ui.drawer, badDrawer }, i18nKeys, unknownSettings, lootLayers, gameRarity, freeRects }));
 """
 
 
@@ -382,6 +388,13 @@ def check_helios_tracker() -> None:  # noqa: PLR0915
     assert down_state(ns(InjuredState=injured.INJURED_Targeted, InjuredDeadState=dead_state.INJUREDDEAD_InitRagdoll)) == "dead"
     assert down_state(ns(InjuredState=injured.INJURED_Not, InjuredDeadState=dead_state.INJUREDDEAD_None)) == ""
     assert down_state(ns()) == "", "no InjuredState: fine"
+    # In a menu (tools/probe_menu.txt): the player info's bGFxMenuOpen (any menu), the pawn's
+    # bViewingStatusMenu (the status menu)
+    in_menu = col.Collector._in_menu
+    assert in_menu(ns(bViewingStatusMenu=False, PlayerReplicationInfo=ns(bGFxMenuOpen=1)))
+    assert in_menu(ns(bViewingStatusMenu=True, PlayerReplicationInfo=ns(bGFxMenuOpen=0)))
+    assert not in_menu(ns(bViewingStatusMenu=False, PlayerReplicationInfo=ns(bGFxMenuOpen=0)))
+    assert not in_menu(ns()), "no such properties: not in a menu"
     respawn_state = col.Collector._respawn_state
     # Skills (tools/probe_passives.txt): the manager's running timed skills by player; the action skill
     # running / cooling down (its pool) / ready; timed passive effects; melee cooldown
@@ -424,6 +437,27 @@ def check_helios_tracker() -> None:  # noqa: PLR0915
     assert reader.player(ns(Controller=None), 11.0) == {}, "no controller (co-op client)"
     driving = reader.player(ns(Controller=None, DrivenVehicle=ns(Controller=player_pc)), 11.0)
     assert driving == {"ak": ["r", "Gunzerking"], "mk": [0.5, 7.5]}, ("driving: the vehicle's controller", driving)
+    # Another player, on the host (tools/probe_action_skill.txt): no SavedSkillTreeSkill (the name: their
+    # tree's action skill), their cooldown pool empty (the full cooldown from when their skill stopped
+    # running - Phaselock's Duration said 120 s, it ended after 1 s)
+    phaselock = skill_def(0x906, "Phaselock", skill_type.SKILL_TYPE_Action)
+    other_pc = ns(_get_address=lambda: 0x960, SavedSkillTreeSkill=None, GetSkillCooldownTime=lambda: 13.0,
+                  GetMeleeSkillCooldownTime=lambda: 0.0, PlayerSkillTree=ns(Skills=[ns(Definition=phaselock)]),
+                  SkillCooldownPool=ns(Data=ns(CurrentValue=0.0, ConsumptionRate=1.0)))
+    host = SkillReader()  # its own (the tests after this one go on with reader's clock)
+    manager.ActiveSkills = [ns(Definition=phaselock, SkillState=skill_state.SKILL_Active, StartTime=2000.0,
+                               Duration=120.0, SkillInstigator=other_pc)]
+    host.update(player_pc, 2000.5, 12.0)
+    assert host.player(ns(Controller=other_pc), 12.0)["ak"][::3] == ["a", "Phaselock"]
+    manager.ActiveSkills = []
+    host.update(player_pc, 2001.5, 13.0)  # stopped: last seen running at 2000.5
+    got = host.player(ns(Controller=other_pc), 13.0)
+    assert got == {"ak": ["c", 0.923, 12.0, "Phaselock"]}, ("another player's cooldown, computed", got)
+    host.update(player_pc, 2014.0, 14.0)
+    assert host.player(ns(Controller=other_pc), 14.0) == {"ak": ["r", "Phaselock"]}
+    host.update(player_pc, 2005.0, 15.0)  # (still cooling at 2005, but:)
+    host.update(player_pc, 3.0, 16.0)  # a level load: the world time restarted
+    assert host.player(ns(Controller=other_pc), 16.0) == {"ak": ["r", "Phaselock"]}, "level load: not cooling"
     # a hidden helper (Krieg's BloodOverdriveChild, dev text for a name, in no tree): shown as the tree
     # skill with its icon (tools/probe_child_skill.txt)
     icon = ns(_path_name=lambda: "UI_Lilac_SharedSkillIcons_Psyc.SkillIcon-Psycho04")
@@ -831,19 +865,20 @@ def check_helios_tracker() -> None:  # noqa: PLR0915
     chk = js["checked"]
     assert chk["enemy"] == {"on": True, "names": False, "floors": "dim", "size": 200, "range": 0}, chk
     assert chk["view"]["follow"] is False and chk["view"]["motion"] == 15 and chk["openLayers"] == ["loot"], chk
+    assert chk["drawer"] == {"k": "mission", "id": "M_Plan"} and chk["badDrawer"] == {}, chk  # restored on a refresh
     assert not js["unknownSettings"], js["unknownSettings"]
     missing = sorted(k for k in js["i18nKeys"] if k not in langs["en"])
     assert not missing, ("layer panel keys missing from the catalogs", missing)
     mis = js["missions"]
     assert mis["story"] == ["a:done", "-s1:available", "--s2:locked", "-s3:unknown", "b:active", "c:locked"], mis["story"]
-    assert mis["other"] == ["o:done", "x:other"], mis["other"]
-    assert mis["counts"] == {"done": 2, "active": 1, "available": 1, "unknown": 1, "locked": 2, "other": 1}, mis["counts"]
+    assert mis["other"] == ["o:done", "x:ready", "r:ready", "f:other"], mis["other"]
+    assert mis["counts"] == {"done": 2, "active": 1, "ready": 2, "available": 1, "unknown": 1, "locked": 2, "other": 1}, mis["counts"]
     assert mis["objectives"] == ["done", "current", "current"], mis["objectives"]
     assert mis["areas"] == ["Shelf:b", "Sanctuary:da", ":c"], mis["areas"]
     assert mis["search"] == ["a:done", "b:locked,a:done", "b:locked", "", ""], mis["search"]
     assert mis["difficulty"] == ["impossible", "tough", "normal", "normal", "trivial", None, None], mis["difficulty"]
     assert mis["finish"] == "f4:7,f1:5,f2:1", mis["finish"]
-    assert mis["tooHigh"] == {"rows": ["ok"], "n": 1, "lv": 30, "total": 100}, mis["tooHigh"]  # picked up only, the furthest behind first
+    assert mis["tooHigh"] == {"rows": ["ok", "t2"], "n": 2, "lv": 11, "total": 150}, mis["tooHigh"]  # picked up only, the furthest behind first
     best = mis["best"]  # u counts its alternative reward (2000 XP); l2 (two steps away) and d (done) are out; e: no reward known
     assert (best["xp"], best["cash"], best["effort"]) == ("ual3vl1ery", "vual1l3ery", "vual3l1ery"), best
     assert best["after"] == ["a"] and best["total"] == 12600 and best["otherLevel"] == 0, best

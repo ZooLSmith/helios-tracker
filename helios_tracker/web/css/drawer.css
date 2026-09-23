@@ -104,6 +104,9 @@
 .mrow.done .mico { color: var(--live); }
 .mrow.active .mico { color: var(--objective); }
 .mrow.active .mn { font-weight: 600; }
+/* ready to turn in: green (the objectives' done colour), like done but not faded */
+.mrow.ready .mico, .mrow.ready .mn, .mrow.story.ready .mn { color: var(--live); }
+.mrow.ready .mn { font-weight: 600; }
 .mrow.available .mico { color: var(--text); }
 .mrow.unknown { opacity: .7; } /* not offered yet: its giver is still to be found */
 .mrow.unknown .mico { color: var(--dim); }
@@ -148,6 +151,7 @@
 .pstate.ffyl { color: var(--health); }
 .pstate.dead { color: var(--dead); }
 .pstate.respawning { color: var(--dim); }
+.pstate.menu { color: var(--menu); }
 @media (max-width: 520px) {
   #inspector { left: 12px; right: 12px; width: auto; top: auto; height: 60%; }
 }

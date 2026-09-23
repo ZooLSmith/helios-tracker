@@ -43,7 +43,7 @@ export function syncRotate() {
   box.closest("label").classList.toggle("off", box.disabled);
 }
 
-function showPanelTab(name) {
+export function showPanelTab(name) {
   if (!document.querySelector(`.ptab[data-ptab="${name}"]`)) name = "info";
   settings.ui.panelTab = name;
   saveSettings();

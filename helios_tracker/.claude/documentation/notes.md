@@ -118,8 +118,10 @@ item's `DefinitionData.ItemDefinition` (a `UsableItemDefinition`):
 
 - `MissionTracker.MissionList` (287 entries in a normal-mode playthrough): `{MissionDef, Status,
   ObjectivesProgress, ActiveObjectiveSet, SubObjectiveSets, bInitialized, bHeardKickoff, bFiltered}`.
-  `Status` = `EMissionStatus`: `MS_NotStarted` (0), `MS_Active` (1), `MS_Complete` (4) seen; 2 / 3
-  (ready to turn in?) and 5 not seen yet - the page shows unknown names as the game's.
+  `Status` = `EMissionStatus`: `MS_NotStarted` (0), `MS_Active` (1), `MS_RequiredObjectivesComplete`
+  (2), `MS_ReadyToTurnIn` (3: seen, every objective done, its step `bCanCompleteMission`), `MS_Complete`
+  (4) (tools/probe_turnin.txt); 5 (failed?) not seen - the page shows unknown names as the game's.
+  2 and 3 = the page's "ready" (to turn in: green).
   `ObjectivesProgress[i]` = count of `MissionDef.ObjectiveDefs[i]` (empty before the mission starts).
 - `MissionDefinition`: `MissionName`, `MissionDescription`, `MissionSummary`, `TurnInDescription`,
   `MissionGiver`, `MissionTurnInLocation` (localized; `[place]...[-place]` markup), `bPlotCritical`
@@ -160,6 +162,19 @@ item's `DefinitionData.ItemDefinition` (a `UsableItemDefinition`):
   `InjuredDeadState` = `INJUREDDEAD_InitRagdoll` (`INJUREDDEAD_None` while crippled),
   `bInjuredDeadCameraActive` True, the pawn visible where it died, `bIsDead` False. The collector
   sends `dd` 1 (dead: faded, grey ring, "Dead") instead of `dn` then.
+
+## In a menu (probe_menu.py, in game, co-op host with 3 others, 2026-09-23)
+
+- `PlayerReplicationInfo.bGFxMenuOpen` (a byte, 0 / 1): 1 while the player has any GFx menu open -
+  seen flip for every player (host and the 3 others), so replicated to the host at least.
+- `WillowPlayerPawn.bViewingStatusMenu` (+ `bViewingThirdPersonMenu`): True together with it while
+  that menu is the status menu (inventory, map, skills...). One `bGFxMenuOpen` without it (another
+  menu: vendor / pause? not identified).
+- Only on your own controller: `QuickAccessScreen` (`CS_Inventory`...), `bViewingThirdPersonMenu`; the
+  open movie `StatusMenuExGFxMovie`.
+- The collector sends `mn` 1 when either is set (players only). Not verified yet: on a co-op client
+  (both look replicated), and which menus besides the status menu set `bGFxMenuOpen` (pause, vendor,
+  chat).
 
 ## Mission level (probe_mission_level.py, in game, 2026-09-23)
 
@@ -235,6 +250,15 @@ item's `DefinitionData.ItemDefinition` (a `UsableItemDefinition`):
   (tools/probe_backpack.py); their `BackpackInventoryCount` isn't their count (24 one session, 0 then
   negative after a drop in another) - nothing of it is shown. Who hosts: NetMode 3 = client, then the
   party leader (`PlayerReplicationInfo.bIsPartyLeader`); the page names players, the host marked.
+- **Action skill of the others, on the host** (tools/probe_action_skill.txt, 2026-09-23, 3 others):
+  their controller's `SavedSkillTreeSkill` is None (the name: their tree's `SKILL_TYPE_Action` skill -
+  "Gunzerking", "Phaselock"); the running skill shows in the skill manager with them as instigator
+  (+ `pawn.MyActionSkill`, `pc.ActionSkillTime` 0 -> 1 while running, -1 otherwise; the pawn's
+  `NextActionSkillActiveAbilityTime` = the world time of the use). Its `Duration` isn't its real length
+  (Phaselock: 120, ended after ~1 s; Gunzerking 26, ran 26). `GetSkillCooldownTime()` works (42 / 13).
+  Their cooldown pool read empty in the collector (the page showed "ready" all along; the probe logged
+  the pool object, not its value - fixed for a re-run). skills.py: the full cooldown from when the skill
+  was last seen running (the local player keeps the pool's real value, cooldown boosts included).
 - **Skill tree extras** (tools/probe_skill_layout.py, probe_child_skill.py): a branch tier's `Skills[]`
   can list hidden helpers after the real ones (Krieg: `_Bloodlust`, `FireStatusDetector`...), more
   than the layout's occupied cells - left out of the grid. Timed effects can run as helpers in no

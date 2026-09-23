@@ -690,6 +690,7 @@ class Collector:
                             **({"s": hp[2], "sm": hp[3]} if hp[3] else {}),
                             **({"rs": 1 if spot is not None else 2} if respawning else {}),
                             **({"dn": 1} if down == "crippled" else {"dd": 1} if down == "dead" else {}),
+                            **({"mn": 1} if is_player and self._in_menu(pawn) else {}),
                             **skills,
                         },
                     )
@@ -736,6 +737,17 @@ class Collector:
             return ""
         dead = getattr(try_(lambda: field(pawn, "InjuredDeadState")), "name", None)
         return "dead" if dead not in (None, "INJUREDDEAD_None") else "crippled"
+
+    @staticmethod
+    def _in_menu(pawn: Any) -> bool:
+        """Whether the player has a menu open. Seen in game (tools/probe_menu.txt, co-op host, every
+        player): PlayerReplicationInfo.bGFxMenuOpen 1 while any menu is open, the pawn's
+        bViewingStatusMenu too while it's the status menu (inventory, map, skills). Both replicated,
+        plain property reads."""
+        if try_(lambda: bool(field(pawn, "bViewingStatusMenu")), False):
+            return True
+        pri = try_(lambda: field(pawn, "PlayerReplicationInfo"))
+        return pri is not None and try_(lambda: bool(field(pri, "bGFxMenuOpen")), False)
 
     @staticmethod
     def _respawn_state(pawn: Any) -> tuple[bool, Any]:
