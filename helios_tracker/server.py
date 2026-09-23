@@ -5,8 +5,8 @@ Server-Sent Events stream.
 No SDK imports and no UObjects here, ever: the game thread publishes plain JSON strings / bytes to
 the Hub, the server threads only read them.
 
-    GET /             the page (web/index.html, read from disk on each request)
-    GET /<name>.js    a script next to it (web/i18n.js: the page's translations)
+    GET /             the page (web/index.html; every file is read from disk on each request)
+    GET /<path>.js|css   its modules / stylesheets under web/ (js/, js/ui/, i18n/, css/)
     GET /events       SSE stream: "level", "state", "objects", "players" events, each the latest JSON
     GET /image/<level>/<n>   raw texture data of map image n of level <level> (decoded by the page)
 """
@@ -18,7 +18,9 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 
 WEB_DIR = Path(__file__).parent / "web"
-SCRIPT = re.compile(r"/[a-z0-9_-]+\.js")  # served from WEB_DIR: plain names only, no paths
+# Files served from WEB_DIR: lowercase names, folders allowed, no dots but the extension (no "..")
+STATIC = re.compile(r"/(?:[a-z0-9_-]+/)*[a-z0-9_-]+\.(js|css)")
+TYPES = {"js": "text/javascript; charset=utf-8", "css": "text/css; charset=utf-8"}
 KEEPALIVE = 10.0  # s between SSE comments when nothing changes (detects closed tabs)
 
 
@@ -87,8 +89,8 @@ class _Handler(BaseHTTPRequestHandler):
         try:
             if path in ("/", "/index.html"):
                 self._send(HTTPStatus.OK, "text/html; charset=utf-8", (WEB_DIR / "index.html").read_bytes())
-            elif SCRIPT.fullmatch(path) and (WEB_DIR / path[1:]).is_file():
-                self._send(HTTPStatus.OK, "text/javascript; charset=utf-8", (WEB_DIR / path[1:]).read_bytes())
+            elif (m := STATIC.fullmatch(path)) and (WEB_DIR / path[1:]).is_file():
+                self._send(HTTPStatus.OK, TYPES[m[1]], (WEB_DIR / path[1:]).read_bytes())
             elif path == "/events":
                 self._events()
             elif path.startswith("/image/"):

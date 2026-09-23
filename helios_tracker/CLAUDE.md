@@ -48,13 +48,14 @@ and interactive objects on it, with zoom / pan. Read the root `../CLAUDE.md` fir
   Movement: game updates only (the mod sends its rate, `hz`), a fps cap, or smooth; layer icons show
   the marker shapes; show all / hide all.
 - **Distances**: 100 uu per metre (1 uu = 1 cm), measured (`tools/probe_scale.py`).
-- **Translations**: `web/i18n.js` holds one catalog per language (en, fr); static HTML uses
+- **Translations**: `web/i18n/<code>.js`, one catalog per language (en, fr; listed in
+  `i18n/index.js`); static HTML uses
   `data-i18n` / `data-i18n-title`, JS uses `t("key", {vars})` (English fallback, numbers formatted
   per language). Language: browser's, or the Language menu. Python sends codes / raw numbers, never
   UI text; game strings (item, skill, level names) stay as the game gives them.
 - Co-op: client side - works on clients too, showing what the host replicates to them.
-- Page tech: plain HTML/JS, no build. If the UI keeps growing, consider Preact + htm (vendored, no
-  build) or Vue / Svelte with a Vite build into `web/`; the i18n catalogs carry over as-is.
+- Page tech: plain HTML + native ES modules, no build, no external requests (see "The page" below).
+  If the HTML panels get painful, Preact + htm (vendored, no build) would only replace `js/ui/`.
 
 ## How it works
 
@@ -82,13 +83,38 @@ and interactive objects on it, with zoom / pan. Read the root `../CLAUDE.md` fir
   output goes to `autoexec.log`. It sits in a kill-on-close job object: server stop, port / LAN
   restart, mod disable, or the game exiting ends it along with its children.
 - `util.py`: shared helpers (`try_`, `call_str`, `def_name`, `addr`, `log_error`).
-- `server.py`: stdlib `ThreadingHTTPServer`; `/` (page, read from disk per request), `/<name>.js`
-  (scripts next to it: `i18n.js`), `/events` (SSE: `level`, `state`, `objects`, `players`, latest
+- `server.py`: stdlib `ThreadingHTTPServer`; `/` (page, read from disk per request),
+  `/<path>.js|css` (any module / stylesheet under `web/`), `/events` (SSE: `level`, `state`, `objects`, `players`, latest
   payload each), `/image/<level>/<n>`. Server changes need a mod reload; page / i18n edits only a
   browser refresh. The Hub holds
   the payloads; server threads never touch UObjects. The running server is kept on
   `sys._helios_tracker_server` so a reload can always stop the previous one.
-- `web/index.html`: one file, no build, no external requests.
+
+## The page (`web/`)
+
+```
+index.html        markup only (data-i18n attributes); <script type="module"> calls main.js start()
+css/              base.css (colours, canvas, tooltip) · panel.css (left panel) · drawer.css (inspector)
+i18n/             en.js, fr.js (export default {key: text}) · index.js lists them
+js/main.js        start(): every DOM hookup, in order
+js/state.js       S (the one state object) + queries: frame, pawnPos, targetPawn, findPlayer, findDetail
+js/store.js       localStorage settings            js/i18n.js   t(), num(), applyI18n(), setLanguage()
+js/geo.js         world <-> map, yaw (pure)        js/dxt.js    texture decoding (pure)
+js/model.js       LAYERS, rarity, names, object categories, chest tiers (pure)
+js/data.js        SSE /events -> S (onLevel, onState, onObjects, onPlayers, onMissions)
+js/scheduler.js   invalidate(): frame requests per the Movement setting
+js/view.js        canvas, W/H, toScreen / toMap, fit, zoom, follow
+js/draw.js        one frame (markers, S.hits, layer counts)  js/shapes.js  marker shapes, labels, COLORS
+js/input.js       wheel / drag / pinch / click / keys, hitAt   js/tooltip.js  hover tooltip, coordinates
+js/ui/            panel, status, mission, players, inspector, detail, items, skills (HTML panels)
+```
+
+- Modules only define things at import time (no DOM access): the offline check imports every one of
+  them under Node, which also catches broken import paths / names. DOM hookup goes in an `init*()`
+  called from `main.js`.
+- State changes: mutate `S`, then `invalidate()` for the canvas and the relevant `ui/` render function
+  for the HTML. Circular imports are fine (only called at runtime).
+- Pure logic (no DOM) goes in `geo.js` / `dxt.js` / `model.js`, so it can be tested under Node.
 
 ## World -> map (verified in game, see `.claude/documentation/notes.md`)
 

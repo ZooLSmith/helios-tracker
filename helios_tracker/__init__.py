@@ -8,7 +8,7 @@ with players, enemies, NPCs, vehicles, loot and interactive objects on it, live,
 - tacmap.py:    reads the map images from the game's packages on disk (background thread)
 - server.py:    HTTP + Server-Sent Events, stdlib only, never touches UObjects
 - script.py:    runs the user's optional autoexec.ps1 alongside the server (a tunnel...)
-- web/index.html: the page (decodes the DXT textures itself)
+- web/:          the page: index.html + ES modules (js/), stylesheets (css/), translations (i18n/)
 """
 
 import os

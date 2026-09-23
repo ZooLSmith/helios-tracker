@@ -1,0 +1,64 @@
+/* The right drawer: the player inspector (items, skills) and the detail panel. */
+#inspector { position: fixed; top: 12px; right: 12px; bottom: 12px; width: 380px; display: none;
+  flex-direction: column; background: var(--panel); border: 1px solid var(--panel-edge); border-radius: 6px;
+  backdrop-filter: blur(4px); z-index: 3; }
+#inspector.open { display: flex; }
+.ihead { padding: 10px 12px 0; }
+.ihead .row1 { display: flex; align-items: center; gap: 8px; }
+.ihead .who { font-size: 17px; font-weight: 600; flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+.ihead .sub { color: var(--dim); font-size: 12px; margin-top: 2px; }
+.iclose { background: none; border: 0; color: var(--dim); cursor: pointer; font-size: 18px; line-height: 1; }
+.iclose:hover { color: var(--text); }
+.tabs { display: flex; gap: 2px; margin-top: 10px; border-bottom: 1px solid var(--panel-edge); }
+.tabs button { background: none; border: 0; color: var(--dim); font: inherit; padding: 6px 10px; cursor: pointer;
+  border-bottom: 2px solid transparent; margin-bottom: -1px; }
+.tabs button.on { color: var(--text); border-bottom-color: var(--accent); }
+.ibody { overflow: auto; padding: 8px 12px 12px; flex: 1; }
+.note { color: var(--dim); font-size: 12px; background: #13212b; border-radius: 4px; padding: 6px 8px; margin: 6px 0; }
+.group { font-size: 11px; letter-spacing: .1em; color: var(--dim); margin: 10px 0 4px; font-weight: 600; }
+.item { border-left: 3px solid var(--c, #888); background: #101b23; border-radius: 3px; padding: 5px 8px;
+  margin: 4px 0; cursor: pointer; }
+.item:hover { background: #142430; }
+.item .iname { color: var(--c, #ddd); font-weight: 600; }
+.item .imeta { color: var(--dim); font-size: 12px; }
+.item .idetail { display: none; margin-top: 6px; font-size: 12px; }
+.item.expanded .idetail { display: block; }
+.kv { display: grid; grid-template-columns: auto 1fr; gap: 1px 10px; }
+.kv > span:nth-child(odd) { color: var(--dim); }
+.plist { font-size: 12px; } .plist div { padding: 1px 0; border-bottom: 1px solid #16242e; }
+.kv > span:nth-child(even) { overflow-wrap: anywhere; }
+.branch { margin: 8px 0 12px; }
+.branch .bhead { display: flex; justify-content: space-between; font-weight: 600; margin-bottom: 4px; }
+.branch .bhead .bpts { color: var(--dim); font-weight: 400; font-size: 12px; }
+.skill { display: flex; align-items: center; gap: 8px; padding: 2px 0; }
+.skill.zero { opacity: .45; }
+.skill .sname { flex: 1; }
+.skill .tier { color: var(--dim); font-size: 11px; width: 34px; }
+/* one tab per skill tree: like the inspector's tabs */
+.stabs { display: flex; gap: 2px; margin: 6px 0 8px; border-bottom: 1px solid var(--panel-edge); }
+.stabs button { flex: 1; min-width: 0; display: flex; justify-content: center; align-items: baseline; gap: 4px;
+  background: none; border: 0; border-bottom: 2px solid transparent; margin-bottom: -1px; color: var(--dim);
+  font: inherit; font-size: 12px; padding: 5px 4px; cursor: pointer; white-space: nowrap; }
+.stabs button:hover { color: var(--text); }
+.stabs button.on { color: var(--text); border-bottom-color: var(--accent); }
+/* only the name shrinks (ellipsis): the points always show */
+.stabs button .nm { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+.stabs button .spts { flex: none; color: var(--dim); font-size: 11px; }
+/* the skill tree grid: a row per tier, the columns as in the game's menu */
+.sgrid { display: grid; gap: 4px; margin-top: 4px; }
+.scell { background: #101b23; border: 1px solid #1e3444; border-radius: 4px; padding: 4px 5px; min-height: 40px;
+  display: flex; flex-direction: column; justify-content: space-between; gap: 3px; cursor: help; }
+.scell.empty { background: none; border: 0; cursor: default; }
+.scell.zero { opacity: .5; }
+.scell.invested { border-color: color-mix(in srgb, var(--accent) 55%, #1e3444); }
+.scell.locked { opacity: .28; }
+.scell .sn { font-size: 11px; line-height: 1.2; overflow-wrap: anywhere; }
+.scell .sg { display: flex; align-items: center; justify-content: space-between; gap: 4px;
+  font-size: 10px; color: var(--dim); font-variant-numeric: tabular-nums; }
+.scell .pips i { width: 5px; height: 5px; }
+.pips { display: flex; gap: 2px; }
+.pips i { width: 7px; height: 7px; border-radius: 1px; background: #243847; }
+.pips i.on { background: var(--accent); }
+@media (max-width: 520px) {
+  #inspector { left: 12px; right: 12px; width: auto; top: auto; height: 60%; }
+}

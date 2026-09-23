@@ -1,6 +1,6 @@
 # Dev helper: hot-reloads this mod after code edits, without restarting the game.
 # Console: pyexec helios_tracker/reload.py   (reopen the mod's options menu afterwards)
-# The page (web/index.html) is read from disk on every request: for page edits just refresh the tab.
+# The page (web/) is read from disk on every request: for page edits just refresh the tab.
 # The mod's modules are dropped and imported fresh (reloading them one by one breaks on new imports).
 import importlib
 import sys

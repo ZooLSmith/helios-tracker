@@ -343,22 +343,41 @@ def check_xp_counter() -> None:
 
 GAME_COOKED = Path(r"E:\SteamLibrary\steamapps\common\Borderlands 2\WillowGame\CookedPCConsole")
 
+# Run as an ES module: node test.mjs <web dir> <image file>
 PAGE_TEST_JS = """
-const fs = require("fs"), crypto = require("crypto"), path = require("path");
-const P = require(path.join(__dirname, "page.js"));
-const rgba = P.decodeTexture("PF_DXT5", 468, 512, fs.readFileSync(path.join(__dirname, "img.bin")));
+import fs from "node:fs";
+import crypto from "node:crypto";
+import path from "node:path";
+import { pathToFileURL } from "node:url";
+const [web, imageFile] = process.argv.slice(2);
+const load = (file) => import(pathToFileURL(path.join(web, file)).href);
+// Every module of the page: resolves each import (paths and names) and runs its top level, which
+// must not touch the DOM (main.js's start() does the hookup)
+const walk = (dir) => fs.readdirSync(dir, { withFileTypes: true }).flatMap((e) =>
+  e.isDirectory() ? walk(path.join(dir, e.name)) : e.name.endsWith(".js") ? [path.relative(web, path.join(dir, e.name))] : []);
+const modules = walk(web);
+for (const file of modules) await load(file);
+const { decodeTexture } = await load("js/dxt.js");
+const { worldToMap, mapToWorld, yawToAngle } = await load("js/geo.js");
+const { prettyRaw, nameText } = await load("js/model.js");
+const rgba = decodeTexture("PF_DXT5", 468, 512, fs.readFileSync(imageFile));
 const level = { center: [-3072, -10240], upp: 128, north: 0 };
 // probe_map2 samples (Sanctuary): world -> map px measured from the minimap
 const samples = [[10635.4, 5702.0, 124.54, -107.11], [7093.2, -2801.0, 58.11, -79.46]];
-let err = 0;
+let err = 0, back = 0;
 for (const [x, y, mx, my] of samples) {
-  const [a, b] = P.worldToMap(level, x, y);
+  const [a, b] = worldToMap(level, x, y);
   err = Math.max(err, Math.hypot(a - mx, b - my));
+  for (const north of [0, 30]) { // map -> world undoes world -> map, north offset included
+    const turned = { ...level, north };
+    const [wx, wy] = mapToWorld(turned, ...worldToMap(turned, x, y));
+    back = Math.max(back, Math.hypot(wx - x, wy - y));
+  }
 }
-const right = P.yawToAngle(level, 16384);
-const raw = ["BullymongPile", "WillowAIPawn", "Fire_Barrel02", "WillowInteractiveObject", "Willowtree"].map(P.prettyRaw)
-  .concat([P.nameText({ n: "Zer0" })]);
-console.log(JSON.stringify({ sha: crypto.createHash("sha256").update(rgba).digest("hex"), err, right, raw }));
+const right = yawToAngle(level, 16384);
+const raw = ["BullymongPile", "WillowAIPawn", "Fire_Barrel02", "WillowInteractiveObject", "Willowtree"].map(prettyRaw)
+  .concat([nameText({ n: "Zer0" })]);
+console.log(JSON.stringify({ sha: crypto.createHash("sha256").update(rgba).digest("hex"), err, back, right, raw, modules }));
 """
 
 
@@ -625,10 +644,16 @@ def check_helios_tracker() -> None:  # noqa: PLR0915
         res = conn.getresponse()
         image = res.read()
         assert res.status == 200 and len(image) == 468 * 512, (res.status, len(image))
-        conn.request("GET", "/i18n.js")
-        res = conn.getresponse()
-        assert res.status == 200 and b"HELIOS_I18N" in res.read(), res.status
-        for bad in ("/../server.py", "/web/i18n.js", "/I18N.JS"):
+        web = ROOT / "helios_tracker" / "web"
+        web_files = sorted(p for p in web.rglob("*") if p.suffix in (".js", ".css"))
+        for file in web_files:  # every module / stylesheet, at its path under web/
+            conn.request("GET", "/" + file.relative_to(web).as_posix())
+            res = conn.getresponse()
+            body = res.read()
+            want_type = "text/css" if file.suffix == ".css" else "text/javascript"
+            assert res.status == 200 and res.headers["Content-Type"].startswith(want_type), (file, res.status)
+            assert body == file.read_bytes(), file
+        for bad in ("/../server.py", "/js/../../server.py", "/web/js/main.js", "/JS/MAIN.JS", "/js/main.py"):
             conn.request("GET", bad)
             res = conn.getresponse()
             res.read()
@@ -647,7 +672,8 @@ def check_helios_tracker() -> None:  # noqa: PLR0915
             if line.startswith("event: "):
                 events.add(line[7:].strip())
         assert events == {"level", "state", "objects", "players", "missions"}, events
-        print(f"  server: page {len(page)} bytes, image {len(image)} bytes, SSE events {sorted(events)}")
+        print(f"  server: page {len(page)} bytes + {len(web_files)} js / css files, image {len(image)} bytes,"
+              f" SSE events {sorted(events)}")
     finally:
         server.stop()
     assert not server._thread.is_alive(), "server thread still running"
@@ -655,17 +681,20 @@ def check_helios_tracker() -> None:  # noqa: PLR0915
     # Translations
     import re  # noqa: PLC0415
 
-    catalog_js = (ROOT / "helios_tracker" / "web" / "i18n.js").read_text(encoding="utf-8")
+    i18n_dir = web / "i18n"
     langs = {}
-    for code, body in re.findall(r"^  (\w+): \{\n(.*?)^  \},", catalog_js, re.S | re.M):
-        langs[code] = set(re.findall(r'^\s+"([\w.]+)":', body, re.M))
+    for file in sorted(i18n_dir.glob("*.js")):
+        if file.name != "index.js":
+            langs[file.stem] = set(re.findall(r'^\s+"([\w.]+)":', file.read_text(encoding="utf-8"), re.M))
     assert "en" in langs and len(langs) >= 2, langs.keys()
     for code, keys in langs.items():
         assert keys == langs["en"], (code, sorted(keys ^ langs["en"]))
-    page_html = (ROOT / "helios_tracker" / "web" / "index.html").read_text(encoding="utf-8")
-    used = set(re.findall(r'data-i18n(?:-title)?="([\w.]+)"', page_html))
-    used |= set(re.findall(r'\bt\("([\w.]+)"', page_html))
-    used |= set(re.findall(r'(?:setStatus\("\w*", |setMessage\()"([\w.]+)"', page_html))
+    listed = re.findall(r'^import (\w+) from "\./(\w+)\.js";', (i18n_dir / "index.js").read_text(encoding="utf-8"), re.M)
+    assert all(a == b for a, b in listed) and {a for a, _ in listed} == set(langs), ("i18n/index.js", listed, sorted(langs))
+    page_src = "\n".join(p.read_text(encoding="utf-8") for p in [web / "index.html", *(web / "js").rglob("*.js")])
+    used = set(re.findall(r'data-i18n(?:-title)?="([\w.]+)"', page_src))
+    used |= set(re.findall(r'\bt\("([\w.]+)"', page_src))
+    used |= set(re.findall(r'(?:setStatus\("\w*", |setMessage\()"([\w.]+)"', page_src))
     used.discard("key")  # the t("key", {vars}) comment
     # t("kind." + k): a dynamic key - its prefix must at least exist
     missing = sorted(k for k in used if k not in langs["en"] and not (
@@ -678,22 +707,24 @@ def check_helios_tracker() -> None:  # noqa: PLR0915
     if node is None:
         print("  node not found: skipping the page's JS checks")
         return
-    html = (ROOT / "helios_tracker" / "web" / "index.html").read_text(encoding="utf-8")
-    script = html.split("<script>", 1)[1].split("</script>", 1)[0]
     want = hashlib.sha256(_dxt5_rgba(468, 512, image)).hexdigest()
     with tempfile.TemporaryDirectory() as tmp:
-        (Path(tmp) / "page.js").write_text(script, encoding="utf-8")
         (Path(tmp) / "img.bin").write_bytes(image)
-        (Path(tmp) / "test.js").write_text(PAGE_TEST_JS, encoding="utf-8")
-        out = subprocess.run([node, str(Path(tmp) / "test.js")], capture_output=True, text=True, encoding="utf-8", check=True)
+        (Path(tmp) / "test.mjs").write_text(PAGE_TEST_JS, encoding="utf-8")
+        out = subprocess.run([node, str(Path(tmp) / "test.mjs"), str(web), str(Path(tmp) / "img.bin")],
+                             capture_output=True, text=True, encoding="utf-8", check=False)
+    assert out.returncode == 0, out.stderr
     js = json.loads(out.stdout)
+    assert len(js["modules"]) == len([p for p in web_files if p.suffix == ".js"]), js["modules"]
     assert js["sha"] == want, "the page's DXT5 decode differs from the reference decoder"
     assert js["err"] < 0.1, js
+    assert js["back"] < 1e-6, js
     assert abs(js["right"] - 3.141592653589793 / 2) < 1e-9, js
     nbsp = "\u00a0"
     assert js["raw"] == [f"Bullymong Pile{nbsp}?", f"AI Pawn{nbsp}?", f"Fire Barrel02{nbsp}?",
                          f"Interactive Object{nbsp}?", f"Willowtree{nbsp}?", "Zer0"], js["raw"]
-    print(f"  page JS: DXT5 decode matches, world->map within {js['err']:.3f} px of the probe samples")
+    print(f"  page JS: {len(js['modules'])} modules import under Node, DXT5 decode matches,"
+          f" world->map within {js['err']:.3f} px of the probe samples")
 
 
 def main() -> None:
