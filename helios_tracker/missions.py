@@ -23,8 +23,23 @@ from .util import def_name, named, try_
 
 # MissionDefinition (address) -> (its record for the page, {objective address: index})
 _defs: dict[int, tuple[dict[str, Any], dict[int, int]]] = {}
-# (MissionDefinition address, player level) -> reward (see _reward)
-_rewards: dict[tuple[int, int], dict[str, Any]] = {}
+# (MissionDefinition address, player level, mission level) -> reward (see _reward). The mission's level
+# is part of the key: it's only set when the mission is picked up (GameStage), changing the reward
+_rewards: dict[tuple[int, int, int], dict[str, Any]] = {}
+# The game's difficulty thresholds (GlobalsDefinition.LevelDifference_*: mission level - player level),
+# read once (tools/probe_mission_level.txt: Impossible 5, Hard 3, Tough 1, Normal -3)
+_thresholds: dict[str, int] | None = None
+
+
+def difficulty_thresholds() -> dict[str, int]:
+    global _thresholds  # noqa: PLW0603
+    if not _thresholds:  # again until read (the globals may not be loaded yet)
+        import unrealsdk  # noqa: PLC0415 - game only (the offline check never gets here with real data)
+
+        globals_def = try_(lambda: unrealsdk.find_object("GlobalsDefinition", "GD_Globals.General.Globals"))
+        _thresholds = {k.lower(): v for k in ("Impossible", "Hard", "Tough", "Normal")
+                       if isinstance(v := try_(lambda k=k: int(getattr(globals_def, "LevelDifference_" + k))), int)}
+    return _thresholds or {}
 
 
 def mission_id(mdef: Any) -> str:
@@ -103,7 +118,7 @@ def _reward_side(mdef: Any, pc: Any, alt: bool) -> dict[str, Any]:
 def _reward(mdef: Any, pc: Any, level: int) -> dict[str, Any]:
     """The mission's reward for this player (cached per player level): {xp, cash, cur, items, pools}
     plus "alt" (the alternative reward) when the mission has one."""
-    key = (mdef._get_address(), level)
+    key = (mdef._get_address(), level, try_(lambda: int(mdef.GameStage), 0))
     if (cached := _rewards.get(key)) is None:
         cached = _reward_side(mdef, pc, False)
         if try_(lambda: bool(mdef.bEnableAltReward), False) and (alt := _reward_side(mdef, pc, True)):
@@ -118,7 +133,7 @@ def _status_name(status: Any) -> str:
     return str(name).removeprefix("MS_")
 
 
-def _live(entry: Any, index: dict[int, int]) -> tuple[str, tuple[int, ...], tuple[int, ...], bool]:
+def _live(entry: Any, index: dict[int, int]) -> tuple[str, tuple[int, ...], tuple[int, ...], bool, int, bool]:
     """(status, progress per objective, indices of the current step's objectives, offered): offered =
     bHeardKickoff - the giver offered it (its kickoff dialog; unverified in game): a mission not
     started yet that nobody offered is still to be found."""
@@ -130,7 +145,15 @@ def _live(entry: Any, index: dict[int, int]) -> tuple[str, tuple[int, ...], tupl
         for obj in try_(lambda s=s: list(s.ObjectiveDefinitions), []) or []:
             if obj is not None and (i := index.get(obj._get_address())) is not None and i not in current:
                 current.append(i)
-    return status, progress, tuple(current), bool(try_(lambda: entry.bHeardKickoff, False))
+    # Its level (tools/probe_mission_xp_curve.txt): MissionDefinition.GameStage - locked when picked up
+    # (bGameStageLocked: its XP is fixed from then on); before, its region's current stage (the level
+    # it would lock at if picked up now). Two property reads, only for missions not done
+    mdef = try_(lambda: entry.MissionDef)
+    level, locked = 0, False
+    if status != "Complete":
+        level = try_(lambda: int(mdef.GameStage), 0)
+        locked = bool(try_(lambda: mdef.bGameStageLocked, False))
+    return status, progress, tuple(current), bool(try_(lambda: entry.bHeardKickoff, False)), level, locked
 
 
 class MissionLog:
@@ -142,7 +165,7 @@ class MissionLog:
         self._rewards: dict[int, dict[str, Any]] = {}  # entry -> {player level: reward}
         self._addrs: list[int] = []  # MissionDef address per entry (the fast pass checks the order)
         self._indexes: list[dict[int, int]] = []
-        self._live: list[tuple[str, tuple[int, ...], tuple[int, ...], bool]] = []
+        self._live: list[tuple[str, tuple[int, ...], tuple[int, ...], bool, int, bool]] = []
         self._watch: list[int] = []  # entries the fast pass reads: active ones and the tracked one
         self._tracked = ""
         self.dirty = False  # changed since the last payload()
@@ -245,8 +268,12 @@ class MissionLog:
     def payload(self, level_id: int) -> dict[str, Any]:
         self.dirty = False
         missions = []
-        for k, (record, (status, progress, current, offered)) in enumerate(zip(self._records, self._live, strict=True)):
+        for k, (record, (status, progress, current, offered, level, locked)) in enumerate(zip(self._records, self._live, strict=True)):
             m = {**record, "st": status}
+            if level:
+                m["ml"] = level  # its level: locked (picked up), else the one it would lock at now
+                if locked:
+                    m["mlk"] = 1
             if offered:
                 m["kick"] = 1
             if (reward := self._rewards.get(k)) is not None:
@@ -256,4 +283,5 @@ class MissionLog:
             if current:
                 m["cur"] = list(current)
             missions.append(m)
-        return {"level": level_id, "tracked": self._tracked or None, "missions": missions}
+        return {"level": level_id, "tracked": self._tracked or None, "missions": missions,
+                "thresholds": try_(difficulty_thresholds, {}) or {}}

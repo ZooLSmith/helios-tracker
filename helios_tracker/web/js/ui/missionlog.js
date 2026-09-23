@@ -4,8 +4,8 @@
 import { $, esc, gameTextHtml, nameHtml } from "../dom.js";
 import { num, t } from "../i18n.js";
 import { icon } from "../icons.js";
-import { GOALS, missionAreas, missionCounts, missionState, missionTree, nodeVisible, objectiveStates, rankMissions, rewardFor,
-  searchMissions } from "../missions.js";
+import { GOALS, missionAreas, missionCounts, missionDifficulty, missionState, missionTree, nodeVisible, objectiveStates,
+  rankMissions, rewardFor, searchMissions } from "../missions.js";
 import { cleanGameText } from "../model.js";
 import { saveSettings, settings } from "../settings.js";
 import { S, isTrackedPlayer } from "../state.js";
@@ -70,6 +70,17 @@ function xpText(xp, player) {
   return t("mdetail.xp", { n: xp }) + (size ? " · " + t("best.pct", { n: Math.round((xp / size) * 100) }) : "");
 }
 
+/** "Lv 3", coloured by the game's difficulty for the selected player (trivial: far below - only a category: no XP penalty);
+ *  a mission not picked up yet has no level (set then). */
+function levelBadge(m, player) {
+  if (!m.ml) return "";
+  const diff = missionDifficulty(m, player && player.lvl, S.log.thresholds);
+  // picked up: its level (locked); else the level it would lock at if picked up now (dashed, "→")
+  const text = m.mlk ? t("best.lv", { n: m.ml }) : t("best.lvWould", { n: m.ml });
+  const tip = [diff ? t("mdiff." + diff) : "", t(m.mlk ? "mdetail.locked" : "mdetail.wouldLock", { n: m.ml })].filter(Boolean).join(" · ");
+  return `<span class="mlv ${diff || ""}${m.mlk ? "" : " would"}" title="${esc(tip)}">${esc(text)}</span>`;
+}
+
 function bestHtml() {
   const player = selectedPlayer();
   const level = player ? player.lvl : 0;
@@ -92,7 +103,7 @@ function bestHtml() {
       : [r.xp ? `<span class="mxp">${esc(xpText(r.xp, player))}</span>` : "", r.cash ? `<span class="mcash">$${esc(num(r.cash))}</span>` : ""].join("");
     return `<div class="mbest mrow ${r.state}${m.plot ? " story" : ""}" data-mission="${esc(m.i)}" title="${esc(stateText(r))}">` +
       `<span class="mrank">${n + 1}</span><span class="mico">${icon(STATE_ICON[r.state])}</span>` +
-      `<span class="mbody"><span class="mn">${nameHtml(m)}</span>${sub ? `<span class="msub">${esc(sub)}</span>` : ""}</span>` +
+      `<span class="mbody"><span class="mn">${nameHtml(m)} ${levelBadge(m, player)}</span>${sub ? `<span class="msub">${esc(sub)}</span>` : ""}</span>` +
       `<span class="mval">${values}</span></div>`;
   }).join("") + `</div>`;
   return html;
@@ -152,7 +163,13 @@ function detailHtml(m, tree) {
   if (m.area) rows.push([t("mdetail.area"), m.area]);
   if (m.giver) rows.push([t("mdetail.giver"), m.giver]);
   if (m.turnin) rows.push([t("mdetail.turnin"), m.turnin]);
-  if (m.stage) rows.push([t("mdetail.stage"), num(m.stage)]);
+  const player = selectedPlayer();
+  if (m.ml) {
+    const diff = missionDifficulty(m, player && player.lvl, S.log.thresholds), gap = player ? m.ml - player.lvl : 0;
+    rows.push([t("mdetail.level"), num(m.ml) + (diff ? ` · ${t("mdiff." + diff)}` : "") +
+      (player && gap ? ` · ${t(gap < 0 ? "mdetail.below" : "mdetail.above", { n: Math.abs(gap) })}` : "") +
+      ` · ${t(m.mlk ? "mdetail.lockedShort" : "mdetail.wouldLockShort")}`]);
+  }
   const flags = [m.repeat && t("mdetail.repeatable"), m.fail && t("mdetail.canFail")].filter(Boolean);
   if (flags.length) rows.push([t("mdetail.flags"), flags.join(" · ")]);
   let html = "";
@@ -167,7 +184,7 @@ function detailHtml(m, tree) {
       `<span class="mn">${nameHtml(s.o)}${s.o.opt ? ` <span class="mopt">${esc(t("mdetail.optional"))}</span>` : ""}</span>` +
       (s.o.c > 1 ? `<span class="mcount">${num(Math.min(s.p, s.o.c))}/${num(s.o.c)}</span>` : "") + `</div>`).join("");
   }
-  const player = selectedPlayer(), reward = player ? rewardFor(m, player.lvl) : null;
+  const reward = player ? rewardFor(m, player.lvl) : null;
   if (reward) html += rewardHtml(reward, player);
   else if (m.rw) html += `<div class="group">${esc(t("mdetail.rewards"))}</div><div class="muted">${esc(t("best.noReward"))}</div>`;
   // Requires / unlocks: neutral rows (the story flag and colours are for the mission shown, not the

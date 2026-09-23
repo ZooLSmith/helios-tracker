@@ -443,12 +443,19 @@ const bestLog = [
   // DLCs: never-offered missions only once the DLC is started (x: DLC 1 not started; y: DLC 2 started by y0)
   { i: "x", num: 10, st: "NotStarted", deps: [], dlc: "DLC1", rw: rwAt(7000, 0) },
   { i: "y0", num: 11, st: "Complete", deps: [], dlc: "DLC2" }, { i: "y", num: 12, st: "NotStarted", deps: [], dlc: "DLC2" }];
+const finishLog = [{ i: "f1", num: 1, st: "Active", deps: [], ml: 3, mlk: 1 }, { i: "f2", num: 2, st: "Active", deps: [], ml: 7, mlk: 1 },
+  { i: "f3", num: 3, st: "NotStarted", deps: [], ml: 2 }, { i: "f4", num: 4, st: "Active", deps: [], ml: 1, mlk: 1 }];
+const finish = rankMissions(finishLog, "finish", 8).rows.map((r) => `${r.m.i}:${r.score}`).join(",");
 const best = Object.fromEntries(["xp", "cash", "effort"].map((g) => [g, rankMissions(bestLog, g, 30).rows.map((r) => r.m.i).join("")]));
 const bestAt30 = rankMissions(bestLog, "xp", 30);
 best.after = bestAt30.rows.find((r) => r.m.i === "l1").after;
 best.total = bestAt30.totalXp;
 best.otherLevel = rankMissions(bestLog, "xp", 12).rows.filter((r) => r.known).length;
-const missionsOut = { best, search, infoHtml, areas, gameText, story: flat(tree.story), other: flat(tree.other), counts: missionCounts(log),
+const { missionDifficulty } = await load("js/missions.js");
+const th = { impossible: 5, hard: 3, tough: 1, normal: -3 };
+const difficulty = [[9, 4], [6, 4], [4, 4], [2, 4], [1, 5], [3, 0]].map(([ml, level]) => missionDifficulty({ ml }, level, th))
+  .concat([missionDifficulty({ ml: 0 }, 8, th)]);
+const missionsOut = { finish, difficulty, best, search, infoHtml, areas, gameText, story: flat(tree.story), other: flat(tree.other), counts: missionCounts(log),
   objectives: objectiveStates(log[1]).map((s) => s.state) };
 console.log(JSON.stringify({ sha: crypto.createHash("sha256").update(rgba).digest("hex"), err, back, right, raw, modules, missions: missionsOut,
   migrated, checked: { enemy: checked.layers.enemy, view: checked.view, openLayers: checked.ui.openLayers }, i18nKeys, unknownSettings, lootLayers }));
@@ -704,6 +711,7 @@ def check_helios_tracker() -> None:  # noqa: PLR0915
 
     henchman = mission_def(0x610, "GD_Episode02.M_Ep2_Henchman", "Aveugle", 1, True, [])
     mission = mission_def(0x600, "GD_Episode02.M_Ep2a_MoreGuns", "Ménage à Liar's Berg", 2, True, [henchman], [secure, kill, extra])
+    mission.bGameStageLocked = True  # picked up: its level is set (GameStage 3 from mission_def)
     side = mission_def(0x620, "GD_Z1_Side.M_Side", "Side job", 20, False, [henchman])
     later = mission_def(0x630, "GD_Z1_Later.M_Later", "Later job", 21, False, [mission])
     log_entries = [
@@ -808,6 +816,9 @@ def check_helios_tracker() -> None:  # noqa: PLR0915
         ("Sécuriser la ville", 1, None), ("Tuer des bandits", 5, None), ("Bonus", 1, 1)], tracked["obj"]
     assert [by_id[k]["st"] for k in ("GD_Episode02.M_Ep2_Henchman", "GD_Z1_Side.M_Side")] == ["Complete", "NotStarted"], by_id
     assert tracked["area"] == "Southern Shelf" and "area" not in by_id["GD_Z1_Side.M_Side"], "mission area (TravelStation)"
+    assert (tracked["ml"], tracked.get("mlk")) == (3, 1), "picked up: its level, locked"
+    assert (by_id["GD_Z1_Side.M_Side"]["ml"], by_id["GD_Z1_Side.M_Side"].get("mlk")) == (3, None), "not picked up: the level it would lock at"
+    assert "ml" not in by_id["GD_Episode02.M_Ep2_Henchman"], "done: no level read"
     assert by_id["GD_Z1_Side.M_Side"].get("kick") == 1 and "kick" not in by_id["GD_Z1_Later.M_Later"], "offered flag (bHeardKickoff)"
     # rewards per player level (tools/probe_rewards.txt: MissionDefinition.GetExperienceReward(pc, bAlt))
     from helios_tracker import missions as mission_log  # noqa: PLC0415
@@ -961,6 +972,8 @@ def check_helios_tracker() -> None:  # noqa: PLR0915
     assert mis["objectives"] == ["done", "current", "current"], mis["objectives"]
     assert mis["areas"] == ["Shelf:b", "Sanctuary:da", ":c"], mis["areas"]
     assert mis["search"] == ["a:done", "b:locked,a:done", "b:locked", "", ""], mis["search"]
+    assert mis["difficulty"] == ["impossible", "tough", "normal", "normal", "trivial", None, None], mis["difficulty"]
+    assert mis["finish"] == "f4:7,f1:5,f2:1", mis["finish"]  # picked up only, the furthest behind first
     best = mis["best"]  # u counts its alternative reward (2000 XP); l2 (two steps away) and d (done) are out; e: no reward known
     assert (best["xp"], best["cash"], best["effort"]) == ("ual3vl1ery", "vual1l3ery", "vual3l1ery"), best
     assert best["after"] == ["a"] and best["total"] == 12600 and best["otherLevel"] == 0, best

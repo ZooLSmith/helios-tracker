@@ -157,7 +157,37 @@ item's `DefinitionData.ItemDefinition` (a `UsableItemDefinition`):
   `bInjuredDeadCameraActive` True, the pawn visible where it died, `bIsDead` False. The collector
   sends `dd` 1 (dead: faded, grey ring, "Dead") instead of `dn` then.
 
+## Mission level (probe_mission_level.py, in game, 2026-09-23)
+
+- A picked-up mission's level: `MissionDefinition.GameStage` with `bGameStageLocked` True (set then:
+  "Cette ville est trop petite" 3, "En route vers Sanctuary" 6, player 8 -> 160 / 733 XP). Not picked up:
+  `GameStage` 0, not locked - the game prices it at its region's stage meanwhile (an endgame zone's
+  mission: 6548 XP at level 8): its reward isn't final until picked up.
+- `GlobalsDefinition` (`GD_Globals.General.Globals`): `LevelDifference_Impossible 5 / Hard 3 / Tough 1 /
+  Normal -3` (the mission log's difficulty: mission level - player's; below Normal: trivial).
+  `ExpScaleByLevelDifference` (lower: 0.9 0.7 0.4 0.15 0.05 0.01 for 1..6) is the ENEMY kill XP
+  scale - missions don't match it (160 XP at -5 would mean 3200 full). The mission curve:
+  tools/probe_mission_xp_curve.py (below).
+- **The XP curve** (probe_mission_xp_curve.txt, player level 8): a mission's XP (and cash) depends on
+  its own level only - `GameStage` of a picked-up (locked) mission: 1: 53, 2: 132, 3: 241, 4: 378,
+  5: 543, 6: 733, 7: 948, 8: 1187, 9: 1450, 10: 1736, 12: 2376, 14: 3104 (XPReward_04_Large) -
+  smooth, no break around the player's level: NO penalty for outlevelling (unlike enemy kills).
+  `ExpLevel` / `GetExpLevel()` unused (0). Not picked up: the level follows the region's (27 for an
+  Eridium Blight one), writing GameStage does nothing (recomputed). So: a mission's XP is fixed once
+  picked up (its share of the player's level shrinks as they level); a not-picked-up one keeps
+  following its region (up to the region's max). Not verified: whether the PLAYER's level changes a
+  locked mission's reward (only the mission's level was swept) - the co-op host comparison would.
+- Functions: `MissionDefinition.GetExpLevel / GetGameStage / GetExpectedGameStage`,
+  `pc.GetGameStageFromRegion(region)`, `pc.GetLevelForMission(mission)` (a map name?) - not called yet.
+
 ## Backlog
+
+- **Mission log cost** (user, 2026-09-23: 20-40 ms often, to do once the mission features are done):
+  the full pass reads ~10 properties for each of ~290 entries in one tick. Plan: (1) read per entry
+  only what can change - not started: status + bHeardKickoff; done: status only (progress final);
+  a locked level once; full reads only for active ones (the fast pass has them anyway); (2) spread
+  the pass over ticks (~50 entries each); (3) split the payload: static definitions once, the live
+  part on change (less JSON on the game thread). Measure with the collector's slow-task timings.
 
 - **Best now: first version DONE** (2026-09-23: ranking + XP share). Still open: mission level vs the
   player's (XP drops when outlevelled: "do it soon"), item reward rarity, other currencies (eridium

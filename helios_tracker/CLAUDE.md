@@ -52,6 +52,11 @@ and interactive objects on it, with zoom / pan. Read the root `../CLAUDE.md` fir
   goal: XP, cash (credits), both (each scaled to the best), per objective left; a mission's better
   reward (normal / alternative) counts. Top 10, "show all". XP shown as the number then its share
   of the selected player's level; the total available XP ≈ levels. `rankMissions` in missions.js.
+- **Mission levels** (see notes: a mission's XP depends on its level only, locked when picked up):
+  a badge per mission - "Lv 6" (picked up, locked) or dashed "→ Lv 8" (the level it would lock at if
+  picked up now: its region's current stage), coloured by the game's difficulty thresholds for the
+  selected player; a 5th goal, **Finish first**: picked-up missions, the furthest below the player
+  first. GameStage / bGameStageLocked: two property reads per not-done mission per full pass.
 - The drawer closes when what it shows is gone (loot picked up, pawn dead, marker done).
 - Respawning players (see notes): drawn faded with a dashed ring at the New-U they'll come back at
   (follow goes there), never at the parked position; "Crippled" / "Respawning" over the bars in the

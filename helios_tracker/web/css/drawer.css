@@ -74,6 +74,15 @@
 .mbest .msub { color: var(--dim); font-size: 10.5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .mbest .mval { flex: none; display: flex; flex-direction: column; align-items: flex-end; font-size: 11.5px;
   font-variant-numeric: tabular-nums; }
+/* a mission's level, coloured like the game's mission log difficulty (for the selected player) */
+.mlv { font-size: 10px; font-weight: 600; padding: 0 4px; border-radius: 3px; border: 1px solid currentColor;
+  vertical-align: 1px; color: var(--text); }
+.mlv.impossible { color: #ff5b4f; }
+.mlv.hard { color: #ff9a3c; }
+.mlv.tough { color: #ffd23f; }
+.mlv.normal { color: #e6eef2; }
+.mlv.trivial { color: #7e98a6; }
+.mlv.would { border-style: dashed; } /* not picked up: the level it would lock at now */
 .mbest .mxp { color: var(--text); font-weight: 600; }
 .mbest .mcash { color: var(--live); }
 .mbest.locked { opacity: .65; } /* one step away: still worth reading */

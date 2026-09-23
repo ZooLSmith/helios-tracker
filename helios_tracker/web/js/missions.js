@@ -97,7 +97,17 @@ export function rewardFor(m, level) {
   return (m.rw && m.rw[String(level)]) || null;
 }
 
-export const GOALS = ["xp", "cash", "balanced", "effort"];
+/** A mission's difficulty for a player, as the game's mission log colours it: its level minus
+ *  theirs against the game's thresholds (sent with the log: impossible / hard / tough / normal, else
+ *  trivial: far below them - only a category, missions have no outlevel XP penalty). null if the mission has no level yet (set when picked up). */
+export function missionDifficulty(m, playerLevel, thresholds) {
+  if (!m.ml || !playerLevel || !thresholds) return null;
+  const d = m.ml - playerLevel;
+  for (const k of ["impossible", "hard", "tough", "normal"]) if (thresholds[k] != null && d >= thresholds[k]) return k;
+  return "trivial";
+}
+
+export const GOALS = ["xp", "cash", "balanced", "effort", "finish"];
 
 /** The "Best now" ranking for a player level: the missions doable now (active / available / unknown)
  *  and the locked ones a single step away (every mission they need is done, active or offered -
@@ -106,6 +116,18 @@ export const GOALS = ["xp", "cash", "balanced", "effort"];
  *  mission), effort (balanced per objective left). A mission's better reward counts (the normal or
  *  the alternative one). { rows: [{ m, state, after, xp, cash, effort, known, score }], totalXp } */
 export function rankMissions(missions, goal, level) {
+  // "finish": the missions picked up (their level is locked: their XP is fixed while the player
+  // levels up), the furthest below the player first
+  if (goal === "finish") {
+    const byId = new Map(missions.map((m) => [m.i, m]));
+    const rows = missions.filter((m) => m.st === "Active" && m.mlk).map((m) => {
+      const rw = rewardFor(m, level), sides = rw ? [rw, rw.alt].filter(Boolean) : [];
+      return { m, state: missionState(m, byId), after: null, known: !!rw, effort: 1,
+        xp: Math.max(0, ...sides.map((r) => r.xp || 0)), cash: Math.max(0, ...sides.map((r) => (!r.cur || r.cur === "Credits" ? r.cash || 0 : 0))),
+        score: level - m.ml };
+    }).sort((a, b) => b.score - a.score || a.m.num - b.m.num);
+    return { rows, totalXp: rows.reduce((sum, r) => sum + r.xp, 0) };
+  }
   const byId = new Map(missions.map((m) => [m.i, m]));
   const states = new Map(missions.map((m) => [m.i, missionState(m, byId)]));
   const doable = (id) => ["active", "available", "unknown"].includes(states.get(id));
