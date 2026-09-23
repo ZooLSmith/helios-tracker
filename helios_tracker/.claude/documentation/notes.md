@@ -343,8 +343,8 @@ item's `DefinitionData.ItemDefinition` (a `UsableItemDefinition`):
   `WaypointInfo = {LinkedObjective, ObjectiveSetRestrictions}` + `AreaRadius`: the collector
   (`_client_markers`, client only, actors listed at each objects scan) shows one when its objective's
   mission is picked up, the objective isn't done, and it's in the current step (a restriction = a
-  current set, or none and the objective in one). Quest givers ("!"): none on a client. Unverified in
-  game (built from the dumps).
+  current set, or none and the objective in one). Quest givers ("!"): none on a client. Seen working
+  in game (user, 2026-09-23: markers with their radius).
 - **Mission markers: DONE** (verified in game, Southern Shelf, tools/probe_missions.txt):
   `MissionTracker` (find_all, one instance) `.MissionWaypoints[] = {Mission, Waypoints[]}`; waypoints
   are `MissionObjectiveWaypointComponent` (objective marker: `WaypointInfo.LinkedObjective`,
