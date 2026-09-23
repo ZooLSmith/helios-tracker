@@ -24,7 +24,7 @@ from unrealsdk.unreal import WeakPointer
 from .inspector import read_players
 from .server import Hub
 from .tacmap import MapImage, load_tactical_map
-from .util import addr, call_str, def_name, exp_level, item_name, log, log_error, named, player_info, try_
+from .util import addr, call_str, def_name, exp_level, item_name, log, log_error, named, pickup_kind, player_info, try_
 
 MOVIE_SCALE = 4  # movie px per volume "pixel": UnrealUnitsPerPixel is 32, the fit gave 128 uu / px
 LEVEL_CHECK_EVERY = 1.0  # s
@@ -543,6 +543,8 @@ class Collector:
         }
         if inv is not None and (level := exp_level(inv)):
             info["l"] = level
+        if kind := pickup_kind(inv):  # ammo / cash / health (the page's pickup layers)
+            info["pk"] = kind
         self._info[addr] = info
         return info
 

@@ -107,6 +107,29 @@ def exp_level(obj: Any) -> int:
     return 0
 
 
+# A usable item's kind, by its definition's inventory card (Presentation): the game's own grouping
+# (probe_pickups.py: GD_InventoryPresentations.Definitions.Credits / Health / WeaponAmmo_* / GrenadeAmmo)
+PRESENTATION_KINDS = {"Credits": "cash", "Health": "health", "GrenadeAmmo": "ammo"}
+# Per item definition (static game data, set when the item spawns - never changes): kind. Never
+# cleared; keyed by definition, not by pickup (a destroyed pickup's address can be reused).
+_pickup_kinds: dict[int, str] = {}
+
+
+def pickup_kind(inv: Any) -> str:
+    """ "ammo" / "cash" / "health" for a usable item (a non-gear pickup), "" for anything else.
+    Weapons / gear / mission items aren't looked at; each definition is resolved once."""
+    if inv is None or inv.Class.Name != "WillowUsableItem":
+        return ""
+    item_def = try_(lambda: inv.DefinitionData.ItemDefinition)
+    if item_def is None:
+        return ""
+    key = item_def._get_address()
+    if (kind := _pickup_kinds.get(key)) is None:
+        name = try_(lambda: str(item_def.Presentation.Name), "")
+        kind = _pickup_kinds[key] = "ammo" if name.startswith("WeaponAmmo_") else PRESENTATION_KINDS.get(name, "")
+    return kind
+
+
 def player_info(pawn: Any) -> Any:
     """A player pawn's PlayerReplicationInfo - its vehicle's while it drives one (the vehicle takes
     it over: seen in game, the driver pawn's is None meanwhile)."""

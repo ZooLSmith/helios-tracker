@@ -14,9 +14,21 @@
   --health: #d9372f; /* red, like the game's health bars */
   --xp: #3fae49; /* green, like the game's experience bar */
   --objective: #7cf58a; /* light green, like the game's objective markers */
+  --scroll: #2a5068; /* scrollbars: a muted blue, close to the panel's colours; brighter on hover */
+  --scroll-hover: #3a7399;
   color-scheme: dark;
 }
 * { box-sizing: border-box; }
+/* Thin blue scrollbars (panel, drawer): Chrome / Edge / Safari, then Firefox */
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-track { background: transparent; }
+/* 1 px padding around the 4 px thumb: a transparent border, the colour only inside it */
+::-webkit-scrollbar-thumb { background: var(--scroll); border: 1px solid transparent; background-clip: padding-box; }
+::-webkit-scrollbar-thumb:hover { background: var(--scroll-hover); }
+::-webkit-scrollbar-corner { background: transparent; }
+@supports not selector(::-webkit-scrollbar) {
+  * { scrollbar-width: thin; scrollbar-color: var(--scroll) transparent; }
+}
 html, body { margin: 0; height: 100%; overflow: hidden; background: var(--bg); color: var(--text);
   font: 13px/1.35 "Segoe UI", system-ui, sans-serif; }
 canvas { position: fixed; inset: 0; width: 100%; height: 100%; display: block; cursor: grab; touch-action: none; }

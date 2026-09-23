@@ -1,9 +1,11 @@
 // One frame: the map images, then the markers bottom to top (quest areas, objects, quest markers,
-// loot, pawns); records what's where (S.hits) for hover / click, updates the layer counts.
+// loot, pawns), each styled by its layer's settings; records what's where (S.hits) for hover /
+// click, updates the layer counts.
 import { UU_PER_METER, worldToMap, yawToAngle } from "./geo.js";
-import { FLOOR_UU, LAYERS, LAYER_COLOR, chestTier, isGear, nameText, rarity } from "./model.js";
+import { FLOOR_UU, LAYERS, LAYER_COLOR, chestTier, isGear, lootLayer, nameText, rarity } from "./model.js";
+import { settings } from "./settings.js";
 import { COLORS, arrow, bang, diamond, dot, label, square, triangle, vitalBars } from "./shapes.js";
-import { S, frame, pawnPos, targetPawn } from "./state.js";
+import { S, frame, pawnPos, trackedPawn } from "./state.js";
 import { tooltip } from "./tooltip.js";
 import { updatePlayerVitals } from "./ui/players.js";
 import { H, W, centerOnTarget, ctx, dpr, fit, toScreen } from "./view.js";
@@ -29,8 +31,10 @@ export function draw() {
   const f = frame();
   if (!f) return;
   if (!S.fitted && (S.images.length || S.meId)) fit(true); // first time: fits; after a level change: keeps the zoom
-  if (S.follow) centerOnTarget();
-  const target = S.rotate ? targetPawn() : null; // the map turns so their heading points up
+  if (settings.view.follow) centerOnTarget();
+  const tracked = trackedPawn();
+  // Rotate: only while following - the map turns so their heading points up
+  const target = settings.view.rotate && settings.view.follow ? tracked : null;
   S.view.rot = target ? yawToAngle(f, pawnPos(target, now).r) : 0;
 
   // map images (and the grid), in movie px
@@ -45,107 +49,120 @@ export function draw() {
   if (!S.images.length) drawGrid(f);
   ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
 
-  const me = S.meId && S.pawns.get(S.meId);
-  // Distances / heights are relative to the "Who" player (the host by default)
-  const ref = targetPawn() || me;
-  const mePos = ref ? pawnPos(ref, now) : null;
+  // Distances / heights are relative to the tracked player (the host by default)
+  const mePos = tracked ? pawnPos(tracked, now) : null;
+  const L = settings.layers;
+  const counts = Object.fromEntries(LAYERS.map((l) => [l.id, 0]));
+  // How a marker of layer `id` at `pos` shows: null = not at all (out of range, hidden on another
+  // floor, layer off), else its alpha, size factor and whether its name shows. Counted in the
+  // layer's count when it passes the layer's filters (whether the layer is on or not).
+  const style = (id, pos, count = true) => {
+    const cfg = L[id];
+    if (cfg.range && mePos && Math.hypot(pos.x - mePos.x, pos.y - mePos.y, pos.z - mePos.z) > cfg.range * UU_PER_METER) return null;
+    const otherFloor = !!mePos && Math.abs(pos.z - mePos.z) > FLOOR_UU;
+    if (otherFloor && cfg.floors === "hide") return null;
+    if (count) counts[id]++;
+    if (cfg.on === false) return null;
+    return { alpha: otherFloor && cfg.floors === "dim" ? 0.4 : 1, k: (cfg.size ?? 100) / 100, names: !!cfg.names };
+  };
+  const questShown = (mk) => mk.tracked || !L.objective.trackedOnly;
   const objColor = LAYER_COLOR.objective;
   // quest areas ("somewhere in this circle"): under every marker
-  if (S.layers.objective) {
-    for (const mk of S.missions.markers) {
-      if (!mk.rad) continue;
-      const [sx, sy] = toScreen(...worldToMap(f, mk.x, mk.y));
-      const r = mk.rad / f.upp * S.view.zoom;
-      if (sx + r < 0 || sy + r < 0 || sx - r > W || sy - r > H) continue;
-      ctx.globalAlpha = mk.tracked ? 1 : 0.5;
-      ctx.beginPath(); ctx.arc(sx, sy, Math.max(r, 3), 0, Math.PI * 2);
-      ctx.fillStyle = "rgba(124, 245, 138, 0.13)"; ctx.fill();
-      ctx.setLineDash([6, 4]); ctx.lineWidth = 1.5; ctx.strokeStyle = objColor; ctx.stroke(); ctx.setLineDash([]);
-    }
-    ctx.globalAlpha = 1;
+  for (const mk of S.missions.markers) {
+    if (!mk.rad || !questShown(mk)) continue;
+    const st = style("objective", mk, false);
+    if (!st) continue;
+    const [sx, sy] = toScreen(...worldToMap(f, mk.x, mk.y));
+    const r = mk.rad / f.upp * S.view.zoom;
+    if (sx + r < 0 || sy + r < 0 || sx - r > W || sy - r > H) continue;
+    ctx.globalAlpha = (mk.tracked ? 1 : 0.5) * st.alpha;
+    ctx.beginPath(); ctx.arc(sx, sy, Math.max(r, 3), 0, Math.PI * 2);
+    ctx.fillStyle = "rgba(124, 245, 138, 0.13)"; ctx.fill();
+    ctx.setLineDash([6, 4]); ctx.lineWidth = 1.5; ctx.strokeStyle = objColor; ctx.stroke(); ctx.setLineDash([]);
   }
+  ctx.globalAlpha = 1;
   const hits = [];
-  const counts = Object.fromEntries(LAYERS.map((l) => [l.id, 0]));
   const place = (x, y) => toScreen(...worldToMap(f, x, y));
   const visible = (sx, sy) => sx > -20 && sy > -20 && sx < W + 20 && sy < H + 20;
-  const floorAlpha = (z) => (S.height && mePos && Math.abs(z - mePos.z) > FLOOR_UU ? 0.4 : 1);
 
   // interactive objects
   // Below the level's mapped volume: fallen off the map (still a real actor): not shown
   const offMap = (z) => S.level && S.level.zmin != null && z < S.level.zmin;
   for (const o of S.objects) {
     if (offMap(o.z)) continue;
-    counts[o.cat]++;
-    if (!S.layers[o.cat]) continue;
+    const st = style(o.cat, o);
+    if (!st) continue;
     const [sx, sy] = place(o.x, o.y);
     if (!visible(sx, sy)) continue;
-    ctx.globalAlpha = floorAlpha(o.z) * (o.cat === "looted" ? 0.55 : 1);
+    ctx.globalAlpha = st.alpha * (o.cat === "looted" ? 0.55 : 1);
     // Containers (looted ones too, just dimmed): chests biggest, others by how many items they spawn
     const tier = chestTier(o);
-    const size = o.cat === "other" ? 2.5 : tier === 2 ? 7 : tier === 1 ? 5.5 : o.slots ? 2.5 + Math.min(o.slots, 4) * 0.6 : 3.5;
+    const size = st.k * (o.cat === "other" ? 2.5 : tier === 2 ? 7 : tier === 1 ? 5.5 : o.slots ? 2.5 + Math.min(o.slots, 4) * 0.6 : 3.5);
     square(sx, sy, size, LAYER_COLOR[o.cat]);
-    if (S.labels && o.cat !== "other") label(sx, sy, nameText(o), LAYER_COLOR[o.cat], o.raw);
+    if (st.names) label(sx, sy, nameText(o), LAYER_COLOR[o.cat], o.raw);
     hits.push({ sx, sy, r: size, kind: o.cat, item: o });
   }
   // quest markers: point objectives, quest givers; areas are hit-tested at their centre too
   for (const mk of S.missions.markers) {
-    counts.objective++;
-    if (!S.layers.objective) continue;
+    if (!questShown(mk)) continue;
+    const st = style("objective", mk);
+    if (!st) continue;
     const [sx, sy] = place(mk.x, mk.y);
     if (!visible(sx, sy)) continue;
-    ctx.globalAlpha = mk.tracked ? 1 : 0.55;
-    if (mk.k === "directive") bang(sx, sy, objColor);
-    else if (!mk.rad) { diamond(sx, sy, 10, objColor); ctx.beginPath(); ctx.arc(sx, sy, 3, 0, Math.PI * 2); ctx.fillStyle = "#1a1200"; ctx.fill(); }
-    if (S.labels && mk.objective) label(sx, sy, nameText(mk.objective), objColor, mk.objective.raw);
-    hits.push({ sx, sy, r: mk.k === "directive" || mk.rad ? 7 : 10, kind: mk.k, item: mk });
+    ctx.globalAlpha = (mk.tracked ? 1 : 0.55) * st.alpha;
+    if (mk.k === "directive") bang(sx, sy, objColor, st.k);
+    else if (!mk.rad) { diamond(sx, sy, 10 * st.k, objColor); ctx.beginPath(); ctx.arc(sx, sy, 3 * st.k, 0, Math.PI * 2); ctx.fillStyle = "#1a1200"; ctx.fill(); }
+    if (st.names && mk.objective) label(sx, sy, nameText(mk.objective), objColor, mk.objective.raw);
+    hits.push({ sx, sy, r: (mk.k === "directive" || mk.rad ? 7 : 10) * st.k, kind: mk.k, item: mk });
   }
   ctx.globalAlpha = 1;
-  // loot
+  // loot: styled by its rarity's layer (gear), or the pickups' (ammo, cash...)
   for (const p of S.pickups) {
     if (offMap(p.z)) continue;
-    const tier = p.q || 0;
-    // The rarity filter is for gear; other pickups (cash, ammo...: fake rarity levels) only with the
-    // first two options
-    if (isGear(p.c) ? tier < S.minRarity && !(S.minRarity === 1 && tier === 0) : S.minRarity > 1) continue;
-    counts.loot++;
-    if (!S.layers.loot) continue;
+    const layer = lootLayer(p), st = style(layer, p);
+    if (!st) continue;
     const [sx, sy] = place(p.x, p.y);
     if (!visible(sx, sy)) continue;
+    const tier = p.q || 0;
     const [, color] = rarity(tier);
-    ctx.globalAlpha = floorAlpha(p.z);
-    if (isGear(p.c)) triangle(sx, sy, tier >= 5 ? 6.5 : 5, color);
-    else dot(sx, sy, 3.5, LAYER_COLOR.loot); // not gear (ammo, cash, ECHO logs...): no rarity colour
-    if (S.labels) label(sx, sy, nameText(p), color, p.raw);
-    hits.push({ sx, sy, r: 6, kind: "loot", item: p });
+    ctx.globalAlpha = st.alpha;
+    if (isGear(p.c)) triangle(sx, sy, (tier >= 5 ? 6.5 : 5) * st.k, color);
+    else dot(sx, sy, 3.5 * st.k, LAYER_COLOR[layer]); // not gear (ammo, cash...): its kind's colour, no rarity
+    if (st.names) label(sx, sy, nameText(p), isGear(p.c) ? color : LAYER_COLOR[layer], p.raw);
+    hits.push({ sx, sy, r: 6 * st.k, kind: "loot", item: p });
   }
-  // pawns, players on top
-  const order = { npc: 0, enemy: 1, vehicle: 2, player: 3, me: 4 };
-  const pawns = [...S.pawns.values()].sort((a, b) => order[a.k] - order[b.k]);
+  // pawns: players on top, the tracked one last
+  const order = { npc: 0, enemy: 1, vehicle: 2, player: 3, me: 3 };
+  const rank = (p) => (p === tracked ? 4 : order[p.k]);
+  const pawns = [...S.pawns.values()].sort((a, b) => rank(a) - rank(b));
   for (const p of pawns) {
-    const layer = p.k === "me" ? "player" : p.k;
-    if (p.k !== "me") counts[layer] = (counts[layer] || 0) + 1;
-    if (p.k !== "me" && !S.layers[layer]) continue;
     const pos = pawnPos(p, now);
+    const isPlayer = p.k === "me" || p.k === "player", layer = isPlayer ? "player" : p.k; // the host is one of the players
+    const st = style(layer, pos);
+    if (!st) continue;
     const [sx, sy] = place(pos.x, pos.y);
-    if (!visible(sx, sy) && p.k !== "me") continue;
-    ctx.globalAlpha = p.k === "me" ? 1 : floorAlpha(pos.z);
+    if (!visible(sx, sy) && p !== tracked) continue;
+    ctx.globalAlpha = st.alpha;
     const angle = yawToAngle(f, pos.r) - S.view.rot;
-    if (p.k === "me" || p.k === "player") {
-      if (p.k === "me") arrow(sx, sy, angle, 9, "#ffcc33", "#1a1200");
-      else { arrow(sx, sy, angle, 8, LAYER_COLOR.player, "#00131a"); label(sx, sy, nameText(p), LAYER_COLOR.player, p.raw); }
-      if ((p.m > 0 && p.h < p.m) || (p.sm > 0 && p.s < p.sm)) vitalBars(sx, sy + 3, { ...p, h: pos.h, s: pos.s });
+    const hurt = (p.m > 0 && p.h < p.m) || (p.sm > 0 && p.s < p.sm);
+    if (isPlayer) { // the tracked player: the yellow arrow; the others white
+      if (p === tracked) arrow(sx, sy, angle, 9 * st.k, "#ffcc33", "#1a1200");
+      else arrow(sx, sy, angle, 8 * st.k, LAYER_COLOR.player, "#00131a");
+      if (hurt) vitalBars(sx, sy + 3 * st.k, { ...p, h: pos.h, s: pos.s });
     }
-    else if (p.k === "vehicle") square(sx, sy, 5, LAYER_COLOR.vehicle);
+    else if (p.k === "vehicle") square(sx, sy, 5 * st.k, LAYER_COLOR.vehicle);
     else {
-      if (p.k === "enemy") diamond(sx, sy, 5, LAYER_COLOR.enemy); // like the game's minimap
-      else dot(sx, sy, 3.5, LAYER_COLOR[p.k]);
-      if ((p.m > 0 && p.h < p.m) || (p.sm > 0 && p.s < p.sm)) vitalBars(sx, sy, { ...p, h: pos.h, s: pos.s });
-      if (S.labels) label(sx, sy, nameText(p), LAYER_COLOR[p.k], p.raw);
+      if (p.k === "enemy") diamond(sx, sy, 5 * st.k, LAYER_COLOR.enemy); // like the game's minimap
+      else dot(sx, sy, 3.5 * st.k, LAYER_COLOR[p.k]);
+      if (hurt) vitalBars(sx, sy, { ...p, h: pos.h, s: pos.s });
     }
-    hits.push({ sx, sy, r: 6, kind: p.k, item: p, pos });
+    if (st.names) label(sx, sy, nameText(p), p === tracked ? "#ffcc33" : LAYER_COLOR[layer], p.raw);
+    hits.push({ sx, sy, r: 6 * st.k, kind: p.k, item: p, pos });
   }
   ctx.globalAlpha = 1;
   S.hits = hits;
+
+  for (const l of LAYERS) if (l.parent) counts[l.parent] += counts[l.id]; // a folder: its layers' total
 
   for (const [id, n] of Object.entries(counts)) {
     const el = document.querySelector(`[data-count="${id}"]`);

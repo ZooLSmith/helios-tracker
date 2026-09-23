@@ -377,7 +377,27 @@ for (const [x, y, mx, my] of samples) {
 const right = yawToAngle(level, 16384);
 const raw = ["BullymongPile", "WillowAIPawn", "Fire_Barrel02", "WillowInteractiveObject", "Willowtree"].map(prettyRaw)
   .concat([nameText({ n: "Zer0" })]);
-console.log(JSON.stringify({ sha: crypto.createHash("sha256").update(rgba).digest("hex"), err, back, right, raw, modules }));
+// Settings: the old one-key-per-setting storage carries over; saved values are validated
+const { merge, fromLegacy } = await load("js/settings.js");
+const { LAYERS, LAYER_GROUPS, LAYER_SETTINGS, layerNameKey, lootLayer } = await load("js/model.js");
+const legacy = { "layer.enemy": false, "layer.loot": false, labels: true, height: false, zoom: 2.5, smooth: false, lang: "fr", tab: "skills" };
+const migrated = merge(fromLegacy((k, d) => (k in legacy ? legacy[k] : d)));
+const checked = merge({ layers: { enemy: { on: "yes", size: 999, floors: "nope", bogus: 1 }, nosuch: {} },
+  view: { follow: 1, motion: 15 }, ui: { openLayers: ["loot", 3] } });
+// The translation keys the layer panel builds from the schema
+const i18nKeys = [...LAYERS.map(layerNameKey), ...LAYERS.filter((l) => l.tip).map((l) => l.tip), ...LAYER_GROUPS.map((g) => "lgroup." + g)];
+for (const [k, s] of Object.entries(LAYER_SETTINGS)) {
+  i18nKeys.push("set." + k);
+  if (s.tip) i18nKeys.push(s.tip);
+  if (s.type === "choice" && !s.select) i18nKeys.push(...s.options.map((o) => `set.${k}.${o}`));
+}
+// Pickups -> layer: gear by rarity (unknown levels: misc), the rest by the collector's kind ("pk")
+const lootLayers = [[1, "WillowWeapon"], [5, "WillowShield"], [500, "WillowArtifact"], [520, "WillowWeapon"], [0, "WillowClassMod"],
+  [77, "WillowGrenadeMod"], [5, "WillowUsableItem"], [181, "", "cash"], [0, "WillowUsableItem", "ammo"], [171, "WillowUsableItem", "health"],
+  [0, "WillowUsableItem", "bogus"]].map(([q, c, pk]) => lootLayer({ q, c, pk }));
+const unknownSettings = LAYERS.flatMap((l) => l.settings.filter((k) => !LAYER_SETTINGS[k]).map((k) => l.id + "." + k));
+console.log(JSON.stringify({ sha: crypto.createHash("sha256").update(rgba).digest("hex"), err, back, right, raw, modules,
+  migrated, checked: { enemy: checked.layers.enemy, view: checked.view, openLayers: checked.ui.openLayers }, i18nKeys, unknownSettings, lootLayers }));
 """
 
 
@@ -428,6 +448,28 @@ def check_helios_tracker() -> None:  # noqa: PLR0915
     from helios_tracker import collector as col  # noqa: PLC0415
     from helios_tracker.server import Hub, TrackerServer  # noqa: PLC0415
     from helios_tracker.tacmap import load_tactical_map  # noqa: PLC0415
+    from helios_tracker.util import pickup_kind  # noqa: PLC0415
+
+    # Pickup kinds: the definition's inventory card (Presentation), resolved once per definition
+    class FakeDef:
+        def __init__(self, card: str) -> None:
+            self.Presentation = types.SimpleNamespace(Name=card) if card else None
+            self.reads = 0
+
+        def _get_address(self) -> int:
+            return id(self)
+
+    def usable(item_def, cls: str = "WillowUsableItem"):  # noqa: ANN001, ANN202
+        return types.SimpleNamespace(Class=types.SimpleNamespace(Name=cls), DefinitionData=types.SimpleNamespace(ItemDefinition=item_def))
+
+    cards = {"WeaponAmmo_SMG": "ammo", "GrenadeAmmo": "ammo", "Credits": "cash", "Health": "health", "Something": "", "": ""}
+    defs = {card: FakeDef(card) for card in cards}
+    got = {card: pickup_kind(usable(d)) for card, d in defs.items()}
+    assert got == cards, got
+    defs["Credits"].Presentation = None  # cached: the definition isn't read again
+    assert pickup_kind(usable(defs["Credits"])) == "cash"
+    assert pickup_kind(usable(FakeDef("Credits"), "WillowWeapon")) == "", "gear classified as a pickup kind"
+    assert pickup_kind(None) == ""
 
     print("helios_tracker:")
     print(f"  options: {[getattr(o, 'identifier', o) for o in m.mod.options]}")
@@ -723,6 +765,21 @@ def check_helios_tracker() -> None:  # noqa: PLR0915
     nbsp = "\u00a0"
     assert js["raw"] == [f"Bullymong Pile{nbsp}?", f"AI Pawn{nbsp}?", f"Fire Barrel02{nbsp}?",
                          f"Interactive Object{nbsp}?", f"Willowtree{nbsp}?", "Zer0"], js["raw"]
+    mig = js["migrated"]
+    assert mig["layers"]["enemy"] == {"on": False, "names": True, "floors": "show", "size": 100, "range": 0}, mig["layers"]
+    assert not mig["layers"]["loot.rare"]["on"] and not mig["layers"]["pickup.ammo"]["on"], "old Loot toggle not carried over"
+    assert not {"gear", "pickups", "containers"} & set(mig["layers"]), "a folder has no settings"
+    assert js["lootLayers"] == ["loot.common", "loot.legendary", "loot.pearl", "loot.pearl", "loot.misc", "loot.misc",
+                                "pickup.other", "pickup.cash", "pickup.ammo", "pickup.health", "pickup.other"], js["lootLayers"]
+    assert mig["layers"]["player"] == {"names": True, "floors": "show", "size": 100}, mig["layers"]["player"]
+    assert mig["view"]["zoom"] == 2.5 and mig["view"]["motion"] == 0, mig["view"]
+    assert mig["ui"]["lang"] == "fr" and mig["ui"]["inspectorTab"] == "skills", mig["ui"]
+    chk = js["checked"]
+    assert chk["enemy"] == {"on": True, "names": False, "floors": "dim", "size": 200, "range": 0}, chk
+    assert chk["view"]["follow"] is False and chk["view"]["motion"] == 15 and chk["openLayers"] == ["loot"], chk
+    assert not js["unknownSettings"], js["unknownSettings"]
+    missing = sorted(k for k in js["i18nKeys"] if k not in langs["en"])
+    assert not missing, ("layer panel keys missing from the catalogs", missing)
     print(f"  page JS: {len(js['modules'])} modules import under Node, DXT5 decode matches,"
           f" world->map within {js['err']:.3f} px of the probe samples")
 

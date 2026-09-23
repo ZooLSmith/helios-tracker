@@ -2,8 +2,8 @@
 import { $, esc } from "../dom.js";
 import { t } from "../i18n.js";
 import { nameText } from "../model.js";
+import { saveSettings, settings } from "../settings.js";
 import { S, findPlayer } from "../state.js";
-import { store } from "../store.js";
 import { renderDetail } from "./detail.js";
 import { itemsByKind } from "./items.js";
 import { playerSub, renderPlayers } from "./players.js";
@@ -35,7 +35,7 @@ export function renderInspector(resetScroll) {
   const body = $("ibody");
   const scroll = body.scrollTop;
   const p = findPlayer();
-  for (const b of $("itabs").querySelectorAll("button")) b.classList.toggle("on", b.dataset.tab === S.tab);
+  for (const b of $("itabs").querySelectorAll("button")) b.classList.toggle("on", b.dataset.tab === settings.ui.inspectorTab);
   if (!p) {
     $("iwho").textContent = S.inspect.name;
     $("isub").textContent = "";
@@ -45,12 +45,13 @@ export function renderInspector(resetScroll) {
   $("iwho").textContent = p.local ? t("insp.host", { name: nameText(p) }) : nameText(p);
   $("isub").textContent = playerSub(p);
   let html = "";
-  if (S.tab === "gear") {
+  const tab = settings.ui.inspectorTab;
+  if (tab === "gear") {
     if (p.inventory === "partial") {
       html += `<div class="note">${esc(t("why.inventory." + (p.inventoryWhy || "unavailable")))} ${esc(t("insp.heldOnly"))}</div>`;
     }
     html += (p.equipped || []).length ? itemsByKind(p.equipped) : `<div class="muted">${esc(t("insp.nothing"))}</div>`;
-  } else if (S.tab === "backpack") {
+  } else if (tab === "backpack") {
     if (p.inventory !== "full") html = `<div class="note">${esc(t("why.inventory." + (p.inventoryWhy || "unavailable")))}</div>`;
     else html = `<div class="muted">${esc(t("insp.items", { n: p.backpack.length }))}</div>` +
       (p.backpack.length ? itemsByKind(p.backpack) : "");
@@ -73,7 +74,7 @@ export function renderInspector(resetScroll) {
 
 export function initInspector() {
   for (const b of $("itabs").querySelectorAll("button")) {
-    b.onclick = () => { S.tab = b.dataset.tab; store.set("tab", S.tab); S.skillTab = null; renderInspector(true); };
+    b.onclick = () => { settings.ui.inspectorTab = b.dataset.tab; saveSettings(); S.skillTab = null; renderInspector(true); };
   }
   $("iclose").onclick = closeInspector;
 }

@@ -7,6 +7,7 @@ import { initInput } from "./input.js";
 import { invalidate } from "./scheduler.js";
 import { initColors } from "./shapes.js";
 import { initInspector } from "./ui/inspector.js";
+import { initLayers } from "./ui/layers.js";
 import { initPanel, renderTargets } from "./ui/panel.js";
 import { refreshStatus } from "./ui/status.js";
 import { initView } from "./view.js";
@@ -15,6 +16,7 @@ export function start() {
   initColors();
   initView();
   initPanel();
+  initLayers();
   initInspector();
   initInput();
   applyI18n();

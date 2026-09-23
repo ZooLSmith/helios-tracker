@@ -1,30 +1,23 @@
-// The page's state (one object, S) and read-only queries on it. Modules change S directly, then
-// call invalidate() (scheduler.js) for a redraw and the ui/ render functions for the HTML.
-import { LAYERS } from "./model.js";
-import { store } from "./store.js";
+// The page's live state (one object, S) and read-only queries on it. Modules change S directly,
+// then call invalidate() (scheduler.js) for a redraw and the ui/ render functions for the HTML.
+// What's remembered across reloads is in settings.js, not here.
+import { settings } from "./settings.js";
 
 export const S = {
   level: null, images: [], // [{canvas, bounds}]
   pawns: new Map(), pickups: [], objects: [],
   meId: null, fallback: null, // map frame for areas without a tactical map
   interval: 100, lastState: 0, hz: 0, // hz: the game's updates per second (sent with each state)
-  // rot: map rotation (rad, the target's heading); zoom kept across reloads
-  view: { cx: 0, cy: 0, zoom: store.get("zoom", 1), rot: 0 }, fitted: false, zoomed: store.get("zoom", 0) > 0,
-  follow: !!store.get("follow", false), labels: store.get("labels", false), height: store.get("height", true),
-  rotate: store.get("rotate", false), target: store.get("target", "me"), // "me" (the host) or a player's name
-  // Movement: 0 = only redraw on a change (markers jump), a number = interpolated at most that many
-  // fps, "smooth" = every frame. The old checkbox ("smooth": true / false) carries over.
-  motion: store.get("motion", store.get("smooth", true) ? "smooth" : 0),
+  // rot: map rotation (rad, the target's heading); the zoom is kept across reloads
+  view: { cx: 0, cy: 0, zoom: settings.view.zoom || 1, rot: 0 }, fitted: false, zoomed: settings.view.zoom > 0,
   lastDraw: 0,
   pending: false, // a frame is requested
-  minRarity: store.get("minRarity", 1),
-  layers: Object.fromEntries(LAYERS.map((l) => [l.id, store.get("layer." + l.id, l.on)])),
-  hits: [], mouse: null, counts: {},
+  hits: [], mouse: null,
   missions: { tracked: null, markers: [] },
   // inspect: the inspected player { id, name } (ids change when a level loads);
   // detail: a clicked map object { kind, id }
   players: [], inspect: null, detail: null,
-  tab: store.get("tab", "gear"), expanded: new Set(), skillTab: null, // null: the tree with the most points
+  expanded: new Set(), skillTab: null, // null: the tree with the most points
 };
 
 /** The level's transform, or a fallback centred where we first saw the player. */
@@ -35,7 +28,7 @@ export function frame() {
 
 /** Position, heading, shield and health, interpolated between the last two states. */
 export function pawnPos(p, now) {
-  if (!S.motion) return { x: p.x, y: p.y, z: p.z, r: p.r, h: p.h, s: p.s }; // "updates only": no interpolation
+  if (!settings.view.motion) return { x: p.x, y: p.y, z: p.z, r: p.r, h: p.h, s: p.s }; // "updates only": no interpolation
   const t = Math.min(1, (now - p.t0) / Math.max(16, S.interval));
   const lerp = (from, to) => (from === undefined || to === undefined ? to : from + (to - from) * t);
   let dr = (((p.r - p.fr) % 65536) + 98304) % 65536 - 32768; // shortest turn
@@ -44,9 +37,23 @@ export function pawnPos(p, now) {
 
 /** The "Who" player's pawn (the host by default). */
 export function targetPawn() {
-  if (S.target === "me") return S.meId ? S.pawns.get(S.meId) : null;
-  const player = S.players.find((p) => !p.local && p.n === S.target);
+  const target = settings.view.target;
+  if (target === "me") return S.meId ? S.pawns.get(S.meId) : null;
+  const player = S.players.find((p) => !p.local && p.n === target);
   return player ? S.pawns.get(player.i) : null;
+}
+
+/** The tracked player's pawn: the "Who" player, else the host (the yellow arrow, what distances,
+ *  heights and follow / rotate are relative to). */
+export function trackedPawn() {
+  return targetPawn() || (S.meId ? S.pawns.get(S.meId) : null);
+}
+
+/** Whether a players-list entry is the tracked player (the host unless "Who" names one who's here). */
+export function isTrackedPlayer(p) {
+  const target = settings.view.target;
+  const named = target !== "me" && S.players.some((q) => !q.local && q.n === target);
+  return named ? !p.local && p.n === target : !!p.local;
 }
 
 /** The inspected player (by id, else by name: ids change when a level loads). */

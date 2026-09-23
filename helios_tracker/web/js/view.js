@@ -2,8 +2,9 @@
 import { $ } from "./dom.js";
 import { worldToMap } from "./geo.js";
 import { invalidate } from "./scheduler.js";
-import { S, frame, pawnPos, targetPawn } from "./state.js";
-import { store } from "./store.js";
+import { saveSettings, settings } from "./settings.js";
+import { S, frame, pawnPos, trackedPawn } from "./state.js";
+import { syncRotate } from "./ui/panel.js";
 
 export let canvas = null, ctx = null;
 export let W = 0, H = 0, dpr = 1; // CSS px, device pixel ratio
@@ -35,11 +36,7 @@ export const toMap = (sx, sy) => {
   return [x + S.view.cx, y + S.view.cy];
 };
 
-let zoomSave = 0;
-function saveZoom() { // remembered (debounced: wheel / pinch zoom many times a second)
-  clearTimeout(zoomSave);
-  zoomSave = setTimeout(() => store.set("zoom", S.view.zoom), 300);
-}
+function saveZoom() { settings.view.zoom = S.view.zoom; saveSettings(); } // remembered
 
 export function fit(keepZoom = false) { // keepZoom: only re-centre (a level change keeps the zoom)
   let x0 = Infinity, x1 = -Infinity, y0 = Infinity, y1 = -Infinity;
@@ -60,7 +57,7 @@ export function fit(keepZoom = false) { // keepZoom: only re-centre (a level cha
 }
 
 export function centerOnTarget() {
-  const f = frame(), target = targetPawn();
+  const f = frame(), target = trackedPawn(); // the "Who" player, else the host
   if (!f || !target) return;
   const p = pawnPos(target, performance.now());
   [S.view.cx, S.view.cy] = worldToMap(f, p.x, p.y);
@@ -71,10 +68,16 @@ export function zoomAt(sx, sy, factor) {
   S.view.zoom = Math.min(80, Math.max(0.05, S.view.zoom * factor));
   saveZoom();
   invalidate();
-  if (S.follow) return; // zoom around the followed player
+  if (settings.view.follow) return; // zoom around the followed player
   const [dx, dy] = screenToMapDelta(sx - W / 2, sy - H / 2); // keep the point under the cursor
   S.view.cx = mx - dx;
   S.view.cy = my - dy;
 }
 
-export function stopFollow() { if (S.follow) { S.follow = false; $("follow").checked = false; store.set("follow", false); } }
+export function stopFollow() {
+  if (!settings.view.follow) return;
+  settings.view.follow = false;
+  $("follow").checked = false;
+  saveSettings();
+  syncRotate();
+}

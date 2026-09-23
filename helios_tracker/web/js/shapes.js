@@ -31,11 +31,11 @@ export function diamond(x, y, r, fill) {
   ctx.lineWidth = 1; ctx.strokeStyle = "rgba(0,0,0,.8)"; ctx.stroke();
 }
 
-export function bang(x, y, fill) { // quest giver / turn-in: a "!" badge
-  ctx.beginPath(); ctx.arc(x, y, 7, 0, Math.PI * 2);
+export function bang(x, y, fill, k = 1) { // quest giver / turn-in: a "!" badge (k: size factor)
+  ctx.beginPath(); ctx.arc(x, y, 7 * k, 0, Math.PI * 2);
   ctx.fillStyle = fill; ctx.fill(); ctx.lineWidth = 1.5; ctx.strokeStyle = "#1a1200"; ctx.stroke();
-  ctx.fillStyle = "#1a1200"; ctx.font = "700 11px 'Segoe UI', system-ui, sans-serif"; ctx.textAlign = "center";
-  ctx.fillText("!", x, y + 4); ctx.textAlign = "left";
+  ctx.fillStyle = "#1a1200"; ctx.font = `700 ${11 * k}px 'Segoe UI', system-ui, sans-serif`; ctx.textAlign = "center";
+  ctx.fillText("!", x, y + 4 * k); ctx.textAlign = "left";
 }
 
 export function triangle(x, y, r, fill) { // loot

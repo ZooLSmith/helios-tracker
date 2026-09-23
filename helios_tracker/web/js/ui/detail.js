@@ -3,7 +3,7 @@ import { $, classHtml, esc, nameHtml } from "../dom.js";
 import { UU_PER_METER } from "../geo.js";
 import { num, t } from "../i18n.js";
 import { isGear, nameText } from "../model.js";
-import { S, findDetail, pawnPos, targetPawn } from "../state.js";
+import { S, findDetail, pawnPos, trackedPawn } from "../state.js";
 import { renderInspector } from "./inspector.js";
 import { rarityName } from "./items.js";
 import { renderPlayers } from "./players.js";
@@ -34,7 +34,7 @@ export function renderDetail(resetScroll) {
   $("isub").textContent = [kindText, it.l && (kind !== "loot" || gear) ? t("insp.level", { n: it.l }) : ""]
     .filter(Boolean).join(" · ");
   const rows = [];
-  const me = targetPawn() || (S.meId && S.pawns.get(S.meId)); // the "Who" player
+  const me = trackedPawn(); // the tracked player
   if (me && me !== it) {
     const pos = it.fx !== undefined ? pawnPos(it, performance.now()) : it;
     rows.push([t("detail.distance"), t("unit.meters", { n: num(Math.hypot(pos.x - me.x, pos.y - me.y, pos.z - me.z) / UU_PER_METER, 0) })]);

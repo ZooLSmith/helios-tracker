@@ -85,6 +85,29 @@ DamageRadius.DamageRadius_Normal`, `GD_Shields.Battery.Battery1_Tediore`, `GD_Cl
 Specialization...`, `GD_Artifacts.Upgrade...`); the page labels parts by it (`role.*` keys) and
 tidies the name ("Normal", "Tediore").
 
+## Ground pickups: what tells them apart (probe_pickups.py, in game, 2026-09-23)
+
+58 pickups in Ice_P (Southern Shelf area). Non-gear pickups are all `WillowUsableItem` (ECHO logs:
+`WillowMissionItem`, `WillowPickup.bIsMissionItem`, `bPickupable` False); the difference is in the
+item's `DefinitionData.ItemDefinition` (a `UsableItemDefinition`):
+
+| kind | definition (package) | `Presentation` (InventoryCardPresentationDefinition) | `inv.ItemFrame` |
+|---|---|---|---|
+| ammo | `GD_Ammodrops.Pickups.AmmoDrop_<type>` | `GD_InventoryPresentations.Definitions.WeaponAmmo_<Weapon>` / `GrenadeAmmo` | `ar` `smg` `pistol` `shotgun` `sniper` `grenade` |
+| health | `GD_BuffDrinks.A_Item.BuffDrink_HealingInstant` | `...Definitions.Health` | `'0'` |
+| cash | `GD_Currency.A_Item.Currency` / `Currency_Big` | `...Definitions.Credits` | `money` |
+| eridium | not seen yet (none on the ground) | ? | ? |
+
+- Also consistent per kind: `PickupFlagIcon` (`fx_shared_items.Textures.ItemCards.Health` / `Credits` /
+  `Ammo_<type>`), `DroppedImpact` (`GD_Impacts.Loot.Loot_Drop_Ammo` / `_Health` / `_Cash`),
+  `ExternalAttributeEffects[].AttributeToModify` (ammo: the weapon's `D_Attributes.AmmoResource_*`
+  pool; cash: `D_Attributes.Currency.CreditsOnHand`), `OnUseConstraints` (health: HealthCurrentValue).
+- `ItemDefinition.ItemName` is localized ("Munitions pour mitraillette", "Argent", "Médecine
+  d'urgence !") - `GetShortHumanReadableName` is empty for cash and sometimes for health.
+- The made-up rarity levels: `ItemDefinition.BaseRarity.BaseValueConstant` (health 171, cash 181,
+  ammo 0).
+- A pickup lying in an opened container has `Base` = that `WillowInteractiveObject` (e.g. a Locker).
+
 ## Backlog
 
 - **Loot rarity only for real gear** (user, 2026-09-23): rarity colours, the bigger marker for high

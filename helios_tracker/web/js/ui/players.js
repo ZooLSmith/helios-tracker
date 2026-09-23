@@ -2,7 +2,7 @@
 import { esc, nameHtml } from "../dom.js";
 import { num, t } from "../i18n.js";
 import { prettyRaw } from "../model.js";
-import { S, findPlayer, pawnPos } from "../state.js";
+import { S, findPlayer, isTrackedPlayer, pawnPos } from "../state.js";
 import { openInspector } from "./inspector.js";
 import { renderTargets } from "./panel.js";
 
@@ -21,7 +21,7 @@ export function renderPlayers() {
     `<span class="vnum vright"></span></span></div>`;
   box.innerHTML = S.players.map((p) =>
     `<div class="pentry${sel && sel.i === p.i ? " sel" : ""}" data-id="${esc(p.i)}">` +
-    `<div class="pname${p.local ? " me" : ""}">${nameHtml(p)}</div>` +
+    `<div class="pname${isTrackedPlayer(p) ? " me" : ""}">${nameHtml(p)}</div>` +
     `<div class="pinfo">${esc(playerSub(p))}</div>` +
     vital("sh") + vital("hp") + vital("xp") + `</div>`).join("");
   for (const row of box.querySelectorAll(".pentry")) row.onclick = () => openInspector(row.dataset.id);

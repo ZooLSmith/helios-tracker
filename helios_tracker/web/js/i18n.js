@@ -1,10 +1,10 @@
 // Translations: catalogs in ../i18n/; t("key", {vars}) with English fallback, numbers formatted
 // per language. Static HTML uses data-i18n / data-i18n-title (applyI18n).
 import CATALOG from "../i18n/index.js";
-import { store } from "./store.js";
+import { saveSettings, settings } from "./settings.js";
 
 export { CATALOG };
-export let langPref = store.get("lang", "auto"); // "auto" = the browser's
+export let langPref = settings.ui.lang; // "auto" = the browser's
 export let lang = pickLang(langPref);
 
 function pickLang(pref) {
@@ -21,7 +21,8 @@ function pickLang(pref) {
 export function setLanguage(pref) {
   langPref = pref;
   lang = pickLang(pref);
-  store.set("lang", pref);
+  settings.ui.lang = pref;
+  saveSettings();
   applyI18n();
 }
 

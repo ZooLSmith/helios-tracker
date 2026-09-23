@@ -1,5 +1,5 @@
 /* The left panel: tabs, layers, players (vital bars), mission, settings. */
-#panel { position: fixed; top: 12px; left: 12px; width: 236px; max-height: calc(100% - 24px); overflow: auto;
+#panel { position: fixed; top: 12px; left: 12px; width: 256px; max-height: calc(100% - 24px); overflow: auto;
   background: var(--panel); border: 1px solid var(--panel-edge); border-radius: 6px; padding: 10px 12px;
   backdrop-filter: blur(4px); user-select: none; }
 #panel.collapsed .body { display: none; }
@@ -22,8 +22,37 @@
 h3 { font-size: 11px; letter-spacing: .1em; color: var(--dim); margin: 12px 0 4px; font-weight: 600; }
 label.row { display: flex; align-items: center; gap: 8px; padding: 2px 0; cursor: pointer; }
 label.row input { margin: 0; accent-color: var(--accent); }
+label.row.off { opacity: .45; cursor: default; } /* a setting that does nothing right now (Rotate without Follow) */
 .sw { width: 12px; height: 12px; flex: none; display: flex; } /* the layer's marker shape (SVG) */
 .count { margin-left: auto; color: var(--dim); font-variant-numeric: tabular-nums; }
+/* Layers tab: categories, a row per layer, its settings panel under it */
+.lgroup { margin-top: 8px; }
+/* a category: a plain heading (like the panel's h3) that folds its layers */
+.lghead { display: flex; align-items: center; gap: 6px; margin: 4px 0 2px; cursor: pointer; }
+.lgname { font-size: 11px; letter-spacing: .1em; color: var(--dim); font-weight: 600; }
+.lgfold { color: var(--dim); font-size: 10px; }
+.lghead:hover .lgname, .lghead:hover .lgfold { color: var(--text); }
+.lgroup.closed .lgbody { display: none; }
+.lsub { padding-left: 18px; } /* a folder's layers (Loot: one per rarity) */
+.lrow { display: flex; align-items: center; }
+.lrow label.row { flex: 1; min-width: 0; }
+.lrow .lname { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.nocheck { width: 13px; flex: none; } /* a layer that can't be hidden: lines up with the checkboxes */
+.lcfg { background: none; border: 0; color: var(--dim); cursor: pointer; font-size: 13px; padding: 0 0 0 6px; line-height: 1; }
+.lcfg:hover, .lrow.open .lcfg { color: var(--accent); }
+.lcfgbox { margin: 1px 0 6px 6px; padding: 3px 6px 5px; border-left: 2px solid var(--panel-edge); background: #101b23;
+  border-radius: 0 4px 4px 0; }
+.cset { display: flex; flex-wrap: wrap; align-items: center; gap: 2px 6px; padding: 2px 0; font-size: 12px; }
+.cset .clabel { flex: 1; color: var(--dim); white-space: nowrap; }
+label.row.cset { gap: 6px; }
+.cset select { width: auto; padding: 1px 4px; font-size: 12px; margin-left: auto; }
+.cset input[type="range"] { width: 72px; margin: 0; accent-color: var(--accent); }
+.cset .cval { width: 36px; text-align: right; font-variant-numeric: tabular-nums; }
+.seg { display: flex; margin-left: auto; border: 1px solid var(--panel-edge); border-radius: 4px; overflow: hidden; }
+.seg button { background: #13212b; color: var(--dim); border: 0; font: inherit; font-size: 11px; padding: 2px 4px; cursor: pointer; }
+.seg button + button { border-left: 1px solid var(--panel-edge); }
+.seg button:hover { color: var(--text); }
+.seg button.on { background: color-mix(in srgb, var(--accent) 28%, #13212b); color: var(--text); }
 select, button.act { width: 100%; background: #13212b; color: var(--text); border: 1px solid var(--panel-edge);
   border-radius: 4px; padding: 4px 6px; font: inherit; }
 button.act { cursor: pointer; margin-top: 6px; }
@@ -51,7 +80,7 @@ button.act:hover { border-color: var(--accent); }
   text-shadow: -1px 0 1px #000, 1px 0 1px #000, 0 -1px 1px #000, 0 1px 1px #000, 0 0 3px #000; }
 .vnum .vmax { opacity: .7; }
 .vnum.vright { left: auto; right: 5px; }
-.players .pname { color: #3fd5ff; font-weight: 600; }
+.players .pname { color: #f4f4f4; font-weight: 600; }
 .players .pname.me { color: var(--accent); }
 .players .pinfo { color: var(--dim); font-size: 11px; margin-top: 1px; } /* level · class, under the name */
 #mission .mname { font-weight: 600; color: var(--objective); }

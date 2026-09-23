@@ -4,7 +4,7 @@ import { UU_PER_METER, mapToWorld } from "./geo.js";
 import { t, num } from "./i18n.js";
 import { hitAt } from "./input.js";
 import { isGear, poolKinds } from "./model.js";
-import { S, targetPawn } from "./state.js";
+import { S, trackedPawn } from "./state.js";
 import { rarityName } from "./ui/items.js";
 import { H, W, toMap } from "./view.js";
 
@@ -36,7 +36,7 @@ export function tooltip(mePos, f) {
   if (it.l && (best.kind !== "loot" || gear)) lines.push(`<span class="tl">${esc(t("insp.level", { n: it.l }))}</span>`);
   if (it.sm > 0) lines.push(`<span class="tl">${esc(t("tip.shield", { s: Math.round(it.s), m: Math.round(it.sm) }))}</span>`);
   if (it.m > 0) lines.push(`<span class="tl">${esc(t("tip.health", { h: Math.round(it.h), m: Math.round(it.m) }))}</span>`);
-  if (mePos && it !== (targetPawn() || S.pawns.get(S.meId))) { // not the reference player itself
+  if (mePos && it !== trackedPawn()) { // not the tracked player itself
     const dist = Math.hypot(pos.x - mePos.x, pos.y - mePos.y, pos.z - mePos.z) / UU_PER_METER;
     const dz = (pos.z - mePos.z) / UU_PER_METER;
     let text = t("tip.away", { d: Math.round(dist) });
