@@ -220,8 +220,8 @@ item's `DefinitionData.ItemDefinition` (a `UsableItemDefinition`):
   **Found (3rd crash, 22:41, helios_crash.log):** `_publish_state` > `_pawn_info` > `call_str` - the
   pawn name functions (`GetTargetName` / `GetMapDisplayName` / `GetTransformedName`, old code) on some
   pawn in Tundra Express. Now: the balance's `PlayThroughs[].DisplayName` read as a property
-  (collector.pawn_display_name; that the property path is right is NOT verified in game - wrong: the
-  pawns get made-up names marked "?"). The two calls removed after the 1st crash were innocent.
+  (collector.pawn_display_name; the names seen right in game, user 2026-09-23). The two calls removed
+  after the 1st crash were innocent.
   Rule: prefer property reads; a new function call in a loop = a crash risk, keep them rare and cached.
 - The collector sends, for active missions, where to go (`go`): the step's objective / step station
   override (GetLevelForMission no longer: see the crash below); the page's whereTo: that (active; none:
