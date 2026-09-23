@@ -50,6 +50,23 @@ export function missionAreas(missions) {
     .sort((a, b) => (a.area === "") - (b.area === "") || a.nodes[0].m.num - b.nodes[0].m.num);
 }
 
+/** Text folded for searching: lower case, accents dropped ("Ménage" -> "menage"). */
+export function foldText(s) {
+  return String(s || "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
+}
+
+/** The missions matching a search (every word in the name, area, giver or turn-in), in mission
+ *  order, as nodes { m, state } - locked ones too. */
+export function searchMissions(missions, query) {
+  const words = foldText(query).split(/\s+/).filter(Boolean);
+  if (!words.length) return [];
+  const byId = new Map(missions.map((m) => [m.i, m]));
+  return missions
+    .filter((m) => { const text = foldText([m.n, m.area, m.giver, m.turnin].join(" ")); return words.every((w) => text.includes(w)); })
+    .sort((a, b) => a.num - b.num)
+    .map((m) => ({ m, state: missionState(m, byId), children: [] }));
+}
+
 /** Whether a node or anything under it is visible (locked ones hidden unless showLocked). */
 export function nodeVisible(node, showLocked) {
   return showLocked || node.state !== "locked" || node.children.some((c) => nodeVisible(c, showLocked));
@@ -72,4 +89,70 @@ export function missionCounts(missions) {
   const counts = { done: 0, active: 0, available: 0, unknown: 0, locked: 0, other: 0 };
   for (const m of missions) counts[missionState(m, byId)]++;
   return counts;
+}
+
+/** A mission's reward for a player level (the game scales rewards to the player: the collector sends
+ *  one per level of the players it can see) - null if not known for that level. */
+export function rewardFor(m, level) {
+  return (m.rw && m.rw[String(level)]) || null;
+}
+
+export const GOALS = ["xp", "cash", "balanced", "effort"];
+
+/** The "Best now" ranking for a player level: the missions doable now (active / available / unknown)
+ *  and the locked ones a single step away (every mission they need is done, active or offered -
+ *  not merely "unknown": a DLC's first mission, never offered, would pull in its whole DLC; "after"
+ *  lists what's left), ranked by goal - xp, cash (credits), balanced (both, scaled to the best
+ *  mission), effort (balanced per objective left). A mission's better reward counts (the normal or
+ *  the alternative one). { rows: [{ m, state, after, xp, cash, effort, known, score }], totalXp } */
+export function rankMissions(missions, goal, level) {
+  const byId = new Map(missions.map((m) => [m.i, m]));
+  const states = new Map(missions.map((m) => [m.i, missionState(m, byId)]));
+  const doable = (id) => ["active", "available", "unknown"].includes(states.get(id));
+  const underway = (id) => ["active", "available"].includes(states.get(id)); // started or offered
+  // DLCs started (one of their missions active or done): a DLC's missions nobody offered yet only
+  // count then - its first missions need nothing, so they'd always look doable
+  const started = new Set(missions.filter((m) => m.dlc && (m.st === "Active" || m.st === "Complete")).map((m) => m.dlc));
+  const rows = [];
+  for (const m of missions) {
+    const state = states.get(m.i);
+    if (state === "unknown" && m.dlc && !started.has(m.dlc)) continue;
+    let after = null;
+    if (!doable(m.i)) {
+      if (state !== "locked" || !(m.deps || []).every((d) => byId.get(d)?.st === "Complete" || underway(d))) continue;
+      after = m.deps.filter((d) => byId.get(d)?.st !== "Complete");
+    }
+    const rw = rewardFor(m, level), sides = rw ? [rw, rw.alt].filter(Boolean) : [];
+    const xp = Math.max(0, ...sides.map((r) => r.xp || 0));
+    const cash = Math.max(0, ...sides.map((r) => (!r.cur || r.cur === "Credits" ? r.cash || 0 : 0)));
+    const effort = Math.max(1, objectiveStates(m).filter((o) => o.state !== "done" && !o.o.opt).length);
+    rows.push({ m, state, after, xp, cash, effort, known: !!rw, score: 0 });
+  }
+  // A locked one's effort includes what's left of the missions it waits on (done first)
+  const byRow = new Map(rows.map((r) => [r.m.i, r]));
+  for (const r of rows) if (r.after) r.effort += r.after.reduce((sum, d) => sum + (byRow.get(d)?.effort || 0), 0);
+  const maxXp = Math.max(1, ...rows.map((r) => r.xp)), maxCash = Math.max(1, ...rows.map((r) => r.cash));
+  for (const r of rows) {
+    const both = r.xp / maxXp + r.cash / maxCash;
+    r.score = goal === "cash" ? r.cash : goal === "balanced" ? both : goal === "effort" ? both / r.effort : r.xp;
+  }
+  rows.sort((a, b) => b.known - a.known || b.score - a.score || a.m.num - b.m.num);
+  return { rows: afterTheirs(rows), totalXp: rows.reduce((sum, r) => sum + r.xp, 0) };
+}
+
+/** The ranked rows with every locked one moved just below the last mission it waits on, when it
+ *  would rank above it (you can't do it first); the rest keeps its order. */
+function afterTheirs(rows) {
+  const listed = new Set(rows.map((r) => r.m.i)), placed = new Set(), out = [], waiting = [];
+  const ready = (r) => (r.after || []).every((d) => placed.has(d) || !listed.has(d));
+  const place = (r) => {
+    out.push(r);
+    placed.add(r.m.i);
+    for (let k = 0; k < waiting.length;) { // whoever was waiting on it, in their ranked order
+      if (ready(waiting[k])) place(waiting.splice(k, 1)[0]);
+      else k++;
+    }
+  };
+  for (const r of rows) (ready(r) ? place : (x) => waiting.push(x))(r);
+  return out.concat(waiting);
 }

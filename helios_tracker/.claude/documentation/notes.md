@@ -159,6 +159,10 @@ item's `DefinitionData.ItemDefinition` (a `UsableItemDefinition`):
 
 ## Backlog
 
+- **Best now: first version DONE** (2026-09-23: ranking + XP share). Still open: mission level vs the
+  player's (XP drops when outlevelled: "do it soon"), item reward rarity, other currencies (eridium
+  / seraph), best area (rewards summed per area), unlock value.
+
 - **Background opacity** (user, 2026-09-23, "later"): for OBS / overlays - the map's background
   (the canvas fill `COLORS.bg` + the page's `--bg`, `#0b1116`) with an opacity setting down to
   transparent (OBS browser sources render a transparent page see-through); also as a URL parameter

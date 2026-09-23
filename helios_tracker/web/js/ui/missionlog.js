@@ -4,10 +4,11 @@
 import { $, esc, gameTextHtml, nameHtml } from "../dom.js";
 import { num, t } from "../i18n.js";
 import { icon } from "../icons.js";
-import { missionAreas, missionCounts, missionState, missionTree, nodeVisible, objectiveStates } from "../missions.js";
+import { GOALS, missionAreas, missionCounts, missionState, missionTree, nodeVisible, objectiveStates, rankMissions, rewardFor,
+  searchMissions } from "../missions.js";
 import { cleanGameText } from "../model.js";
 import { saveSettings, settings } from "../settings.js";
-import { S } from "../state.js";
+import { S, isTrackedPlayer } from "../state.js";
 import { renderPlayers } from "./players.js";
 
 const STATE_ICON = { done: "check", active: "diamond", available: "circle", unknown: "circleDashed", locked: "lock", other: "question" };
@@ -28,27 +29,99 @@ const storyFlag = (m) => (m.plot ? `<span class="mflag">${esc(t("mdetail.storyFl
 
 const stateText = (node) => (node.state === "other" ? cleanGameText(node.m.st) : t("mstate." + node.state));
 
-function rowHtml(node, depth, showLocked) {
+/** Names the game gives to several missions (the 5 "Message in a Bottle"...): those rows show their
+ *  area too, so they don't read as repeats. */
+let sharedNames = new Set(), sharedFor = null;
+function nameShared(m) {
+  if (sharedFor !== S.log) {
+    const counts = new Map();
+    for (const x of S.log.missions) counts.set(x.n, (counts.get(x.n) || 0) + 1);
+    sharedNames = new Set([...counts].filter(([, n]) => n > 1).map(([name]) => name));
+    sharedFor = S.log;
+  }
+  return sharedNames.has(m.n);
+}
+
+function rowHtml(node, depth, showLocked, withArea = false) {
   if (!nodeVisible(node, showLocked)) return "";
   const m = node.m, tracked = S.log && S.log.tracked === m.i;
+  withArea = withArea || nameShared(m);
   const children = node.children.map((c) => rowHtml(c, depth + 1, showLocked)).join("");
   return `<div class="mrow ${node.state}${m.plot ? " story" : ""}${tracked ? " tracked" : ""}" data-mission="${esc(m.i)}"` +
     ` style="--depth:${Math.min(depth, 6)}" title="${esc(stateText(node))}"><span class="mico">${icon(STATE_ICON[node.state])}</span>` +
-    `<span class="mn">${nameHtml(m)}</span>${storyFlag(m)}` +
+    `<span class="mn">${nameHtml(m)}</span>${withArea && m.area ? `<span class="marea">${esc(m.area)}</span>` : ""}${storyFlag(m)}` +
     `${tracked ? `<span class="mtag">${esc(t("mdetail.tracked"))}</span>` : ""}</div>` + children;
 }
 
-// The log's two views: "chain" (story missions in order, what each unlocks under it) and "area"
-const GROUPINGS = ["chain", "area"];
+// The log's views: "chain" (story missions in order, what each unlocks under it), "area", and "best"
+// (what to do now, ranked: min-maxing XP / cash)
+const GROUPINGS = ["chain", "area", "best"];
+const BEST_TOP = 10;
+
+/** The selected player (Who): rewards and XP shares are theirs. */
+function selectedPlayer() {
+  return S.players.find((p) => isTrackedPlayer(p)) || S.players.find((p) => p.local) || null;
+}
+
+/** "+1,128 XP · 34 %": the XP, then its share of the player's current level (a guide for now: it
+ *  means less once they level up - the number stays). */
+function xpText(xp, player) {
+  const size = player && player.xp ? player.xp[1] : 0;
+  return t("mdetail.xp", { n: xp }) + (size ? " · " + t("best.pct", { n: Math.round((xp / size) * 100) }) : "");
+}
+
+function bestHtml() {
+  const player = selectedPlayer();
+  const level = player ? player.lvl : 0;
+  const goal = GOALS.includes(settings.ui.missionGoal) ? settings.ui.missionGoal : "xp";
+  const { rows, totalXp } = rankMissions(S.log.missions, goal, level);
+  let html = `<div class="mtools"><span class="seg">` + GOALS.map((g) =>
+    `<button data-mgoal="${g}" class="${g === goal ? "on" : ""}" title="${esc(t("mgoal." + g + "Tip"))}">${esc(t("mgoal." + g))}</button>`).join("") +
+    `</span></div>`;
+  if (player) {
+    const size = player.xp ? player.xp[1] : 0;
+    html += `<div class="muted mbestsum">${esc(t("best.for", { name: player.n, n: level }))}` +
+      (totalXp ? ` · ${esc(t("best.total", { xp: totalXp }))}` + (size ? ` ${esc(t("best.levels", { n: (totalXp / size).toFixed(1) }))}` : "") : "") + `</div>`;
+  }
+  if (!rows.length) return html + `<div class="muted">${esc(t("best.none"))}</div>`;
+  html += `<div class="mbestlist">` + rows.slice(0, BEST_TOP).map((r, n) => { // the top 10 only
+    const m = r.m, after = (r.after || []).map((d) => S.log.missions.find((x) => x.i === d)).filter(Boolean);
+    const sub = [m.area, after.length ? t("best.after", { name: after.map((x) => x.n).join(", ") }) : "",
+      goal === "effort" ? t("best.left", { n: r.effort }) : ""].filter(Boolean).join(" · "); // quick wins: why it ranks there
+    const values = !r.known ? `<span class="muted">${esc(t("best.noReward"))}</span>`
+      : [r.xp ? `<span class="mxp">${esc(xpText(r.xp, player))}</span>` : "", r.cash ? `<span class="mcash">$${esc(num(r.cash))}</span>` : ""].join("");
+    return `<div class="mbest mrow ${r.state}${m.plot ? " story" : ""}" data-mission="${esc(m.i)}" title="${esc(stateText(r))}">` +
+      `<span class="mrank">${n + 1}</span><span class="mico">${icon(STATE_ICON[r.state])}</span>` +
+      `<span class="mbody"><span class="mn">${nameHtml(m)}</span>${sub ? `<span class="msub">${esc(sub)}</span>` : ""}</span>` +
+      `<span class="mval">${values}</span></div>`;
+  }).join("") + `</div>`;
+  return html;
+}
 
 function treeHtml() {
   const missions = S.log.missions, showLocked = !!settings.ui.showLockedMissions;
   const grouping = GROUPINGS.includes(settings.ui.missionGroup) ? settings.ui.missionGroup : "chain";
   const c = missionCounts(missions);
-  let html = `<div class="mtools"><span class="seg">` + GROUPINGS.map((g) =>
+  return `<input type="search" id="mSearch" class="msearch" placeholder="${esc(t("mlog.search"))}" value="${esc(S.missionView.query || "")}">` +
+    `<div class="mtools"><span class="seg">` + GROUPINGS.map((g) =>
     `<button data-mgroup="${g}" class="${g === grouping ? "on" : ""}">${esc(t("mlog.by." + g))}</button>`).join("") + `</span>` +
-    `<label class="row mlocked"><input type="checkbox" id="mShowLocked"${showLocked ? " checked" : ""}>` +
-    `<span>${esc(t("mlog.showLocked", { n: c.locked }))}</span></label></div>`;
+    (grouping === "best" ? "" : `<label class="row mlocked"><input type="checkbox" id="mShowLocked"${showLocked ? " checked" : ""}>` +
+    `<span>${esc(t("mlog.showLocked", { n: c.locked }))}</span></label>`) + `</div>` +
+    `<div id="mList">${listHtml()}</div>`;
+}
+
+/** Under the tools: the search's matches (a flat list, with their area), or the tree / areas. */
+function listHtml() {
+  const missions = S.log.missions, showLocked = !!settings.ui.showLockedMissions;
+  const query = S.missionView.query || "";
+  if (query.trim()) {
+    const found = searchMissions(missions, query);
+    return found.length ? `<div class="mtree">${found.map((n) => rowHtml(n, 0, true, true)).join("")}</div>`
+      : `<div class="muted">${esc(t("mlog.noMatch"))}</div>`;
+  }
+  const grouping = GROUPINGS.includes(settings.ui.missionGroup) ? settings.ui.missionGroup : "chain";
+  if (grouping === "best") return bestHtml();
+  let html = "";
   const sections = grouping === "area"
     ? missionAreas(missions).map((a) => [a.area || t("mlog.noArea"), a.nodes])
     : (() => { const tree = missionTree(missions); return [[t("mlog.story"), tree.story], [t("mlog.other"), tree.other]]; })();
@@ -61,10 +134,10 @@ function treeHtml() {
 
 /** The reward, as the game computes it for this player (XP, currency, items); an alternative one
  *  (some missions let you choose) after an "or". */
-function rewardHtml(rw) {
+function rewardHtml(rw, player) {
   const side = (r) => {
     const rows = [];
-    if (r.xp) rows.push(esc(t("mdetail.xp", { n: r.xp })));
+    if (r.xp) rows.push(esc(xpText(r.xp, player)));
     if (r.cash) rows.push(esc(r.cur === "Credits" || !r.cur ? "$" + num(r.cash) : `${num(r.cash)} ${cleanGameText(r.cur)}`));
     const items = [...(r.items || []), ...(r.pools || [])].map(nameHtml);
     return [...rows.map((x) => `<div class="mrw">${x}</div>`), ...items.map((x) => `<div class="mrw mrwitem">${x}</div>`)].join("");
@@ -94,7 +167,9 @@ function detailHtml(m, tree) {
       `<span class="mn">${nameHtml(s.o)}${s.o.opt ? ` <span class="mopt">${esc(t("mdetail.optional"))}</span>` : ""}</span>` +
       (s.o.c > 1 ? `<span class="mcount">${num(Math.min(s.p, s.o.c))}/${num(s.o.c)}</span>` : "") + `</div>`).join("");
   }
-  if (m.rw) html += rewardHtml(m.rw);
+  const player = selectedPlayer(), reward = player ? rewardFor(m, player.lvl) : null;
+  if (reward) html += rewardHtml(reward, player);
+  else if (m.rw) html += `<div class="group">${esc(t("mdetail.rewards"))}</div><div class="muted">${esc(t("best.noReward"))}</div>`;
   // Requires / unlocks: neutral rows (the story flag and colours are for the mission shown, not the
   // ones it links to), with the linked mission's state
   const link = (id) => {
@@ -113,6 +188,9 @@ function detailHtml(m, tree) {
 
 export function renderMissionLog(resetScroll) {
   const body = $("ibody"), scroll = body.scrollTop;
+  // the search box is rebuilt with the rest: keep its focus / caret across a refresh from the game
+  const search = document.activeElement && document.activeElement.id === "mSearch" ? document.activeElement : null;
+  const caret = search ? [search.selectionStart, search.selectionEnd] : null;
   $("itabs").style.display = "none";
   if (!S.log || !S.log.missions.length) {
     $("iwho").textContent = t("mlog.title");
@@ -134,6 +212,7 @@ export function renderMissionLog(resetScroll) {
     $("iwho").textContent = t("mlog.title");
     $("isub").textContent = t("mlog.summary", { done: c.done, active: c.active, available: c.available, unknown: c.unknown });
     body.innerHTML = treeHtml();
+    if (caret) { const input = $("mSearch"); input.focus(); input.setSelectionRange(...caret); }
   }
   body.scrollTop = resetScroll ? 0 : scroll;
 }
@@ -159,10 +238,18 @@ export function initMissionLog() {
   $("inspector").addEventListener("click", (e) => {
     if (!S.missionView) return;
     if (e.target.closest("#mBack")) { goBack(); return; }
+    const goal = e.target.closest("[data-mgoal]");
+    if (goal) { settings.ui.missionGoal = goal.dataset.mgoal; saveSettings(); $("mList").innerHTML = listHtml(); return; }
     const grouping = e.target.closest("[data-mgroup]");
     if (grouping) { settings.ui.missionGroup = grouping.dataset.mgroup; saveSettings(); renderMissionLog(true); return; }
     const row = e.target.closest("[data-mission]");
     if (row) goTo(row.dataset.mission);
+  });
+  // Typing a search: only the list under the box is redrawn (the box keeps its focus)
+  $("inspector").addEventListener("input", (e) => {
+    if (e.target.id !== "mSearch" || !S.missionView) return;
+    S.missionView.query = e.target.value;
+    $("mList").innerHTML = listHtml();
   });
   $("inspector").addEventListener("change", (e) => {
     if (e.target.id !== "mShowLocked") return;

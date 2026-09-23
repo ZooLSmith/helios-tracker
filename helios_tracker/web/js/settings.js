@@ -28,7 +28,7 @@ export function defaults() {
       motion: "smooth",
     },
     ui: { lang: "auto", panelTab: "info", inspectorTab: "info", openLayers: [], closedGroups: [], showLockedMissions: false,
-      missionGroup: "chain" },
+      missionGroup: "chain", missionGoal: "xp" },
   };
 }
 

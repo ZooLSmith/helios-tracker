@@ -766,8 +766,29 @@ class Collector:
     def _full_log(self) -> None:
         tracker = self._tracker() if self._tracker is not None else None
         if tracker is not None:
-            self._log.full(tracker, get_pc(possibly_loading=True))
+            self._log.full(tracker, self._player_controllers())
             self._publish_log()
+
+    @staticmethod
+    def _player_controllers() -> list[Any]:
+        """The local controller, then every other player's the game has here (the host has them all;
+        a co-op client only its own)."""
+        pcs, seen = [], set()
+        local = get_pc(possibly_loading=True)
+        wi = ENGINE.GetCurrentWorldInfo()
+        pawn = try_(lambda: wi.PawnList)
+        candidates = [local]
+        for _ in range(MAX_PAWNS):
+            if pawn is None:
+                break
+            if "PlayerPawn" in str(pawn.Class.Name):
+                candidates.append(try_(lambda p=pawn: p.Controller))
+            pawn = try_(lambda p=pawn: p.NextPawn)
+        for pc in candidates:
+            if pc is not None and hasattr(pc, "PlayerReplicationInfo") and pc._get_address() not in seen:
+                seen.add(pc._get_address())
+                pcs.append(pc)
+        return pcs
 
     def _publish_log(self) -> None:
         """The mission log, only when something in it changed (definitions are cached: a change is

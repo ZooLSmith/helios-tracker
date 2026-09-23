@@ -414,6 +414,10 @@ const flat = (nodes, d = 0) => nodes.flatMap((n) => [`${"-".repeat(d)}${n.m.i}:$
 const areaLog = [{ i: "a", num: 5, st: "Complete", deps: [], area: "Sanctuary" }, { i: "b", num: 1, st: "Active", deps: [], area: "Shelf" },
   { i: "c", num: 9, st: "NotStarted", deps: [] }, { i: "d", num: 3, st: "NotStarted", deps: [], area: "Sanctuary", kick: 1 }];
 const areas = missionAreas(areaLog).map((a) => `${a.area}:${a.nodes.map((n) => n.m.i).join("")}`);
+const { searchMissions } = await load("js/missions.js");
+const searchLog = [{ i: "a", num: 2, st: "Complete", deps: [], n: "Ménage à Liar's Berg", area: "Southern Shelf" },
+  { i: "b", num: 1, st: "NotStarted", deps: ["x"], n: "Le bruit et la fourrure", area: "Southern Shelf", giver: "Hammerlock" }];
+const search = ["menage", "SOUTHERN", "shelf hammer", "", "nothing"].map((q) => searchMissions(searchLog, q).map((n) => `${n.m.i}:${n.state}`).join(","));
 // The player Info tab, from a pawn in the state: state, vitals, action skill, timed effects, melee cooldown
 const { S } = await load("js/state.js");
 const { playerInfoHtml } = await load("js/ui/playerinfo.js");
@@ -421,7 +425,30 @@ S.pawns.set("p1", { i: "p1", k: "me", h: 60, m: 100, s: 20, sm: 50, x: 0, y: 0, 
   ak: ["a", 0.6, 12, "Gunzerking"], ps: [["Locked and Loaded - active", 3.4, 5.5]], mk: [0.5, 7.5] });
 S.pawns.set("p2", { i: "p2", k: "player", h: 0, m: 100, s: 0, sm: 0, x: 0, y: 0, z: 0, r: 0, dn: 1 });
 const infoHtml = [playerInfoHtml({ i: "p1", local: 1, lvl: 30, xp: [500, 1000] }), playerInfoHtml({ i: "p2" }), playerInfoHtml({ i: "gone" })];
-const missionsOut = { infoHtml, areas, gameText, story: flat(tree.story), other: flat(tree.other), counts: missionCounts(log),
+// "Best now": doable (active / available / unknown) + locked one step away; ranked by goal, per level
+const { rankMissions } = await load("js/missions.js");
+const rwAt = (xp, cash, alt) => ({ "30": { xp, cash, cur: "Credits", ...(alt ? { alt } : {}) } });
+const bestLog = [
+  { i: "d", num: 1, st: "Complete", deps: [] },
+  { i: "a", num: 2, st: "Active", deps: ["d"], obj: [{ c: 1 }, { c: 1 }], p: [1, 0], rw: rwAt(1000, 10) },
+  { i: "v", num: 3, st: "NotStarted", deps: ["d"], kick: 1, obj: [{ c: 1 }, { c: 1 }, { c: 1 }], rw: rwAt(500, 400) },
+  { i: "u", num: 4, st: "NotStarted", deps: ["d"], obj: [{ c: 1 }], rw: rwAt(300, 50, { xp: 2000, cash: 0 }) },
+  { i: "l1", num: 5, st: "NotStarted", deps: ["a"], obj: [{ c: 1 }], rw: rwAt(100, 1) },
+  { i: "l2", num: 6, st: "NotStarted", deps: ["l1"], rw: rwAt(9999, 9999) },
+  // the biggest reward, but after "a": never listed above it (and its effort includes a's)
+  { i: "l3", num: 13, st: "NotStarted", deps: ["a"], obj: [{ c: 1 }], rw: rwAt(9000, 0) },
+  { i: "e", num: 7, st: "NotStarted", deps: ["d"], kick: 1 },
+  // a DLC's first mission (needs nothing, never offered: unknown) - the ones after it stay out
+  { i: "r", num: 8, st: "NotStarted", deps: [] }, { i: "rc", num: 9, st: "NotStarted", deps: ["r"], rw: rwAt(5000, 5000) },
+  // DLCs: never-offered missions only once the DLC is started (x: DLC 1 not started; y: DLC 2 started by y0)
+  { i: "x", num: 10, st: "NotStarted", deps: [], dlc: "DLC1", rw: rwAt(7000, 0) },
+  { i: "y0", num: 11, st: "Complete", deps: [], dlc: "DLC2" }, { i: "y", num: 12, st: "NotStarted", deps: [], dlc: "DLC2" }];
+const best = Object.fromEntries(["xp", "cash", "effort"].map((g) => [g, rankMissions(bestLog, g, 30).rows.map((r) => r.m.i).join("")]));
+const bestAt30 = rankMissions(bestLog, "xp", 30);
+best.after = bestAt30.rows.find((r) => r.m.i === "l1").after;
+best.total = bestAt30.totalXp;
+best.otherLevel = rankMissions(bestLog, "xp", 12).rows.filter((r) => r.known).length;
+const missionsOut = { best, search, infoHtml, areas, gameText, story: flat(tree.story), other: flat(tree.other), counts: missionCounts(log),
   objectives: objectiveStates(log[1]).map((s) => s.state) };
 console.log(JSON.stringify({ sha: crypto.createHash("sha256").update(rgba).digest("hex"), err, back, right, raw, modules, missions: missionsOut,
   migrated, checked: { enemy: checked.layers.enemy, view: checked.view, openLayers: checked.ui.openLayers }, i18nKeys, unknownSettings, lootLayers }));
@@ -782,6 +809,24 @@ def check_helios_tracker() -> None:  # noqa: PLR0915
     assert [by_id[k]["st"] for k in ("GD_Episode02.M_Ep2_Henchman", "GD_Z1_Side.M_Side")] == ["Complete", "NotStarted"], by_id
     assert tracked["area"] == "Southern Shelf" and "area" not in by_id["GD_Z1_Side.M_Side"], "mission area (TravelStation)"
     assert by_id["GD_Z1_Side.M_Side"].get("kick") == 1 and "kick" not in by_id["GD_Z1_Later.M_Later"], "offered flag (bHeardKickoff)"
+    # rewards per player level (tools/probe_rewards.txt: MissionDefinition.GetExperienceReward(pc, bAlt))
+    from helios_tracker import missions as mission_log  # noqa: PLC0415
+
+    def controller(addr: int, level: int):  # noqa: ANN202
+        return ns(_get_address=lambda: addr, PlayerReplicationInfo=ns(ExpLevel=level))
+    for d in (henchman, mission, side, later):
+        d.GetExperienceReward = lambda pc, alt: pc.PlayerReplicationInfo.ExpLevel * 100
+    log_obj = mission_log.MissionLog()
+    log_obj.full(tracker, [controller(1, 30), controller(2, 12), controller(3, 30)])
+    rewarded = {m["i"]: m.get("rw") for m in log_obj.payload(1)["missions"]}
+    assert rewarded["GD_Episode02.M_Ep2a_MoreGuns"] == {"30": {"xp": 3000}, "12": {"xp": 1200}}, rewarded
+    assert rewarded["GD_Z1_Later.M_Later"] == {"30": {"xp": 3000}, "12": {"xp": 1200}}, "one step away: rewarded"
+    assert rewarded["GD_Episode02.M_Ep2_Henchman"] is None, "done: no reward"
+    henchman.DlcExpansion = ns(_path_name=lambda: "GD_Orchid.DLC")  # the definitions are cached: a fresh one
+    mission_log._defs.clear()
+    log_obj.full(tracker, [controller(1, 30)])
+    dlcs = {m["i"]: m.get("dlc") for m in log_obj.payload(1)["missions"]}
+    assert dlcs["GD_Episode02.M_Ep2_Henchman"] == "GD_Orchid.DLC" and dlcs["GD_Z1_Side.M_Side"] is None, dlcs
     version = hub._channels["missionlog"][0]
     c.tick(1001.5)  # nothing changed: not published again
     assert hub._channels["missionlog"][0] == version, "mission log republished with no change"
@@ -915,6 +960,10 @@ def check_helios_tracker() -> None:  # noqa: PLR0915
     assert mis["counts"] == {"done": 2, "active": 1, "available": 1, "unknown": 1, "locked": 2, "other": 1}, mis["counts"]
     assert mis["objectives"] == ["done", "current", "current"], mis["objectives"]
     assert mis["areas"] == ["Shelf:b", "Sanctuary:da", ":c"], mis["areas"]
+    assert mis["search"] == ["a:done", "b:locked,a:done", "b:locked", "", ""], mis["search"]
+    best = mis["best"]  # u counts its alternative reward (2000 XP); l2 (two steps away) and d (done) are out; e: no reward known
+    assert (best["xp"], best["cash"], best["effort"]) == ("ual3vl1ery", "vual1l3ery", "vual3l1ery"), best
+    assert best["after"] == ["a"] and best["total"] == 12600 and best["otherLevel"] == 0, best
     me_info, down_info, gone_info = mis["infoHtml"]
     for want in ("Fine", "Shield", "60 / 100", "Level 30", "500 / 1,000", "Gunzerking", "Active · 12 s", "Locked and Loaded - active", "4 s", "Melee skill", "8 s"):
         assert want in me_info, (want, me_info)

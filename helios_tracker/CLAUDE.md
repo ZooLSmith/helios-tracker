@@ -45,7 +45,13 @@ and interactive objects on it, with zoom / pan. Read the root `../CLAUDE.md` fir
   `GetCurrencyReward` (function calls: only active / available / tracked missions, cached per
   mission and player level). Story missions: yellow + a flag; side missions: grey. Two views (remembered): story chain, or
   by area (`TravelStation.StationDisplayName`, the game's text; areas in story order). Rewards are
-  the local player's (the host's), as the game computes them for their level.
+  computed per player level (every player's controller on the host, only yours on a co-op client);
+  the page shows the selected player's (Who).
+- **Best now** (the log's third view, min-maxing): the missions doable now (active / available /
+  unknown) + the locked ones a single step away ("after ..."; deeper ones left out), ranked by a
+  goal: XP, cash (credits), both (each scaled to the best), per objective left; a mission's better
+  reward (normal / alternative) counts. Top 10, "show all". XP shown as the number then its share
+  of the selected player's level; the total available XP ≈ levels. `rankMissions` in missions.js.
 - The drawer closes when what it shows is gone (loot picked up, pawn dead, marker done).
 - Respawning players (see notes): drawn faded with a dashed ring at the New-U they'll come back at
   (follow goes there), never at the parked position; "Crippled" / "Respawning" over the bars in the

@@ -87,7 +87,8 @@ export function initInput() {
   canvas.addEventListener("dblclick", (e) => zoomAt(e.clientX, e.clientY, 2));
 
   window.addEventListener("keydown", (e) => {
-    if (e.target.tagName === "SELECT" || e.ctrlKey || e.metaKey || e.altKey) return;
+    // typing in a field (the mission search...) or a menu: not a shortcut
+    if (["SELECT", "INPUT", "TEXTAREA"].includes(e.target.tagName) || e.ctrlKey || e.metaKey || e.altKey) return;
     const k = e.key.toLowerCase();
     if (k === "escape") { closeInspector(); return; }
     if (k === "f") { $("follow").click(); }

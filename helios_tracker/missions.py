@@ -69,6 +69,10 @@ def _definition(mdef: Any) -> tuple[dict[str, Any], dict[int, int]]:
         record["area"] = area
     if (nxt := try_(lambda: mdef.NextMissionInChain)) is not None:
         record["next"] = mission_id(nxt)
+    # Its DLC (MissionDefinition.DlcExpansion: None for the base game) - the page's "Best now" leaves
+    # a DLC's never-offered missions out until that DLC is started
+    if (dlc := try_(lambda: mdef.DlcExpansion)) is not None:
+        record["dlc"] = try_(lambda: str(dlc._path_name()), "") or def_name(dlc)
     if try_(lambda: bool(mdef.bRepeatable), False):
         record["repeat"] = 1
     if try_(lambda: bool(mdef.bCanBeFailed), False):
@@ -135,7 +139,7 @@ class MissionLog:
     def __init__(self) -> None:
         self._records: list[dict[str, Any]] = []  # per MissionList entry (the definition's record)
         self._mdefs: list[Any] = []  # the definitions (static game data)
-        self._rewards: dict[int, dict[str, Any]] = {}  # entry -> reward (active / available / tracked)
+        self._rewards: dict[int, dict[str, Any]] = {}  # entry -> {player level: reward}
         self._addrs: list[int] = []  # MissionDef address per entry (the fast pass checks the order)
         self._indexes: list[dict[int, int]] = []
         self._live: list[tuple[str, tuple[int, ...], tuple[int, ...], bool]] = []
@@ -143,7 +147,7 @@ class MissionLog:
         self._tracked = ""
         self.dirty = False  # changed since the last payload()
 
-    def full(self, tracker: Any, pc: Any = None) -> None:
+    def full(self, tracker: Any, pcs: list[Any] | None = None) -> None:
         """Every entry: definitions (cached) and live state; rewards of the ones that matter."""
         records, addrs, indexes, live, watch, mdefs = [], [], [], [], [], []
         for n, entry in enumerate(try_(lambda: list(tracker.MissionList), []) or []):
@@ -164,20 +168,37 @@ class MissionLog:
         self._records, self._addrs, self._indexes, self._live, self._watch = records, addrs, indexes, live, watch
         self._mdefs = mdefs
         self._track(tracker)
-        self._update_rewards(pc)
+        self._update_rewards(pcs or [])
 
-    def _update_rewards(self, pc: Any) -> None:
-        """Rewards of the active, available (every dependency done) and tracked missions."""
-        if pc is None:
+    def _update_rewards(self, pcs: list[Any]) -> None:
+        """Rewards of the missions doable now (active, or not started with every dependency done),
+        the ones a single step away (every dependency done or doable now: the page's "Best now"
+        ranking shows them, "after ..."), and the tracked one - per player level (the game scales them
+        to the player: computed with a controller of that level; the page picks its selected
+        player's). Every player's controller on the host, only your own on a co-op client."""
+        by_level: dict[int, Any] = {}
+        for pc in pcs:
+            level = try_(lambda pc=pc: int(pc.PlayerReplicationInfo.ExpLevel), 0)
+            if level > 0:
+                by_level.setdefault(level, pc)
+        if not by_level:
             return
-        level = try_(lambda: int(pc.PlayerReplicationInfo.ExpLevel), 0)
+        records = {r["i"]: r for r in self._records}
         status = {r["i"]: s[0] for r, s in zip(self._records, self._live, strict=True)}
+
+        def doable(mission_id: str) -> bool:
+            st = status.get(mission_id)
+            return st == "Active" or (st == "NotStarted" and all(status.get(d) == "Complete" for d in records[mission_id]["deps"]))
+
         rewards = {}
         for k, (record, (st, *_)) in enumerate(zip(self._records, self._live, strict=True)):
-            wanted = st == "Active" or record["i"] == self._tracked or (
-                st == "NotStarted" and all(status.get(d) == "Complete" for d in record["deps"]))
-            if wanted and (reward := _reward(self._mdefs[k], pc, level)):
-                rewards[k] = reward
+            wanted = doable(record["i"]) or record["i"] == self._tracked or (
+                st == "NotStarted" and all(status.get(d) == "Complete" or (d in records and doable(d)) for d in record["deps"]))
+            if not wanted:
+                continue
+            per_level = {str(level): r for level, pc in by_level.items() if (r := _reward(self._mdefs[k], pc, level))}
+            if per_level:
+                rewards[k] = per_level
         if rewards != self._rewards:
             self._rewards = rewards
             self.dirty = True
