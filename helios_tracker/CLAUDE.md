@@ -106,7 +106,8 @@ and interactive objects on it, with zoom / pan. Read the root `../CLAUDE.md` fir
   branch hidden. Player vitals (shield then health bars, numbers inside) in the Players list.
 - **Layers tab**: categories (Characters, Loot, World: plain headings that fold, no box), a row
   per layer (enabled, marker icon, count, ⚙) and its settings panel inline under it (several can
-  be open; Close all). Players can't be hidden (no enabled box), only configured. Folder rows (a tri-state box
+  be open). Buttons: All on / All off (every layer on the map) and Collapse (every category and
+  folder folded, every settings panel closed). Players can't be hidden (no enabled box), only configured. Folder rows (a tri-state box
   turning their layers on / off, they fold): **Gear** (a layer per rarity; `misc` = rarity 0 /
   unknown), **Pickups** (not gear, a layer per kind: Ammo, Cash, Eridium, Health, Mission items (WillowMissionItem: ECHO logs, objective items; the objectives' green), Other - the collector's
   `pk`, from the item definition's inventory card `Presentation`, resolved once per definition:

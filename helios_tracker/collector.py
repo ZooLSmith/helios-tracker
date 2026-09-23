@@ -46,6 +46,7 @@ LOOTED_EVERY = 1.0  # s between checks of unlooted containers (two property read
 LOOTED_PER_PASS = 60
 SLOW_MS = 4.0  # a task taking longer than this on the game thread is reported (it can cause a hitch)
 RECORDS_SECONDS = 0.002  # per tick, building the records of newly found interactive objects (a scan's backlog)
+INCOMPLETE_EVERY = 1.0  # s between retries of object records built before their definition arrived
 SLOW_REPORT_EVERY = 30.0  # s between console reports of slow tasks
 
 
@@ -300,7 +301,8 @@ class Collector:
         # objects a scan found, their record not built yet: built a few per tick (a level's first scan
         # has hundreds: one long hitch otherwise)
         self._pending_records: dict[tuple[int, str], WeakPointer] = {}
-        self._incomplete: set[tuple[int, str]] = set()  # records built before their definition: built again
+        self._incomplete: dict[tuple[int, str], WeakPointer] = {}  # records built before their definition: built again
+        self._next_incomplete = 0.0
         self._unlooted: dict[tuple[int, str], WeakPointer] = {}  # lootable containers not opened yet
         self._next_looted = 0.0
 
@@ -333,6 +335,13 @@ class Collector:
             self._next_missions = 0.0  # it (re)finds the mission tracker: read the markers now
             heavy = True
         run("state", self._publish_state, now)
+        if self._incomplete and now >= self._next_incomplete:  # built before their definition: again (not every 120 s)
+            self._next_incomplete = now + INCOMPLETE_EVERY
+            for key, ptr in list(self._incomplete.items()):
+                if ptr() is None:  # gone meanwhile
+                    del self._incomplete[key]
+                else:
+                    self._pending_records.setdefault(key, ptr)
         if self._pending_records:
             run("object records", self._build_pending_records)
         if self._objects_dirty:
@@ -566,16 +575,17 @@ class Collector:
 
     def _note_incomplete(self, key: tuple[int, str], io: Any) -> None:
         """A record built before the object had its definition (it arrives a moment after the object
-        on a co-op client, maybe after a spawn too): "Interactive Object ?", in "Other", not a
-        container - rebuilt at the next objects scans until it has one."""
+        - a co-op client, the host too after a level load): "Interactive Object ?", in "Other", not a
+        container - retried every INCOMPLETE_EVERY until it has one (the full objects scan is only every
+        OBJECTS_EVERY, 120 s: the first version waited for it - "2 min to sync")."""
         if try_(lambda: io.InteractiveObjectDefinition) is None:
-            self._incomplete.add(key)
+            self._incomplete[key] = WeakPointer(io)
         else:
-            self._incomplete.discard(key)
+            self._incomplete.pop(key, None)
 
     def object_destroyed(self, io: Any) -> None:
         key = (io._get_address(), str(io.Name))
-        self._incomplete.discard(key)
+        self._incomplete.pop(key, None)
         self._object_records.pop(key, None)
         self._unlooted.pop(key, None)
         if self._objects.pop(key, None) is not None:

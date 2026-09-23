@@ -231,6 +231,8 @@ function detailHtml(m, tree) {
     rows.push([t("mdetail.level"), num(m.ml) + (diff ? ` · ${t("mdiff." + diff)}` : "") +
       (player && gap ? ` · ${t(gap < 0 ? "mdetail.below" : "mdetail.above", { n: Math.abs(gap) })}` : "") +
       ` · ${t(m.mlk ? "mdetail.lockedShort" : "mdetail.wouldLockShort")}`]);
+  } else if (open) { // no level yet: its region was never visited (the game prices it once you've been there)
+    rows.push([t("mdetail.level"), t("mdetail.levelUnknown")]);
   }
   const flags = [m.repeat && t("mdetail.repeatable"), m.fail && t("mdetail.canFail")].filter(Boolean);
   if (flags.length) rows.push([t("mdetail.flags"), flags.join(" · ")]);

@@ -121,7 +121,8 @@ export function objectCategory(o) {
   const s = (o.d + " " + o.n + " " + o.c).toLowerCase();
   if (/vending|vendor|shop/.test(s)) return "vendor";
   if (/vaultroy|vaultsymbol/.test(s)) return "vaultsymbol"; // before "container": "Vault..." isn't a vault chest
-  if (/fasttravel|fast travel|travelstation|newu|respawn|quickchange|customiz/.test(s)) return "station";
+  // machines you use: fast travel, New-U, Quick Change, the Catch-A-Ride terminals (vehicle spawns)
+  if (/fasttravel|fast travel|travelstation|newu|respawn|quickchange|customiz|catcharide|catch-a-ride|vehiclespawn/.test(s)) return "station";
   if (/chest|lockbox|lootable|loot|safe|cache|box|crate|locker|dumpster|toilet|cooler|cabinet|stash|pile/.test(s)) return "container";
   return "other";
 }

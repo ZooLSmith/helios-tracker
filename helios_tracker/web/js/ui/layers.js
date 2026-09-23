@@ -144,6 +144,12 @@ export function initLayers() {
 
   $("layersAll").onclick = () => setLayersOn(LAYERS, true);
   $("layersNone").onclick = () => setLayersOn(LAYERS, false);
-  $("layersClose").onclick = () => { settings.ui.openLayers = []; saveSettings(); renderLayers(); };
+  // Collapse: every layer's settings closed, every category and folder folded
+  $("layersClose").onclick = () => {
+    settings.ui.openLayers = [];
+    settings.ui.closedGroups = [...LAYER_GROUPS, ...LAYERS.filter((l) => l.folder).map((l) => foldKey(l.id))];
+    saveSettings();
+    renderLayers();
+  };
   renderLayers();
 }

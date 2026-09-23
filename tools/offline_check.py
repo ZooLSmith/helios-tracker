@@ -252,7 +252,8 @@ const itemLog = new Map([
 const items = [{ k: "for", i: "act", oi: 1 }, { k: "for", i: "act", oi: 2 }, { k: "for", i: "act", oi: 0 }, { k: "for", i: "new", oi: 0 },
   { k: "gives", i: "new" }, { k: "gives", i: "old" }, { k: "for", i: "nowhere", oi: 0 }].map((ms) => missionItemWanted(ms, itemLog));
 const { objectCategory } = await load("js/model.js");
-const vaultCat = objectCategory({ d: "IO_VaultRoy", n: "Vault Roy", c: "WillowInteractiveObject" });
+const vaultCat = objectCategory({ d: "IO_VaultRoy", n: "Vault Roy", c: "WillowInteractiveObject" })
+  + "," + objectCategory({ d: "CatchARideTerminal", n: "Catch-A-Ride", c: "WillowVehicleSpawnStationTerminal" });
 const missionsOut = { vaultCat, items, fallback, where, tooHigh, finish, difficulty, best, search, infoHtml, areas, gameText, story: flat(tree.story), other: flat(tree.other), counts: missionCounts(log),
   objectives: objectiveStates(log[1]).map((s) => s.state) };
 console.log(JSON.stringify({ sha: crypto.createHash("sha256").update(rgba).digest("hex"), err, back, right, raw, modules, missions: missionsOut,
@@ -832,6 +833,7 @@ def check_helios_tracker() -> None:  # noqa: PLR0915
     assert (tracked["ml"], tracked.get("mlk")) == (3, 1), "picked up: its level, locked"
     assert (by_id["GD_Z1_Side.M_Side"]["ml"], by_id["GD_Z1_Side.M_Side"].get("mlk")) == (3, None), "not picked up: the level it would lock at"
     assert "ml" not in by_id["GD_Episode02.M_Ep2_Henchman"], "done: no level read"
+    assert by_id["GD_Z1_Later.M_Later"].get("ml") == 3, "locked: its level too (the one it would lock at: a guide)"
     assert by_id["GD_Z1_Side.M_Side"].get("kick") == 1 and "kick" not in by_id["GD_Z1_Later.M_Later"], "offered flag (bHeardKickoff)"
     # the full pass in slices (a few entries per tick): nothing applied until the cycle completes
     from helios_tracker import missions as sliced  # noqa: PLC0415
@@ -1016,7 +1018,7 @@ def check_helios_tracker() -> None:  # noqa: PLR0915
     assert mis["finish"] == "f4:7,f1:5,f2:1", mis["finish"]
     # its objective current (to do) / later step / done / mission not started; gives: not started / done; unknown mission
     assert mis["items"] == [True, False, False, False, True, False, True], mis["items"]
-    assert mis["vaultCat"] == "vaultsymbol", ("a vault symbol: its own layer", mis["vaultCat"])
+    assert mis["vaultCat"] == "vaultsymbol,station", ("a vault symbol: its own layer; Catch-A-Ride: a station", mis["vaultCat"])
     fb = mis["fallback"]  # a reward not known for the player's level: the local player's level's, else any
     assert fb["own"] == {"xp": 900} and fb["toLocal"] == {"xp": 1100, "from": 15} and fb["toAny"] == {"xp": 900, "from": 12} and fb["none"] is None, fb
     w = mis["where"]  # where to go: the step's station (active), the turn-in one (ready), else its own

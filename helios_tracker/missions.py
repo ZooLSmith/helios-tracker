@@ -203,10 +203,11 @@ def _live(entry: Any, index: dict[int, int], prev: Live | None, doable: bool,
     level fixed, where to go (active), the objective it waits on (not started)) - reading only what
     can change, the full pass going over ~290 entries:
     - done: the status only (its progress is read once, when it gets done: final);
-    - not started: the status, offered (bHeardKickoff - the giver offered it; unverified in game) and,
-      if doable (every mission it needs done), its level: the one it would be fixed at if picked up now
-      (its region's current stage, MissionDefinition.GameStage) and the objective it still waits on
-      (_waiting_on: its ObjectiveDependency - the game won't offer it before);
+    - not started: the status, offered (bHeardKickoff - the giver offered it; unverified in game), its
+      level: the one it would be fixed at if picked up now (its region's current stage,
+      MissionDefinition.GameStage; locked ones too - a guide; 0 while its region was never visited)
+      and, if doable (every mission it needs done), the objective it still waits on (_waiting_on: its
+      ObjectiveDependency - the game won't offer it before);
     - active (and anything else): everything - progress, the current step (ActiveObjectiveSet +
       SubObjectiveSets), its level (GameStage, fixed when picked up: bGameStageLocked), and where
       to go for it now (active only): the StationOverride of its step's first objective left that has
@@ -222,7 +223,7 @@ def _live(entry: Any, index: dict[int, int], prev: Live | None, doable: bool,
         return status, progress, (), False, 0, False, None, None
     if status == "NotStarted":
         offered = bool(try_(lambda: entry.bHeardKickoff, False))
-        level = try_(lambda: int(field(entry.MissionDef, "GameStage")), 0) if doable else 0
+        level = try_(lambda: int(field(entry.MissionDef, "GameStage")), 0)  # (locked ones too: one property read)
         wait = None
         if doable and not offered and status_by_id is not None:
             wait = try_(lambda: _waiting_on(entry.MissionDef, status_by_id, progress or {}))

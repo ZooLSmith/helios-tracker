@@ -347,8 +347,10 @@ item's `DefinitionData.ItemDefinition` (a `UsableItemDefinition`):
   working in game (user: containers and all their kinds right, as a client).
 - **Objects shown as "Interactive Object ?"** (user, 2026-09-23): a record built before the object had
   its `InteractiveObjectDefinition` (it arrives after the object, on a client at least): made-up
-  class name, "Other", not a container. Such records are built again at each objects scan until the
-  definition is there (`_incomplete`). Seen fixed in game (the chests show).
+  class name, "Other", not a container. Such records are built again every second until the
+  definition is there (`_incomplete`, INCOMPLETE_EVERY) - first tied to the full objects scan, which
+  is every 120 s (OBJECTS_EVERY: a safety net, the hooks do the rest): "2 min to sync" (user). The
+  host too after a level load, not only a client. Seen fixed in game (the chests show).
 - **Quest givers on a co-op client** (tools/probe_directors.py, Sanctuary, 2026-09-24): NPCs have
   `MissionDirectives` (a `MissionDirectivesDefinition`: `MissionDirectives[]` = {MissionDefinition,
   bBeginsMission, bEndsMission, BranchEnding}; Scooter: Poetic License, Swallowed Whole, Cold
