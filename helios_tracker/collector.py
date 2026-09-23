@@ -162,6 +162,7 @@ class Collector:
         self._timings = _Timings()
         self.rate = 10.0  # updates per second (the mod's option; sent so the page can align on it)
         self._hook_seen = False
+        self._usability_hook_seen = False
         self._vars_logged: set[str] = set()  # pawn kinds whose health / shield "Var" properties were compared
         self.reset()
 
@@ -254,12 +255,18 @@ class Collector:
         if vol is None or movie is None:
             level["status"] = "none"
         else:
-            c = vol.BrushComponent.Bounds.Origin
+            bounds = vol.BrushComponent.Bounds
+            c = bounds.Origin
             level.update(
                 status="loading",
                 center=[c.X, c.Y],
                 upp=vol.UnrealUnitsPerPixel * MOVIE_SCALE,
                 north=vol.NorthOffsetInDegreesClockwise,
+                # The mapped level's vertical range (the volume's box): below it = fallen off the map
+                # (the game only destroys what goes under KillZ, which can be far lower)
+                zmin=round(c.Z - bounds.BoxExtent.Z),
+                zmax=round(c.Z + bounds.BoxExtent.Z),
+                killz=try_(lambda: round(wi.KillZ)),
             )
         self._set_level(level)
         if level["status"] == "loading":
@@ -316,6 +323,19 @@ class Collector:
     def _is(self, obj: Any, cls_name: str) -> bool:
         cls = self._cls(cls_name)
         return cls is not None and obj.Class._inherits(cls)
+
+    def _is_seat(self, pawn: Any) -> bool:
+        """A vehicle seat pawn (WillowWeaponPawn: a turret's gunner seat...): by class name up the
+        chain, cached per class."""
+        cls = pawn.Class
+        key = ("seat", str(cls.Name))
+        if key not in self._classes:
+            c, seat = cls, False
+            while c is not None and not seat:
+                seat = "WeaponPawn" in str(c.Name)
+                c = try_(lambda c=c: c.SuperField)
+            self._classes[key] = seat
+        return self._classes[key]
 
     @staticmethod
     def _in_world(actor: Any) -> bool:
@@ -397,6 +417,22 @@ class Collector:
         if self._objects.pop(key, None) is not None:
             self._objects_dirty = True
 
+    def object_usability_changed(self, io: Any) -> None:
+        """From the SetUsability / Behavior_ChangeUsability hooks: opening a container turns its use
+        off right away (the "opened" animation state only follows) - a lootable container that was
+        usable and no longer is: looted now, no waiting for the round robin."""
+        key = (io._get_address(), str(io.Name))
+        record = self._object_records.get(key)
+        if record is None or not record.get("lootable") or record.get("looted") or not record.get("usable"):
+            return
+        if not self._usability_hook_seen:
+            self._usability_hook_seen = True
+            log("usability hook works (first container use change seen)")
+        if not try_(lambda: io.bCanBeUsed[0], 1):
+            record["looted"] = 1
+            self._unlooted.pop(key, None)
+            self._objects_dirty = True  # published on the next tick
+
     def _check_looted(self) -> None:
         """Containers opened since: flagged looted (the page shows them in their own layer)."""
         changed = False
@@ -447,6 +483,8 @@ class Collector:
         }
         if Collector._lootable(io, balance):
             record["lootable"] = 1
+            if try_(lambda: io.bCanBeUsed[0], 0):
+                record["usable"] = 1  # for the usability hook: usable, then not = opened
             pools, slots, lists = loot_info(io, balance)
             if pools:
                 record["loot"] = pools
@@ -474,6 +512,11 @@ class Collector:
             kind = "npc"
         if kind in ("me", "player"):
             name = named(try_(lambda: str(player_info(pawn).PlayerName), ""), "Player")
+        elif kind == "vehicle":
+            # Its own name (VehicleClassDefinition.DisplayName, localized) - GetTargetName gives the
+            # driver's once someone drives it
+            name = named(try_(lambda: str(pawn.VehicleDef.DisplayName), "") or call_str(pawn.GetCustomizableName),
+                         def_name(try_(lambda: pawn.VehicleDef)), str(pawn.Class.Name))
         else:
             # What the game shows when aiming at it; else the map's name, or the transformed variant
             # (the AIPawnBalanceDefinition's per-playthrough DisplayName behind all three)
@@ -518,7 +561,9 @@ class Collector:
             if pawn is None:
                 break
             try:
-                if not pawn.bDeleteMe and not pawn.bIsDead:
+                # Vehicle seats (a turret's gunner seat...) are pawns of their own, at the vehicle: the
+                # vehicle and its passengers are already shown
+                if not pawn.bDeleteMe and not pawn.bIsDead and not self._is_seat(pawn):
                     info = self._pawn_info(pawn, me)
                     loc = pawn.Location
                     # Health / shield: function calls, so each pawn is read every HEALTH_EVERY
@@ -659,7 +704,7 @@ class Collector:
         pc = get_pc(possibly_loading=True)
         if wi is None or pc is None:
             return
-        players = read_players(wi, try_(lambda: pc.MyWillowPawn))
+        players = read_players(wi, try_(lambda: pc.MyWillowPawn), pc)
         players_json = json.dumps({"level": self.level_id, "players": players}, separators=(",", ":"))
         if players_json != self._players_json:  # gear rarely changes: only send changes
             self._players_json = players_json

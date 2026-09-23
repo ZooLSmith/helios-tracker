@@ -77,6 +77,10 @@ and interactive objects on it, with zoom / pan. Read the root `../CLAUDE.md` fir
   (`pawn.Controller.PlayerSkillTree`); falls back to `pawn.Weapon` when there's no InvManager.
   Unverified in game - `tools/probe_inventory.py` checks what's really there (solo / host / client).
 - The collector does nothing but follow the level while no page is connected (`Hub.clients`).
+- `script.py`: an optional, gitignored `autoexec.ps1` next to `__init__.py` runs while the server
+  runs (e.g. a Cloudflare tunnel for sharing the map on stream). It gets `HELIOS_PORT`, runs hidden, and its
+  output goes to `autoexec.log`. It sits in a kill-on-close job object: server stop, port / LAN
+  restart, mod disable, or the game exiting ends it along with its children.
 - `util.py`: shared helpers (`try_`, `call_str`, `def_name`, `addr`, `log_error`).
 - `server.py`: stdlib `ThreadingHTTPServer`; `/` (page, read from disk per request), `/<name>.js`
   (scripts next to it: `i18n.js`), `/events` (SSE: `level`, `state`, `objects`, `players`, latest

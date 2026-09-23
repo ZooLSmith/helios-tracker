@@ -14,3 +14,7 @@ tools/*.txt
 
 # Mod logs
 helios_tracker/helios_tracker.log
+helios_tracker/autoexec.log
+
+# Personal startup script (tunnel commands, tokens)
+helios_tracker/autoexec.ps1

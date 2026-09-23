@@ -428,7 +428,7 @@ def check_helios_tracker() -> None:  # noqa: PLR0915
     ns = types.SimpleNamespace
     vol = ns(
         _path_name=lambda: "Sanctuary_P.TheWorld:PersistentLevel.WillowTacticalMapVolume_0",
-        BrushComponent=ns(Bounds=ns(Origin=ns(X=-3072.0, Y=-10240.0, Z=4096.0))),
+        BrushComponent=ns(Bounds=ns(Origin=ns(X=-3072.0, Y=-10240.0, Z=4096.0), BoxExtent=ns(X=23552.0, Y=22528.0, Z=8192.0))),
         UnrealUnitsPerPixel=32.0,
         NorthOffsetInDegreesClockwise=0.0,
     )
@@ -443,12 +443,16 @@ def check_helios_tracker() -> None:  # noqa: PLR0915
             NextPawn=nxt, PlayerReplicationInfo=None,
         )
 
-    enemy = pawn(0x200, "bullymong", 10000.0, 3000.0, enemy=True)
+    seat = pawn(0x210, "seat", 10000.0, 3000.0)  # a vehicle's turret seat: not shown
+    seat.Class = ns(Name="WillowWeaponPawn", SuperField=None)
+    enemy = pawn(0x200, "bullymong", 10000.0, 3000.0, nxt=seat, enemy=True)
     me = pawn(0x100, "me", 10635.4, 5702.0, nxt=enemy)
     me.Class = ns(Name="WillowPlayerPawn", SuperField=None)
     # Driving: the vehicle has taken the PlayerReplicationInfo (as seen in game)
     me.PlayerReplicationInfo = None
-    me.DrivenVehicle = ns(PlayerReplicationInfo=ns(PlayerName="Zer0", ExpLevel=30))
+    me.DrivenVehicle = ns(PlayerReplicationInfo=ns(PlayerName="Zer0", ExpLevel=30, ExpPointsNextLevelAt=78861, CharacterNameIdDef=ns(
+        Name="Assassin", LocalizedCharacterName="Zer0",
+        CharacterClassId=ns(Name="Assassin", LocalizedClassNameNonCaps="Assassin"))))
     me.HealthVar, me.HealthMaxVar, me.ShieldVar, me.ShieldMaxVar = 141.0, 141.0, 60, 120
     def struct(**values: object) -> object:  # a WrappedStruct stand-in: _type._fields() + _get_field
         kinds = {int: "IntProperty"}
@@ -485,6 +489,7 @@ def check_helios_tracker() -> None:  # noqa: PLR0915
     skill = skill_def
     me.Controller = ns(
         _get_address=lambda: 0x110,
+        ExpPool=ns(Data=ns(CurrentValue=77851.0)), GetExpPointsRequiredForLevel=lambda level: 70000,
         PlayerClass=ns(Name="CharClass_Assassin"),
         PlayerSkillTree=ns(  # as the game has it: PlayerSkillTree{Branch,Tier,Skill}Data, linked by index
             Branches=[ns(Definition=branch, TierIndices=[0], ParentBranchIndex=3)],  # a child of the root
@@ -540,6 +545,7 @@ def check_helios_tracker() -> None:  # noqa: PLR0915
             break
         time.sleep(0.05)
     assert level["status"] == "ready" and level["upp"] == 128.0 and level["center"] == [-3072.0, -10240.0], level
+    assert (level["zmin"], level["zmax"]) == (-4096, 12288), level
     state = json.loads(hub._channels["state"][1])
     kinds = {p["n"]: p["k"] for p in state["pawns"]}
     assert not any(p.get("raw") for p in state["pawns"]), state["pawns"]  # both have game names
@@ -552,6 +558,8 @@ def check_helios_tracker() -> None:  # noqa: PLR0915
     (player,) = json.loads(hub._channels["players"][1])["players"]
     (gun,) = player["equipped"]
     assert (player["n"], player["local"], player["cls"], player["inventory"]) == ("Zer0", True, "Assassin", "full"), player
+    assert "clsRaw" not in player and player["char"] == "Zer0", player  # localized, via CharacterClassId
+    assert player["xp"] == [7851, 8861], player["xp"]  # in this level / the level's size
     assert gun["k"] == "weapon" and gun["stats"][0] == ["damage", 512, 3] and gun["slot"] == 1, gun
     assert (gun["type"], gun["maker"]) == ("Sub-Machine Gun", "Hyperion+"), gun
     parts = {slot: (name, group, text) for slot, name, group, text in gun["parts"]}
@@ -573,8 +581,8 @@ def check_helios_tracker() -> None:  # noqa: PLR0915
     c.tick(1001.3)
     names = [o["n"] for o in json.loads(hub._channels["objects"][1])["objects"]]
     assert names == ["Incendiary Barrel", "Explosive Gas Tank", "Treasure Chest"], names
-    chest.SimpleAnimState, chest.bCanBeUsed = 7, (0, 0)  # opened
-    c._next_looted = 0.0
+    chest.bCanBeUsed = (0, 0)  # opened: use off at once (the anim state only follows)
+    c.object_usability_changed(chest)  # the SetUsability hook
     c.tick(1001.35)
     looted = {o["n"]: (o.get("lootable"), o.get("looted")) for o in json.loads(hub._channels["objects"][1])["objects"]}
     assert looted["Treasure Chest"] == (1, 1) and looted["Incendiary Barrel"] == (None, None), looted

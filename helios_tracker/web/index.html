@@ -18,6 +18,7 @@
     --grid: rgba(120, 170, 200, 0.08);
     --shield: #3fa3f0;
     --health: #d9372f; /* red, like the game's health bars */
+    --xp: #3fae49; /* green, like the game's experience bar */
     --objective: #7cf58a; /* light green, like the game's objective markers */
     color-scheme: dark;
   }
@@ -73,21 +74,25 @@
     font-size: 15px; text-align: center; pointer-events: none; }
   .players .pentry { padding: 3px 4px 4px; margin: 0 -4px 2px; border-radius: 3px; cursor: pointer; }
   .players .pentry:hover, .players .pentry.sel { background: #16293a; }
-  .players .prow { display: flex; align-items: baseline; gap: 6px; }
   .vital { display: none; margin-top: 2px; } /* 2 px between the shield and health bars */
   .vital.on { display: block; }
-  .vbar { position: relative; display: block; height: 12px; background: #1c2d38; border-radius: 2px; overflow: hidden; }
+  .vbar { position: relative; display: block; height: 20px; background: #1c2d38; border-radius: 2px; overflow: hidden; }
   .vbar i { display: block; height: 100%; width: 0; }
   .vital.sh .vbar i { background: var(--shield); }
   .vital.hp .vbar i { background: var(--health); }
+  .vital.xp .vbar i { background: var(--xp); }
+  .vital.xp.on { margin-top: 3px; } /* a little apart from shield / health */
+  .vital.xp .vbar { height: 16px; } /* thinner than shield / health */
+  .vital.xp .vnum { font-size: 11px; }
   /* the numbers inside the bar, left, vertically centred; a dark outline to read on any fill */
-  .vnum { position: absolute; left: 5px; top: 50%; transform: translateY(-50%); font-size: 9.5px; line-height: 1;
+  .vnum { position: absolute; left: 5px; top: 50%; transform: translateY(-50%); font-size: 12.5px; line-height: 1;
     font-weight: 700; color: #fff; font-variant-numeric: tabular-nums; white-space: nowrap;
     text-shadow: -1px 0 1px #000, 1px 0 1px #000, 0 -1px 1px #000, 0 1px 1px #000, 0 0 3px #000; }
   .vnum .vmax { opacity: .7; }
+  .vnum.vright { left: auto; right: 5px; }
   .players .pname { color: #3fd5ff; font-weight: 600; }
   .players .pname.me { color: var(--accent); }
-  .players .pinfo { color: var(--dim); font-size: 12px; margin-left: auto; white-space: nowrap; }
+  .players .pinfo { color: var(--dim); font-size: 11px; margin-top: 1px; } /* level · class, under the name */
   .muted { color: var(--dim); font-size: 12px; }
   #mission .mname { font-weight: 600; color: var(--objective); }
   #mission .obj { font-size: 12px; padding-left: 10px; position: relative; }
@@ -441,7 +446,7 @@ if (typeof document !== "undefined") (() => {
     pawns: new Map(), pickups: [], objects: [],
     meId: null, fallback: null, // map frame for areas without a tactical map
     interval: 100, lastState: 0, hz: 0, // hz: the game's updates per second (sent with each state)
-    view: { cx: 0, cy: 0, zoom: 1, rot: 0 }, fitted: false, // rot: map rotation (rad, the target's heading)
+    view: { cx: 0, cy: 0, zoom: store.get("zoom", 1), rot: 0 }, fitted: false, zoomed: store.get("zoom", 0) > 0, // zoom kept across reloads // rot: map rotation (rad, the target's heading)
     follow: !!store.get("follow", false), labels: store.get("labels", false), height: store.get("height", true),
     rotate: store.get("rotate", false), target: store.get("target", "me"), // "me" (the host) or a player's name
     // Movement: 0 = only redraw on a change (markers jump), a number = interpolated at most that many
@@ -639,11 +644,10 @@ if (typeof document !== "undefined") (() => {
       // like the made-up-name flag "r" once the real name is known, must go away
       const old = S.pawns.get(p.i);
       const from = old ? pawnPos(old, now) : p;
-      S.pawns.set(p.i, { ...p, fx: from.x, fy: from.y, fz: from.z, fr: from.r, t0: now });
+      S.pawns.set(p.i, { ...p, fx: from.x, fy: from.y, fz: from.z, fr: from.r, fh: from.h, fs: from.s, t0: now });
     }
     for (const id of S.pawns.keys()) if (!seen.has(id)) S.pawns.delete(id);
     S.pickups = st.pickups;
-    updatePlayerVitals();
     if (!S.level.center && !S.fallback && S.meId) {
       const me = S.pawns.get(S.meId);
       S.fallback = { center: [me.x, me.y], upp: 128, north: 0 };
@@ -659,11 +663,12 @@ if (typeof document !== "undefined") (() => {
     invalidate();
   }
 
-  function pawnPos(p, now) { // interpolated between the last two states
-    if (!S.motion) return { x: p.x, y: p.y, z: p.z, r: p.r }; // "updates only": no interpolation
+  function pawnPos(p, now) { // position, heading, shield and health, interpolated between the last two states
+    if (!S.motion) return { x: p.x, y: p.y, z: p.z, r: p.r, h: p.h, s: p.s }; // "updates only": no interpolation
     const t = Math.min(1, (now - p.t0) / Math.max(16, S.interval));
+    const lerp = (from, to) => (from === undefined || to === undefined ? to : from + (to - from) * t);
     let dr = (((p.r - p.fr) % 65536) + 98304) % 65536 - 32768; // shortest turn
-    return { x: p.fx + (p.x - p.fx) * t, y: p.fy + (p.y - p.fy) * t, z: p.fz + (p.z - p.fz) * t, r: p.fr + dr * t };
+    return { x: lerp(p.fx, p.x), y: lerp(p.fy, p.y), z: lerp(p.fz, p.z), r: p.fr + dr * t, h: lerp(p.fh, p.h), s: lerp(p.fs, p.s) };
   }
 
   function connect() {
@@ -734,30 +739,45 @@ if (typeof document !== "undefined") (() => {
   }
 
   function playerSub(p) {
-    const cls = p.cls ? (p.clsRaw ? prettyRaw(p.cls) : p.cls) : "";
-    return [p.lvl ? t("insp.level", { n: p.lvl }) : "", cls].filter(Boolean).join(" · ");
+    let cls = p.cls ? (p.clsRaw ? prettyRaw(p.cls) : p.cls) : "";
+    if (p.char && p.char !== p.n) cls = cls ? `${cls} (${p.char})` : p.char; // "Gunzerker (Salvador)"
+    // The level is in the XP bar when there is one
+    return [p.lvl && !p.xp ? t("insp.level", { n: p.lvl }) : "", cls].filter(Boolean).join(" · ");
   }
 
   function renderPlayers() {
     const box = $("players");
     if (!S.players.length) { box.innerHTML = '<div class="muted">—</div>'; return; }
     const sel = findPlayer();
-    const vital = (cls) => `<div class="vital ${cls}"><span class="vbar"><i></i><span class="vnum"><b></b><span class="vmax"></span></span></span></div>`;
+    const vital = (cls) => `<div class="vital ${cls}"><span class="vbar"><i></i><span class="vnum"><b></b><span class="vmax"></span></span>` +
+      `<span class="vnum vright"></span></span></div>`;
     box.innerHTML = S.players.map((p) =>
       `<div class="pentry${sel && sel.i === p.i ? " sel" : ""}" data-id="${esc(p.i)}">` +
-      `<div class="prow"><span class="pname${p.local ? " me" : ""}">${nameHtml(p)}</span>` +
-      `<span class="pinfo">${esc(playerSub(p))}</span></div>` +
-      vital("sh") + vital("hp") + `</div>`).join("");
+      `<div class="pname${p.local ? " me" : ""}">${nameHtml(p)}</div>` +
+      `<div class="pinfo">${esc(playerSub(p))}</div>` +
+      vital("sh") + vital("hp") + vital("xp") + `</div>`).join("");
     for (const row of box.querySelectorAll(".pentry")) row.onclick = () => openInspector(row.dataset.id);
+    for (const p of S.players) { // XP: from the players payload (it changes with kills, not per frame)
+      const el = box.querySelector(`.pentry[data-id="${CSS.escape(p.i)}"] .vital.xp`);
+      if (!el || !p.xp) continue;
+      const [cur, size] = p.xp;
+      el.classList.add("on");
+      el.querySelector("i").style.width = (size ? Math.max(0, Math.min(1, cur / size)) * 100 : 100).toFixed(1) + "%";
+      // XP on the left (like the other bars' numbers), the level on the right
+      el.querySelector(".vnum b").textContent = size ? num(cur) : "";
+      el.querySelector(".vnum .vmax").textContent = size ? ` / ${num(size)}` : "";
+      el.querySelector(".vright").textContent = t("insp.level", { n: p.lvl });
+    }
     updatePlayerVitals();
     renderTargets();
   }
 
   // Shield, then health, under each player: from the live state (their marker), not the slower
   // players payload - only widths / numbers change, the list isn't rebuilt
-  function updatePlayerVitals() {
+  function updatePlayerVitals(now = performance.now()) {
     for (const row of document.querySelectorAll("#players .pentry")) {
-      const p = S.pawns.get(row.dataset.id);
+      const pawn = S.pawns.get(row.dataset.id);
+      const p = pawn && { ...pawn, ...pawnPos(pawn, now) };
       const set = (cls, cur, max) => {
         const el = row.querySelector(".vital." + cls);
         const on = !!p && max > 0;
@@ -925,8 +945,8 @@ if (typeof document !== "undefined") (() => {
     $("isub").textContent = [kindText, it.l && (kind !== "loot" || gear) ? t("insp.level", { n: it.l }) : ""]
       .filter(Boolean).join(" · ");
     const rows = [];
-    const f = frame(), me = S.meId && S.pawns.get(S.meId);
-    if (me) {
+    const f = frame(), me = targetPawn() || (S.meId && S.pawns.get(S.meId)); // the "Who" player
+    if (me && me !== it) {
       const pos = it.fx !== undefined ? pawnPos(it, performance.now()) : it;
       rows.push([t("detail.distance"), t("unit.meters", { n: num(Math.hypot(pos.x - me.x, pos.y - me.y, pos.z - me.z) / UU_PER_METER, 0) })]);
     }
@@ -1024,7 +1044,13 @@ if (typeof document !== "undefined") (() => {
     return [x + S.view.cx, y + S.view.cy];
   };
 
-  function fit() {
+  let zoomSave = 0;
+  function saveZoom() { // remembered (debounced: wheel / pinch zoom many times a second)
+    clearTimeout(zoomSave);
+    zoomSave = setTimeout(() => store.set("zoom", S.view.zoom), 300);
+  }
+
+  function fit(keepZoom = false) { // keepZoom: only re-centre (a level change keeps the zoom)
     let x0 = Infinity, x1 = -Infinity, y0 = Infinity, y1 = -Infinity;
     for (const img of S.images) {
       const [a, b, c, d] = img.bounds;
@@ -1037,8 +1063,8 @@ if (typeof document !== "undefined") (() => {
       x0 = mx - 60; x1 = mx + 60; y0 = my - 60; y1 = my + 60;
     }
     S.view.cx = (x0 + x1) / 2; S.view.cy = (y0 + y1) / 2;
-    S.view.zoom = Math.min(W / (x1 - x0), H / (y1 - y0)) * 0.92;
-    S.fitted = true;
+    if (!keepZoom || !S.zoomed) { S.view.zoom = Math.min(W / (x1 - x0), H / (y1 - y0)) * 0.92; saveZoom(); }
+    S.fitted = S.zoomed = true;
     invalidate();
   }
 
@@ -1052,6 +1078,7 @@ if (typeof document !== "undefined") (() => {
   function zoomAt(sx, sy, factor) {
     const [mx, my] = toMap(sx, sy);
     S.view.zoom = Math.min(80, Math.max(0.05, S.view.zoom * factor));
+    saveZoom();
     invalidate();
     if (S.follow) return; // zoom around the followed player
     const [dx, dy] = screenToMapDelta(sx - W / 2, sy - H / 2); // keep the point under the cursor
@@ -1071,7 +1098,7 @@ if (typeof document !== "undefined") (() => {
   let downAt = null;
   canvas.addEventListener("pointerdown", (e) => {
     canvas.setPointerCapture(e.pointerId);
-    downAt = pointers.size ? null : { x: e.clientX, y: e.clientY };
+    downAt = pointers.size ? null : { x: e.clientX, y: e.clientY, t: performance.now() };
     pointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
     canvas.classList.add("dragging");
     if (pointers.size === 2) {
@@ -1101,7 +1128,9 @@ if (typeof document !== "undefined") (() => {
   });
   const release = (e) => {
     if (e.type === "pointerup" && downAt && pointers.size === 1 &&
-        Math.hypot(e.clientX - downAt.x, e.clientY - downAt.y) < 5) clickAt(e.clientX, e.clientY);
+        Math.hypot(e.clientX - downAt.x, e.clientY - downAt.y) < 5 && performance.now() - downAt.t < 300) {
+      clickAt(e.clientX, e.clientY); // a click: not a drag, not a hold
+    }
     downAt = null;
     pointers.delete(e.pointerId);
     if (pointers.size < 2) pinch = null;
@@ -1128,7 +1157,7 @@ if (typeof document !== "undefined") (() => {
 
   function clickAt(x, y) {
     const best = hitAt(x, y, 14);
-    if (!best) return;
+    if (!best) { closeInspector(); return; } // a click on the empty map closes the side panel
     if (best.kind === "me" || best.kind === "player") openInspector(best.item.i);
     else openDetail(best.kind, best.item.i);
   }
@@ -1255,7 +1284,7 @@ if (typeof document !== "undefined") (() => {
     ctx.fillRect(0, 0, W, H);
     const f = frame();
     if (!f) return;
-    if (!S.fitted && (S.images.length || S.meId)) fit();
+    if (!S.fitted && (S.images.length || S.meId)) fit(true); // first time: fits; after a level change: keeps the zoom
     if (S.follow) centerOnTarget();
     const target = S.rotate ? targetPawn() : null; // the map turns so their heading points up
     S.view.rot = target ? yawToAngle(f, pawnPos(target, now).r) : 0;
@@ -1273,7 +1302,9 @@ if (typeof document !== "undefined") (() => {
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
 
     const me = S.meId && S.pawns.get(S.meId);
-    const mePos = me ? pawnPos(me, now) : null;
+    // Distances / heights are relative to the "Who" player (the host by default)
+    const ref = targetPawn() || me;
+    const mePos = ref ? pawnPos(ref, now) : null;
     const objColor = LAYERS.find((l) => l.id === "objective").color;
     // quest areas ("somewhere in this circle"): under every marker
     if (S.layers.objective) {
@@ -1297,7 +1328,10 @@ if (typeof document !== "undefined") (() => {
     const layerColor = Object.fromEntries(LAYERS.map((l) => [l.id, l.color]));
 
     // interactive objects
+    // Below the level's mapped volume: fallen off the map (still a real actor): not shown
+    const offMap = (z) => S.level && S.level.zmin != null && z < S.level.zmin;
     for (const o of S.objects) {
+      if (offMap(o.z)) continue;
       counts[o.cat]++;
       if (!S.layers[o.cat]) continue;
       const [sx, sy] = place(o.x, o.y);
@@ -1318,13 +1352,14 @@ if (typeof document !== "undefined") (() => {
       if (!visible(sx, sy)) continue;
       ctx.globalAlpha = mk.tracked ? 1 : 0.55;
       if (mk.k === "directive") bang(sx, sy, objColor);
-      else if (!mk.rad) { diamond(sx, sy, 7, objColor); ctx.beginPath(); ctx.arc(sx, sy, 2, 0, Math.PI * 2); ctx.fillStyle = "#1a1200"; ctx.fill(); }
+      else if (!mk.rad) { diamond(sx, sy, 10, objColor); ctx.beginPath(); ctx.arc(sx, sy, 3, 0, Math.PI * 2); ctx.fillStyle = "#1a1200"; ctx.fill(); }
       if (S.labels && mk.objective) label(sx, sy, nameText(mk.objective), objColor, mk.objective.raw);
-      hits.push({ sx, sy, r: 7, kind: mk.k, item: mk });
+      hits.push({ sx, sy, r: mk.k === "directive" || mk.rad ? 7 : 10, kind: mk.k, item: mk });
     }
     ctx.globalAlpha = 1;
     // loot
     for (const p of S.pickups) {
+      if (offMap(p.z)) continue;
       const tier = p.q || 0;
       // The rarity filter is for gear; other pickups (cash, ammo...: fake rarity levels) only with the
       // first two options
@@ -1355,13 +1390,13 @@ if (typeof document !== "undefined") (() => {
       if (p.k === "me" || p.k === "player") {
         if (p.k === "me") arrow(sx, sy, angle, 9, "#ffcc33", "#1a1200");
         else { arrow(sx, sy, angle, 8, layerColor.player, "#00131a"); label(sx, sy, nameText(p), layerColor.player, p.raw); }
-        if ((p.m > 0 && p.h < p.m) || (p.sm > 0 && p.s < p.sm)) vitalBars(sx, sy + 3, p);
+        if ((p.m > 0 && p.h < p.m) || (p.sm > 0 && p.s < p.sm)) vitalBars(sx, sy + 3, { ...p, h: pos.h, s: pos.s });
       }
       else if (p.k === "vehicle") square(sx, sy, 5, layerColor.vehicle);
       else {
         if (p.k === "enemy") diamond(sx, sy, 5, layerColor.enemy); // like the game's minimap
         else dot(sx, sy, 3.5, layerColor[p.k]);
-        if ((p.m > 0 && p.h < p.m) || (p.sm > 0 && p.s < p.sm)) vitalBars(sx, sy, p);
+        if ((p.m > 0 && p.h < p.m) || (p.sm > 0 && p.s < p.sm)) vitalBars(sx, sy, { ...p, h: pos.h, s: pos.s });
         if (S.labels) label(sx, sy, nameText(p), layerColor[p.k], p.raw);
       }
       hits.push({ sx, sy, r: 6, kind: p.k, item: p, pos });
@@ -1374,6 +1409,7 @@ if (typeof document !== "undefined") (() => {
       if (el && el.textContent !== String(n)) el.textContent = String(n);
     }
     tooltip(mePos, f);
+    updatePlayerVitals(now); // with the frames: follows the Movement setting
   }
 
   function tooltip(mePos, f) {
@@ -1407,7 +1443,7 @@ if (typeof document !== "undefined") (() => {
     if (it.l && (best.kind !== "loot" || gear)) lines.push(`<span class="tl">${esc(t("insp.level", { n: it.l }))}</span>`);
     if (it.sm > 0) lines.push(`<span class="tl">${esc(t("tip.shield", { s: Math.round(it.s), m: Math.round(it.sm) }))}</span>`);
     if (it.m > 0) lines.push(`<span class="tl">${esc(t("tip.health", { h: Math.round(it.h), m: Math.round(it.m) }))}</span>`);
-    if (mePos && best.kind !== "me") {
+    if (mePos && it !== (targetPawn() || S.pawns.get(S.meId))) { // not the reference player itself
       const dist = Math.hypot(pos.x - mePos.x, pos.y - mePos.y, pos.z - mePos.z) / UU_PER_METER;
       const dz = (pos.z - mePos.z) / UU_PER_METER;
       let text = t("tip.away", { d: Math.round(dist) });

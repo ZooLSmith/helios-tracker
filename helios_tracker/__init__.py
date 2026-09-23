@@ -7,6 +7,7 @@ with players, enemies, NPCs, vehicles, loot and interactive objects on it, live,
 - collector.py: game thread, reads the level and what's in it, publishes JSON to the Hub
 - tacmap.py:    reads the map images from the game's packages on disk (background thread)
 - server.py:    HTTP + Server-Sent Events, stdlib only, never touches UObjects
+- script.py:    runs the user's optional autoexec.ps1 alongside the server (a tunnel...)
 - web/index.html: the page (decodes the DXT textures itself)
 """
 
@@ -21,12 +22,14 @@ from unrealsdk.hooks import Type
 from unrealsdk.unreal import BoundFunction, UObject, WrappedStruct
 
 from .collector import Collector
+from .script import start_script
 from .server import Hub, TrackerServer
 from .util import log, log_error, start_log
 
 start_log()
 
 _STALE = "_helios_tracker_server"  # sys attribute: the running server, across module reloads
+_STALE_SCRIPT = "_helios_tracker_script"  # same for the running autoexec.ps1
 
 # region Options
 
@@ -96,6 +99,13 @@ def _lan_ip() -> str | None:
 
 
 def _stop() -> None:
+    script = getattr(sys, _STALE_SCRIPT, None)
+    setattr(sys, _STALE_SCRIPT, None)
+    if script is not None:
+        try:
+            script.stop()
+        except Exception as ex:  # noqa: BLE001
+            log_error("script stop", ex)
     server = getattr(sys, _STALE, None)
     setattr(sys, _STALE, None)
     if server is not None:
@@ -120,6 +130,7 @@ def _start(new_port: int | None = None, new_lan: bool | None = None) -> None:
     if lan_value and (ip := _lan_ip()):
         where += f" (LAN: http://{ip}:{port_value}/)"
     log(f"live map at {where}")
+    setattr(sys, _STALE_SCRIPT, start_script(port_value))
 
 
 def _on_enable() -> None:
@@ -177,6 +188,24 @@ def on_object_balance(obj: UObject, args: WrappedStruct, ret: Any, func: BoundFu
         log_error("object balance hook", ex)
 
 
+def _on_usability(obj: UObject) -> None:
+    try:
+        _collector.object_usability_changed(obj)
+    except Exception as ex:  # noqa: BLE001
+        log_error("object usability hook", ex)
+
+
+@hook("WillowGame.WillowInteractiveObject:SetUsability", Type.POST)
+def on_set_usability(obj: UObject, args: WrappedStruct, ret: Any, func: BoundFunction) -> None:  # noqa: ARG001
+    """A container being opened turns its use off: it's looted now (no waiting for a check)."""
+    _on_usability(obj)
+
+
+@hook("WillowGame.WillowInteractiveObject:Behavior_ChangeUsability", Type.POST)
+def on_change_usability(obj: UObject, args: WrappedStruct, ret: Any, func: BoundFunction) -> None:  # noqa: ARG001
+    _on_usability(obj)
+
+
 @hook("WillowGame.WillowInteractiveObject:Destroyed", Type.PRE)
 def on_object_destroyed(obj: UObject, args: WrappedStruct, ret: Any, func: BoundFunction) -> None:  # noqa: ARG001
     try:
@@ -190,6 +219,7 @@ def on_object_destroyed(obj: UObject, args: WrappedStruct, ret: Any, func: Bound
 mod = build_mod(
     on_enable=_on_enable,
     on_disable=_on_disable,
-    hooks=[on_post_render, on_pickup_spawn, on_object_spawn, on_object_balance, on_object_destroyed],
+    hooks=[on_post_render, on_pickup_spawn, on_object_spawn, on_object_balance, on_object_destroyed,
+           on_set_usability, on_change_usability],
     options=[open_page, port, lan, rate],
 )

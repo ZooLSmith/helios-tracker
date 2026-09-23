@@ -12,7 +12,7 @@ is reported (as a reason code the page translates), not guessed. Stats are sent 
 
 from typing import Any
 
-from .util import addr, call_str, def_name, item_name, log_error, named, player_info, try_
+from .util import addr, call_str, def_name, item_name, log, log_error, named, player_info, try_
 
 MAX_CHAIN = 32  # guard for the linked inventory chains
 ITEM_KINDS = {  # class (or a superclass) -> kind shown by the page
@@ -34,6 +34,8 @@ _equipped_cache: dict[tuple[int, str], dict[str, Any]] = {}
 # Skill trees by controller address: re-read only when the points spent change
 _skills_cache: dict[int, tuple[Any, dict[str, Any]]] = {}
 _grids: dict[tuple[str, int], list[dict[str, Any]]] = {}  # branch grids (static per class)
+_level_start: dict[int, int] = {}  # level -> total XP where it starts (a fixed game table)
+_xp_logged = [False]  # why the local player's XP is missing: logged once
 
 
 def _kind(inv: Any) -> str:
@@ -313,13 +315,48 @@ def _branch_grid(bd: Any) -> list[dict[str, Any]]:
     return grid
 
 
-def _class_name(ctrl: Any, pri: Any) -> str:
-    """From the class definition's object name (no localized name found yet): a raw name."""
-    cls = try_(lambda: ctrl.PlayerClass) if ctrl is not None else None
-    return def_name(cls) or def_name(try_(lambda: pri.CharacterNameIdDef)) or ""
+def _xp(ctrl: Any, pri: Any, level: int) -> dict[str, Any]:
+    """{"xp": [in this level, level size]} - from the controller (as the XP Counter mod reads it):
+    total XP = ExpPool.Data.CurrentValue, next level at PRI.ExpPointsNextLevelAt, the level's start
+    from GetExpPointsRequiredForLevel (cached). Needs the controller: ours, or everyone's as host.
+    At the level cap (nothing left to earn): [0, 0]."""
+    if ctrl is None or not level:
+        return {}
+    total = try_(lambda: int(ctrl.ExpPool.Data.CurrentValue))
+    next_at = try_(lambda: int(pri.ExpPointsNextLevelAt))
+    if total is None or next_at is None:
+        return {}
+    if level not in _level_start:
+        start = try_(lambda: int(ctrl.GetExpPointsRequiredForLevel(level)))
+        if start is None:
+            return {}
+        _level_start[level] = start
+    start = _level_start[level]
+    if next_at <= total:
+        return {"xp": [0, 0]}
+    return {"xp": [total - start, next_at - start]}
 
 
-def read_players(world_info: Any, me: Any) -> list[dict[str, Any]]:
+def _class_name(ctrl: Any, pri: Any) -> dict[str, Any]:
+    """{"cls": class, "char": character} - the game's localized class name ("Gunzerker" /
+    "Défourailleur") and character name ("Salvador"), via the player info (shared with everyone:
+    works for others on a client too) or the class definition; else the class definition's object
+    name, flagged made-up ("clsRaw")."""
+    # The player info points at the *character* (PlayerNameIdentifierDefinition: "Salvador"), whose
+    # CharacterClassId is the class (PlayerClassIdentifierDefinition: "Gunzerker") - seen in game
+    character = try_(lambda: pri.CharacterNameIdDef) or try_(lambda: ctrl.PlayerClass.CharacterNameId)
+    class_id = try_(lambda: character.CharacterClassId)
+    out: dict[str, Any] = {}
+    if name := try_(lambda: str(character.LocalizedCharacterName), ""):
+        out["char"] = name
+    text = try_(lambda: str(class_id.LocalizedClassNameNonCaps), "")
+    if text:
+        return {**out, "cls": text}
+    raw = def_name(try_(lambda: ctrl.PlayerClass) if ctrl is not None else None) or def_name(class_id)
+    return {**out, "cls": raw, "clsRaw": 1} if raw else {**out, "cls": ""}
+
+
+def read_players(world_info: Any, me: Any, pc: Any = None) -> list[dict[str, Any]]:
     """Every player pawn in the level, with what can be read of their gear and skills."""
     for cache in (_backpack_cache, _equipped_cache):
         if len(cache) > 2000:  # items sold / dropped / from other levels: start over now and then
@@ -333,15 +370,24 @@ def read_players(world_info: Any, me: Any) -> list[dict[str, Any]]:
         try:
             pri = player_info(pawn)  # the vehicle's while driving
             if pri is not None and "PlayerPawn" in str(pawn.Class.Name) and not pawn.bDeleteMe:
-                ctrl = try_(lambda p=pawn: p.Controller)
+                # Driving, the controller possesses the vehicle and the player pawn's own is None:
+                # through the vehicle, and ours is always the local player controller
+                ctrl = try_(lambda p=pawn: p.Controller) or try_(lambda p=pawn: p.DrivenVehicle.Controller)
+                if ctrl is None and me is not None and addr(pawn) == addr(me):
+                    ctrl = pc
                 player: dict[str, Any] = {
                     "i": addr(pawn),
                     "n": try_(lambda: str(pri.PlayerName), "") or "Player",
                     "local": addr(pawn) == me_addr,
                     "lvl": try_(lambda: int(pri.ExpLevel), 0),
-                    "cls": _class_name(ctrl, pri),
-                    "clsRaw": 1,
+                    **_class_name(ctrl, pri),
+                    **_xp(ctrl, pri, try_(lambda: int(pri.ExpLevel), 0)),
                 }
+                if player["local"] and "xp" not in player and not _xp_logged[0]:
+                    _xp_logged[0] = True
+                    log(f"xp unavailable for the local player: controller={ctrl is not None}"
+                        f" total={try_(lambda: ctrl.ExpPool.Data.CurrentValue)}"
+                        f" next={try_(lambda: pri.ExpPointsNextLevelAt)} level={try_(lambda: pri.ExpLevel)}")
                 _inventory(pawn, player)
                 _skills(ctrl, player)
                 players.append(player)
