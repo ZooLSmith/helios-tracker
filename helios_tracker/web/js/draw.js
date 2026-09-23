@@ -128,7 +128,8 @@ export function draw() {
     const [, color] = rarity(tier);
     ctx.globalAlpha = st.alpha;
     if (isGear(p.c)) triangle(sx, sy, (tier >= 5 ? 6.5 : 5) * st.k, color);
-    else if (layer === "pickup.mission") bang(sx, sy, LAYER_COLOR[layer], 0.6 * st.k); // a mission item: a small "!" (like quest givers)
+    // a mission item: a "!" (like quest givers), as big as a legendary's triangle (6.5 px: 7 x 0.93)
+    else if (layer === "pickup.mission") bang(sx, sy, LAYER_COLOR[layer], 0.93 * st.k);
     else dot(sx, sy, 3.5 * st.k, LAYER_COLOR[layer]); // not gear (ammo, cash...): its kind's colour, no rarity
     if (st.names) label(sx, sy, nameText(p), isGear(p.c) ? color : LAYER_COLOR[layer], p.raw);
     hits.push({ sx, sy, r: 6 * st.k, kind: "loot", item: p });

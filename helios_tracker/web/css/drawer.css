@@ -90,8 +90,7 @@
 .mbest .mcash { color: var(--live); }
 .mbest .mleft { color: var(--dim); font-size: 10.5px; } /* quick wins: the objectives to do, under the reward */
 .mbest.locked { opacity: .65; } /* one step away: still worth reading */
-/* where to go is the current level: a "You're here" badge (the text itself unchanged); "Go to ..."
-   crossed out (already there) */
+/* where to go is the current level: a "You're here" badge, the place crossed out (already there) */
 .mbest .msub .mplace.arrived { text-decoration: line-through; }
 .mheretag { font-size: 9.5px; font-weight: 600; color: var(--live); border: 1px solid color-mix(in srgb, var(--live) 50%, transparent);
   border-radius: 3px; padding: 0 3px; vertical-align: 1px; }

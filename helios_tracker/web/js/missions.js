@@ -123,9 +123,16 @@ export function missionCounts(missions) {
 }
 
 /** A mission's reward for a player level (the game scales rewards to the player: the collector sends
- *  one per level of the players it can see) - null if not known for that level. */
-export function rewardFor(m, level) {
-  return (m.rw && m.rw[String(level)]) || null;
+ *  one per level of the players whose controller it has - on a co-op client only its own). Not known
+ *  for that level: the fallback level's (the local player's), else any level's - a mission's XP goes
+ *  by its own level (notes: the XP curve), so it's most likely the same; "from": that level (the page
+ *  marks it). null if none. */
+export function rewardFor(m, level, fallbackLevel = null) {
+  if (!m.rw) return null;
+  const own = m.rw[String(level)];
+  if (own || fallbackLevel == null) return own || null; // (no fallback asked: that level's only)
+  const key = m.rw[String(fallbackLevel)] ? String(fallbackLevel) : Object.keys(m.rw)[0];
+  return key ? { ...m.rw[key], from: Number(key) } : null;
 }
 
 /** A mission's difficulty for a player, as the game's mission log colours it: its level minus
@@ -146,8 +153,8 @@ export const GOALS = ["xp", "cash", "balanced", "effort", "finish"];
  *  lists what's left), ranked by goal - xp, cash (credits), balanced (both, scaled to the best
  *  mission), effort (balanced per objective left). A mission's better reward counts (the normal or
  *  the alternative one). { rows: [{ m, state, after, xp, cash, effort, known, score }], totalXp } */
-export function rankMissions(missions, goal, level, thresholds = null) {
-  const ranked = rankAll(missions, goal, level);
+export function rankMissions(missions, goal, level, thresholds = null, fallbackLevel = null) {
+  const ranked = rankAll(missions, goal, level, fallbackLevel);
   // too high a level to do now (the game's "hard" or "impossible": 3+ above the player; "tough",
   // 1-2 above, stays): left out, counted
   const tooHigh = ranked.rows.filter((r) => ["hard", "impossible"].includes(missionDifficulty(r.m, level, thresholds)));
@@ -157,14 +164,14 @@ export function rankMissions(missions, goal, level, thresholds = null) {
     minTooHigh: Math.min(...tooHigh.map((r) => r.m.ml)) };
 }
 
-function rankAll(missions, goal, level) {
+function rankAll(missions, goal, level, fallbackLevel) {
   // "finish": the missions picked up (their level is locked: their XP is fixed while the player
   // levels up), the furthest below the player first
   if (goal === "finish") {
     const byId = new Map(missions.map((m) => [m.i, m]));
     const rows = missions.filter((m) => pickedUp(m) && m.mlk).map((m) => {
-      const rw = rewardFor(m, level), sides = rw ? [rw, rw.alt].filter(Boolean) : [];
-      return { m, state: missionState(m, byId), after: null, known: !!rw, effort: objectivesLeft(m),
+      const rw = rewardFor(m, level, fallbackLevel), sides = rw ? [rw, rw.alt].filter(Boolean) : [];
+      return { m, state: missionState(m, byId), after: null, known: !!rw, from: rw ? rw.from : undefined, effort: objectivesLeft(m),
         xp: Math.max(0, ...sides.map((r) => r.xp || 0)), cash: Math.max(0, ...sides.map((r) => (!r.cur || r.cur === "Credits" ? r.cash || 0 : 0))),
         score: level - m.ml };
     }).sort((a, b) => b.score - a.score || a.m.num - b.m.num);
@@ -189,11 +196,11 @@ function rankAll(missions, goal, level) {
       after = m.deps.filter((d) => byId.get(d)?.st !== "Complete");
       if (m.wait && !after.includes(m.wait.m)) after.push(m.wait.m);
     }
-    const rw = rewardFor(m, level), sides = rw ? [rw, rw.alt].filter(Boolean) : [];
+    const rw = rewardFor(m, level, fallbackLevel), sides = rw ? [rw, rw.alt].filter(Boolean) : [];
     const xp = Math.max(0, ...sides.map((r) => r.xp || 0));
     const cash = Math.max(0, ...sides.map((r) => (!r.cur || r.cur === "Credits" ? r.cash || 0 : 0)));
     const effort = objectivesLeft(m);
-    rows.push({ m, state, after, xp, cash, effort, known: !!rw, score: 0 });
+    rows.push({ m, state, after, xp, cash, effort, known: !!rw, from: rw ? rw.from : undefined, score: 0 });
   }
   // A locked one's effort includes what's left of the missions it waits on (done first)
   const byRow = new Map(rows.map((r) => [r.m.i, r]));

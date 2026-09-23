@@ -107,6 +107,8 @@ button.act:hover { border-color: var(--accent); }
 .players .pname.me { color: var(--accent); }
 .players .pinfo { color: var(--dim); font-size: 11px; margin-top: 1px; } /* level · class, under the name */
 #mission .mname { font-weight: 600; color: var(--side); cursor: pointer; }
+.levellv { color: var(--dim); font-size: 12px; margin-top: -2px; } /* the area's level, under its name */
+.levellv:empty { display: none; }
 #mission .mname.story { color: var(--story); } /* story (main) mission: yellow; side: grey */
 #mission .mname[data-log]:hover { text-decoration: underline; }
 #mission .mname.ready, #mission .mname.story.ready { color: var(--live); } /* ready to turn in: green */

@@ -391,10 +391,12 @@ class Collector:
                 daemon=True,
             ).start()
 
-    def _set_level(self, level: dict[str, Any]) -> None:
+    def _set_level(self, level: dict[str, Any], keep_lv: bool = True) -> None:
         with self._lock:
             if level["id"] != self.level_id:
                 return  # a newer level already
+            if keep_lv and "lv" not in level and self._level and self._level.get("id") == level["id"] and "lv" in self._level:
+                level = {**level, "lv": self._level["lv"]}  # (the map thread's copy predates the area's level)
             self._level = level
             self.hub.publish("level", json.dumps(level))
 
@@ -1002,6 +1004,22 @@ class Collector:
         tracker = self._tracker() if self._tracker is not None else None
         if tracker is not None and self._log.step(tracker, self._player_controllers):
             self._publish_log()
+            self._update_area_level()
+
+    def _update_area_level(self) -> None:
+        """The level of the area the player is in, as the game has it: the game stage of the regions
+        this map's missions use (tools/probe_region.txt: Tundra Express -> Tundra, stage 13; enemies
+        12-15; a region not visited yet: -1, left out) - "lv": [lowest, highest] in the level payload,
+        republished when it changes. A few function calls, after each full mission pass."""
+        level = self._level
+        pc = get_pc(possibly_loading=True)
+        if not level or not level.get("map") or pc is None:
+            return
+        stages = sorted({s for r in self._log.map_regions(level["map"])
+                         if (s := try_(lambda r=r: int(pc.GetGameStageFromRegion(r)), 0)) > 0})
+        lv = [stages[0], stages[-1]] if stages else None
+        if lv != level.get("lv"):
+            self._set_level({**{k: v for k, v in level.items() if k != "lv"}, **({"lv": lv} if lv else {})}, keep_lv=False)
 
     @staticmethod
     def _player_controllers() -> list[Any]:

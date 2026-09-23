@@ -241,7 +241,10 @@ const placeM = { area: "Sanctuary", map: "Sanctuary_P", tin: { a: "Southern Shel
 const where = { active: whereTo(placeM, "active"), ready: whereTo(placeM, "ready"), available: whereTo(placeM, "available"),
   readyNoTin: whereTo({ area: "Sanctuary", map: "Sanctuary_P" }, "ready"), activeNoGo: whereTo({ area: "Sanctuary", map: "Sanctuary_P" }, "active"),
   none: whereTo({}, "active"), here: isHere(whereTo(placeM, "available"), { map: "sanctuary_p" }), notHere: isHere({ map: "Ice_P" }, { map: "Sanctuary_P" }) };
-const missionsOut = { where, tooHigh, finish, difficulty, best, search, infoHtml, areas, gameText, story: flat(tree.story), other: flat(tree.other), counts: missionCounts(log),
+const { rewardFor } = await load("js/missions.js");
+const rwM = { rw: { "12": { xp: 900 }, "15": { xp: 1100 } } };
+const fallback = { own: rewardFor(rwM, 12), toLocal: rewardFor(rwM, 20, 15), toAny: rewardFor(rwM, 20, 30), none: rewardFor({}, 12, 15) };
+const missionsOut = { fallback, where, tooHigh, finish, difficulty, best, search, infoHtml, areas, gameText, story: flat(tree.story), other: flat(tree.other), counts: missionCounts(log),
   objectives: objectiveStates(log[1]).map((s) => s.state) };
 console.log(JSON.stringify({ sha: crypto.createHash("sha256").update(rgba).digest("hex"), err, back, right, raw, modules, missions: missionsOut,
   migrated, checked: { enemy: checked.layers.enemy, view: checked.view, openLayers: checked.ui.openLayers, drawer: checked.ui.drawer, badDrawer }, i18nKeys, unknownSettings, lootLayers, gameRarity, freeRects }));
@@ -762,6 +765,24 @@ def check_helios_tracker() -> None:  # noqa: PLR0915
     assert mlog._waiting_on(waiter, {}, {0x600: (1, 5, 0)}) is None, "objective done (its count reached)"
     assert mlog._waiting_on(waiter, {"GD_Episode02.M_Ep2a_MoreGuns": "Complete"}, {}) is None, "its mission done"
     assert mlog._waiting_on(ns(ObjectiveDependency=ns(Objective=None, Status=dep_status.EODS_Complete)), {}, {}) is None
+    # The area's level (tools/probe_region.txt): the game stage of the regions this map's missions use
+    tundra, train, elsewhere = (ns(_get_address=lambda a=a: a) for a in (0x6a0, 0x6a1, 0x6a2))
+    here_station = ns(_get_address=lambda: 0x683, StationDisplayName="Tundra Express", StationLevelName="TundraExpress_P")
+    area_log = mlog.MissionLog()
+    area_log._mdefs = [ns(TravelStation=here_station, GameStageRegion=tundra), ns(TravelStation=here_station, GameStageRegion=tundra),
+                       ns(TravelStation=here_station, GameStageRegion=train), ns(TravelStation=shelf, GameStageRegion=elsewhere)]
+    assert area_log.map_regions("tundraexpress_p") == [tundra, train], "this map's missions' regions, once each"
+    saved_log, saved_level, saved_get_pc = c._log, c._level, col.get_pc
+    c._log, c._level = area_log, {"id": c.level_id, "map": "tundraexpress_p", "name": "Tundra Express"}
+    stages = {0x6a0: 13, 0x6a1: -1}  # the train's region: not visited yet (-1)
+    col.get_pc = lambda **k: ns(GetGameStageFromRegion=lambda r: stages[r._get_address()])
+    c._update_area_level()
+    one = c._level.get("lv")
+    stages[0x6a1] = 15
+    c._update_area_level()
+    both = c._level.get("lv")
+    c._log, c._level, col.get_pc = saved_log, saved_level, saved_get_pc
+    assert (one, both) == ([13, 13], [13, 15]), ("the area's level: its regions' stages, unvisited ones left out", one, both)
     # A co-op client's markers (tools/probe_client_waypoints.txt): no waypoint components - the level's
     # WillowWaypoint actors, each with WaypointInfo {LinkedObjective, ObjectiveSetRestrictions}
     step_set, other_set = ns(_get_address=lambda: 0x6b0), ns(_get_address=lambda: 0x6b1)
@@ -969,6 +990,8 @@ def check_helios_tracker() -> None:  # noqa: PLR0915
     assert mis["search"] == ["a:done", "b:locked,a:done", "b:locked", "", ""], mis["search"]
     assert mis["difficulty"] == ["impossible", "tough", "normal", "normal", "trivial", None, None], mis["difficulty"]
     assert mis["finish"] == "f4:7,f1:5,f2:1", mis["finish"]
+    fb = mis["fallback"]  # a reward not known for the player's level: the local player's level's, else any
+    assert fb["own"] == {"xp": 900} and fb["toLocal"] == {"xp": 1100, "from": 15} and fb["toAny"] == {"xp": 900, "from": 12} and fb["none"] is None, fb
     w = mis["where"]  # where to go: the step's station (active), the turn-in one (ready), else its own
     assert (w["active"]["why"], w["active"]["a"], w["ready"]["a"], w["available"]["why"]) == ("step", "Bay", "Southern Shelf", "home"), w
     assert (w["readyNoTin"]["why"], w["readyNoTin"]["a"], w["activeNoGo"], w["none"]) == ("turnin", "Sanctuary", None, None), w

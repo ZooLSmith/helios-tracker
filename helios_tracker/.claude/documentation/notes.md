@@ -214,7 +214,8 @@ item's `DefinitionData.ItemDefinition` (a `UsableItemDefinition`):
   `tracker.IsMissionObjectiveComplete`: both removed (not proven the cause) - where to go now comes
   from station overrides only, objective dependencies from the log's progress data. It crashed again
   (22:34, same game stack, ~2.5 min after a reload without those two): not them. Still called:
-  `GetFriendlyLevelNameFromMapName` (once per map); the area level (GetGameStageFromRegion) removed.
+  `GetFriendlyLevelNameFromMapName` (once per map); the area level (GetGameStageFromRegion, a few per
+  full pass: removed, then back - innocent).
   Next: faulthandler (util.start_log) writes the Python traceback of a native crash to
   `helios_crash.log` - the line that called into the game.
   **Found (3rd crash, 22:41, helios_crash.log):** `_publish_state` > `_pawn_info` > `call_str` - the
@@ -231,8 +232,9 @@ item's `DefinitionData.ItemDefinition` (a `UsableItemDefinition`):
   pawn, world / game / replication info). `pc.RegionGameStages[]` = {RegionDef, GameStage,
   PlaythroughIdx} (83: every region seen); `pc.GetGameStageFromRegion(region)` (-1: not visited). This
   map's 5 missions all use `GD_GameStages.Zone1.Tundra` -> 13; the enemies here 12-15 (mostly 14).
-  Was shown under the level's name ("Area level 13": the stages of this map's missions'
-  `GameStageRegion`s) - removed (user, 2026-09-23, during the crash hunt); the way to it is above.
+  Shown under the level's name ("Area level 13": the stages of this map's missions'
+  `GameStageRegion`s, `lv` [min, max] in the level payload, after each full mission pass). Removed
+  during the crash hunt, back once the crash was found elsewhere (the pawn name functions).
 
 ## Mission level (probe_mission_level.py, in game, 2026-09-23)
 

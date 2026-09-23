@@ -1,6 +1,7 @@
 // The game's data: the SSE stream (/events) and what each event does to the state.
 import { $ } from "./dom.js";
 import { decodeTexture } from "./dxt.js";
+import { t } from "./i18n.js";
 import { objectCategory, setRarityTable } from "./model.js";
 import { invalidate } from "./scheduler.js";
 import { S, findDetail, pawnPos } from "./state.js";
@@ -62,6 +63,9 @@ function onLevel(level) {
   // the game's name for the level (the map screen's); "raw": made up from the map file's name - marked " ?"
   const levelText = level.name ? level.name + (level.raw ? " ?" : "") : level.map || "—";
   $("level").textContent = levelText;
+  // the area's level (its missions' regions' game stage, the game's): "Lv 13", or a range
+  const lv = level.lv;
+  $("levelLv").textContent = lv ? t(lv[0] === lv[1] ? "level.lv" : "level.lvRange", { n: lv[0], m: lv[1] }) : "";
   document.title = (level.name ? levelText + " · " : "") + "Helios Tracker";
   if (level.status === "loading") setMessage("msg.loading");
   else if (level.status === "none") setMessage(level.map && level.map.toLowerCase() === "menumap" ? "msg.menu" : "msg.noMap");

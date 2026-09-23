@@ -267,6 +267,7 @@ class MissionLog:
         self._watch: list[int] = []  # entries the fast pass reads: active ones and the tracked one
         self._cycle: dict[str, Any] | None = None  # the full pass under way (step by step)
         self._tracked = ""
+        self._map_regions: dict[str, list[Any]] = {}  # map name (lower case) -> its missions' regions
         self.dirty = False  # the live part changed since the last payload()
         self.defs_dirty = True  # the list (definitions) changed since the last defs_payload()
 
@@ -425,6 +426,24 @@ class MissionLog:
     def entry_addresses(self) -> list[tuple[int, int]]:
         """(MissionList index, MissionDefinition address) per entry, as of the last full pass."""
         return list(self._addrs)
+
+    def map_regions(self, map_name: str) -> list[Any]:
+        """The game stage regions of the missions whose station is on this map (MissionDefinition
+        .GameStageRegion - tools/probe_region.txt: Tundra Express's 5 missions -> Tundra): the area's
+        level is theirs (pc.GetGameStageFromRegion). Static definitions: cached per map."""
+        key = map_name.lower()
+        if (cached := self._map_regions.get(key)) is None:
+            cached, seen = [], set()
+            for mdef in self._mdefs:
+                if try_(lambda m=mdef: str(m.TravelStation.StationLevelName), "").lower() != key:
+                    continue
+                region = try_(lambda m=mdef: m.GameStageRegion)
+                if region is not None and region._get_address() not in seen:
+                    seen.add(region._get_address())
+                    cached.append(region)
+            if self._mdefs:  # (no list yet: again next time)
+                self._map_regions[key] = cached
+        return cached
 
     def defs_payload(self) -> dict[str, Any]:
         """The definitions, in the list's order (static: sent when the list changes)."""

@@ -67,6 +67,17 @@ function selectedPlayer() {
   return S.players.find((p) => isTrackedPlayer(p)) || S.players.find((p) => p.local) || null;
 }
 
+/** The local player's level (the one running the tracker): the rewards to fall back to when the
+ *  selected player's aren't known (a co-op client only computes its own). */
+function localLevel() {
+  const p = S.players.find((q) => q.local);
+  return p ? p.lvl : null;
+}
+
+/** A reward taken from another level than the player's (rewardFor's "from"): "≈" before it, and a
+ *  tooltip saying whose. */
+const approx = (from) => (from != null ? { mark: "≈ ", tip: t("best.fromOther", { n: from }) } : { mark: "", tip: "" });
+
 /** "+1,128 XP · 34 %": the XP, then its share of the player's current level (a guide for now: it
  *  means less once they level up - the number stays). */
 function xpText(xp, player) {
@@ -92,8 +103,8 @@ function placeHtml(m, state) {
   if (!place || !place.a) return "";
   const key = place.why === "turnin" ? "best.turnInAt" : state === "active" ? "best.goTo" : "best.givenAt";
   const here = isHere(place, S.level);
-  // already there: "Go to ..." crossed out (nowhere to go); "Given at" / "Turn in at" stay (who's still to find)
-  return `<span class="mplace${here ? " here" : ""}${here && key === "best.goTo" ? " arrived" : ""}">${esc(t(key, { a: place.a }))}</span>` +
+  // already there: the place crossed out ("Go to", "Given at", "Turn in at": that part's done)
+  return `<span class="mplace${here ? " here arrived" : ""}">${esc(t(key, { a: place.a }))}</span>` +
     (here ? ` <span class="mheretag">${esc(t("best.here"))}</span>` : "");
 }
 
@@ -116,7 +127,7 @@ function bestHtml(query = "") {
   const player = selectedPlayer();
   const level = player ? player.lvl : 0;
   const goal = GOALS.includes(settings.ui.missionGoal) ? settings.ui.missionGoal : "xp";
-  const ranked = rankMissions(S.log.missions, goal, level, S.log.thresholds), totalXp = ranked.totalXp;
+  const ranked = rankMissions(S.log.missions, goal, level, S.log.thresholds, localLevel()), totalXp = ranked.totalXp;
   // a search narrows the ranking (its goal and order kept)
   const matching = query.trim() ? new Set(searchMissions(S.log.missions, query).map((n) => n.m.i)) : null;
   const rows = matching ? ranked.rows.filter((r) => matching.has(r.m.i)) : ranked.rows;
@@ -136,8 +147,10 @@ function bestHtml(query = "") {
       .filter(Boolean).map((h) => `<span class="msub">${h}</span>`).join("");
     const here = isHere(whereTo(m, r.state), S.level);
     // the reward on the right, and under it (quick wins, finish first) the objectives to do
+    const ap = approx(r.from); // another level's reward (the local player's): "≈", whose on hover
     const values = (!r.known ? `<span class="muted">${esc(t("best.noReward"))}</span>`
-      : [r.xp ? `<span class="mxp">${esc(xpText(r.xp, player))}</span>` : "", r.cash ? `<span class="mcash">$${esc(num(r.cash))}</span>` : ""].join("")) +
+      : [r.xp ? `<span class="mxp" title="${esc(ap.tip)}">${ap.mark}${esc(xpText(r.xp, player))}</span>` : "",
+        r.cash ? `<span class="mcash" title="${esc(ap.tip)}">${ap.mark}$${esc(num(r.cash))}</span>` : ""].join("")) +
       (goal === "effort" || goal === "finish" ? `<span class="mleft">${esc(t("best.left", { n: r.effort }))}</span>` : "");
     return `<div class="mbest mrow ${r.state}${m.plot ? " story" : ""}${here ? " here" : ""}" data-mission="${esc(m.i)}" title="${esc(stateText(r))}">` +
       `<span class="mrank">${n + 1}</span><span class="mico">${icon(STATE_ICON[r.state])}</span>` +
@@ -236,8 +249,11 @@ function detailHtml(m, tree) {
       `<span class="mn">${nameHtml(s.o)}${s.o.opt ? ` <span class="mopt">${esc(t("mdetail.optional"))}</span>` : ""}</span>` +
       (s.o.c > 1 ? `<span class="mcount">${num(Math.min(s.p, s.o.c))}/${num(s.o.c)}</span>` : "") + `</div>`).join("");
   }
-  const reward = player ? rewardFor(m, player.lvl) : null;
-  if (reward) html += rewardHtml(reward, player);
+  const reward = player ? rewardFor(m, player.lvl, localLevel()) : null;
+  if (reward) {
+    html += rewardHtml(reward, player);
+    if (reward.from != null) html += `<div class="muted mrwfrom">${esc(t("best.fromOther", { n: reward.from }))}</div>`;
+  }
   else if (m.rw) html += `<div class="group">${esc(t("mdetail.rewards"))}</div><div class="muted">${esc(t("best.noReward"))}</div>`;
   // Requires / unlocks: neutral rows (the story flag and colours are for the mission shown, not the
   // ones it links to), with the linked mission's state
