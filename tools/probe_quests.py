@@ -2,14 +2,14 @@
 # missions depend on each other - for a quest panel (all objectives of the tracked mission with
 # their status / counts) and a mission tree (available / done). Run it mid-playthrough with a
 # mission tracked, ideally one with several objectives, some done.
-# Writes E:\Projects\python\borderlands-2\tools\probe_quests.txt (appends)
-#   py exec(open(r"E:\Projects\python\borderlands-2\tools\probe_quests.py").read())
+# Writes E:\Projects\python\bl2-helios-tracker\tools\probe_quests.txt (appends)
+#   py exec(open(r"E:\Projects\python\bl2-helios-tracker\tools\probe_quests.py").read())
 import enum
 from pathlib import Path
 
 import unrealsdk
 
-OUT = Path(r"E:\Projects\python\borderlands-2\tools\probe_quests.txt")
+OUT = Path(r"E:\Projects\python\bl2-helios-tracker\tools\probe_quests.txt")
 SCALARS = ("StrProperty", "NameProperty", "ObjectProperty", "ClassProperty", "ByteProperty", "IntProperty",
            "FloatProperty", "BoolProperty", "EnumProperty", "StructProperty", "ArrayProperty")
 STOP = {"Object", "Actor", "Info", "ReplicationInfo", "GBXDefinition"}  # engine bases: not dumped

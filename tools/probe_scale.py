@@ -1,12 +1,12 @@
 # Dev probe (in game), instant: the world scale (units per metre) from the player's size - the
 # collision cylinder, eye height, mesh bounds. A human-sized character is ~1.8 m tall.
-# Writes E:\Projects\python\borderlands-2\tools\probe_scale.txt (appends)
-#   py exec(open(r"E:\Projects\python\borderlands-2\tools\probe_scale.py").read())
+# Writes E:\Projects\python\bl2-helios-tracker\tools\probe_scale.txt (appends)
+#   py exec(open(r"E:\Projects\python\bl2-helios-tracker\tools\probe_scale.py").read())
 from pathlib import Path
 
 from mods_base import get_pc
 
-OUT = Path(r"E:\Projects\python\borderlands-2\tools\probe_scale.txt")
+OUT = Path(r"E:\Projects\python\bl2-helios-tracker\tools\probe_scale.txt")
 
 
 def _try(fn):  # noqa: ANN001, ANN202

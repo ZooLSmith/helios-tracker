@@ -1,14 +1,6 @@
 __pycache__/
 *.pyc
 
-# Dev helper outputs (regenerable, and some are extracted game assets - don't commit those)
-*/swf_dump/
-*/texture_dump.txt
-*/ammo_probe.txt
-*/flash_probe.txt
-*/hud_watch.txt
-*/card_screenshot.png
-
 # Probe outputs
 tools/*.txt
 
@@ -16,5 +8,6 @@ tools/*.txt
 helios_tracker/helios_tracker.log
 helios_tracker/autoexec.log
 
-# Personal startup script (tunnel commands, tokens)
+# Personal startup scripts (tunnel commands, tokens)
 helios_tracker/autoexec.ps1
+helios_tracker/-autoexec.ps1

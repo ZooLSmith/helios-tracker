@@ -2,14 +2,14 @@
 # GlobalsDefinition.GetRarityForLevel (-> EItemRarity) / GetRarityColorForLevel /
 # GetRarityLevelColorsIndexforLevel, for levels 0-15 and 500-510 (probe_rarity2.txt found them;
 # the RarityLevelColors table itself read empty). Plus the EItemRarity enum's members.
-# Writes E:\Projects\python\borderlands-2\tools\probe_rarity3.txt (appends)
-#   py exec(open(r"E:\Projects\python\borderlands-2\tools\probe_rarity3.py").read())
+# Writes E:\Projects\python\bl2-helios-tracker\tools\probe_rarity3.txt (appends)
+#   py exec(open(r"E:\Projects\python\bl2-helios-tracker\tools\probe_rarity3.py").read())
 from enum import Enum
 from pathlib import Path
 
 import unrealsdk
 
-OUT = Path(r"E:\Projects\python\borderlands-2\tools\probe_rarity3.txt")
+OUT = Path(r"E:\Projects\python\bl2-helios-tracker\tools\probe_rarity3.txt")
 lines: list[str] = ["#" * 70]
 
 

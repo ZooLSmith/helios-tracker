@@ -2,14 +2,14 @@
 # tracker's waypoints, the waypoint actors / components in the level, and what the HUD minimap is
 # drawing as objective icons. Run it with a mission tracked that shows BOTH a normal marker and an
 # area ("somewhere in this circle") marker if you can; run it again for another mission.
-# Writes E:\Projects\python\borderlands-2\tools\probe_missions.txt (appends)
-#   py exec(open(r"E:\Projects\python\borderlands-2\tools\probe_missions.py").read())
+# Writes E:\Projects\python\bl2-helios-tracker\tools\probe_missions.txt (appends)
+#   py exec(open(r"E:\Projects\python\bl2-helios-tracker\tools\probe_missions.py").read())
 from pathlib import Path
 
 import unrealsdk
 from mods_base import ENGINE, get_pc
 
-OUT = Path(r"E:\Projects\python\borderlands-2\tools\probe_missions.txt")
+OUT = Path(r"E:\Projects\python\bl2-helios-tracker\tools\probe_missions.txt")
 MAX_EACH = 40
 lines: list[str] = []
 

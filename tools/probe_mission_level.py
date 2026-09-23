@@ -3,8 +3,8 @@
 # Lists the level / game stage / XP functions on the likely classes (with their parameters), dumps the
 # level-related fields of a few missions (tracked, available, done) and their regions, the globals'
 # XP / level settings, and the reward the game computes now for each of those missions.
-# Writes E:\Projects\python\borderlands-2\tools\probe_mission_level.txt (appends)
-#   py exec(open(r"E:\Projects\python\borderlands-2\tools\probe_mission_level.py").read())
+# Writes E:\Projects\python\bl2-helios-tracker\tools\probe_mission_level.txt (appends)
+#   py exec(open(r"E:\Projects\python\bl2-helios-tracker\tools\probe_mission_level.py").read())
 import enum
 import re
 from pathlib import Path
@@ -12,7 +12,7 @@ from pathlib import Path
 import unrealsdk
 from mods_base import get_pc
 
-OUT = Path(r"E:\Projects\python\borderlands-2\tools\probe_mission_level.txt")
+OUT = Path(r"E:\Projects\python\bl2-helios-tracker\tools\probe_mission_level.txt")
 CLASSES = ("MissionDefinition", "MissionTracker", "WillowPlayerController", "WillowPlayerReplicationInfo",
            "WillowRegionDefinition", "WillowGameInfo", "GlobalsDefinition", "WillowGlobals", "AttributeInitializationDefinition")
 FUNC_PATTERN = re.compile(r"level|gamestage|stage|exp|trivial|difficulty|scale|playthrough|awesome", re.I)

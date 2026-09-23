@@ -4,14 +4,14 @@
 # the player's, reads the reward the game computes each time, then restores the original value (always,
 # checked). v2: sweeps ExpLevel (GameStage alone didn't change the XP: first run), and one picked-up
 # mission (its GameStage too).
-# Best on a save you don't mind. Writes E:\Projects\python\borderlands-2\tools\probe_mission_xp_curve.txt
-#   py exec(open(r"E:\Projects\python\borderlands-2\tools\probe_mission_xp_curve.py").read())
+# Best on a save you don't mind. Writes E:\Projects\python\bl2-helios-tracker\tools\probe_mission_xp_curve.txt
+#   py exec(open(r"E:\Projects\python\bl2-helios-tracker\tools\probe_mission_xp_curve.py").read())
 from pathlib import Path
 
 import unrealsdk
 from mods_base import get_pc
 
-OUT = Path(r"E:\Projects\python\borderlands-2\tools\probe_mission_xp_curve.txt")
+OUT = Path(r"E:\Projects\python\bl2-helios-tracker\tools\probe_mission_xp_curve.txt")
 MISSIONS = 3
 BELOW, ABOVE = 12, 6  # mission levels from player - BELOW to player + ABOVE
 lines: list[str] = []

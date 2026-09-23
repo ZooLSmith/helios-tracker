@@ -3,8 +3,8 @@
 # for what gets replicated anyway: the player info and pawn properties (local vs other, side by side),
 # every inventory actor in memory with its owner, and every skill instance.
 # Run it while joined to someone else's game.
-# Writes E:\Projects\python\borderlands-2\tools\probe_coop.txt (appends)
-#   py exec(open(r"E:\Projects\python\borderlands-2\tools\probe_coop.py").read())
+# Writes E:\Projects\python\bl2-helios-tracker\tools\probe_coop.txt (appends)
+#   py exec(open(r"E:\Projects\python\bl2-helios-tracker\tools\probe_coop.py").read())
 import re
 from enum import Enum
 from pathlib import Path
@@ -12,7 +12,7 @@ from pathlib import Path
 import unrealsdk
 from mods_base import ENGINE, get_pc
 
-OUT = Path(r"E:\Projects\python\borderlands-2\tools\probe_coop.txt")
+OUT = Path(r"E:\Projects\python\bl2-helios-tracker\tools\probe_coop.txt")
 NET_MODES = {0: "standalone", 1: "dedicated server", 2: "listen server (host)", 3: "client"}
 PAWN_KEYS = re.compile(r"Skill|Exp|Action|Inv|Equip|Shield|Grenade|Artifact|Relic|Weapon|Item|Cooldown|Level|Class"
                        r"|Mod|Gear|Slot|Badass|Pool|Replicated", re.I)

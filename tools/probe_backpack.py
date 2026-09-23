@@ -6,8 +6,8 @@
 #     list or not;
 #  3) for 60 s: their backpack count / owned item count on every change - have them PICK UP an item
 #     (the host runs pickups: it may land here) and then drop one.
-# Writes E:\Projects\python\borderlands-2\tools\probe_backpack.txt (overwrites)
-#   py exec(open(r"E:\Projects\python\borderlands-2\tools\probe_backpack.py").read())
+# Writes E:\Projects\python\bl2-helios-tracker\tools\probe_backpack.txt (overwrites)
+#   py exec(open(r"E:\Projects\python\bl2-helios-tracker\tools\probe_backpack.py").read())
 import re
 import time
 from enum import Enum
@@ -17,7 +17,7 @@ import unrealsdk
 from mods_base import ENGINE, get_pc
 from unrealsdk.hooks import Type, add_hook, remove_hook
 
-OUT = Path(r"E:\Projects\python\borderlands-2\tools\probe_backpack.txt")
+OUT = Path(r"E:\Projects\python\bl2-helios-tracker\tools\probe_backpack.txt")
 SAMPLE_FOR, SAMPLE_EVERY = 60.0, 0.5
 PC_KEYS = re.compile(r"Inv|Item|Backpack|Stash|Bank|Weapon|Gear|Equip|Save|Loadout", re.I)
 INV_CLASSES = ("WillowWeapon", "WillowShield", "WillowGrenadeMod", "WillowClassMod", "WillowArtifact",

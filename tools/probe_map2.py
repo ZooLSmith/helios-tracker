@@ -2,10 +2,10 @@
 # placement (the minimap moves/rotates/scales the tactical map movie so the player is centered),
 # to fit the exact world -> tactical map pixel transform. Draws nothing.
 # Console (with the HUD minimap visible, not in a menu):
-#   py exec(open(r"E:\Projects\python\borderlands-2\tools\probe_map2.py").read())
+#   py exec(open(r"E:\Projects\python\bl2-helios-tracker\tools\probe_map2.py").read())
 # Then WALK AROUND AND TURN for 20 s (both directions, long straight lines help).
 # Stop early: pyexec ammo_counter/off.py (the file keeps what was sampled so far).
-# Writes E:\Projects\python\borderlands-2\tools\probe_map2.txt
+# Writes E:\Projects\python\bl2-helios-tracker\tools\probe_map2.txt
 import time
 from pathlib import Path
 
@@ -14,7 +14,7 @@ from mods_base import get_pc
 from unrealsdk.hooks import Type, add_hook, remove_hook
 from unrealsdk.unreal import WeakPointer
 
-OUT = Path(r"E:\Projects\python\borderlands-2\tools\probe_map2.txt")
+OUT = Path(r"E:\Projects\python\bl2-helios-tracker\tools\probe_map2.txt")
 SAMPLE_FOR = 20.0
 SAMPLE_EVERY = 0.25
 FLASH_VARS = ("_x", "_y", "_rotation", "_xscale", "_yscale", "_width", "_height")

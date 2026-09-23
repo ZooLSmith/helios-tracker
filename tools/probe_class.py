@@ -1,11 +1,11 @@
 # Dev probe (in game), instant: where the player's localized class name ("Gunzerker") is.
-# Writes E:\Projects\python\borderlands-2\tools\probe_class.txt (appends)
-#   py exec(open(r"E:\Projects\python\borderlands-2\tools\probe_class.py").read())
+# Writes E:\Projects\python\bl2-helios-tracker\tools\probe_class.txt (appends)
+#   py exec(open(r"E:\Projects\python\bl2-helios-tracker\tools\probe_class.py").read())
 from pathlib import Path
 
 from mods_base import get_pc
 
-OUT = Path(r"E:\Projects\python\borderlands-2\tools\probe_class.txt")
+OUT = Path(r"E:\Projects\python\bl2-helios-tracker\tools\probe_class.txt")
 
 
 def _try(fn):  # noqa: ANN001, ANN202

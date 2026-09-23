@@ -2,8 +2,8 @@
 # triggered, can't trigger again for a while - e.g. one on cooldown right now). Dumps the skill
 # managers (every active skill with its state / timers), the controller's skill / cooldown fields,
 # and the definitions of the skills that are active.
-# Writes E:\Projects\python\borderlands-2\tools\probe_passives.txt (appends)
-#   py exec(open(r"E:\Projects\python\borderlands-2\tools\probe_passives.py").read())
+# Writes E:\Projects\python\bl2-helios-tracker\tools\probe_passives.txt (appends)
+#   py exec(open(r"E:\Projects\python\bl2-helios-tracker\tools\probe_passives.py").read())
 import enum
 import re
 from pathlib import Path
@@ -11,7 +11,7 @@ from pathlib import Path
 import unrealsdk
 from mods_base import ENGINE, get_pc
 
-OUT = Path(r"E:\Projects\python\borderlands-2\tools\probe_passives.txt")
+OUT = Path(r"E:\Projects\python\bl2-helios-tracker\tools\probe_passives.txt")
 PATTERN = re.compile(r"skill|cooldown|duration|timer|remaining|active", re.I)
 lines: list[str] = []
 

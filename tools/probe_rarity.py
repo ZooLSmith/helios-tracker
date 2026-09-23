@@ -2,14 +2,14 @@
 # levels 0-6 and 500+, a friend's legendaries were level 9 ("Rarity 9"). Dumps
 # GlobalsDefinition.RarityLevelColors (and the other rarity fields there), plus every weapon / item in
 # memory by rarity level with its name, so each level can be matched to its colour.
-# Writes E:\Projects\python\borderlands-2\tools\probe_rarity.txt (appends)
-#   py exec(open(r"E:\Projects\python\borderlands-2\tools\probe_rarity.py").read())
+# Writes E:\Projects\python\bl2-helios-tracker\tools\probe_rarity.txt (appends)
+#   py exec(open(r"E:\Projects\python\bl2-helios-tracker\tools\probe_rarity.py").read())
 from enum import Enum
 from pathlib import Path
 
 import unrealsdk
 
-OUT = Path(r"E:\Projects\python\borderlands-2\tools\probe_rarity.txt")
+OUT = Path(r"E:\Projects\python\bl2-helios-tracker\tools\probe_rarity.txt")
 lines: list[str] = ["#" * 70]
 
 

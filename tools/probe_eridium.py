@@ -2,8 +2,8 @@
 # "cash" (Presentation "Credits"?). For every usable-item pickup in the level (cash, eridium, ammo,
 # health...): its item definition, presentation, currency fields and distance to us, nearest first.
 # Run it with eridium on the ground nearby (and cash, for comparison).
-# Writes E:\Projects\python\borderlands-2\tools\probe_eridium.txt (appends)
-#   py exec(open(r"E:\Projects\python\borderlands-2\tools\probe_eridium.py").read())
+# Writes E:\Projects\python\bl2-helios-tracker\tools\probe_eridium.txt (appends)
+#   py exec(open(r"E:\Projects\python\bl2-helios-tracker\tools\probe_eridium.py").read())
 import math
 from enum import Enum
 from pathlib import Path
@@ -11,7 +11,7 @@ from pathlib import Path
 import unrealsdk
 from mods_base import get_pc
 
-OUT = Path(r"E:\Projects\python\borderlands-2\tools\probe_eridium.txt")
+OUT = Path(r"E:\Projects\python\bl2-helios-tracker\tools\probe_eridium.txt")
 lines: list[str] = ["#" * 70]
 
 

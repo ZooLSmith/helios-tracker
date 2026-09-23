@@ -5,8 +5,8 @@
 # and its definition's every non-empty property - looking for a parent / owner / source link, or a
 # flag that marks it hidden. Also: which skill-tree skill (anyone's) names the same definition.
 # Trigger Blood Overdrive (or any timed passive) during the 60 s.
-# Writes E:\Projects\python\borderlands-2\tools\probe_child_skill.txt (overwrites)
-#   py exec(open(r"E:\Projects\python\borderlands-2\tools\probe_child_skill.py").read())
+# Writes E:\Projects\python\bl2-helios-tracker\tools\probe_child_skill.txt (overwrites)
+#   py exec(open(r"E:\Projects\python\bl2-helios-tracker\tools\probe_child_skill.py").read())
 import time
 from enum import Enum
 from pathlib import Path
@@ -15,7 +15,7 @@ import unrealsdk
 from mods_base import get_pc
 from unrealsdk.hooks import Type, add_hook, remove_hook
 
-OUT = Path(r"E:\Projects\python\borderlands-2\tools\probe_child_skill.txt")
+OUT = Path(r"E:\Projects\python\bl2-helios-tracker\tools\probe_child_skill.txt")
 SAMPLE_FOR, SAMPLE_EVERY = 60.0, 0.25
 SKIP = {"Outer", "Class", "ObjectArchetype", "ObjectFlags", "HashNext", "HashOuterNext", "StateFrame", "LinkerIndex",
         "ObjectInternalInteger", "NetIndex", "VfTableObject", "Linker", "Name"}

@@ -2,14 +2,14 @@
 # would place it - the page's grid looked nothing like the game for a Krieg (skills in odd cells).
 # Per branch (SkillTreeBranchDefinition): its tiers' Skills[] (in order), the layout's per-tier
 # bCellIsOccupied[], every other field of Layout / tiers / the branch, and the player's grade in each.
-# Writes E:\Projects\python\borderlands-2\tools\probe_skill_layout.txt (appends)
-#   py exec(open(r"E:\Projects\python\borderlands-2\tools\probe_skill_layout.py").read())
+# Writes E:\Projects\python\bl2-helios-tracker\tools\probe_skill_layout.txt (appends)
+#   py exec(open(r"E:\Projects\python\bl2-helios-tracker\tools\probe_skill_layout.py").read())
 from enum import Enum
 from pathlib import Path
 
 import unrealsdk
 
-OUT = Path(r"E:\Projects\python\borderlands-2\tools\probe_skill_layout.txt")
+OUT = Path(r"E:\Projects\python\bl2-helios-tracker\tools\probe_skill_layout.txt")
 lines: list[str] = ["#" * 70]
 
 

@@ -28,7 +28,7 @@
 ### Loading mods from this project folder
 
 Current setup: each mod is a **directory junction** in `sdk_mods` pointing back here:
-- `sdk_mods\ammo_counter` → `E:\Projects\python\borderlands-2\ammo_counter`
+- `sdk_mods\helios_tracker` → `E:\Projects\python\bl2-helios-tracker\helios_tracker`
 
 Deleting a junction (`Remove-Item <link>` — no `-Recurse`) only removes the link, not the project.
 
@@ -40,7 +40,7 @@ Alternative (not used): create `Binaries\Win32\Plugins\unrealsdk.user.toml` (ove
 console_log_level = "DWRN"   # show developer warnings in the console
 
 [mod_manager]
-extra_folders = ["E:\\Projects\\python\\borderlands-2"]
+extra_folders = ["E:\\Projects\\python\\bl2-helios-tracker"]
 ```
 
 ### Dev tips

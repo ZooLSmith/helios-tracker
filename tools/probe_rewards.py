@@ -2,8 +2,8 @@
 # multipliers, reward items / pools) into the numbers its mission screen shows. Lists every
 # function about rewards on the classes that could compute them (with their parameters), dumps
 # the tracked mission's Reward in full, and tries evaluating its attribute values.
-# Writes E:\Projects\python\borderlands-2\tools\probe_rewards.txt (appends)
-#   py exec(open(r"E:\Projects\python\borderlands-2\tools\probe_rewards.py").read())
+# Writes E:\Projects\python\bl2-helios-tracker\tools\probe_rewards.txt (appends)
+#   py exec(open(r"E:\Projects\python\bl2-helios-tracker\tools\probe_rewards.py").read())
 import enum
 import re
 from pathlib import Path
@@ -11,7 +11,7 @@ from pathlib import Path
 import unrealsdk
 from mods_base import get_pc
 
-OUT = Path(r"E:\Projects\python\borderlands-2\tools\probe_rewards.txt")
+OUT = Path(r"E:\Projects\python\bl2-helios-tracker\tools\probe_rewards.txt")
 CLASSES = ("MissionTracker", "MissionDefinition", "WillowPlayerController", "WillowPlayerPawn", "WillowGameInfo",
            "WillowCoopGameInfo", "WillowPlayerReplicationInfo", "AttributeDefinition", "AttributeInitializationDefinition",
            "WillowGlobals", "GlobalsDefinition", "WillowHUDGFxMovie", "MissionStatusPlayerGFxObject", "WillowGFxMenuMissionLog",

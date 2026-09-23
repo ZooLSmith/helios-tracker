@@ -1,15 +1,15 @@
 # Dev probe (in game), instant: what can be read of each player's inventory and skills - for the
 # local player, and (in co-op) for the others, as host or as client.
 # Run it solo first, then in co-op (ideally once as host and once as client).
-# Writes E:\Projects\python\borderlands-2\tools\probe_inventory.txt (appends)
-#   py exec(open(r"E:\Projects\python\borderlands-2\tools\probe_inventory.py").read())
+# Writes E:\Projects\python\bl2-helios-tracker\tools\probe_inventory.txt (appends)
+#   py exec(open(r"E:\Projects\python\bl2-helios-tracker\tools\probe_inventory.py").read())
 from enum import Enum
 from pathlib import Path
 
 import unrealsdk
 from mods_base import ENGINE, get_pc
 
-OUT = Path(r"E:\Projects\python\borderlands-2\tools\probe_inventory.txt")
+OUT = Path(r"E:\Projects\python\bl2-helios-tracker\tools\probe_inventory.txt")
 MAX_BACKPACK = 8  # items detailed per backpack (the rest only counted)
 NET_MODES = {0: "standalone", 1: "dedicated server", 2: "listen server (host)", 3: "client"}
 

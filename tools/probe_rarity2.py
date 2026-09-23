@@ -3,14 +3,14 @@
 # 1) every property / function with "Rarity" or "Color" in its name on the inventory, pickup, item
 #    card and globals classes (walking up the class chain); 2) per rarity level, one loaded item's
 #    no-argument rarity / colour getters called (read-only getters only: Get*).
-# Writes E:\Projects\python\borderlands-2\tools\probe_rarity2.txt (appends)
-#   py exec(open(r"E:\Projects\python\borderlands-2\tools\probe_rarity2.py").read())
+# Writes E:\Projects\python\bl2-helios-tracker\tools\probe_rarity2.txt (appends)
+#   py exec(open(r"E:\Projects\python\bl2-helios-tracker\tools\probe_rarity2.py").read())
 from enum import Enum
 from pathlib import Path
 
 import unrealsdk
 
-OUT = Path(r"E:\Projects\python\borderlands-2\tools\probe_rarity2.txt")
+OUT = Path(r"E:\Projects\python\bl2-helios-tracker\tools\probe_rarity2.txt")
 KEYS = ("rarity", "color", "colour")
 lines: list[str] = ["#" * 70]
 

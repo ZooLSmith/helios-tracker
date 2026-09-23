@@ -2,14 +2,14 @@
 # area. Every mission's TravelStation / TurnInStation (FastTravelStationDefinition) and
 # GameStageRegion (WillowRegionDefinition): the first few of each class dumped field by field, then
 # every distinct one with its text fields; and how many missions point to each.
-# Writes E:\Projects\python\borderlands-2\tools\probe_mission_areas.txt (appends)
-#   py exec(open(r"E:\Projects\python\borderlands-2\tools\probe_mission_areas.py").read())
+# Writes E:\Projects\python\bl2-helios-tracker\tools\probe_mission_areas.txt (appends)
+#   py exec(open(r"E:\Projects\python\bl2-helios-tracker\tools\probe_mission_areas.py").read())
 import enum
 from pathlib import Path
 
 import unrealsdk
 
-OUT = Path(r"E:\Projects\python\borderlands-2\tools\probe_mission_areas.txt")
+OUT = Path(r"E:\Projects\python\bl2-helios-tracker\tools\probe_mission_areas.txt")
 FIELDS = ("TravelStation", "TurnInStation", "GameStageRegion")
 FULL_EACH = 2  # objects of each class dumped field by field
 STOP = {"Object", "GBXDefinition"}

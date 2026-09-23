@@ -1,11 +1,11 @@
 """
-Offline sanity check (plain Python, no game): imports z_hud_overlay and the mods with fake SDK
-modules, runs their per-frame draw path against a fake overlay, and validates the Scaleform movies
-they generate.
+Offline sanity check (plain Python, no game): imports helios_tracker with fake SDK modules, runs
+its collectors against fake objects, extracts real tactical maps from the game's packages, serves
+the page over HTTP and runs the page's JS modules under Node.
 
     python tools/offline_check.py
 
-Catches import errors, typos in the draw path, and malformed SWF output - not in-game behaviour.
+Catches import errors, typos and broken page modules - not in-game behaviour.
 """
 
 import sys
@@ -14,7 +14,6 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT))
-sys.path.insert(0, str(ROOT / "ammo_counter"))  # for swf_inspect
 
 
 # region Fake SDK
@@ -99,246 +98,7 @@ def _install_fakes() -> None:
     sys.modules["mods_base"] = mb
 
 
-class FakeOverlay:
-    """Stands in for z_hud_overlay.Overlay: records what the mod asks it to show."""
-
-    generation = 1
-    ready = True
-
-    def __init__(self) -> None:
-        self.texts: dict[str, list] = {}
-        self.updates = 0
-
-    visible = True
-
-    def show(self) -> None:
-        self.visible = True
-
-    def hide(self) -> None:
-        self.visible = False
-
-    def close(self) -> None: ...
-
-    def set_priority(self, priority: int) -> None:
-        self.priority = priority
-
-    def measure(self, text: str) -> tuple[float, float]:
-        return (len(text) * 14.0, 30.0)
-
-    def set_texts(self, group: str, draws: list) -> None:
-        self.texts[group] = draws
-        self.updates += 1
-
-    def set_backdrops(self, draws: list) -> None:
-        self.backdrops = draws
-
-
 # endregion
-
-
-def check_swf(data: bytes, label: str) -> None:
-    import swf_inspect as S  # noqa: PLC0415
-
-    tmp = ROOT / "tools" / "_check.gfx"
-    tmp.write_bytes(data)
-    try:
-        _, _, body = S.load(str(tmp))
-        counts: dict[str, int] = {}
-        for code, _ in S.tags(body):
-            counts[S.TAGNAMES.get(code, str(code))] = counts.get(S.TAGNAMES.get(code, str(code)), 0) + 1
-    finally:
-        tmp.unlink()
-    print(f"  {label}: {len(data)} bytes, tags {counts}")
-
-
-def check_ammo_counter() -> None:
-    import ammo_counter as m  # noqa: PLC0415
-
-    print("ammo_counter:")
-    check_swf(m._overlay.build_swf("check"), "movie")
-    fake = _use_fake_overlay(m)
-    m._icons = types.SimpleNamespace(set=lambda icons: setattr(fake, "icons", icons))
-    m._reader = types.SimpleNamespace(values=lambda pc, e: tuple((100 + i, 200) for i in range(len(e))))
-    canvas = types.SimpleNamespace(SizeX=1920, SizeY=1080)
-    args = types.SimpleNamespace(Canvas=canvas)
-
-    m.on_post_render(None, args, None, None)
-    m.on_post_render(None, args, None, None)  # unchanged: must not update again
-    assert fake.updates == 2, fake.updates  # txt + max, once
-    m.number_format.value = m.NUMBER_CURRENT_MAX
-    m.on_post_render(None, args, None, None)
-    assert m.widget.frame._logged == set(), m.widget.frame._logged
-    assert fake.backdrops == [], "backdrop drawn while off"
-    m.backdrop.enabled.value = True
-    m.on_post_render(None, args, None, None)
-    b0, c0 = fake.backdrops[0], fake.icons[0]
-    assert len(fake.backdrops) == 6 and b0.x < c0.x and b0.w > c0.size, (b0, c0)
-    print(f"  backdrops: {len(fake.backdrops)}, first {b0}")
-    m.backdrop.whole.value = True
-    m.on_post_render(None, args, None, None)
-    (whole,) = fake.backdrops
-    assert abs(whole.x - b0.x) < 1e-6 and whole.h > 5 * b0.h, (whole, b0)
-    print(f"  whole bounding box: {whole}")
-    m.backdrop.whole.value = False
-    m.backdrop.pad_x.value, m.backdrop.pad_y.value = -500, -500  # negative past the content: nothing
-    m.on_post_render(None, args, None, None)
-    assert all(b.w == 0 and b.h == 0 for b in fake.backdrops), fake.backdrops
-    m.backdrop.pad_x.value, m.backdrop.pad_y.value = 10, 3
-    m.backdrop.enabled.value = False
-    print(f"  icons: {len(fake.icons)}, first {fake.icons[0]}")
-    print(f"  txt[0]: {fake.texts['txt'][0]}")
-    print(f"  max[0]: {fake.texts['max'][0]}")
-    print(f"  options: {[getattr(o, 'identifier', o) for o in m.mod.options]}")
-
-
-def _use_fake_overlay(m) -> FakeOverlay:  # noqa: ANN001
-    fake = FakeOverlay()
-    m.widget.overlay = m._overlay = fake
-    m.widget._visible = lambda pc, positioning: True
-    return fake
-
-
-def _run_frames(m, n: int = 2) -> FakeOverlay:  # noqa: ANN001
-    fake = _use_fake_overlay(m)
-    args = types.SimpleNamespace(Canvas=types.SimpleNamespace(SizeX=1920, SizeY=1080))
-    for _ in range(n):
-        m.on_post_render(None, args, None, None)
-    assert m.widget.frame._logged == set(), m.widget.frame._logged
-    return fake
-
-
-def check_nudge() -> None:
-    """Arrow keys in Placement Mode: tap = 1 step, hold = accelerating movement, wheel = scale."""
-    from z_hud_overlay import Placement, nudge  # noqa: PLC0415
-
-    clock = [1000.0]
-    nudge.time.monotonic = lambda: clock[0]  # drive time by hand
-
-    def key(name: str, event: int) -> object:
-        return nudge.on_input_key(None, types.SimpleNamespace(Key=name, Event=event), None, None)
-
-    pl = Placement(x=500, y=500, scale=100)
-    assert key("Right", 0) is None  # nobody in Placement Mode: input untouched
-    pl.placement_mode.value = True
-    assert not pl.apply_nudge()  # first call only syncs
-    assert key("Right", 0) is nudge.Block  # tap: captured
-    assert pl.apply_nudge() and pl.x.value == 501, pl.x.value
-    clock[0] += 0.2  # still within the hold delay: no extra movement
-    pl.apply_nudge()
-    assert pl.x.value == 501, pl.x.value
-    for _ in range(100):  # hold 1 more second, 10 ms frames
-        clock[0] += 0.01
-        pl.apply_nudge()
-    held_1s = pl.x.value
-    for _ in range(100):  # and another second: faster
-        clock[0] += 0.01
-        pl.apply_nudge()
-    assert pl.x.value - held_1s > held_1s - 501 > 10, (held_1s, pl.x.value)
-    key("Right", 1)
-    stop = pl.x.value
-    clock[0] += 0.5
-    pl.apply_nudge()
-    assert pl.x.value == stop, "moved after release"
-    key("MouseScrollUp", 0)
-    pl.apply_nudge()
-    assert pl.scale.value == 105, pl.scale.value
-    pl.placement_mode.value = False
-    pl.apply_nudge()
-    clock[0] += 1.0  # past the capture timeout
-    assert key("Right", 0) is None  # Placement Mode off: input back to the game
-    from z_hud_overlay.options import DEFAULT_LAYER, layer_to_priority  # noqa: PLC0415
-
-    assert (layer_to_priority(0), layer_to_priority(DEFAULT_LAYER), layer_to_priority(20)) == (0, 204, 255)
-    assert layer_to_priority(99) == 255  # clamped
-    print(f"nudge: OK (tap 500->501, held 1 s -> {held_1s}, 2 s -> {stop}, wheel scale 100->105)")
-
-
-def check_cooldown_math() -> None:
-    from skill_timer.cooldown import drain_time  # noqa: PLC0415
-
-    # No modifiers: value / rate (rate > 1 = a permanent cooldown bonus)
-    assert drain_time(12.0, 1.0, []) == 12.0
-    assert abs(drain_time(12.0, 1.5, []) - 8.0) < 1e-9
-    # Probe run 1 (Tactical Withdrawal refund): pool 40.978, rate 12.112, boost 2.47 s left.
-    # Observed: the boost ended at pool ~11.7, then 1/s -> real time left ~ 2.45 + 11.7
-    t = drain_time(40.978, 12.112, [(11.112, 2.47)])
-    assert 13.0 < t < 14.5, t
-    # Refund bigger than what's left: it just drains during the boost
-    assert abs(drain_time(10.0, 12.0, [(11.0, 2.5)]) - 10.0 / 12.0) < 1e-9
-    print(f"cooldown math: OK (probe run 1 -> {t:.2f} s real time left)")
-
-
-def check_skill_timer() -> None:
-    import skill_timer as m  # noqa: PLC0415
-
-    print("skill_timer:")
-    check_swf(m._overlay.build_swf("check"), "movie")
-    fake = _run_frames(m)
-    assert fake.updates == 2, fake.updates  # seconds + (empty) fraction, once
-    assert fake.texts["ms"] == [], fake.texts["ms"]
-    print(f"  whole seconds: {fake.texts['t'][0]}")
-    m.decimals.value = 2
-    fake = _run_frames(m, 1)
-    sec, frac = fake.texts["t"][0], fake.texts["ms"][0]
-    assert (sec.text, frac.text) == ("12", ".34"), (sec.text, frac.text)
-    print(f"  with ms: '{sec.text}' + '{frac.text}' (fraction at x={frac.x:.1f}, scale {frac.scale})")
-    # Cooldown finished: vanishes - except in Placement Mode, which shows the preview
-    pool = sys.modules["mods_base"].get_pc().SkillCooldownPool.Data
-    pool.CurrentValue = 0.0
-    m._last["key"] = None
-    fake = _run_frames(m, 1)
-    assert fake.visible is False, "timer still visible when ready"
-    m.placement.placement_mode.value = True
-    fake = _run_frames(m, 1)
-    assert fake.visible is True and fake.texts["t"][0].text == "12", fake.texts
-    m.placement.placement_mode.value = False
-    pool.CurrentValue = 12.3456
-    print("  ready: hidden; ready in Placement Mode: preview 12.34")
-    # Running, 25% through a 24 s skill: 18 s of active time, in the active colour
-    pc_cls = type(sys.modules["mods_base"].get_pc())
-    pc_cls.ActionSkillTime = 0.25
-    pool.CurrentValue, pool.ConsumptionRate = 42.0, 0.0  # frozen at max while running
-    m.decimals.value = 0
-    m._last["key"] = None
-    fake = _run_frames(m, 1)
-    t = fake.texts["t"][0]
-    assert fake.visible and t.text == "18" and t.rgb == m.active_style.rgb, (t, fake.visible)
-    m.decimals.value, m._last["key"] = 1, None
-    fake = _run_frames(m, 1)
-    d = fake.texts["ms"][0]
-    assert d.text == ".0" and d.rgb == m.active_ms_style.rgb and d.alpha == m.active_ms_style.alpha, d
-    m.show_active.value = False
-    m._last["key"] = None
-    fake = _run_frames(m, 1)
-    assert fake.visible is False, "cooldown shown while running"
-    m.show_active.value = True
-    m.decimals.value = 2
-    pc_cls.ActionSkillTime = -1.0
-    pool.CurrentValue, pool.ConsumptionRate = 12.3456, 1.0
-    print(f"  running: active time '{t.text}' in the active colour; Show Active Time off: hidden")
-    expect = {1: ("12", ".9"), 2: ("12", ".99"), 3: ("12", ".999")}
-    for places, want in expect.items():
-        m.decimals.value = places
-        assert m._format(12.9995) == want, (places, m._format(12.9995))
-    m.decimals.value = 0
-    assert m._format(12.001) == ("13", ""), m._format(12.001)  # whole seconds round up
-    m.decimals.value = 2
-    print(f"  options: {[getattr(o, 'identifier', o) for o in m.mod.options]}")
-
-
-def check_xp_counter() -> None:
-    import xp_counter as m  # noqa: PLC0415
-
-    print("xp_counter:")
-    check_swf(m._overlay.build_swf("check"), "movie")
-    fake = _run_frames(m)
-    assert fake.updates == 2, fake.updates  # xp + max, once
-    print(f"  total: {fake.texts['xp'][0].text} {fake.texts['max'][0].text}")
-    m.mode.value, m.grouping.value = m.MODE_LEVEL, "Space"
-    m._reader._t = -1e9  # force a re-read
-    fake = _run_frames(m, 1)
-    print(f"  level: {fake.texts['xp'][0].text} {fake.texts['max'][0].text}")
-    print(f"  options: {[getattr(o, 'identifier', o) for o in m.mod.options]}")
 
 
 GAME_COOKED = Path(r"E:\SteamLibrary\steamapps\common\Borderlands 2\WillowGame\CookedPCConsole")
@@ -1099,14 +859,6 @@ def check_helios_tracker() -> None:  # noqa: PLR0915
 
 def main() -> None:
     _install_fakes()
-    import z_hud_overlay  # noqa: F401, PLC0415
-
-    print("z_hud_overlay: imported")
-    check_nudge()
-    check_ammo_counter()
-    check_cooldown_math()
-    check_skill_timer()
-    check_xp_counter()
     check_helios_tracker()
     print("OK")
 

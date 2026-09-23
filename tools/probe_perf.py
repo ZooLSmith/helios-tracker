@@ -2,14 +2,14 @@
 # collector's per-update pawn / pickup reads are ~30 us each (5.9 ms for 12 pawns), too slow.
 # Times N reads of each on an AI pawn (or the player's): by name, a struct and its member, the address,
 # and via a property looked up once (_find + _get_field), plus an empty Python loop for reference.
-# Writes E:\Projects\python\borderlands-2\tools\probe_perf.txt (appends)
-#   py exec(open(r"E:\Projects\python\borderlands-2\tools\probe_perf.py").read())
+# Writes E:\Projects\python\bl2-helios-tracker\tools\probe_perf.txt (appends)
+#   py exec(open(r"E:\Projects\python\bl2-helios-tracker\tools\probe_perf.py").read())
 import time
 from pathlib import Path
 
 from mods_base import ENGINE, get_pc
 
-OUT = Path(r"E:\Projects\python\borderlands-2\tools\probe_perf.txt")
+OUT = Path(r"E:\Projects\python\bl2-helios-tracker\tools\probe_perf.txt")
 N = 2000
 lines: list[str] = []
 
