@@ -271,6 +271,7 @@ export default {
   "best.from": "From {who}",
   "best.more": "+{n} more",
   "mdetail.goTo": "Go to",
+  "mlog.toTop": "Back to top",
   "mdetail.levelUnknown": "set once you've been to its area",
   "level.lv": "Area level {n}",
   "level.lvRange": "Area level {n}-{m}",

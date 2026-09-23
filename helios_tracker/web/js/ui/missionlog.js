@@ -123,14 +123,17 @@ function nextHtml(m, state) {
   return m.giver ? esc(t("best.from", { who: cleanGameText(m.giver) })) : "";
 }
 
-function bestHtml(query = "") {
+/** Best now's ranking for the selected player and goal (the head's summary and the list share it). */
+function bestRanking() {
   const player = selectedPlayer();
   const level = player ? player.lvl : 0;
   const goal = GOALS.includes(settings.ui.missionGoal) ? settings.ui.missionGoal : "xp";
-  const ranked = rankMissions(S.log.missions, goal, level, S.log.thresholds, localLevel()), totalXp = ranked.totalXp;
-  // a search narrows the ranking (its goal and order kept)
-  const matching = query.trim() ? new Set(searchMissions(S.log.missions, query).map((n) => n.m.i)) : null;
-  const rows = matching ? ranked.rows.filter((r) => matching.has(r.m.i)) : ranked.rows;
+  return { player, level, goal, ranked: rankMissions(S.log.missions, goal, level, S.log.thresholds, localLevel()) };
+}
+
+/** Best now's filters: the goals and the summary line - pinned above the list (it scrolls alone). */
+function bestHeadHtml() {
+  const { player, level, goal, ranked } = bestRanking(), totalXp = ranked.totalXp;
   let html = `<div class="mtools"><span class="seg">` + GOALS.map((g) =>
     `<button data-mgoal="${g}" class="${g === goal ? "on" : ""}" title="${esc(t("mgoal." + g + "Tip"))}">${esc(t("mgoal." + g))}</button>`).join("") +
     `</span></div>`;
@@ -139,7 +142,16 @@ function bestHtml(query = "") {
     html += `<div class="muted mbestsum">${esc(t("best.for", { name: player.n, n: level }))}` +
       (totalXp ? ` · ${esc(t("best.total", { xp: totalXp }))}` + (size ? ` ${esc(t("best.levels", { n: (totalXp / size).toFixed(1) }))}` : "") : "") + `</div>`;
   }
-  if (!rows.length) return html + `<div class="muted">${esc(t(matching ? "mlog.noMatch" : "best.none"))}</div>`;
+  return html;
+}
+
+function bestHtml(query = "") {
+  const { player, goal, ranked } = bestRanking();
+  // a search narrows the ranking (its goal and order kept)
+  const matching = query.trim() ? new Set(searchMissions(S.log.missions, query).map((n) => n.m.i)) : null;
+  const rows = matching ? ranked.rows.filter((r) => matching.has(r.m.i)) : ranked.rows;
+  let html = "";
+  if (!rows.length) return `<div class="muted">${esc(t(matching ? "mlog.noMatch" : "best.none"))}</div>`;
   html += `<div class="mbestlist">` + rows.slice(0, BEST_TOP).map((r, n) => { // the top 10 only
     const m = r.m, after = (r.after || []).map((d) => S.log.missions.find((x) => x.i === d)).filter(Boolean);
     const lines = [placeHtml(m, r.state), nextHtml(m, r.state),
@@ -170,8 +182,36 @@ function treeHtml() {
     `<button data-mgroup="${g}" class="${g === grouping ? "on" : ""}">${esc(t("mlog.by." + g))}</button>`).join("") + `</span>` +
     (grouping === "best" ? "" : `<label class="row mlocked"><input type="checkbox" id="mShowLocked"${showLocked ? " checked" : ""}>` +
     `<span>${esc(t("mlog.showLocked", { n: c.locked }))}</span></label>`) + `</div>` +
-    `<div id="mList">${listHtml()}</div>`;
+    `<div id="mHead">${headHtml()}</div><div id="mList">${listHtml()}</div>` +
+    `<button class="mtotop" id="mToTop" title="${esc(t("mlog.toTop"))}">${icon("chevronUp")}</button>`;
 }
+
+const TO_TOP_AFTER = 150; // px down the list before the "back to top" button shows
+
+/** The list's "back to top" button: shown once down the list a bit, over the list's top right
+ *  (placed at the list's top: the filters above can change height). */
+function syncToTop() {
+  const list = $("mList"), btn = $("mToTop");
+  if (!list || !btn) return;
+  const show = list.scrollTop > TO_TOP_AFTER;
+  if (btn.classList.contains("on") !== show) btn.classList.toggle("on", show);
+  if (show) btn.style.top = `${list.offsetTop + 6}px`;
+}
+
+/** Above the list, with the filters: Best now's goals and summary (nothing for the tree / areas). */
+function headHtml() {
+  return settings.ui.missionGroup === "best" ? bestHeadHtml() : "";
+}
+
+/** The list and its head again (a goal / a search changed): the filters above keep their state. */
+function refreshList() {
+  $("mHead").innerHTML = headHtml();
+  $("mList").innerHTML = listHtml();
+  syncToTop();
+}
+
+/** What scrolls: the list in the list view (the filters stay above), else the whole drawer body. */
+const scroller = () => $("mList") || $("ibody");
 
 /** Under the tools: the current view - a search narrows it (the view's filters kept): the ranking
  *  filtered (Best now), or the matches as a flat list with their area (the tree / areas; locked ones
@@ -277,7 +317,7 @@ function detailHtml(m, tree) {
 }
 
 export function renderMissionLog(resetScroll) {
-  const body = $("ibody"), scroll = body.scrollTop;
+  const body = $("ibody"), scroll = scroller().scrollTop;
   // the search box is rebuilt with the rest: keep its focus / caret across a refresh from the game
   const search = document.activeElement && document.activeElement.id === "mSearch" ? document.activeElement : null;
   const caret = search ? [search.selectionStart, search.selectionEnd] : null;
@@ -285,6 +325,7 @@ export function renderMissionLog(resetScroll) {
   if (!S.log || !S.log.missions.length) {
     $("iwho").textContent = t("mlog.title");
     $("isub").textContent = "";
+    body.classList.remove("mlistview");
     body.innerHTML = `<div class="note">${esc(t("mlog.none"))}</div>`;
     return;
   }
@@ -296,22 +337,26 @@ export function renderMissionLog(resetScroll) {
       `<span class="mtitle ${m.plot ? "story" : "side"}">${nameHtml(m)}</span>${storyFlag(m)}`;
     $("isub").textContent = [state, t(m.plot ? "mdetail.story" : "mdetail.side"), S.log.tracked === m.i ? t("mdetail.tracked") : ""]
       .filter(Boolean).join(" · ");
+    body.classList.remove("mlistview");
     body.innerHTML = detailHtml(m, tree);
   } else {
     const c = missionCounts(S.log.missions);
     $("iwho").textContent = t("mlog.title");
     $("isub").textContent = t("mlog.summary", { done: c.done, active: c.active + c.ready, available: c.available, unknown: c.unknown }) +
       (c.ready ? " · " + t("mlog.ready", { n: c.ready }) : "");
+    body.classList.add("mlistview"); // the list scrolls alone, under its filters
     body.innerHTML = treeHtml();
+    body.scrollTop = 0;
     if (caret) { const input = $("mSearch"); input.focus(); input.setSelectionRange(...caret); }
   }
-  body.scrollTop = resetScroll ? 0 : scroll;
+  scroller().scrollTop = resetScroll ? 0 : scroll;
+  syncToTop();
 }
 
 /** To a mission (from the tree or a requires / unlocks link): where we were goes on the history. */
 function goTo(id) {
   const view = S.missionView;
-  view.history.push({ id: view.id, scroll: $("ibody").scrollTop });
+  view.history.push({ id: view.id, scroll: scroller().scrollTop });
   view.id = id;
   saveDrawer();
   renderMissionLog(true);
@@ -323,7 +368,8 @@ function goBack() {
   view.id = prev.id;
   saveDrawer();
   renderMissionLog(true);
-  $("ibody").scrollTop = prev.scroll;
+  scroller().scrollTop = prev.scroll;
+  syncToTop();
 }
 
 export function initMissionLog() {
@@ -333,18 +379,21 @@ export function initMissionLog() {
     if (open) { openMissionLog(open.dataset.openMission); return; }
     if (!S.missionView) return;
     if (e.target.closest("#mBack")) { goBack(); return; }
+    if (e.target.closest("#mToTop")) { $("mList").scrollTo({ top: 0, behavior: "smooth" }); return; }
     const goal = e.target.closest("[data-mgoal]");
-    if (goal) { settings.ui.missionGoal = goal.dataset.mgoal; saveSettings(); $("mList").innerHTML = listHtml(); return; }
+    if (goal) { settings.ui.missionGoal = goal.dataset.mgoal; saveSettings(); refreshList(); return; }
     const grouping = e.target.closest("[data-mgroup]");
     if (grouping) { settings.ui.missionGroup = grouping.dataset.mgroup; saveSettings(); renderMissionLog(true); return; }
     const row = e.target.closest("[data-mission]");
     if (row) goTo(row.dataset.mission);
   });
+  // The list scrolling (scroll doesn't bubble: caught on the way down): its "back to top" button
+  $("inspector").addEventListener("scroll", (e) => { if (e.target.id === "mList") syncToTop(); }, true);
   // Typing a search: only the list under the box is redrawn (the box keeps its focus)
   $("inspector").addEventListener("input", (e) => {
     if (e.target.id !== "mSearch" || !S.missionView) return;
     S.missionView.query = e.target.value;
-    $("mList").innerHTML = listHtml();
+    refreshList();
   });
   $("inspector").addEventListener("change", (e) => {
     if (e.target.id !== "mShowLocked") return;

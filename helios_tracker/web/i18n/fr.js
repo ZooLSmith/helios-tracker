@@ -270,6 +270,7 @@ export default {
   "best.from": "De {who}",
   "best.more": "+{n} autres",
   "mdetail.goTo": "Aller à",
+  "mlog.toTop": "Revenir en haut",
   "mdetail.levelUnknown": "fixé une fois sa zone visitée",
   "level.lv": "Niveau de la zone : {n}",
   "level.lvRange": "Niveau de la zone : {n}-{m}",

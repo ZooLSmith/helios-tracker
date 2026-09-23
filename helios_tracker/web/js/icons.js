@@ -17,6 +17,7 @@ const ICONS = {
   close: `<path d="M3 3 9 9M9 3 3 9" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/>`,
   back: `<path d="M7.6 2.4 4 6l3.6 3.6" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>`,
   chevronDown: `<path d="M3.2 4.6 6 7.4l2.8-2.8" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>`,
+  chevronUp: `<path d="M3.2 7.4 6 4.6l2.8 2.8" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>`,
   chevronRight: `<path d="M4.6 3.2 7.4 6 4.6 8.8" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>`,
   tune: `<path d="M1.8 3.6h8.4M1.8 8.4h8.4" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/>` + // settings: two sliders
     `<circle cx="4.4" cy="3.6" r="1.5" fill="currentColor"/><circle cx="7.6" cy="8.4" r="1.5" fill="currentColor"/>`,

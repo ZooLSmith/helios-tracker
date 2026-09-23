@@ -37,6 +37,7 @@ export function closeInspector() {
 
 export function renderInspector(resetScroll) {
   const box = $("inspector");
+  if (!S.missionView) $("ibody").classList.remove("mlistview"); // (the mission list's layout: its own scroll)
   if (S.missionView) { renderMissionLog(resetScroll); return; }
   if (S.detail) { renderDetail(resetScroll); return; }
   $("itabs").style.display = "";
