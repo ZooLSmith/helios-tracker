@@ -94,11 +94,24 @@
 /* invested: a 2 px outline (the border + an inset ring of the same colour: the tile keeps its size) */
 .sgrid[class*="tree"] .scell.invested { box-shadow: inset 0 0 0 1px var(--skill-part), var(--tile-depth); }
 .sgrid[class*="tree"] .scell.maxed { box-shadow: inset 0 0 0 1px var(--skill-done), var(--tile-depth); }
+/* boosted (an item gives it bonus ranks, counting or not yet): a second outline around it, the bonus blue - over
+   the green / orange, alone on a skill without points */
+.sgrid[class*="tree"] .scell.boosted { box-shadow: 0 0 0 2px var(--skill-bonus), var(--tile-depth); }
+.sgrid[class*="tree"] .scell.invested.boosted { box-shadow: inset 0 0 0 1px var(--skill-part), 0 0 0 2px var(--skill-bonus), var(--tile-depth); }
+.sgrid[class*="tree"] .scell.maxed.boosted { box-shadow: inset 0 0 0 1px var(--skill-done), 0 0 0 2px var(--skill-bonus), var(--tile-depth); }
 /* open (points can go in now): a light border, full brightness even at 0 points; locked (its tier out of
    reach): greyed and dimmed, a lock in its corner */
 .scell.open:not(.invested) { border-color: rgba(255, 255, 255, .3); }
 .scell { position: relative; }
 .sgrid[class*="tree"] .scell { aspect-ratio: 1; min-height: 0; } /* square tiles (the empty slots too: even rows) */
+/* the recap (under the grid): every invested skill's bonuses, added up - one line each */
+.srecap { display: flex; flex-direction: column; gap: 2px; margin-top: 2px; }
+/* the labels dim, the values stand out: bold (the browser's - WillowBody has one weight: allowed here, a
+   short number doesn't smear) in the text's colour */
+.srline { font-size: 12.5px; color: var(--dim); }
+.srline .sval { color: var(--text); font-weight: 700; font-synthesis-weight: auto; }
+.scell .sbonus { color: var(--skill-bonus); margin-left: 3px; } /* an item's bonus ranks: "+2" */
+.scell .sbonus.idle { opacity: .45; } /* not counting yet: the skill has no point of its own */
 .scell .slock { position: absolute; top: 3px; right: 3px; display: flex; font-size: 10px; color: var(--dim); }
 .scell .pips i { background: rgba(0, 0, 0, .5); }
 .scell.invested { border-color: var(--skill-part); }

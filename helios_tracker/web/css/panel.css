@@ -134,13 +134,15 @@ button.act:hover { border-color: var(--accent); }
 .askill.r { color: #fff; }
 .askill.r::after { box-shadow: inset 0 0 0 1.5px var(--live); }
 .askill.r span { text-shadow: var(--bar-text-outline); }
-/* the action skill: scanlines, like the game's (all its states) */
-.askill.r i { background: var(--pat-scan), color-mix(in srgb, var(--live) 30%, #0b1a10); }
+/* the action skill: scanlines, like the game's, over its state's colour - one mix for every state (the same
+   depth: the scanlines read alike, the white timer on each); the state only picks the colour */
+.askill i { background: var(--pat-scan), color-mix(in srgb, var(--ak-fill, #6f8a99) 55%, #0b1a10); }
+.askill.r { --ak-fill: var(--live); }
 .askill.a { color: #fff; }
 .askill.a::after { box-shadow: inset 0 0 0 1.5px var(--health); }
 .askill.a span { text-shadow: var(--bar-text-outline); }
-.askill.a i { background: var(--pat-scan), color-mix(in srgb, var(--accent) 55%, #3a2a00); } /* a darker yellow: the white timer reads on it */
-.askill.c i { background: var(--pat-scan), color-mix(in srgb, #6f8a99 55%, transparent); }
+.askill.a { --ak-fill: var(--accent); }
+.askill.c { --ak-fill: #6f8a99; }
 .players .pname.me { color: var(--accent); }
 .players .pinfo { color: var(--dim); font-size: 11px; margin-top: 1px; } /* level · class, under the name */
 /* a cutscene playing (ui/cutscene.js): the Players list's bar - the health bar's look (sheen, its columns,

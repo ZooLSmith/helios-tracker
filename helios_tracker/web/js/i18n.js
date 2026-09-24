@@ -36,6 +36,8 @@ export const num = (n, digits = 0) => new Intl.NumberFormat(lang, { minimumFract
 /** Cash: "$ 1,234" - a narrow no-break space after the "$" (thin, and never on another line than the number;
  *  the "$" drawn from the fallback font: base.css). */
 export const money = (n) => "$\u202f" + num(n);
+/** A number with at most `digits` decimals, no trailing zeros ("0.4", "12"). */
+export const numUpTo = (n, digits) => new Intl.NumberFormat(lang, { maximumFractionDigits: digits }).format(n);
 /** A number short when it's big (10,000 and up: "1.7M", "850K" - the language's own compact form), else in full. */
 export const numShort = (n) => (Math.abs(n) >= 10000
   ? new Intl.NumberFormat(lang, { notation: "compact", maximumFractionDigits: 1 }).format(n) : num(n));

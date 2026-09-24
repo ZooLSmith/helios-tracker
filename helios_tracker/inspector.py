@@ -231,7 +231,80 @@ def _static_info(obj: Any, fn) -> dict[str, Any]:  # noqa: ANN001
     return _static[key]
 
 
-def _skills(ctrl: Any, player: dict[str, Any]) -> None:
+_stats_cache: dict[tuple[int, int, int], list[dict[str, Any]]] = {}  # (skill def, grade, player level) -> its lines
+
+
+def _skill_stats(sd: Any, ctrl: Any, grade: int) -> list[dict[str, Any]]:
+    """A skill's tooltip stats at a grade, as the game computes them (tools/probe_skill_stats2.txt):
+    SkillDefinition.GetSkillEffectPresentations(grade, the player's controller, out lines) -> each line's
+    presentation (Description: game text with a $NUMBER$ placeholder, "Gun Damage: $NUMBER$"; its display
+    flags) and ModifierValue (0.06 = +6 % when shown as a percentage). A function call: cached per (skill,
+    grade, player level) - the skills payload is only rebuilt when the points spent change anyway.
+    -> [{"d": text, "v": value, + the flags that are set: pct, pf (percent as float), inv, nn (no number), np (no
+    plus sign), pos (always positive: SIGNSTYLE_Positive), fl (rounding: float, precision fp; else an int),
+    pre / suf}]"""
+    level = try_(lambda: int(ctrl.PlayerReplicationInfo.ExpLevel), 0)
+    key = (sd._get_address(), grade, level)
+    if key in _stats_cache:
+        return _stats_cache[key]
+    result = try_(lambda: sd.GetSkillEffectPresentations(grade, ctrl, []))
+    entries = result[1] if isinstance(result, tuple) and len(result) > 1 else []
+    out = []
+    for e in entries or []:
+        p = try_(lambda e=e: e.AttributePresentation)
+        if p is None or not try_(lambda e=e: bool(e.bShouldDisplay), True):
+            continue
+        text = try_(lambda p=p: str(p.Description), "") or ""
+        value = try_(lambda e=e: float(e.ModifierValue), None)
+        if not text or value is None:
+            continue
+        flag = lambda name, p=p: try_(lambda: bool(getattr(p, name)), False)  # noqa: E731
+        line: dict[str, Any] = {"d": text, "v": round(value, 6)}
+        for short, name in (("pct", "bDisplayAsPercentage"), ("pf", "bDisplayPercentAsFloat"), ("inv", "bDisplayAsInverse"),
+                            ("nn", "bDontDisplayNumber"), ("np", "bDontDisplayPlusSign")):
+            if flag(name):
+                line[short] = 1
+        if "Positive" in str(try_(lambda p=p: p.SignStyle, "")):
+            line["pos"] = 1
+        if "Float" in str(try_(lambda p=p: p.RoundingMode, "")):
+            line["fl"] = 1
+            line["fp"] = try_(lambda p=p: int(p.FloatPrecision), 1)
+        for short, name in (("pre", "Prefix"), ("suf", "Suffix")):
+            if (v := try_(lambda p=p, n=name: str(getattr(p, n)), "")):
+                line[short] = v
+        out.append(line)
+    _stats_cache[key] = out
+    return out
+
+
+def _skill_bonuses(pawn: Any) -> dict[str, int]:
+    """The skill ranks the equipped items add (a class mod's "+2 Steady", blue in the skill screen:
+    tools/probe_skill_bonus.txt): an item's ItemCardModifierStats[] = {AttributePresentation, ModifierValue}
+    - its card's lines; a skill bonus's presentation lives in the class's skills package
+    (GD_AttributePresentation.Skills_Soldier.AttrPresent_Steady) and is named after the skill's definition
+    (GD_Soldier_Skills.Gunpowder.Steady): value 2.02 -> +2. The tree's own Grade / GetSkillGrade: the points spent
+    only. -> {skill definition name (lower case): [[ranks, the item's name], ...]} - per item, like the game's
+    "+2 skill points from <the class mod>"."""
+    bonuses: dict[str, list[list[Any]]] = {}
+    item = try_(lambda: pawn.InvManager.ItemChain)
+    for _ in range(MAX_CHAIN):
+        if item is None:
+            break
+        for line in try_(lambda i=item: list(i.ItemCardModifierStats), []) or []:
+            pres = try_(lambda ln=line: ln.AttributePresentation)
+            path = try_(lambda p=pres: p._path_name(), "") if pres is not None else ""
+            name = try_(lambda p=pres: str(p.Name), "") if pres is not None else ""
+            if ".Skills_" not in path or not name.startswith("AttrPresent_"):
+                continue
+            ranks = int(try_(lambda ln=line: float(ln.ModifierValue), 0.0))
+            if ranks:
+                key = name[len("AttrPresent_"):].lower()
+                bonuses.setdefault(key, []).append([ranks, try_(lambda i=item: item_name(i), "") or ""])
+        item = try_(lambda i=item: field(i, "Inventory"))
+    return bonuses
+
+
+def _skills(ctrl: Any, player: dict[str, Any], bonuses: dict[str, list[list[Any]]] | None = None) -> None:
     tree = try_(lambda: ctrl.PlayerSkillTree) if ctrl is not None else None
     if tree is None:
         player["skillsWhy"] = "unavailable" if player["local"] else "coopClient"
@@ -239,8 +312,11 @@ def _skills(ctrl: Any, player: dict[str, Any]) -> None:
     # The whole tree is ~50 skills x several reads: only re-read when the points spent change
     points = try_(lambda: int(tree.GetSkillPointsSpentInTree()), None)
     ctrl_key = ctrl._get_address()  # (not `key`: the loops below used to overwrite it - the cache never hit)
+    bonuses = bonuses or {}
+    # (a class mod swapped: the bonuses change, not the points)
+    cache_key = (points, tuple(sorted((k, tuple(map(tuple, v))) for k, v in bonuses.items())))
     cached = _skills_cache.get(ctrl_key)
-    if cached is not None and cached[0] == points and points is not None:
+    if cached is not None and cached[0] == cache_key and points is not None:
         player.update(cached[1])
         return
     # The tree's arrays (PlayerSkillTree*Data structs): Branches[] = {Definition, ...},
@@ -283,6 +359,19 @@ def _skills(ctrl: Any, player: dict[str, Any]) -> None:
         tier_index = try_(lambda s=s: int(s.ParentTierIndex), -1)
         tier = tiers[tier_index] if 0 <= tier_index < len(tiers) else None
         skill = {**info, "g": grade, "t": try_(lambda: int(tier.TierNumber), 0) if tier is not None else 0}
+        # bonus ranks from the equipped items (a class mod's): "b"; they only count once the skill has a point
+        # of its own (the user) - the stats at the effective rank (points + bonus: the game's blue values) then,
+        # none without a point; the next point's: one more (a first point: 1 + the bonus)
+        sources = bonuses.get(try_(lambda: str(sd.Name), "").lower(), [])
+        bonus = sum(ranks for ranks, _name in sources)
+        if bonus:
+            skill["b"] = bonus
+            skill["bs"] = sources  # [[ranks, the item's name]]: where they come from
+        effective = grade + bonus if grade > 0 else 0
+        if effective > 0 and (fx := _skill_stats(sd, ctrl, effective)):
+            skill["fx"] = fx
+        if grade < info["m"] and (fxn := _skill_stats(sd, ctrl, grade + bonus + 1)):
+            skill["fxn"] = fxn
         by_def[sd._get_address()] = skill
         branch = branches.get(try_(lambda: int(tier.ParentBranchIndex), -1)) if tier is not None else None
         if branch is not None:
@@ -305,7 +394,7 @@ def _skills(ctrl: Any, player: dict[str, Any]) -> None:
     if loose:
         trees.insert(0, {"n": "", "pts": 0, "skills": loose})  # the page names it
     result = {"skills": trees, "skillPoints": points}
-    _skills_cache[ctrl_key] = (points, result)
+    _skills_cache[ctrl_key] = (cache_key, result)
     player.update(result)
 
 
@@ -435,7 +524,7 @@ def read_players(world_info: Any, me: Any, pc: Any = None) -> list[dict[str, Any
                         f" total={try_(lambda: ctrl.ExpPool.Data.CurrentValue)}"
                         f" next={try_(lambda: pri.ExpPointsNextLevelAt)} level={try_(lambda: pri.ExpLevel)}")
                 _inventory(pawn, player)
-                _skills(ctrl, player)
+                _skills(ctrl, player, try_(lambda p=pawn: _skill_bonuses(p), {}))
                 players.append(player)
         except Exception as ex:  # noqa: BLE001
             log_error("inspect player", ex)

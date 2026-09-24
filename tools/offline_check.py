@@ -266,7 +266,22 @@ const lookOut = { lookDefault, lookClamped, rgba: withAlpha("#0b1116", 0.4) };
 const { objectCategory } = await load("js/model.js");
 const vaultCat = objectCategory({ d: "IO_VaultRoy", n: "Vault Roy", c: "WillowInteractiveObject" })
   + "," + objectCategory({ d: "CatchARideTerminal", n: "Catch-A-Ride", c: "WillowVehicleSpawnStationTerminal" });
-const missionsOut = { lookOut, vaultCat, items, fallback, where, tooHigh, finish, difficulty, best, search, infoHtml, areas, gameText, story: flat(tree.story), other: flat(tree.other), counts: missionCounts(log),
+const { skillStatText } = await load("js/ui/skills.js");
+const statsOut = [
+  skillStatText({ d: "Gun Damage: $NUMBER$", v: 0.06, pct: 1, fl: 1, fp: 1 }),
+  skillStatText({ d: "Reload Speed: $NUMBER$", v: -0.08, pct: 1, pos: 1 }),
+  skillStatText({ d: "Shield Recharge Delay: $NUMBER$", v: -0.12, pct: 1, fl: 1, fp: 1 }),
+  skillStatText({ d: "Regenerates $NUMBER$ of your Max Health / sec.", v: 0.004, pct: 1, pf: 1, fl: 1, fp: 1, np: 1, pos: 1 }),
+  skillStatText({ d: "Turret Duration: $NUMBER$ seconds", v: 2, pos: 1 }),
+  skillStatText({ d: "Cooldown: $NUMBER$ seconds", v: 42, np: 1 }),
+];
+const { bonusLines } = await load("js/ui/skills.js");
+const gun = (v) => ({ d: "Gun Damage: $NUMBER$", v, pct: 1, fl: 1, fp: 1 });
+const bonusOut = bonusLines([
+  { tiers: [{ cells: [{ g: 2, m: 5, fx: [gun(0.12)] }, { g: 0, m: 5, fxn: [gun(0.05)] }] }] },
+  { skills: [{ g: 1, m: 5, fx: [gun(0.07), { d: "Melee Damage: $NUMBER$", v: 0.06, pct: 1, fl: 1, fp: 1 }] }] },
+]);
+const missionsOut = { bonusOut, statsOut, lookOut, vaultCat, items, fallback, where, tooHigh, finish, difficulty, best, search, infoHtml, areas, gameText, story: flat(tree.story), other: flat(tree.other), counts: missionCounts(log),
   objectives: objectiveStates(log[1]).map((s) => s.state) };
 console.log(JSON.stringify({ sha: crypto.createHash("sha256").update(rgba).digest("hex"), err, back, right, raw, modules, missions: missionsOut,
   migrated, checked: { enemy: checked.layers.enemy, view: checked.view, openLayers: checked.ui.openLayers, drawer: checked.ui.drawer, badDrawer }, i18nKeys, unknownSettings, lootLayers, gameRarity, freeRects }));
@@ -819,6 +834,37 @@ def check_helios_tracker() -> None:  # noqa: PLR0915
     msg = json.loads(hub._channels["areas"][1])
     assert msg.get("full") == 1 and all(a.get("u") for a in msg["areas"]), ("a fully explored map: every area", msg)
     col.get_pc = real_get_pc
+    # A skill's stats (tools/probe_skill_stats2.txt): GetSkillEffectPresentations(grade, ctrl, out lines) -> the
+    # game's text, value, display flags; cached per (skill, grade, player level)
+    from helios_tracker import inspector as insp  # noqa: PLC0415
+
+    calls = []
+
+    def presentations(grade, ctrl, out):  # noqa: ANN001, ANN202
+        calls.append(grade)
+        pres = ns(Description="Gun Damage: $NUMBER$", bDisplayAsPercentage=True, bDisplayPercentAsFloat=False,
+                  bDisplayAsInverse=False, bDontDisplayNumber=False, bDontDisplayPlusSign=False, SignStyle="SIGNSTYLE_AsIs",
+                  RoundingMode="ATTRROUNDING_Float", FloatPrecision=1, Prefix="", Suffix="")
+        return (Ellipsis, [ns(AttributePresentation=pres, ModifierValue=0.06 * grade, bShouldDisplay=True),
+                           ns(AttributePresentation=pres, ModifierValue=1.0, bShouldDisplay=False)])
+    onslaught = ns(_get_address=lambda: 0x5A11, GetSkillEffectPresentations=presentations)
+    stat_ctrl = ns(PlayerReplicationInfo=ns(ExpLevel=30))
+    fx = insp._skill_stats(onslaught, stat_ctrl, 2)
+    assert fx == [{"d": "Gun Damage: $NUMBER$", "v": 0.12, "pct": 1, "fl": 1, "fp": 1}], fx
+    assert insp._skill_stats(onslaught, stat_ctrl, 2) == fx and calls == [2], ("cached", calls)
+    # A class mod's bonus ranks (tools/probe_skill_bonus.txt): its card's lines whose presentation is a skill's
+    def card(path, value):  # noqa: ANN001, ANN202
+        return ns(AttributePresentation=ns(_path_name=lambda: path, Name=path.rpartition(".")[2]), ModifierValue=value)
+    cmod = ns(ItemCardModifierStats=[card("GD_AttributePresentation.Skills_Soldier.AttrPresent_Steady", 2.02),
+                                     card("GD_AttributePresentation.Skills_Soldier.AttrPresent_Pressure", 3.04),
+                                     card("GD_AttributePresentation.Weapons.AttrPresent_WeaponReloadSpeed", -0.235)],
+              Inventory=None)
+    relic = ns(ItemCardModifierStats=[card("GD_AttributePresentation.Skills_Soldier.AttrPresent_Steady", 1.0)], Inventory=cmod)
+    real_item_name = insp.item_name
+    insp.item_name = lambda i: "Resolute Rifleman" if i is cmod else "Relic"
+    assert insp._skill_bonuses(ns(InvManager=ns(ItemChain=relic))) == {
+        "steady": [[1, "Relic"], [2, "Resolute Rifleman"]], "pressure": [[3, "Resolute Rifleman"]]}, "bonus ranks, per item"
+    insp.item_name = real_item_name
     # A cutscene video (tools/probe_cutscene_watch.txt): told at once with its length; the first frame
     # over a second later clears it; another player's controller's: ignored
     me_pc = ns(_get_address=lambda: 0xC0)
@@ -1217,6 +1263,10 @@ def check_helios_tracker() -> None:  # noqa: PLR0915
     assert mis["finish"] == "f4:7,f1:5,f2:1", mis["finish"]
     # its objective current (to do) / later step / done / mission not started; gives: not started / done; unknown mission
     assert mis["items"] == [True, False, False, False, True, False, True], mis["items"]
+    assert mis["statsOut"] == ["Gun Damage: +6\u202f%", "Reload Speed: +8\u202f%", "Shield Recharge Delay: -12\u202f%",
+                               "Regenerates 0.4\u202f% of your Max Health / sec.", "Turret Duration: +2 seconds",
+                               "Cooldown: 42 seconds"], ("a skill's stats, the game's way", mis["statsOut"])
+    assert mis["bonusOut"] == ["Gun Damage: +19\u202f%", "Melee Damage: +6\u202f%"], ("the bonuses, added up", mis["bonusOut"])
     lk = mis["lookOut"]  # the see-through settings: 100 % by default, clamped to 0-100, the colour with its alpha
     assert (lk["lookDefault"], lk["lookClamped"], lk["rgba"]) == ({"bg": 100, "map": 100, "panel": 90, "ui": 100, "marker": 100},
                                                                    {"bg": 100, "map": 0, "panel": 20, "ui": 200, "marker": 50}, "rgba(11, 17, 22, 0.4)"), lk

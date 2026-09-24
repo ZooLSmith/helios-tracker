@@ -1,10 +1,77 @@
 // The inspector's Skills tab: one tab per tree, the game's grid layout.
 import { esc, nameHtml } from "../dom.js";
-import { num, t } from "../i18n.js";
+import { num, numUpTo, t } from "../i18n.js";
 import { cleanGameText as cleanText, nameText } from "../model.js";
 import { icon } from "../icons.js";
 import { S } from "../state.js";
-import { tipAttrs } from "./hovertip.js";
+import { tipAttrs, tipSections } from "./hovertip.js";
+
+/** A skill's stat line as the game shows it (inspector.py _skill_stats: the game's text and value): the value
+ *  (x 100 as a percentage; always positive / its own sign, a "+" unless told not to; rounded to an int, or to
+ *  its precision) dropped into the text's $NUMBER$ (else before it). */
+export function skillStatText(f) {
+  const [before, number, after] = skillStatParts(f);
+  return before + number + after;
+}
+
+/** skillStatText in parts: [the text before the value, the value, the text after] - the value emphasised
+ *  apart (the BONUSES). No value shown (bDontDisplayNumber): ["the text", "", ""]. */
+export function skillStatParts(f) {
+  let v = f.inv && f.v ? 1 / f.v : f.v;
+  if (f.pct) v *= 100;
+  if (f.pos) v = Math.abs(v);
+  const n = f.fl ? numUpTo(v, f.fp ?? 1) : num(Math.round(v));
+  const plus = v > 0 && !f.np ? "+" : "";
+  const number = `${f.pre || ""}${plus}${f.pct ? t("unit.percent", { n }) : n}${f.suf || ""}`;
+  const text = cleanText(f.d);
+  if (f.nn) return [text.replace(/\$NUMBER\$\s*/g, "").trim(), "", ""];
+  const at = text.indexOf("$NUMBER$");
+  if (at < 0) return ["", number, " " + text];
+  return [text.slice(0, at), number, text.slice(at + "$NUMBER$".length).replace(/\$NUMBER\$/g, number)];
+}
+
+/** A skill's tooltip, in sections: its rank and state; its stats now; "Next level" and the next rank's (what a
+ *  point would give); its description. */
+function skillTip(sk, state) {
+  // an item's bonus ranks, per item like the game's: "+2 skill points from <the class mod>" - only once the skill
+  // has a point of its own (said when it has none)
+  const bonus = (sk.bs || []).map(([n, item]) => (item ? t("skills.bonusFrom", { n, item }) : t("skills.bonus", { n })));
+  if (bonus.length && !sk.g) bonus.push(t("skills.bonusNeedsPoint"));
+  return tipSections(nameText(sk), [
+    { kind: "meta", lines: [`${t("skills.rank", { n: sk.g, m: sk.m })} · ${state}`] },
+    { kind: "meta bonus", lines: bonus },
+    { kind: "stats", lines: (sk.fx || []).map(skillStatParts) }, // (the values emphasised)
+    { kind: "stats next", head: t("skills.next"), lines: (sk.fxn || []).map(skillStatParts) },
+    { kind: "desc", lines: [cleanText(sk.d)] },
+  ]);
+}
+
+/** The bonuses of every invested skill, added up: the lines of the same stat (the same game text and display)
+ *  summed - "Gun Damage" from three skills: one total - in the order they first come (tree by tree). A sum:
+ *  the game combines some modifiers differently (scales vs. adds), so it's a guide. */
+export function bonusLines(trees, parts = false) {
+  const sums = new Map();
+  for (const b of trees) {
+    const skills = b.tiers ? b.tiers.flatMap((tier) => tier.cells) : b.skills || [];
+    for (const sk of skills) {
+      if (!sk || !(sk.g > 0)) continue; // (an item's bonus ranks count only with a point of its own)
+      for (const f of sk.fx || []) {
+        const { v, ...look } = f;
+        const key = JSON.stringify(look);
+        const line = sums.get(key);
+        if (line) line.v += v; else sums.set(key, { ...f });
+      }
+    }
+  }
+  return [...sums.values()].map(parts ? skillStatParts : skillStatText);
+}
+
+function recapHtml(trees) {
+  const lines = bonusLines(trees, true); // (in parts: only the value emphasised)
+  return lines.length ? `<div class="group">${esc(t("skills.recap"))}</div>` +
+    `<div class="srecap">${lines.map(([before, value, after]) =>
+      `<div class="srline">${esc(before)}${value ? `<b class="sval">${esc(value)}</b>` : ""}${esc(after)}</div>`).join("")}</div>` : "";
+}
 
 export function skillsHtml(p) {
   if (!p.skills) return `<div class="note">${esc(t("why.skills." + (p.skillsWhy || "unavailable")))}</div>`;
@@ -20,12 +87,13 @@ export function skillsHtml(p) {
       `${b.n ? nameHtml(b) : `<span class="nm">${esc(t("skills.other"))}</span>`}` +
       `<span class="spts">· ${esc(num(b.pts))}</span></button>`).join("") + `</div>`;
     html += `<div class="branch">${skillGrid(trees[sel], sel)}</div>`;
+    html += recapHtml(trees); // under the tabs and the grid: the bonuses of every tree, added up
   }
   for (const b of trees.length ? [] : p.skills) {
     html += `<div class="branch"><div class="bhead">${b.n ? nameHtml(b) : esc(t("skills.other"))}<span class="bpts">${esc(t("skills.pts", { n: b.pts }))}</span></div>`;
     for (const sk of b.skills) {
       const pips = Array.from({ length: Math.max(sk.m, 0) }, (_, i) => `<i class="${i < sk.g ? "on" : ""}"></i>`).join("");
-      html += `<div class="skill${sk.g ? "" : " zero"}"${tipAttrs(nameText(sk), t("skills.rank", { n: sk.g, m: sk.m }), cleanText(sk.d))}>` +
+      html += `<div class="skill${sk.g ? "" : " zero"}"${skillTip(sk, t(sk.m > 0 && sk.g >= sk.m ? "skills.maxed" : "skills.open"))}>` +
         `<span class="tier">${esc(t("skills.tier", { n: sk.t }))}</span><span class="sname">${nameHtml(sk)}</span>` +
         `<span class="pips">${pips}</span><span class="muted">${sk.g}/${sk.m}</span></div>`;
     }
@@ -63,11 +131,13 @@ function skillGrid(b, index) {
       // lock) or open (points can go in now: not maxed, its tier reached)
       const maxed = sk.m > 0 && sk.g >= sk.m;
       const state = maxed ? "maxed invested" : sk.g ? "invested" : "zero";
-      const cls = ["scell", state, locked ? "locked" : maxed ? "" : "open"].filter(Boolean).join(" ");
+      // boosted: an item gives it bonus ranks (counting or not yet): a second, blue outline like the game's
+      const cls = ["scell", state, locked ? "locked" : maxed ? "" : "open", sk.b ? "boosted" : ""].filter(Boolean).join(" ");
       const tip = t(locked ? "skills.locked" : maxed ? "skills.maxed" : "skills.open");
-      html += `<div class="${cls}"${tipAttrs(nameText(sk), `${t("skills.rank", { n: sk.g, m: sk.m })} · ${tip}`, cleanText(sk.d))}>` +
+      html += `<div class="${cls}"${skillTip(sk, tip)}>` +
         (locked ? `<span class="slock">${icon("lock")}</span>` : "") + `<div class="sn">${nameHtml(sk)}</div>` +
-        `<div class="sg"><span class="pips">${pips}</span><span>${sk.g}/${sk.m}</span></div></div>`;
+        `<div class="sg"><span class="pips">${pips}</span><span>${sk.g}/${sk.m}` +
+        `${sk.b ? `<span class="sbonus${sk.g ? "" : " idle"}">${esc(t("skills.plus", { n: sk.b }))}</span>` : ""}</span></div></div>`;
     }
     need += tier.need;
   }

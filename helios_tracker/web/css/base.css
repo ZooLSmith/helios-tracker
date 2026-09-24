@@ -51,6 +51,7 @@
   --tree-2-hi: #a13837; --tree-2-main: #552b19; --tree-2-shadow: #231614;
   --skill-done: #04cc04; /* a skill maxed: its outline and rank dots */
   --skill-part: #d46a00; /* a skill with points, not maxed */
+  --skill-bonus: #4aa8ff; /* bonus ranks from gear (a class mod's): blue, like the game's */
   --objective: #7cf58a; /* light green, like the game's objective markers */
   --story: #ffcc33; /* story (main) missions: yellow; side missions: grey */
   --side: #a9b6bd;
@@ -93,9 +94,19 @@ canvas.dragging { cursor: grabbing; }
 /* the page elements' tooltip (ui/hovertip.js): the map tooltip's look, wrapping long text, above the drawer */
 #htip { position: fixed; pointer-events: none; background: var(--panel); border: 1px solid var(--panel-edge);
   border-radius: 4px; padding: 5px 8px; display: none; font-size: 12px; z-index: 10; max-width: 300px; }
-#htip b { display: block; font-size: 13px; margin-bottom: 2px; }
+#htip > b { display: block; font-size: 13px; margin-bottom: 2px; } /* the title (not a line's bold value: inline) */
 #htip .tl { display: block; color: var(--dim); }
 #htip .tl + .tl { margin-top: 3px; }
+/* sections (tipSections): a divider between them; stats in the text's colour, a small heading, the description
+   smaller */
+#htip .tsec + .tsec { margin-top: 6px; padding-top: 6px; border-top: 1px solid var(--panel-edge); }
+#htip .thead { display: block; font-size: 10.5px; letter-spacing: .1em; text-transform: uppercase; color: var(--dim); margin-bottom: 2px; }
+/* an emphasised value (a stat's number): bold - the browser's, allowed for these short numbers (WillowBody has
+   one weight) - the rest of its line dimmer */
+#htip .tsec.stats .tl { color: var(--dim); }
+#htip .sval { color: var(--text); font-weight: 700; font-synthesis-weight: auto; }
+#htip .tsec.bonus .tl { color: var(--skill-bonus); } /* an item's bonus ranks: blue, like the game's */
+#htip .tsec.desc .tl { font-size: 11.5px; line-height: 1.35; }
 #tip b { display: block; font-size: 13px; }
 #tip .tl { display: block; color: var(--dim); } /* the lines under the name, one block each */
 #tip .tlist { display: block; margin: 1px 0 2px 8px; font-size: 11px; } /* e.g. a container's contents */
