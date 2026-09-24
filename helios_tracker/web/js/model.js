@@ -33,6 +33,14 @@ export function rarity(q) {
 }
 const RARITY_COLOR = Object.fromEntries(Object.values(RARITY));
 
+// The effervescent rarity's rainbow (the game's RARITY_Rainbow) at a time (ms, the page's clock): its hue goes round
+// once per cycle - the drawer's name (drawer.css, 3 s) and the map's markers in step. Called per frame drawn only
+// (never a frame of its own: it moves at the Refresh rate)
+export const RAINBOW_CYCLE = 3000;
+export function rainbowAt(ms) {
+  return `hsl(${Math.round(((ms % RAINBOW_CYCLE) / RAINBOW_CYCLE) * 360)} 65% 80%)`; // (pastel, like the game's: not saturated)
+}
+
 // The panel's categories, in order
 export const LAYER_GROUPS = ["characters", "loot", "world"];
 

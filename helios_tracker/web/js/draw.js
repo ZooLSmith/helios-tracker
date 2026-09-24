@@ -2,7 +2,7 @@
 // loot, pawns), each styled by its layer's settings; records what's where (S.hits) for hover /
 // click, updates the layer counts.
 import { UU_PER_METER, worldToMap, yawToAngle } from "./geo.js";
-import { FLOOR_UU, LAYERS, LAYER_COLOR, chestTier, isGear, lootLayer, nameText, rarity } from "./model.js";
+import { FLOOR_UU, LAYERS, LAYER_COLOR, chestTier, isGear, lootLayer, nameText, rainbowAt, rarity } from "./model.js";
 import { look, withAlpha } from "./look.js";
 import { missionItemWanted } from "./missions.js";
 import { settings } from "./settings.js";
@@ -196,7 +196,9 @@ export function draw() {
     const [sx, sy] = place(p.x, p.y);
     if (!visible(sx, sy)) continue;
     const tier = p.q || 0;
-    const [, color] = rarity(tier);
+    const [tierName, tierColor] = rarity(tier);
+    // effervescent: the game's rainbow, its hue from the clock (moves as frames are drawn, at the Refresh rate)
+    const color = tierName === "effervescent" ? rainbowAt(now) : tierColor;
     ctx.globalAlpha = st.alpha;
     if (isGear(p.c)) triangle(sx, sy, (tier >= 5 ? 6.5 : 5) * st.k, color);
     // a mission item: a "!" (like quest givers), as big as a legendary's triangle (6.5 px: 7 x 0.93)

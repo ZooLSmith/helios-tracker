@@ -55,7 +55,8 @@ export function renderPlayers() {
 // set once per setting change, nothing per frame.
 // each: [its repeat width (px), its speed (px per second): health faster than shields]
 // [tile px, px/s]: shield, health, vehicle; sc: the skill tiles' scanlines going up (the game's)
-const PATTERNS = { sh: [18, 8], hp: [12, 11], vh: [10, 8], sc: [5, 8] }; // (the tiles: web/img/patterns/*.svg; sc: drawer.css)
+// rb: the effervescent rarity's colour cycling (drawer.css .item.rainbow: one cycle = 3 s, model.js RAINBOW_CYCLE)
+const PATTERNS = { sh: [18, 8], hp: [12, 11], vh: [10, 8], sc: [5, 8], rb: [30, 10] }; // (the tiles: web/img/patterns/*.svg; sc: drawer.css)
 /** The patterns' animations in `root` on the page's clock: a rebuilt bar (the list re-rendered on a
  *  click, the Info tab refreshed) would start its pattern over - with the same start time (the page's
  *  time zero) every bar's position depends on the time only, so a new one carries on where the old one

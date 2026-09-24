@@ -148,7 +148,10 @@
 @keyframes pat-hp-fwd { from { background-position: 0 0, 0 0, 0 0; } to { background-position: 0 0, 12px 0, 0 0; } } /* (forward: the cutscene's) */
 @keyframes pat-sc { from { background-position: 0 0; } to { background-position: 0 -5px; } } /* scanlines going up (a skill tree's: 5 px) */
 @keyframes pat-vh { from { background-position: 0 0, 0 0, 0 0; } to { background-position: 0 0, -10px 0, 0 0; } }
-@media (prefers-reduced-motion: reduce) { .vbar i, .ibar i, .sgrid::after { animation: none !important; } #cutscene .vbar i { width: 100%; } }
+/* the effervescent rarity's colour cycling: an item's --c (drawer.css; the hues of model.js rainbowAt) */
+@keyframes pat-rb { 0%, 100% { --c: hsl(0 65% 80%); } 16.67% { --c: hsl(60 65% 80%); } 33.33% { --c: hsl(120 65% 80%); }
+  50% { --c: hsl(180 65% 80%); } 66.67% { --c: hsl(240 65% 80%); } 83.33% { --c: hsl(300 65% 80%); } }
+@media (prefers-reduced-motion: reduce) { .vbar i, .ibar i, .sgrid::after, .item.rainbow { animation: none !important; } #cutscene .vbar i { width: 100%; } }
 /* icons.js: inline SVGs, 1em, coloured by currentColor */
 .icon { display: inline-block; width: 1em; height: 1em; flex: none; vertical-align: -0.125em; }
 button > .icon { vertical-align: middle; }

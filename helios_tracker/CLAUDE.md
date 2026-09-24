@@ -119,6 +119,11 @@ and interactive objects on it, with zoom / pan. Read the root `../CLAUDE.md` fir
   hit markers': fire's line has no colour - the line gets it too), else the element art's measured colour. The
   element's stat tiles' values in that colour too (exact, not pastel), like the game's card. Non-weapons' type frame: the card's
   `IItemCardable.GetZippyFrame()` ("Artifact", "comm", "Customization_Head": tools/probe_zippy.txt; once per definition).
+- **Item header**: the name and type left; its level top right (red, with a hover tip, above its owner's level:
+  the game won't let them equip it) and its price under it. **Effervescent** (the game's `RARITY_Rainbow`, 506):
+  the item's rarity colour cycles through pastel hues (name, border, logo tint; the map's loot markers too,
+  `model.js rainbowAt`) - stepped at the Refresh rate like the bars' patterns (`patternTiming` "rb"), never a frame
+  of its own.
 - **The game files' work off the game's Python** (`gamework.py`): the scan and every decode (fonts, icons) run in a
   **subinterpreter** (Python 3.14, its own GIL: beside the game thread, not in turns with it - a plain thread of ours
   froze / lagged the game), fed through a queue; results cached on disk (`.cache/assets`, gitignored). No

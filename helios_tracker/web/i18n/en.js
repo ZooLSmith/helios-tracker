@@ -214,6 +214,7 @@ export default {
   "group.item": "ITEMS",
 
   "item.level": "Lv {n}",
+  "item.levelTooHigh": "Above their level ({n}): can't be equipped yet",
   "item.slot": "Slot {n}",
   "item.rarityLevel": "Rarity",
   "item.rarityGuess": "{name} ({n})",

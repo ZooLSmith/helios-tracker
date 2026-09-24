@@ -65,7 +65,7 @@ export function renderInspector(resetScroll) {
     if (p.inventory === "partial") {
       html += `<div class="note">${esc(t("why.inventory." + (p.inventoryWhy || "unavailable")))} ${esc(t("insp.heldOnly"))}</div>`;
     }
-    html += (p.equipped || []).length ? itemsByKind(p.equipped) : `<div class="muted">${esc(t("insp.nothing"))}</div>`;
+    html += (p.equipped || []).length ? itemsByKind(p.equipped, p.lvl) : `<div class="muted">${esc(t("insp.nothing"))}</div>`;
   } else if (tab === "backpack") {
     if (p.inventory !== "full") html = `<div class="note">${esc(t("why.inventory." + (p.inventoryWhy || "unavailable")))}</div>`;
     else if (p.backpackWhy) {
@@ -74,7 +74,7 @@ export function renderInspector(resetScroll) {
     }
     else html = `<div class="muted">${esc(p.slots ? t("insp.slots", { n: num(p.slots[0]), max: num(p.slots[1]) })
       : t("insp.items", { n: p.backpack.length }))}</div>` +
-      (p.backpack.length ? itemsByKind(p.backpack) : "");
+      (p.backpack.length ? itemsByKind(p.backpack, p.lvl) : "");
   } else {
     html = skillsHtml(p);
   }

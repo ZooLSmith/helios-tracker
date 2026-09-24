@@ -38,7 +38,21 @@
 .item.expanded > :not(.idetail) { cursor: pointer; }
 .item.expanded:has(> :not(.idetail):hover) { background: var(--hover); }
 .item .iname { color: var(--c, var(--text)); font-weight: 600; }
+/* effervescent (the game's RARITY_Rainbow): the item's rarity colour (--c: its name, its border, its logo's tint)
+   cycling through the hues, like the game's (the map's markers the same: model.js rainbowAt) - the animation beats
+   the item's inline --c; --c registered as a colour, so it interpolates. Its motion follows the Refresh rate like
+   the bars' patterns (players.js patternTiming "rb": steps() at the cap / the game's rate, linear only when smooth -
+   never repainting faster than the page's frames: DWM); still for reduced motion (base.css) */
+@property --c { syntax: "<color>"; inherits: true; initial-value: #e0e0e0; }
+.item.rainbow { animation: pat-rb var(--pat-dur-rb, 3s) var(--pat-timing-rb, linear) infinite; }
 .item .imeta { color: var(--dim); font-size: 12px; }
+/* its header: the name and its type on the left; its level top right (red above its owner's: not equippable
+   yet), its price under it */
+.item .ihd { display: flex; align-items: flex-start; gap: 8px; }
+.item .ihd .itext { flex: 1; min-width: 0; }
+.item .iside { flex: none; display: flex; flex-direction: column; align-items: flex-end; font-size: 12px;
+  color: var(--dim); font-variant-numeric: tabular-nums; white-space: nowrap; }
+.item .ilvl.toohigh { color: var(--bad); font-weight: 600; }
 .item .idetail { display: none; margin-top: 6px; font-size: 12px; }
 .item { min-width: 0; overflow-wrap: anywhere; }  /* (a long unbroken game text wraps, never widens the drawer) */
 .item.expanded .idetail { display: block; }

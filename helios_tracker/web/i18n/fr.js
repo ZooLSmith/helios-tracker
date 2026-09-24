@@ -213,6 +213,7 @@ export default {
   "group.item": "OBJETS",
 
   "item.level": "Niv. {n}",
+  "item.levelTooHigh": "Au-dessus de son niveau ({n}) : pas encore équipable",
   "item.slot": "Emplacement {n}",
   "item.rarityLevel": "Rareté",
   "item.rarityGuess": "{name} ({n})",

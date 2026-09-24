@@ -3,7 +3,7 @@ import { classHtml, esc, nameHtml } from "../dom.js";
 import { money, num, numUpTo, t } from "../i18n.js";
 import { rarity } from "../model.js";
 import { S } from "../state.js";
-import { tipSections } from "./hovertip.js";
+import { tipAttrs, tipSections } from "./hovertip.js";
 import { skillStatParts } from "./skills.js";
 
 const KIND_ORDER = ["weapon", "shield", "grenade", "classmod", "relic", "usable", "mission", "item"];
@@ -133,12 +133,17 @@ export function elementIconLoaded(img) {
   if (elementTints.get(src)) item.style.setProperty("--etint", elementTints.get(src));
 }
 
-function itemHtml(it) {
-  const [, color] = rarity(it.q || 0);
-  // (no equip slot: obvious; no maker when its logo's there - the footer's, its name the logo's tooltip)
+function itemHtml(it, ownerLevel) {
+  const [tier, color] = rarity(it.q || 0);
+  // (no equip slot: obvious; no maker when its logo's there - the footer's, its name the logo's tooltip; its level
+  // and price in the card's top right)
   const logo = it.mf && /^[A-Za-z0-9_]+$/.test(it.mf);
-  const meta = [it.type || t("kind." + it.k, null, it.k), logo ? "" : it.maker, it.l ? t("item.level", { n: it.l }) : "",
-    it.v ? money(it.v) : ""].filter(Boolean).join(" · ");
+  const meta = [it.type || t("kind." + it.k, null, it.k), logo ? "" : it.maker].filter(Boolean).join(" · ");
+  const price = it.v ? `<span class="iprice">${esc(money(it.v))}</span>` : "";
+  // its level, top right - red above its owner's (the game's rule: not equippable yet)
+  const tooHigh = it.l && ownerLevel && it.l > ownerLevel;
+  const level = it.l ? `<span class="ilvl${tooHigh ? " toohigh" : ""}"${tooHigh ? tipAttrs("", t("item.levelTooHigh", { n: ownerLevel })) : ""}>` +
+    `${esc(t("item.level", { n: it.l }))}</span>` : "";
   // expanded: its card's lines, its stats (tiles), then folded away - its parts, the technical details
   const card = cardLinesHtml(it), stats = statTilesHtml(it);
   const parts = foldHtml(it, "parts", t("item.parts"), (it.parts || []).map(partRow));
@@ -165,15 +170,18 @@ function itemHtml(it) {
   const brand = icon("manufacturer", it.mf, it.maker || "");
   const icons = (brand ? `<span class="iitint brand" style="--src:url('/cardicon/manufacturer/${it.mf}.png')">${brand}</span>` : "") +
     (kind ? `<span class="iikind">${kind}</span>` : "");
-  return `<div class="item${S.expanded.has(it.i) ? " expanded" : ""}" data-id="${esc(it.i)}" ` +
+  // (effervescent - the game's RARITY_Rainbow: its name's colour cycling like the game's; css: .item.rainbow)
+  return `<div class="item${S.expanded.has(it.i) ? " expanded" : ""}${tier === "effervescent" ? " rainbow" : ""}" data-id="${esc(it.i)}" ` +
     `style="--c:${color}${tint ? `;--etint:${esc(tint)}` : ""}">` +
-    `<div class="iname">${nameHtml(it)}</div><div class="imeta">${esc(meta)}</div>` +
+    `<div class="ihd"><div class="itext"><div class="iname">${nameHtml(it)}</div><div class="imeta">${esc(meta)}</div></div>` +
+    `${level || price ? `<div class="iside">${level}${price}</div>` : ""}</div>` +
     `<div class="idetail">${card ? `<div class="icard">${card}</div>` : ""}` +
     `${stats ? `<div class="istats">${stats}</div>` : ""}${parts}${details}</div>` +
     `${icons ? `<div class="iicons">${icons}</div>` : ""}</div>`;
 }
 
-export function itemsByKind(items) {
+/** `ownerLevel`: its owner's level (their items above it: marked - itemHtml). */
+export function itemsByKind(items, ownerLevel = 0) {
   const groups = new Map();
   for (const k of KIND_ORDER) groups.set(k, []);
   for (const it of items) (groups.get(it.k) || groups.get("item")).push(it);
@@ -181,7 +189,7 @@ export function itemsByKind(items) {
   for (const [k, list] of groups) {
     if (!list.length) continue;
     list.sort((a, b) => (b.q || 0) - (a.q || 0) || (b.l || 0) - (a.l || 0) || a.n.localeCompare(b.n));
-    html += `<div class="group">${esc(t("group." + k))} · ${num(list.length)}</div>` + list.map(itemHtml).join("");
+    html += `<div class="group">${esc(t("group." + k))} · ${num(list.length)}</div>` + list.map((it) => itemHtml(it, ownerLevel)).join("");
   }
   return html;
 }
