@@ -21,6 +21,7 @@
   --tint: #24506a; /* the surfaces' and edges' hue (a mid-dark colour: the ladder's top) */
   --text: #d7e6ee;
   --accent: #ffcc33;
+  --muted: var(--tint); /* the hue the text's dim shades lean to (a theme with a strong tint: a greyer one) */
   /* surfaces, darkest first */
   --panel-base: color-mix(in srgb, var(--tint) 3%, var(--bg)); /* the panels' colour: --panel is it at the panels' opacity (look.js) */
   --panel: color-mix(in srgb, var(--panel-base) 90%, transparent); /* (look.js sets it)*/
@@ -35,7 +36,7 @@
   --text-bright: color-mix(in srgb, var(--text) 65%, #fff); /* on the dark bars / chips */
   --on-fill: #fff; /* on a coloured fill (bars, chips) */
   --name: color-mix(in srgb, var(--text) 36%, #fff); /* players' names and markers */
-  --dim: color-mix(in srgb, var(--text) 48%, var(--tint));
+  --dim: color-mix(in srgb, var(--text) 48%, var(--muted));
   --live: #5fd35f;
   --warn: #ffb03b;
   --bad: #ff5b4f;
@@ -76,9 +77,16 @@
   --story: var(--accent); /* story (main) missions: yellow; side missions: grey */
   --side: color-mix(in srgb, var(--text) 77%, var(--bg));
   --scroll: var(--tint); /* scrollbars: a muted blue, close to the panel's colours; brighter on hover */
-  --scroll-hover: color-mix(in srgb, var(--text) 21%, var(--tint));
+  --scroll-hover: color-mix(in srgb, var(--text) 21%, var(--muted));
   /* the panel's title (a theme may put it on a band: themes.css) */
   --title-text: var(--accent);
+  /* the title's "H" (img/logo.png, panel.css .title .logo) - a theme tunes it here: its size (the title's
+     letters' height = 1em), its baseline (negative: lower), the gap before "ELIOS", a horizontal nudge (optical
+     alignment), a filter (Hyperion: black) */
+  --logo-height: 1.05em;
+  --logo-baseline: -0.08em;
+  --logo-gap: calc(0.06em + 1px);
+  --logo-nudge: 0;
   --logo-filter: none;
   /* rank dots not set yet */
   --pip-off: color-mix(in srgb, var(--tint) 62%, var(--bg)); /* (the ranks' list) */

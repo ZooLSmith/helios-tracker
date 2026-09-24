@@ -95,7 +95,7 @@ export default {
   "view.markerScaleTip": "Tous les marqueurs de la carte, avec leur nom et leurs barres - en plus de la Taille de chaque calque",
   "view.language": "Langue",
   "view.theme": "Thème",
-  "theme.default": "Par défaut",
+  "theme.default": "ECHO-2",
   "theme.hyperion": "Hyperion",
   "theme.vladof": "Vladof",
   "view.hint": "Molette / pincer pour zoomer, glisser pour déplacer. Cliquez sur un joueur pour l'inspecter.",

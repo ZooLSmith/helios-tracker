@@ -25,7 +25,8 @@
 .head { display: flex; align-items: center; gap: 8px; }
 .title { font-weight: 700; letter-spacing: .12em; font-size: 12px; color: var(--title-text); flex: 1; }
 /* the logo (img/logo.png) is the title's "H": capital height, on the baseline, tight to "ELIOS" */
-.title .logo { height: 1.05em; width: auto; vertical-align: -0.08em; margin-right: 0.06em; filter: var(--logo-filter); }
+.title .logo { height: var(--logo-height); width: auto; vertical-align: var(--logo-baseline); margin-right: var(--logo-gap);
+  position: relative; left: var(--logo-nudge); filter: var(--logo-filter); } /* (its tokens: base.css --logo-*) */
 #collapse { background: none; border: 0; color: var(--dim); cursor: pointer; font-size: 14px; padding: 0 2px; }
 #level { font-size: 17px; font-weight: 600; margin: 6px 0 2px; }
 h3 { font-size: 11px; letter-spacing: .1em; color: var(--dim); margin: 12px 0 4px; font-weight: 600; } /* like the drawer's .group */

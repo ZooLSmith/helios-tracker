@@ -1,5 +1,5 @@
 /* Themes: base.css's inputs, other values (Settings > Theme: <html data-theme="...">, ui/panel.js). The default
-   theme is base.css itself. A theme sets the inputs (--bg, --tint, --text, --accent): every surface, edge and
+   theme is base.css itself. A theme sets the inputs (--bg, --tint, --text, --accent; --muted): every surface, edge and
    text shade is mixed from them in base.css; it may set any other token too. */
 
 /* Hyperion: the corporation's colours (its logo, wallpapers): mustard yellow, cream, black. Dark panels (the
@@ -8,18 +8,21 @@
 :root[data-theme="hyperion"] {
   --bg: #0d0c06;
   --tint: #5c4c08;
-  --text: #ebe2bf;
-  --accent: #e0c800;
-  --panel-edge: #8a7300;
+  --muted: #5a5540; /* (the dim text: a khaki grey, not the mustard) */
+  --text: #e6dec4;
+  --accent: #d9c23a;
+  --panel-edge: #7a6608;
 }
 
 /* Vladof: the revolution's colours (its propaganda, its weapons' paint): a deep red and gold, like a red flag
    with its gold star. Dark red-black panels (the rarity colours must read), a warm off-white text, the red for
    the edges and the gold for what stands out (titles, tabs, the tracked player, story missions). */
 :root[data-theme="vladof"] {
-  --bg: #0e0707;
-  --tint: #5e0f12;
-  --text: #f0e2d6;
-  --accent: #f2c230;
-  --panel-edge: #a3161a;
+  --bg: #0e0909;
+  --tint: #4a1a1b; /* a brick red: the surfaces only lean red */
+  --muted: #5a4a48; /* (the dim text: a warm grey, not pink) */
+  --text: #e8ddd3;
+  --accent: #d9b44a;
+  --panel-edge: #7a2023;
+  --logo-filter: hue-rotate(-20deg) saturate(1.1) brightness(.95); /* the "H": its yellow pulled toward the reds (a start: tune it) */
 }

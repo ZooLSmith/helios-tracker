@@ -139,7 +139,7 @@ and interactive objects on it, with zoom / pan. Read the root `../CLAUDE.md` fir
 - **Settings tab**: Who (host / a player, saved by name) + Follow / Rotate (map turns to their
   heading; only while following, greyed out otherwise); Refresh rate (was "Movement": the page's redraws - markers, bars, their patterns): game updates only (the mod sends its rate, `hz`), a fps cap, or smooth;
   See-through: Background / Map / Panels opacity (`look.js`; in OBS via its browser source's "Interact"); Interface size 70-200 %;
-  Map markers 50-200 % (every marker, its label and bars - times its layer's Size); Theme (Default, Hyperion, Vladof:
+  Map markers 50-200 % (every marker, its label and bars - times its layer's Size); Theme (ECHO-2 - the default, id "default" -, Hyperion, Vladof:
   `css/themes.css` sets base.css's tokens under `<html data-theme>`; the canvas' colours read again on a change).
 - **Storage**: one `helios.settings` localStorage object (`js/settings.js`): `layers.<id>` (each
   layer's settings), `view`, `ui` (incl. `drawer`: what the drawer shows); validated against the defaults on load (unknown / invalid values
