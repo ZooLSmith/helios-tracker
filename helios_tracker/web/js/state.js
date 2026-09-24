@@ -26,6 +26,7 @@ export const S = {
   // detail: a clicked map object { kind, id }
   players: [], inspect: null, detail: null,
   expanded: new Set(), skillTab: null, // null: the tree with the most points
+  itemFolds: new Set(), // an expanded item's open folds: "<item id>:parts" / "<item id>:details" (ui/items.js)
 };
 
 /** The level's transform, or a fallback centred where we first saw the player. */

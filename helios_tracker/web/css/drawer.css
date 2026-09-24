@@ -142,7 +142,26 @@
   -webkit-mask: var(--ic) center / contain no-repeat; mask: var(--ic) center / contain no-repeat; }
 .scell.zero .sicon img { filter: grayscale(1) brightness(.75); } /* (the image only: the tree's tint stays over it, always) */
 /* an item's card lines (the game's text): above its stats, the values emphasised; a unique's red text red */
+/* an expanded item (ui/items.js): its card lines, its stats as tiles, its parts and details folded away */
 .icard { display: flex; flex-direction: column; gap: 2px; margin: 4px 0 6px; font-size: 12.5px; color: var(--dim); }
+.istats { display: grid; grid-template-columns: repeat(auto-fill, minmax(96px, 1fr)); gap: 4px; margin: 6px 0; }
+.istat { display: flex; flex-direction: column; gap: 1px; padding: 4px 6px; background: var(--control);
+  border: 1px solid var(--card-edge); border-radius: 3px; min-width: 0; }
+/* its label wraps ("Element chance": two lines rather than cut); the "with bonuses" line under the value stays
+   one line, cut - its tooltip has it in full */
+.istat .islabel { font-size: 10.5px; letter-spacing: .06em; color: var(--dim); line-height: 1.2; overflow-wrap: anywhere; }
+.istat .issub { font-size: 10.5px; color: var(--dim); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.istat .isvalue { font-size: 14px; color: var(--text-bright); font-variant-numeric: tabular-nums; white-space: nowrap; }
+.ifold { margin-top: 4px; border-top: 1px solid var(--divider); }
+.ifold .ifhead { display: flex; align-items: center; gap: 6px; padding: 4px 0 2px; color: var(--dim); font-size: 11px;
+  letter-spacing: .1em; text-transform: uppercase; cursor: pointer; user-select: none; }
+.ifold .ifhead::before { content: ""; width: 0; height: 0; border: 4px solid transparent; border-left-color: currentColor;
+  border-right-width: 0; transition: transform .12s; } /* a small triangle: turned when open */
+.ifold.open .ifhead::before { transform: rotate(90deg); }
+.ifold .ifhead:hover { color: var(--text); }
+.ifold .ifcount { margin-left: auto; font-variant-numeric: tabular-nums; }
+.ifold > .kv { display: none; padding: 2px 0 4px; }
+.ifold.open > .kv { display: grid; }
 .icard .sval { color: var(--text); font-weight: 700; font-synthesis-weight: auto; }
 .icard .icline.red { color: var(--bad); }
 .scell .slock { position: absolute; top: 3px; right: 3px; display: flex; font-size: 10px; color: var(--dim); }

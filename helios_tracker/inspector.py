@@ -18,6 +18,8 @@ is reported (as a reason code the page translates), not guessed. Stats are sent 
 
 from typing import Any
 
+from mods_base import get_pc
+
 from .util import addr, call_str, def_name, field, item_name, log, log_error, named, player_info, try_
 
 MAX_CHAIN = 32  # guard for the linked inventory chains
@@ -58,31 +60,45 @@ def _num(v: Any) -> float | None:
 
 
 def _stats(inv: Any, kind: str) -> list[list[Any]]:
-    """Card-like stats [key, value, extra] (current values, with the owner's bonuses), where they exist."""
+    """Card-like stats [key, card value, current value, extra], where they exist: the card's (the item's own: each
+    attribute's *BaseValue twin - InstantHitDamageBaseValue 126.4) and the current one, with the owner's bonuses
+    (skills, class mod, relic: InstantHitDamage 354.3) - both, for the player's own maths (the user's call: "the
+    point of the plugin is to help us on calculus"). No BaseValue twin: the current value for both."""
     out: list[list[Any]] = []
 
     def get(name: str) -> float | None:  # (field(): ~10x cheaper than by name - these are re-read every pass)
         return _num(try_(lambda: field(inv, name)))
 
+    def pair(name: str) -> tuple[float | None, float | None]:  # (card, current)
+        now = get(name)
+        base = get(name + "BaseValue")
+        return (base if base is not None else now), now
+
     if kind == "weapon":
-        dmg, pellets = get("InstantHitDamage"), get("ProjectilesPerShot")
+        (dmg0, dmg), pellets = pair("InstantHitDamage"), get("ProjectilesPerShot")
         if dmg:
-            out.append(["damage", round(dmg), round(pellets or 1)])
-        if (interval := get("FireInterval")) and interval > 0:
-            out.append(["fireRate", round(1 / interval, 2)])
-        if clip := get("ClipSize"):
-            out.append(["magazine", round(clip)])
-        if reload := get("ReloadTime"):
-            out.append(["reload", round(reload, 2)])
-        if (chance := get("StatusEffectChanceModifier")) and chance > 0:
-            out.append(["elementChance", round(chance, 3)])
+            out.append(["damage", round(dmg0), round(dmg), round(pellets or 1)])
+        interval0, interval = pair("FireInterval")
+        if interval and interval > 0 and interval0 and interval0 > 0:
+            out.append(["fireRate", round(1 / interval0, 2), round(1 / interval, 2)])
+        clip0, clip = pair("ClipSize")
+        if clip:
+            out.append(["magazine", round(clip0), round(clip)])
+        reload0, reload = pair("ReloadTime")
+        if reload:
+            out.append(["reload", round(reload0, 2), round(reload, 2)])
+        if (chance := _element_chance(inv)) is not None:
+            out.append(["elementChance", *chance])
     elif kind == "grenade":
-        if dmg := get("GrenadeDamage"):
-            out.append(["damage", round(dmg)])
-        if radius := get("BlastRadius"):
-            out.append(["blastRadius", round(radius / 100, 1)])  # uu -> m (1 uu = 1 cm, measured: tools/probe_scale.py)
-        if fuse := get("FuseTime"):
-            out.append(["fuse", round(fuse, 2)])
+        dmg0, dmg = pair("GrenadeDamage")
+        if dmg:
+            out.append(["damage", round(dmg0), round(dmg)])
+        radius0, radius = pair("BlastRadius")
+        if radius:  # uu -> m (1 uu = 1 cm, measured: tools/probe_scale.py)
+            out.append(["blastRadius", round(radius0 / 100, 1), round(radius / 100, 1)])
+        fuse0, fuse = pair("FuseTime")
+        if fuse:
+            out.append(["fuse", round(fuse0, 2), round(fuse, 2)])
     return out
 
 
@@ -136,7 +152,7 @@ def _parts(inv: Any, item: dict[str, Any]) -> list[list[str]]:
     return out
 
 
-def _item(inv: Any, equipped: bool) -> dict[str, Any]:
+def _item(inv: Any, equipped: bool, ctrl: Any = None) -> dict[str, Any]:
     kind = _kind(inv)
     name = item_name(inv)
     item: dict[str, Any] = {
@@ -157,6 +173,16 @@ def _item(inv: Any, equipped: bool) -> dict[str, Any]:
         # it, tools/probe_weapon_card2.txt) and its damage per second (StatusEffectDamage: 76.3 on a shock pistol)
         item["el"] = element
         item["edps"] = round(try_(lambda: float(inv.StatusEffectDamage), 0.0), 1)
+        # its colour, the game's: the damage type's HUDDamageColor (shock: a light blue) - the page colours the
+        # element's tiles with it (no display name to show: the icon will name it)
+        damage_type = next(iter(try_(lambda: list(inv.InstantHitDamageTypeDefinitions), []) or []), None)
+        colour = try_(lambda: damage_type.HUDDamageColor) if damage_type is not None else None
+        if damage_type is not None and (name := _element_name(damage_type, ctrl or get_pc())):
+            item["eln"] = name  # the game's name for it ("shock": its localization)
+        if colour is not None:
+            rgb = tuple(try_(lambda c=c: int(getattr(colour, c)), 0) for c in ("R", "G", "B"))
+            if any(rgb):
+                item["ecol"] = "#%02x%02x%02x" % rgb
     item["parts"] = _parts(inv, item)
     if kind == "weapon" and (slot := try_(lambda: int(inv.QuickSelectSlot), 0)):
         item["slot"] = slot
@@ -261,6 +287,12 @@ def _skill_stats(sd: Any, ctrl: Any, grade: int) -> list[dict[str, Any]]:
     return out
 
 
+def _enum_name(value: Any) -> str:
+    """A game enum's name ("SIGNSTYLE_Positive"): its .name - str() of one gives its number on Python 3.11+ (the
+    enums are int-based), which broke every name test ("Generic" in str(...) never matched)."""
+    return str(getattr(value, "name", value) or "")
+
+
 def _presentation_line(entry: Any, item: Any = None) -> dict[str, Any] | None:
     """One {AttributePresentation, ModifierValue, bShouldDisplay} entry (a skill's stats, an item card's lines) ->
     a line for the page: its text, display flags (see _skill_stats), value; None if hidden / without text.
@@ -285,9 +317,9 @@ def _presentation_line(entry: Any, item: Any = None) -> dict[str, Any] | None:
                         ("nn", "bDontDisplayNumber"), ("np", "bDontDisplayPlusSign")):
         if flag(name):
             line[short] = 1
-    if "Positive" in str(try_(lambda: p.SignStyle, "")):
+    if "Positive" in _enum_name(try_(lambda: p.SignStyle, "")):
         line["pos"] = 1
-    if "Float" in str(try_(lambda: p.RoundingMode, "")):
+    if "Float" in _enum_name(try_(lambda: p.RoundingMode, "")):
         line["fl"] = 1
         line["fp"] = try_(lambda: int(p.FloatPrecision), 1)
     if pre:
@@ -316,6 +348,56 @@ def _attribute_value(obj: Any, attribute: Any) -> float | None:
         return None
     value = try_(lambda: float(getattr(obj, name)))
     return round(value, 4) if value is not None else None
+
+
+_base_chances: dict[int, float | None] = {}  # status effect definition -> its base chance (%)
+_element_names: dict[str, str] = {}  # damage type key ("Shock") -> the game's name for it, in its language
+
+
+def _element_name(damage_type: Any, ctrl: Any) -> str:
+    """An element's name as the game writes it, in its language: WillowMenu.int's [DamageTypes] section
+    (Incendiary=incendiary, Shock=shock, Corrosive=corrosive, Explosive=explosive, Amp=slag - lower case: the game
+    puts them in sentences, "%d" in its mission hints), keyed by the damage type's DamageType enum without its
+    DAMAGE_TYPE_ prefix (DAMAGE_TYPE_Shock -> Shock). Object.Localize(section, key, package): a lookup of the
+    loaded localization, called once per element (cached). "" if it has none (UE3's "?INT?...?" = missing)."""
+    key = _enum_name(try_(lambda: damage_type.DamageType, "")).removeprefix("DAMAGE_TYPE_")
+    if not key:
+        return ""
+    if key not in _element_names:
+        text = str(try_(lambda: ctrl.Localize("DamageTypes", key, "WillowMenu"), "") or "") if ctrl is not None else ""
+        _element_names[key] = "" if text.startswith("?") else text.strip()
+    return _element_names[key]
+
+
+def _element_chance(weapon: Any) -> list[float] | None:
+    """A weapon's elemental effect chance, the card's way (tools/probe_element_chance.txt): its element's base
+    chance (its damage type's StatusEffect: DamageSurfaceChanceModifiers[SurfaceType Generic].BaseChance - shock
+    20) x its BaseStatusEffectChanceModifier (0.6) x its StatusEffectChanceModifier (1.4) = 16.8 % - the card uses
+    the base values; with the player's skills' modifiers (the current values: 1.496) it's 17.95 %.
+    -> [the card's %, the current %], or None without an element / a readable base chance. Property reads."""
+    damage_type = next(iter(try_(lambda: list(weapon.InstantHitDamageTypeDefinitions), []) or []), None)
+    effect = try_(lambda: damage_type.StatusEffect) if damage_type is not None else None
+    if effect is None:
+        return None
+    key = effect._get_address()
+    if key not in _base_chances:
+        base = None
+        for mod in try_(lambda: list(effect.DamageSurfaceChanceModifiers), []) or []:
+            if "Generic" in _enum_name(try_(lambda m=mod: m.SurfaceType, "")):
+                chance = try_(lambda m=mod: m.BaseChance)
+                if chance is not None and try_(lambda: chance.BaseValueAttribute) is None:  # (a constant, not resolved)
+                    base = try_(lambda: float(chance.BaseValueConstant) * float(chance.BaseValueScaleConstant))
+                break
+        _base_chances[key] = base
+    base = _base_chances[key]
+    if not base:
+        return None
+    read = lambda name: try_(lambda: float(field(weapon, name)))  # noqa: E731
+    card = [read("BaseStatusEffectChanceModifierBaseValue"), read("StatusEffectChanceModifierBaseValue")]
+    now = [read("BaseStatusEffectChanceModifier"), read("StatusEffectChanceModifier")]
+    if None in card or None in now:
+        return None
+    return [round(base * card[0] * card[1], 2), round(base * now[0] * now[1], 2)]
 
 
 def _card_lines(inv: Any, kind: str) -> list[dict[str, Any]]:

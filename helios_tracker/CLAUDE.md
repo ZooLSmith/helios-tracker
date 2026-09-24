@@ -89,8 +89,9 @@ and interactive objects on it, with zoom / pan. Read the root `../CLAUDE.md` fir
   player's controller): every player on the host, only yourself on a co-op client.
   Players list: an action skill chip right of the name. Player drawer **Info** tab (the default):
   state, vitals, action skill, melee skill, active effects - refreshed only when a game update
-  arrived (at most every 250 ms), the DOM only written when it changed. Gear stats are the live
-  item's (buffs included): no base / buffed split (the user: pointless).
+  arrived (at most every 250 ms), the DOM only written when it changed. Gear stats: both the card's
+  value (the item's own: each attribute's *BaseValue) and the current one with the owner's bonuses (skills, class
+  mod, relic), the difference in % - the tool is for the player's maths (the user's call; it once said pointless).
 - **Areas** (`area` / `fog` layers, the `areas` payload, see notes): the level's discovery areas' names (the
   game's, centred, not-yet-discovered ones dimmed) and a fog of war (off by default): the game's own - the
   level movie's fog blobs (`tacmap.load_fog`, extracted with the map, the `fog` part of the level payload)

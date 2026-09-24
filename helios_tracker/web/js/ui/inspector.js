@@ -86,8 +86,17 @@ export function renderInspector(resetScroll) {
     b.onclick = () => { S.skillTab = +b.dataset.stab; renderInspector(); };
   }
   for (const el of body.querySelectorAll(".item")) {
-    el.onclick = () => {
+    el.onclick = (e) => {
       const id = el.dataset.id;
+      // a fold's header (Parts, Details): that fold opens / closes, not the item; inside an open item: nothing
+      const head = e.target.closest(".ifhead");
+      if (head) {
+        const fold = head.parentElement, key = `${id}:${fold.dataset.fold}`;
+        if (S.itemFolds.has(key)) S.itemFolds.delete(key); else S.itemFolds.add(key);
+        fold.classList.toggle("open");
+        return;
+      }
+      if (e.target.closest(".idetail")) return;
       if (S.expanded.has(id)) S.expanded.delete(id); else S.expanded.add(id);
       el.classList.toggle("expanded");
     };

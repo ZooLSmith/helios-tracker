@@ -822,7 +822,8 @@ def check_helios_tracker() -> None:  # noqa: PLR0915
     assert (player["n"], player["local"], player["cls"], player["inventory"]) == ("Zer0", True, "Assassin", "full"), player
     assert "clsRaw" not in player and player["char"] == "Zer0", player  # localized, via CharacterClassId
     assert player["xp"] == [7851, 8861], player["xp"]  # in this level / the level's size
-    assert gun["k"] == "weapon" and gun["stats"][0] == ["damage", 512, 3] and gun["slot"] == 1, gun
+    # (stats: [key, the card's value, the current one, extra] - the fake has no BaseValue twins: the current for both)
+    assert gun["k"] == "weapon" and gun["stats"][0] == ["damage", 512, 512, 3] and gun["slot"] == 1, gun
     assert (gun["type"], gun["maker"]) == ("Sub-Machine Gun", "Hyperion+"), gun
     parts = {slot: (name, group, text) for slot, name, group, text in gun["parts"]}
     assert parts["Barrel"] == ("SMG_Barrel_Hyperion", "Barrel", "") and parts["Title"][2] == "Bitch", parts
@@ -858,9 +859,18 @@ def check_helios_tracker() -> None:  # noqa: PLR0915
 
     def presentations(grade, ctrl, out):  # noqa: ANN001, ANN202
         calls.append(grade)
+        import enum  # noqa: PLC0415
+
+        class Rounding(enum.IntEnum):  # (int-based like the game's)
+            ATTRROUNDING_IntRound = 0
+            ATTRROUNDING_Float = 1
+
+        class Sign(enum.IntEnum):
+            SIGNSTYLE_AsIs = 0
+            SIGNSTYLE_Positive = 1
         pres = ns(Description="Gun Damage: $NUMBER$", bDisplayAsPercentage=True, bDisplayPercentAsFloat=False,
-                  bDisplayAsInverse=False, bDontDisplayNumber=False, bDontDisplayPlusSign=False, SignStyle="SIGNSTYLE_AsIs",
-                  RoundingMode="ATTRROUNDING_Float", FloatPrecision=1, Prefix="", Suffix="")
+                  bDisplayAsInverse=False, bDontDisplayNumber=False, bDontDisplayPlusSign=False, SignStyle=Sign.SIGNSTYLE_AsIs,
+                  RoundingMode=Rounding.ATTRROUNDING_Float, FloatPrecision=1, Prefix="", Suffix="")
         return (Ellipsis, [ns(AttributePresentation=pres, ModifierValue=0.06 * grade, bShouldDisplay=True),
                            ns(AttributePresentation=pres, ModifierValue=1.0, bShouldDisplay=False)])
     onslaught = ns(_get_address=lambda: 0x5A11, GetSkillEffectPresentations=presentations)
@@ -884,6 +894,30 @@ def check_helios_tracker() -> None:  # noqa: PLR0915
         ns(AttributePresentation=pres("", nc="Deals [skill]bonus elemental damage[-skill]."), ModifierValue=0.0, bShouldDisplay=True),
         ns(AttributePresentation=pres("Highly effective vs Shields.", colour=(0, 100, 255)), ModifierValue=0.0, bShouldDisplay=True)])
     card_lines = insp._card_lines(card_gun, "weapon")
+    # its elemental chance (tools/probe_element_chance.txt): 20 (shock's base) x 0.6 x 1.4 = 16.8 %; with skills (1.496): 17.95 %
+    import enum  # noqa: PLC0415
+
+    class Surface(enum.IntEnum):  # (like the game's: int-based - str() gives the number on Python 3.11+)
+        DMGSURFACE_Generic = 0
+        DMGSURFACE_Flesh = 1
+    shock = ns(_get_address=lambda: 0x5E0C, DamageSurfaceChanceModifiers=[
+        ns(SurfaceType=Surface.DMGSURFACE_Flesh, BaseChance=ns(BaseValueConstant=99.0, BaseValueAttribute=None, BaseValueScaleConstant=1.0)),
+        ns(SurfaceType=Surface.DMGSURFACE_Generic, BaseChance=ns(BaseValueConstant=20.0, BaseValueAttribute=None, BaseValueScaleConstant=1.0))])
+    aegis = ns(Class=ns(Name="WillowWeapon"), InstantHitDamageTypeDefinitions=[ns(StatusEffect=shock)],
+               BaseStatusEffectChanceModifier=0.6, BaseStatusEffectChanceModifierBaseValue=0.6,
+               StatusEffectChanceModifier=1.496, StatusEffectChanceModifierBaseValue=1.4)
+    assert insp._element_chance(aegis) == [16.8, 17.95], insp._element_chance(aegis)
+    # its element's name: the game's localization (WillowMenu.int [DamageTypes]), keyed by the DamageType enum's name
+    class DamageKind(enum.IntEnum):  # (int-based like the game's)
+        DAMAGE_TYPE_Normal = 0
+        DAMAGE_TYPE_Shock = 1
+    localized = []
+    loc_ctrl = ns(Localize=lambda section, key, package: localized.append((section, key, package)) or "shock")
+    assert insp._element_name(ns(DamageType=DamageKind.DAMAGE_TYPE_Shock), loc_ctrl) == "shock"
+    assert insp._element_name(ns(DamageType=DamageKind.DAMAGE_TYPE_Shock), loc_ctrl) == "shock" and localized == [
+        ("DamageTypes", "Shock", "WillowMenu")], ("looked up once", localized)
+    missing = ns(Localize=lambda *a: "?INT?WillowMenu.DamageTypes.Normal?")
+    assert insp._element_name(ns(DamageType=DamageKind.DAMAGE_TYPE_Normal), missing) == "", "a missing entry: no name"
     assert [(ln["d"], ln.get("cur"), ln.get("col")) for ln in card_lines] == [
         ("High elemental effect chance.", None, None), ("", 2.0, None), ("Deals [skill]bonus elemental damage[-skill].", None, None),
         ("Highly effective vs Shields.", None, "#0064ff")], card_lines
