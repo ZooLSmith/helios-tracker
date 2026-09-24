@@ -59,7 +59,9 @@ and interactive objects on it, with zoom / pan. Read the root `../CLAUDE.md` fir
   of the selected player's level; the total available XP ≈ levels. `rankMissions` in missions.js.
   Rows (up to 4 lines): name + level; where to go ("Go to" the current step's station, "Turn in at",
   "Given at": `whereTo`); what's next (the step's objectives left, who to turn in to, who gives it);
-  "after ..." / objectives left.
+  "after ..." / objectives left. Too high a level (the game's hard / impossible: 3+ above the
+  player) left out and counted; a locked one with no level yet (region never visited) goes by the
+  highest of the missions it waits on (a DLC's side missions under its Lv 30 first one).
 - **Where you are** (see notes: stations' `StationLevelName` vs the current map): missions whose
   place to go is the current level get a green "You're here" badge (tree, areas, Best now; the text
   itself unchanged); the area view's heading for the current level too. The level's name is the

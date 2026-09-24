@@ -229,7 +229,10 @@ const finish = rankMissions(finishLog, "finish", 8).rows.map((r) => `${r.m.i}:${
 const highLog = [{ i: "ok", num: 1, st: "Active", deps: [], ml: 9, mlk: 1, rw: { "8": { xp: 100 } } },
   { i: "t2", num: 3, st: "Active", deps: [], ml: 10, mlk: 1, rw: { "8": { xp: 50 } } },
   { i: "h3", num: 4, st: "Active", deps: [], ml: 11, mlk: 1, rw: { "8": { xp: 9000 } } },
-  { i: "dlc", num: 2, st: "Active", deps: [], ml: 30, mlk: 1, rw: { "8": { xp: 7890 } } }];
+  { i: "dlc", num: 2, st: "Active", deps: [], ml: 30, mlk: 1, rw: { "8": { xp: 7890 } } },
+  // locked, no level of its own (region never visited): the level of the missions it waits on
+  { i: "dlcKid", num: 5, st: "NotStarted", deps: ["dlc"], rw: { "8": { xp: 9999 } } },
+  { i: "okKid", num: 6, st: "NotStarted", deps: ["ok"], rw: { "8": { xp: 10 } } }];
 const high = rankMissions(highLog, "effort", 8, { impossible: 5, hard: 3, tough: 1, normal: -3 });
 const tooHigh = { rows: high.rows.map((r) => r.m.i), n: high.tooHigh, lv: high.minTooHigh, total: high.totalXp };
 const best = Object.fromEntries(["xp", "cash", "effort"].map((g) => [g, rankMissions(bestLog, g, 30).rows.map((r) => r.m.i).join("")]));
@@ -1413,7 +1416,7 @@ def check_helios_tracker() -> None:  # noqa: PLR0915
     assert (w["active"]["why"], w["active"]["a"], w["ready"]["a"], w["available"]["why"]) == ("step", "Bay", "Southern Shelf", "home"), w
     assert (w["readyNoTin"]["why"], w["readyNoTin"]["a"], w["activeNoGo"], w["none"]) == ("turnin", "Sanctuary", None, None), w
     assert w["here"] is True and w["notHere"] is False, ("here: the map names compared, any case", w)
-    assert mis["tooHigh"] == {"rows": ["ok", "t2"], "n": 2, "lv": 11, "total": 150}, mis["tooHigh"]  # picked up only, the furthest behind first
+    assert mis["tooHigh"] == {"rows": ["ok", "t2", "okKid"], "n": 3, "lv": 11, "total": 160}, mis["tooHigh"]  # dlcKid: its parent's Lv 30
     best = mis["best"]  # u counts its alternative reward (2000 XP); l2 (two steps away) and d (done) are out; e: no reward known
     assert (best["xp"], best["cash"], best["effort"]) == ("ual3vl1ery", "vual1l3ery", "vual3l1ery"), best
     assert best["after"] == ["a"] and best["total"] == 12600 and best["otherLevel"] == 0, best

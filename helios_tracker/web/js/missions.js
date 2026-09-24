@@ -170,13 +170,17 @@ export const GOALS = ["xp", "cash", "balanced", "effort", "finish"];
  *  the alternative one). { rows: [{ m, state, after, xp, cash, effort, known, score }], totalXp } */
 export function rankMissions(missions, goal, level, thresholds = null, fallbackLevel = null) {
   const ranked = rankAll(missions, goal, level, fallbackLevel);
+  // A locked one with no level yet (its region never visited: GameStage 0) goes by the missions it
+  // waits on - done after them, it's at least theirs (a DLC's side missions under its Lv 30 first one)
+  const byId = new Map(missions.map((m) => [m.i, m]));
+  const levelOf = (r) => r.m.ml || Math.max(0, ...(r.after || []).map((d) => byId.get(d)?.ml || 0));
   // too high a level to do now (the game's "hard" or "impossible": 3+ above the player; "tough",
   // 1-2 above, stays): left out, counted
-  const tooHigh = ranked.rows.filter((r) => ["hard", "impossible"].includes(missionDifficulty(r.m, level, thresholds)));
+  const tooHigh = ranked.rows.filter((r) => ["hard", "impossible"].includes(missionDifficulty({ ml: levelOf(r) }, level, thresholds)));
   if (!tooHigh.length) return { ...ranked, tooHigh: 0, minTooHigh: 0 };
   const rows = ranked.rows.filter((r) => !tooHigh.includes(r));
   return { rows, totalXp: rows.reduce((sum, r) => sum + r.xp, 0), tooHigh: tooHigh.length,
-    minTooHigh: Math.min(...tooHigh.map((r) => r.m.ml)) };
+    minTooHigh: Math.min(...tooHigh.map(levelOf)) };
 }
 
 function rankAll(missions, goal, level, fallbackLevel) {
