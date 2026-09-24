@@ -9,7 +9,7 @@ Per level, in the persistent package `<Map>_P.upk` (e.g. `Sanctuary_P.upk`, `Sou
 | `SwfMovie UI_TacticalMap_<Level>.<Map>_P` | ~1 KB CFX movie: `DefineExternalImage2` (id u32, format, target w/h, export name, file name `<Map>_P_I1.tga`), a `DefineShape` with a clipped bitmap fill of that image, `PlaceObject2` at identity; fog-of-war blobs imported from `SharedWillowTacMaps`. `TextureRescale = Mult4`. |
 | `Texture2D UI_TacticalMap_<Level>.<Map>_P_I1` | PF_DXT5, 1 mip, NeverStream, stored inline (bulk flags 0). Sanctuary 468x512 (declared 465x512), Southern Shelf 876x1024 (declared 874x1024). |
 | `WillowTacticalMapVolume_0` (actor in `TheWorld.PersistentLevel`) | `UnrealUnitsPerPixel` (class default 32, not overridden), `NorthOffsetInDegreesClockwise` (default 0). Its brush bounds are much larger than the map image: only the bounds *centre* matters. |
-| `SharedWillowTacMaps` | fog-of-war textures + movie (not used). |
+| `SharedWillowTacMaps` | fog-of-war textures + movie, cooked into each level's package: the "fog of war blob" sprite (frame `tacMap`: a 256 px shape filled with `fog-of-war-blob t`, 64 x 64 A8R8G8B8, a soft dark blue-grey cloud; `miniMap`: the minimap's), registering itself with the map screen (`RegisterFogOfWarBlob`). |
 
 Texture2D native tail after the tagged properties: 16 bytes (BL2 specific), mip count, then per
 mip: bulk header (flags, element count, size on disk, offset in file), data, SizeX, SizeY.
@@ -408,3 +408,37 @@ item's `DefinitionData.ItemDefinition` (a `UsableItemDefinition`):
     `Icons_AreaObjectiveSticky` / `Icons_MissionEligible` / `Icons_MissionRedeemable`, and the map
     screen's `StatusMenuMapGFxObject.MapObjects` (`MapObjectData`).
   - `WorldDiscoveryArea.bWorldAreaRadius` (discoverable areas, maybe for fog of war).
+- **Area names / fog of war** (probe_discovery.py, Southern Shelf): `WorldDiscoveryArea` actors (6 there,
+  bNoDelete): `WorldAreaDisplayName` (the game's name: "Wreck Of The Ice Sickle", "Gateway Harbor"; empty for
+  `bForFogOfWarOnly` ones - they only clear fog), `DefaultWorldAreaShortName` ("SOUTHERNSHELF_PWDA_4"; or
+  `CustomName` if `bUseCustomName`), `DetectionRadius` (uu), `Location`; some also `DetectionVolumes`.
+  The player's: `pc.DiscoveredWorldAreas[]` = {DiscoveryName (the short name), HasBeenUncovered} (51 in
+  that save, every level seen). Being listed = discovered (probe_fog.py: HasBeenUncovered False on all 51,
+  a fully explored level's too; Southern Shelf's 5 visited areas listed, the unreached one absent), `pc.FullyExploredAreas[]` (map names: "Glacial_P"). No fog state
+  elsewhere (pawn, PRI, HUD, world / game / replication info).
+  **The fog itself** (tools/dump_tacmap_movie.py): the level's map movie imports the blob and places it
+  once per area, named by the area's short name, a matrix stretching it (ellipses: Southern Shelf 5 pieces,
+  none for the Wreck; Sanctuary 2; Sage Underground 22 `..._DYNAMICWDA_n`) - the map screen hides a
+  discovered area's piece; outside every piece nothing is ever fogged. A first try (the map darkened
+  outside DetectionRadius circles) left blind spots between discovered areas.
+  Not verified: that the list updates the moment an area is found (vs on save), a co-op client's list,
+  what HasBeenUncovered means.
+- **Cutscenes** (probe_cutscene_watch.py, Orchid_OasisTown_P's intro): the level script's
+  `SeqAct_ToggleCinematicMode` -> `WillowPlayerController.SetCinematicMode(True...)` (pc.bCinematicMode,
+  bKismetEnabledCinematicMode, bCinematicModeHidePlayer, bIgnoreMove/LookInput 2, HUD bShowHUD False, pawn
+  hidden), then a video: `ClientPlayBinkMovie(MovieName='Orchid_Intro', bStreamed, bLooping, bForceNoSkip)`
+  - and **not one frame (PostRender) for its whole length** (65 s): nothing runs on the frames meanwhile.
+  Its length: the .bik header (frames at 8, frame rate numerator / denominator at 28 / 32: 1948 frames,
+  5000000 / 166833 = 29.97 fps = 65.0 s, exactly the gap); files in WillowGame/Movies or
+  DLC/<code>/<Lic>/Movies. After it: cinematic mode off, the HUD reopened. `GRI.bAllInCinematicMode`: every
+  player (False here, solo). Not seen yet: an in-engine (Matinee) cutscene without a video, a co-op client.
+- **The game's UI fonts** (tools/find_fonts.py, gamefonts.py): Startup_LOC_INT.upk has UE3 bitmap fonts
+  (`UI_Fonts.Font_Willowbody_18pt`, `Font_Willowhead_8pt`, `Font_Hud_Medium`: texture pages, canvas text);
+  the Scaleform menus use vector ones from a font library movie, Startup.upk's `UI_FontsEn.FontsEn`
+  (`UI_FontsJp/Kr/Twn` for Asian scripts): GFx `DefineCompactedFont` tags (1005) - WillowBody (293 glyphs,
+  Latin-1 + some punctuation / currency), Compacta Bd BT (232), Chintzy CPU BRK (40: only what the game
+  prints with it). Other movies embed small subsets (UI_StatusMenu: WillowBody; UI_HUD: WillowHead;
+  UI_Trading: Arial). The format (decoded from the data, verified by rendering): see gamefonts.py's
+  docstring - em 256, y down, shared contours (a count with its low bit set = an earlier contour's
+  offset), the closing edge implicit, Flash's even-odd fill (TrueType's non-zero: contours re-oriented by
+  nesting). Rebuilt as TrueType at run time (~1 s, a thread), served at /font/<slug>.ttf.

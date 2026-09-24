@@ -58,7 +58,12 @@ def _install_fakes() -> None:
 
     mb.BoolOption = mb.SliderOption = mb.SpinnerOption = mb.DropdownOption = mb.ButtonOption = Opt
     mb.NestedOption = mb.GroupedOption = Nested
-    mb.hook = lambda *a, **k: (lambda f: f)
+    def fake_hook(*a, **k):  # marks what it decorates: every hook must be in build_mod's list (checked)
+        def mark(f):
+            f._helios_hook = a[0] if a else True
+            return f
+        return mark
+    mb.hook = fake_hook
     mb.build_mod = lambda **k: types.SimpleNamespace(**k)
     mb.Library = type("Library", (), {})
     mb.Mod = object
@@ -318,6 +323,12 @@ def check_helios_tracker() -> None:  # noqa: PLR0915
     from helios_tracker.tacmap import load_tactical_map  # noqa: PLC0415
     from helios_tracker.util import clear_fields, field, pickup_kind  # noqa: PLC0415
 
+    # Every @hook of the mod is in build_mod's hooks list (an explicit list: one left out never runs -
+    # the cutscene video hook once was)
+    defined = {n for n, f in vars(m).items() if getattr(f, "_helios_hook", None)}
+    listed = {f.__name__ for f in m.mod.hooks}
+    assert defined == listed, ("hooks defined but not in build_mod(hooks=...)", sorted(defined - listed), sorted(listed - defined))
+
     # field(): the property looked up once per class, then read with _get_field (tools/probe_perf.txt)
     class FakeClass:
         finds = 0
@@ -433,12 +444,50 @@ def check_helios_tracker() -> None:  # noqa: PLR0915
         print("  game files not found: skipping the map / server checks")
         return
     # Map images straight from the game's packages
+    from helios_tracker.tacmap import load_fog  # noqa: PLC0415
     for level_name, size in {"Sanctuary_P": (468, 512), "SouthernShelf_P": (876, 1024)}.items():
         t = time.perf_counter()
         (img,) = load_tactical_map(GAME_COOKED / f"{level_name}.upk", f"UI_TacticalMap_{level_name[:-2]}.{level_name}")
         assert (img.format, img.width, img.height) == ("PF_DXT5", *size), img
+        # its fog of war (tools/dump_tacmap_movie.txt): the shared blob, placed once per discovery area
+        fog = load_fog(GAME_COOKED / f"{level_name}.upk", f"UI_TacticalMap_{level_name[:-2]}.{level_name}")
+        assert fog is not None and (fog.blob.format, fog.blob.width, fog.blob.bounds) == ("PF_A8R8G8B8", 64, (-128.0, 128.0, -128.0, 128.0)), fog
+        want = {"Sanctuary_P": ["SANCTUARY_PWDA_1", "SANCTUARY_PWDA_0"],
+                "SouthernShelf_P": ["SOUTHERNSHELF_PWDA_1", "SOUTHERNSHELF_PWDA_0", "SOUTHERNSHELF_PWDA_2", "SOUTHERNSHELF_PWDA_5", "SOUTHERNSHELF_PWDA_3"]}
+        assert [n for n, _ in fog.pieces] == want[level_name], fog.pieces
+        if level_name == "SouthernShelf_P":
+            assert fog.pieces[1][1] == (0.640625, 0.0, 0.0, 1.04791259765625, 110.0, 143.0), fog.pieces[1]
         print(f"  {level_name}: {img.name} {img.width}x{img.height} {img.format}, bounds {img.bounds}"
               f" ({time.perf_counter() - t:.2f} s)")
+    # The game's UI fonts (tools/find_fonts.txt: Startup.upk's UI_FontsEn.FontsEn, Scaleform compacted fonts)
+    # rebuilt as TrueType: every table there, the glyphs and kerning kept
+    import io  # noqa: PLC0415
+    import struct  # noqa: PLC0415
+
+    from helios_tracker.gamefonts import load_game_fonts  # noqa: PLC0415
+    t = time.perf_counter()
+    game_fonts = load_game_fonts(GAME_COOKED / "Startup.upk")
+    assert {s: n for s, (n, _) in game_fonts.items()} == {"willowbody": "WillowBody", "compacta-bd-bt": "Compacta Bd BT",
+                                                         "chintzy-cpu-brk": "Chintzy CPU BRK"}, game_fonts.keys()
+    for slug, (_name, ttf) in game_fonts.items():
+        n_tables = struct.unpack_from(">H", ttf, 4)[0]
+        tags = {ttf[12 + 16 * i : 16 + 16 * i].decode() for i in range(n_tables)}
+        assert ttf[:4] == b"\0\1\0\0" and {"head", "hhea", "maxp", "OS/2", "hmtx", "cmap", "loca", "glyf", "name", "post"} <= tags, (slug, tags)
+    try:
+        from fontTools.ttLib import TTFont  # noqa: PLC0415 - a dev check when it's installed
+        body = TTFont(io.BytesIO(game_fonts["willowbody"][1]))
+        glyph_a = body["glyf"][body.getBestCmap()[ord("A")]]
+        assert body["maxp"].numGlyphs == 294 and glyph_a.numberOfContours == 2 and len(body["kern"].kernTables[0].kernTable) == 15, "WillowBody"
+    except ImportError:
+        pass
+    print(f"  game fonts: {', '.join(f'{n} ({len(b) // 1024} KB)' for n, b in game_fonts.values())} ({time.perf_counter() - t:.2f} s)")
+    # A cutscene video's length from its Bink header (a DLC's: Captain Scarlett's intro, 65.0 s)
+    real_cooked_dir = col.cooked_dir
+    col.cooked_dir = lambda: GAME_COOKED
+    if (GAME_COOKED.parent.parent / "DLC" / "Orchid").is_dir():
+        assert col.movie_length("Orchid_Intro") == 65.0, col.movie_length("Orchid_Intro")
+    assert col.movie_length("NoSuchMovie") is None
+    col.cooked_dir = real_cooked_dir
     # A DLC map: its package is under DLC/<code name>/{Lic,Compat}/Content (the collector's package_path)
     real_cooked = col.cooked_dir
     col.cooked_dir = lambda: GAME_COOKED
@@ -701,7 +750,15 @@ def check_helios_tracker() -> None:  # noqa: PLR0915
         waypoint(0x702, ns(Location=ns(X=5.0, Y=6.0, Z=7.0)), True, cls="MissionDirectiveWaypointComponent"),
     ])])
     real_find_all = col.unrealsdk.find_all
-    col.unrealsdk.find_all = lambda cls, exact=True: {"WillowInteractiveObject": [barrel], "MissionTracker": [tracker]}.get(cls, [])
+    # the level's discovery areas (tools/probe_discovery.txt): a named one, a fog of war only one
+    def discovery(n, short, name, fog, r):
+        return ns(Name=f"WorldDiscoveryArea_{n}", Outer=ns(Class=ns(Name="Level")), bDeleteMe=False, bUseCustomName=False,
+                  CustomName="None", DefaultWorldAreaShortName=short, WorldAreaDisplayName=name, bForFogOfWarOnly=fog,
+                  DetectionRadius=r, Location=ns(X=100.4, Y=-200.0, Z=30.0))
+    areas_fake = [discovery(4, "SOUTHERNSHELF_PWDA_4", "Wreck Of The Ice Sickle", False, 4644.0),
+                  discovery(3, "SOUTHERNSHELF_PWDA_3", "", True, 5908.1)]
+    col.unrealsdk.find_all = lambda cls, exact=True: {"WillowInteractiveObject": [barrel], "MissionTracker": [tracker],
+                                                     "WorldDiscoveryArea": areas_fake}.get(cls, [])
     hub = Hub()
     c = col.Collector(hub)
     c.tick(1000.0)
@@ -718,6 +775,8 @@ def check_helios_tracker() -> None:  # noqa: PLR0915
         time.sleep(0.05)
     assert level["status"] == "ready" and level["upp"] == 128.0 and level["center"] == [-3072.0, -10240.0], level
     assert (level["zmin"], level["zmax"]) == (-4096, 12288), level
+    fog = level.get("fog")
+    assert fog and fog["url"] == f"/image/{level['id']}/1" and fog["pieces"][0][0] == "sanctuary_pwda_1", fog  # (the fake level: Sanctuary)
     state = json.loads(hub._channels["state"][1])
     kinds = {p["n"]: p["k"] for p in state["pawns"]}
     assert not any(p.get("raw") for p in state["pawns"]), state["pawns"]  # both have game names
@@ -738,6 +797,116 @@ def check_helios_tracker() -> None:  # noqa: PLR0915
     assert parts["Barrel"] == ("SMG_Barrel_Hyperion", "Barrel", "") and parts["Title"][2] == "Bitch", parts
     (obj,) = json.loads(hub._channels["objects"][1])["objects"]
     assert obj["n"] == "Incendiary Barrel" and "raw" not in obj and obj["d"] == "IO_FireBarrel", obj
+    # the areas: the game's names (none for a fog of war only one), the ones uncovered (pc.DiscoveredWorldAreas)
+    areas = json.loads(hub._channels["areas"][1])["areas"]
+    assert areas == [{"k": "southernshelf_pwda_4", "x": 100, "y": -200, "z": 30, "r": 4644, "n": "Wreck Of The Ice Sickle"},
+                     {"k": "southernshelf_pwda_3", "x": 100, "y": -200, "z": 30, "r": 5908}], areas
+    real_get_pc = col.get_pc
+    # listed = discovered (tools/probe_fog.txt: HasBeenUncovered False on every entry, visited ones too)
+    col.get_pc = lambda **k: ns(DiscoveredWorldAreas=[ns(DiscoveryName="SouthernShelf_PWDA_3", HasBeenUncovered=False),
+                                                      ns(DiscoveryName="GLACIAL_PWDA_4", HasBeenUncovered=False)],
+                                FullyExploredAreas=["Glacial_P"])
+    c._publish_areas()
+    msg = json.loads(hub._channels["areas"][1])
+    assert [a.get("u") for a in msg["areas"]] == [None, 1] and "full" not in msg, ("discovered: listed, by short name", msg)
+    assert msg["seen"] == [], ("the fog pieces discovered: none of Sanctuary's", msg["seen"])
+    col.get_pc = lambda **k: ns(DiscoveredWorldAreas=[ns(DiscoveryName="SANCTUARY_PWDA_0")], FullyExploredAreas=[])
+    c._publish_areas()
+    msg = json.loads(hub._channels["areas"][1])
+    assert msg["seen"] == ["sanctuary_pwda_0"], ("a fog piece discovered, its actor loaded or not", msg["seen"])
+    col.get_pc = lambda **k: ns(DiscoveredWorldAreas=[], FullyExploredAreas=[level["map"].upper()])
+    c._publish_areas()
+    msg = json.loads(hub._channels["areas"][1])
+    assert msg.get("full") == 1 and all(a.get("u") for a in msg["areas"]), ("a fully explored map: every area", msg)
+    col.get_pc = real_get_pc
+    # A cutscene video (tools/probe_cutscene_watch.txt): told at once with its length; the first frame
+    # over a second later clears it; another player's controller's: ignored
+    me_pc = ns(_get_address=lambda: 0xC0)
+    col.get_pc = lambda **k: me_pc
+    real_length = col.movie_length
+    col.movie_length = lambda name: 65.0 if name == "Orchid_Intro" else None
+    vhub = Hub()
+    vc = col.Collector(vhub)
+    vc._next_level_check = float("inf")  # (only the video part of its tick)
+    vc.movie_started(ns(_get_address=lambda: 0xC1), "Orchid_Intro", False)
+    assert "cutscene" not in vhub._channels, "another player's video"
+    vc.movie_started(me_pc, "Orchid_Intro", False)
+    video = json.loads(vhub._channels["cutscene"][1])
+    assert video["video"] == video["name"] == "Orchid_Intro" and video["len"] == 65.0 and video["at"] > 0, video
+    t_now = time.monotonic()
+    vc.tick(t_now)
+    vc.tick(t_now + 1.5)  # frames still going on after its start (a fade): still playing
+    assert json.loads(vhub._channels["cutscene"][1]).get("video"), "cleared by the frames around its start"
+    vc.tick(t_now + 60.0)  # frames again after a gap: it's over (or skipped)
+    assert json.loads(vhub._channels["cutscene"][1]) == {}, "over: cleared"
+    vc.movie_started(me_pc, "Orchid_Intro", False)
+    t_now = time.monotonic()
+    for k in range(80):  # the frames never stopped: over at its length + 5 s
+        vc.tick(t_now + k)
+    assert json.loads(vhub._channels["cutscene"][1]) == {}, "over past its length"
+    col.movie_length = real_length
+    col.get_pc = real_get_pc
+    # An in-engine cutscene: the script's cinematic mode; elapsed counted from its start (not a Matinee's
+    # Position: some started before it), its length = elapsed + the most its Matinees still play; the day /
+    # night cycle's (looping) left out
+    interp = ns(Name="SeqAct_Interp_3", Class=ns(Name="SeqAct_Interp"), bIsPlaying=True, bLooping=False, PlayRate=1.0,
+                Position=14.0, VariableLinks=[ns(LinkedVariables=[ns(InterpLength=30.0)])])  # 14 s in already: 16 s left
+    daynight = ns(Name="WillowSeqAct_DayNightCycle_0", Class=ns(Name="WillowSeqAct_DayNightCycle"), bIsPlaying=True,
+                  bLooping=True, PlayRate=0.1, Position=0.5, VariableLinks=[ns(LinkedVariables=[ns(InterpLength=600.0)])])
+    real_find_all = col.unrealsdk.find_all
+    col.unrealsdk.find_all = lambda cls, exact=True: [daynight, interp] if cls == "SeqAct_Interp" else []
+    real_weak = col.WeakPointer
+    col.WeakPointer = lambda o: (lambda: o)
+    shub = Hub()
+    sc = col.Collector(shub)
+    scene_pc = ns(bCinematicMode=True, bKismetEnabledCinematicMode=False, MyWillowPawn=ns(bViewingStatusMenu=False))
+    scene_wi = ns(Pauser=None)
+    sc._check_scene(scene_pc, scene_wi, 10.0)
+    assert "cutscene" not in shub._channels, "a cinematic mode not from the script (after a video, a respawn)"
+    scene_pc.bKismetEnabledCinematicMode = True
+    sc._check_scene(scene_pc, scene_wi, 10.0)
+    scene = json.loads(shub._channels["cutscene"][1])
+    assert scene["scene"] == 1 and scene["len"] == 16.0 and abs(time.time() - scene["at"]) < 1, ("from 0, 16 s long (its Matinee's rest)", scene)
+    interp.Position = 15.0
+    sc._check_scene(scene_pc, scene_wi, 11.0)  # 1 s in, the Matinee moving
+    # the game paused: sent as paused where it is (the page's count stopped); resumed: from there
+    scene_wi.Pauser = ns(PlayerName="me")
+    sc._check_scene(scene_pc, scene_wi, 11.1)
+    scene = json.loads(shub._channels["cutscene"][1])
+    assert scene.get("paused") == 1 and abs(scene["pos"] - 1.0) < 0.01 and scene["len"] == 16.0, ("paused: held at 1 s", scene)
+    assert scene["name"] == "SeqAct_Interp_3", ("its Matinee's name (no comment, no sequence)", scene)
+    sc._check_scene(scene_pc, scene_wi, 20.0)  # 9 s paused: not counted
+    scene_wi.Pauser = None
+    interp.Position = 15.2
+    sc._check_scene(scene_pc, scene_wi, 20.2)
+    scene = json.loads(shub._channels["cutscene"][1])
+    assert "paused" not in scene and abs(time.time() - scene["at"] - 1.2) < 0.5, ("resumed from 1.2 s, the pause not counted", scene)
+    # its Matinee stuck (not moving, the game not paused): paused too
+    sc._check_scene(scene_pc, scene_wi, 21.0)
+    assert json.loads(shub._channels["cutscene"][1]).get("paused") == 1, "a Matinee not moving: paused"
+    # a later, longer shot: the length grows, elapsed goes on (no jump)
+    interp.Position = 16.0
+    later_shot = ns(Name="SeqAct_Interp_4", Class=ns(Name="SeqAct_Interp"), bIsPlaying=True, bLooping=False, PlayRate=1.0,
+               Position=0.0, VariableLinks=[ns(LinkedVariables=[ns(InterpLength=40.0)])])
+    sc._interps = (sc.level_id, [lambda: interp, lambda: later_shot])
+    sc._check_scene(scene_pc, scene_wi, 22.5)
+    scene = json.loads(shub._channels["cutscene"][1])
+    assert scene["len"] > 40 and "paused" not in scene, ("a longer shot: its length grown", scene)
+    scene_pc.bCinematicMode = False
+    sc._check_scene(scene_pc, scene_wi, 23.0)
+    assert json.loads(shub._channels["cutscene"][1]) == {}, "over: cleared"
+    # the main menu: its background runs in the script's cinematic mode too - never a cutscene
+    sc._level = {"map": "MenuMap"}
+    scene_pc.bCinematicMode = True
+    sc._check_scene(scene_pc, scene_wi, 24.0)
+    assert json.loads(shub._channels["cutscene"][1]) == {}, "the main menu's background shown as a cutscene"
+    # the character creation's idle: in a level, no character in the world yet
+    sc._level = {"map": "Stockade_P"}
+    scene_pc.MyWillowPawn = None
+    sc._check_scene(scene_pc, scene_wi, 25.0)
+    assert json.loads(shub._channels["cutscene"][1]) == {}, "the character creation's idle shown as a cutscene"
+    col.unrealsdk.find_all = real_find_all
+    col.WeakPointer = real_weak
     col.unrealsdk.find_all = real_find_all
     tank = ns(**{**vars(barrel), "Name": "WillowInteractiveObject_9", "_get_address": lambda: 0x501,
                  "BalanceDefinitionState": ns(BalanceDefinition=ns(DefaultDisplayName="Explosive Gas Tank"))})
@@ -941,6 +1110,12 @@ def check_helios_tracker() -> None:  # noqa: PLR0915
             res = conn.getresponse()
             res.read()
             assert res.status == 404, (bad, res.status)
+        hub.fonts = {slug: data for slug, (_n, data) in game_fonts.items()}  # the game's fonts, once extracted
+        for font_path, want in (("/font/willowbody.ttf", 200), ("/font/nope.ttf", 404), ("/font/../server.py", 404)):
+            conn.request("GET", font_path)
+            res = conn.getresponse()
+            body = res.read()
+            assert res.status == want and (want != 200 or (res.headers["Content-Type"] == "font/ttf" and body == game_fonts["willowbody"][1])), (font_path, res.status)
         conn.request("GET", "/image/999/0")
         res = conn.getresponse()
         res.read()
@@ -950,11 +1125,11 @@ def check_helios_tracker() -> None:  # noqa: PLR0915
         res = sse.getresponse()
         assert res.headers["Content-Type"] == "text/event-stream", res.headers
         events = set()
-        while len(events) < 7:
+        while len(events) < 8:
             line = res.fp.readline().decode()
             if line.startswith("event: "):
                 events.add(line[7:].strip())
-        assert events == {"level", "state", "objects", "players", "missions", "missiondefs", "missionlog"}, events
+        assert events == {"level", "state", "objects", "players", "missions", "missiondefs", "missionlog", "areas"}, events
         print(f"  server: page {len(page)} bytes + {len(web_files)} js / css / png / svg files, image {len(image)} bytes,"
               f" SSE events {sorted(events)}")
     finally:

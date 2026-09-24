@@ -1,5 +1,14 @@
 /* Colours, the page, the map canvas and what floats over it (tooltip, coordinates, message). */
+/* The game's own UI fonts, rebuilt from the player's install by the mod (gamefonts.py, /font/<slug>.ttf -
+   never stored here): WillowBody (the menus' / missions' text), Compacta Bd BT (headings, the HUD),
+   Chintzy CPU BRK (a few labels only: the game keeps 41 of its characters). Until they're extracted (or
+   without the game files) the stacks below fall back to the system's. */
+@font-face { font-family: "WillowBody"; src: url("/font/willowbody.ttf") format("truetype"); font-display: swap; }
+@font-face { font-family: "Compacta Bd BT"; src: url("/font/compacta-bd-bt.ttf") format("truetype"); font-display: swap; }
+@font-face { font-family: "Chintzy CPU BRK"; src: url("/font/chintzy-cpu-brk.ttf") format("truetype"); font-display: swap; }
 :root {
+  --font-body: "WillowBody", "Segoe UI", system-ui, sans-serif; /* (not applied yet: the retheme) */
+  --font-head: "Compacta Bd BT", "Segoe UI", system-ui, sans-serif;
   --bg: #0b1116;
   --panel: rgba(12, 19, 25, 0.9);
   --panel-edge: #24506a;
@@ -16,16 +25,23 @@
   --menu: #d7e6ee; /* a player in a menu: neutral, like the text */
   --xp: #3fae49; /* green, like the game's experience bar */
   --boost: #ffb42e; /* a vehicle's boost (nitro): yellow-orange like the game's (yellower than the vehicle's health) */
+  --cutscene: #d9a21e; /* a cutscene's bar: gold (the accent, a bit deeper under the health bar's pattern) */
   --vehicle: #e8582a; /* red-orange: the driven vehicle's health (apart from the health bar's red right above it) */
   /* faint patterns over the bars' colour (the filled part only): shield hexagons, health columns,
      vehicle warning stripes (the Players list and the Info tab) */
   --pat-shield: url("/img/patterns/shield.svg"); /* the tiles: web/img/patterns/*.svg (edit them there) */
+  /* text on a bar (numbers, names, states, the action skill chip): a hard 1 px outline all around + a dark
+     halo, to read over any fill and pattern */
+  --bar-text-outline: -1px -1px 0 #000, 0 -1px 0 #000, 1px -1px 0 #000, -1px 0 0 #000, 1px 0 0 #000,
+    -1px 1px 0 #000, 0 1px 0 #000, 1px 1px 0 #000, 0 0 4px rgba(0, 0, 0, .9), 0 1px 3px rgba(0, 0, 0, .8);
   /* every bar: lighter at the top than the bottom, like the game's (over the colour and pattern) */
   --bar-sheen: linear-gradient(to bottom, rgba(255, 255, 255, .18), rgba(255, 255, 255, 0) 45%, rgba(0, 0, 0, .18));
   /* (their scrolling: @keyframes below, timing from players.js patternTiming) */
   --pat-health: url("/img/patterns/health.svg");
   --pat-vehicle: url("/img/patterns/vehicle.svg");
   --pat-scan: url("/img/patterns/scanlines.svg") 0 0 / 3px 3px repeat; /* the action skill's (still) */
+  /* a bar's empty part (its track): dark, the static scanlines like the game's */
+  --bar-track: var(--pat-scan), #1c2d38;
   --objective: #7cf58a; /* light green, like the game's objective markers */
   --story: #ffcc33; /* story (main) missions: yellow; side missions: grey */
   --side: #a9b6bd;
@@ -37,8 +53,9 @@
 /* the bars' patterns sliding left one tile per cycle (the sheen and the colour stay) */
 @keyframes pat-sh { from { background-position: 0 0, 0 50%, 0 0; } to { background-position: 0 0, -18px 50%, 0 0; } }
 @keyframes pat-hp { from { background-position: 0 0, 0 0, 0 0; } to { background-position: 0 0, -12px 0, 0 0; } }
+@keyframes pat-hp-fwd { from { background-position: 0 0, 0 0, 0 0; } to { background-position: 0 0, 12px 0, 0 0; } } /* (forward: the cutscene's) */
 @keyframes pat-vh { from { background-position: 0 0, 0 0, 0 0; } to { background-position: 0 0, -10px 0, 0 0; } }
-@media (prefers-reduced-motion: reduce) { .vbar i, .ibar i { animation: none !important; } }
+@media (prefers-reduced-motion: reduce) { .vbar i, .ibar i { animation: none !important; } #cutscene .vbar i { width: 100%; } }
 /* icons.js: inline SVGs, 1em, coloured by currentColor */
 .icon { display: inline-block; width: 1em; height: 1em; flex: none; vertical-align: -0.125em; }
 button > .icon { vertical-align: middle; }

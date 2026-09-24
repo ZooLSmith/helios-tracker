@@ -1,7 +1,14 @@
 /* The left panel: tabs, layers, players (vital bars), mission, settings. */
-#panel { position: fixed; top: 12px; left: 12px; width: 256px; max-height: calc(100% - 24px); overflow: auto;
+#panel { position: fixed; top: 12px; left: 12px; width: 256px; max-height: calc(100% - 24px); overflow: hidden;
+  display: flex; flex-direction: column;
   background: var(--panel); border: 1px solid var(--panel-edge); border-radius: 6px; padding: 10px 12px;
   backdrop-filter: blur(4px); user-select: none; }
+/* the title, the level and the tabs stay put, only the tab's content scrolls (.pscroll: in Layers, under
+   its All / None / Close buttons); each piece shrinks down to it once the panel reaches its max height */
+#panel > .head { flex: none; }
+#panel > .body { display: flex; flex-direction: column; flex: 0 1 auto; min-height: 0; }
+#panel > .body > * { flex: none; }
+#panel:not(.collapsed) { padding-bottom: 0; } /* (the content's own, inside its scroll) */
 /* collapsed: only the title row, the level's name and its area level stay */
 #panel.collapsed .body > :not(#level):not(#levelLv) { display: none; }
 .ptabs { display: flex; margin: 10px -12px 2px; padding: 0 8px; border-bottom: 1px solid var(--panel-edge); }
@@ -10,8 +17,11 @@
 .ptabs button:hover { color: var(--text); }
 .ptabs button.on { color: var(--text); border-bottom-color: var(--accent); }
 .ptab { display: none; padding-top: 4px; }
-.ptab.on { display: block; }
-.ptab > h3:first-child { margin-top: 6px; }
+#panel > .body > .ptab.on { display: flex; flex-direction: column; flex: 0 1 auto; min-height: 0; }
+.ptab > * { flex: none; }
+/* (the rows reach 4 px past the content on each side, for their hover: room for them, the scrollbar on the right) */
+.ptab > .pscroll { flex: 0 1 auto; min-height: 0; overflow: auto; padding: 0 8px 10px 4px; margin: 0 -8px 0 -4px; }
+.pscroll > h3:first-child { margin-top: 6px; }
 .head { display: flex; align-items: center; gap: 8px; }
 .title { font-weight: 700; letter-spacing: .12em; font-size: 12px; color: var(--accent); flex: 1; }
 /* the logo (img/logo.png) is the title's "H": capital height, on the baseline, tight to "ELIOS" */
@@ -65,7 +75,7 @@ button.act:hover { border-color: var(--accent); }
 .players .pentry:hover, .players .pentry.sel { background: #16293a; }
 .vital { display: none; margin-top: 2px; } /* 2 px between the shield and health bars */
 .vital.on { display: block; }
-.vbar { position: relative; display: block; height: 20px; background: #1c2d38; border-radius: 2px; overflow: hidden; }
+.vbar { position: relative; display: block; height: 20px; background: var(--bar-track); border-radius: 2px; overflow: hidden; }
 .vbar i { display: block; height: 100%; width: 0; }
 /* (the patterns slide: base.css @keyframes, timing by players.js patternTiming) */
 .vital.sh .vbar i { background: var(--bar-sheen), var(--pat-shield) 0 50% / 18px 10.392px repeat, var(--shield);
@@ -91,7 +101,7 @@ button.act:hover { border-color: var(--accent); }
 .vitals { position: relative; }
 .ffyl { display: none; position: absolute; inset: 2px 0 0; align-items: center; justify-content: center;
   color: var(--health); font-size: 12px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase;
-  white-space: nowrap; overflow: hidden; text-shadow: 0 0 3px #000, 0 0 2px #000, 0 1px 1px #000; }
+  white-space: nowrap; overflow: hidden; text-shadow: var(--bar-text-outline); }
 .vitals.down .ffyl { display: flex; }
 .vitals.down .vital { opacity: .2; }
 .vitals.dead .ffyl { color: var(--dead); }
@@ -104,7 +114,7 @@ button.act:hover { border-color: var(--accent); }
 /* the numbers inside the bar, left, vertically centred; a dark outline to read on any fill */
 .vnum { position: absolute; left: 5px; top: 50%; transform: translateY(-50%); font-size: 12.5px; line-height: 1;
   font-weight: 700; color: #fff; font-variant-numeric: tabular-nums; white-space: nowrap;
-  text-shadow: -1px 0 1px #000, 1px 0 1px #000, 0 -1px 1px #000, 0 1px 1px #000, 0 0 3px #000; }
+  text-shadow: var(--bar-text-outline); }
 .vnum .vmax { opacity: .7; font-size: .85em; } /* "/ max": lighter and a bit smaller than the value */
 .vnum.vright { left: auto; right: 5px; }
 .players .phead { display: flex; align-items: center; gap: 6px; }
@@ -113,26 +123,43 @@ button.act:hover { border-color: var(--accent); }
    a red inner outline), cooling down (the seconds left over the cooldown's bar) */
 .askill { display: none; position: relative; flex: none; min-width: 40px; height: 17px; padding: 0 7px; border-radius: 4px;
   font-size: 11px; font-weight: 700; line-height: 17px; text-align: center; font-variant-numeric: tabular-nums;
-  overflow: hidden; background: #1c2d38; color: #e6eef2; }
+  overflow: hidden; background: var(--bar-track); color: #e6eef2; }
 .askill.r, .askill.a, .askill.c { display: block; }
 .askill i { position: absolute; left: 0; top: 0; bottom: 0; width: 0; }
-.askill span { position: relative; text-shadow: 0 0 2px #000, 0 1px 1px #000; }
+.askill span { position: relative; text-shadow: var(--bar-text-outline); }
 /* ready: white text on a dark green, a lighter green outline inside (like "running"'s red one) */
 /* the outlines (ready green, running red): on a layer above the fill and the text - the fill (i) covers
    the chip, an outline on the chip itself would be under it */
 .askill::after { content: ""; position: absolute; inset: 0; border-radius: inherit; pointer-events: none; }
 .askill.r { color: #fff; }
 .askill.r::after { box-shadow: inset 0 0 0 1.5px var(--live); }
-.askill.r span { text-shadow: 0 0 2px #000, 0 1px 1px #000; }
+.askill.r span { text-shadow: var(--bar-text-outline); }
 /* the action skill: scanlines, like the game's (all its states) */
 .askill.r i { background: var(--pat-scan), color-mix(in srgb, var(--live) 30%, #0b1a10); }
 .askill.a { color: #fff; }
 .askill.a::after { box-shadow: inset 0 0 0 1.5px var(--health); }
-.askill.a span { text-shadow: 0 0 3px #000, 0 0 2px #000, 0 1px 1px #000, 1px 0 1px #000, -1px 0 1px #000; }
+.askill.a span { text-shadow: var(--bar-text-outline); }
 .askill.a i { background: var(--pat-scan), color-mix(in srgb, var(--accent) 55%, #3a2a00); } /* a darker yellow: the white timer reads on it */
 .askill.c i { background: var(--pat-scan), color-mix(in srgb, #6f8a99 55%, transparent); }
 .players .pname.me { color: var(--accent); }
 .players .pinfo { color: var(--dim); font-size: 11px; margin-top: 1px; } /* level · class, under the name */
+/* a cutscene playing (ui/cutscene.js): the Players list's bar - the health bar's look (sheen, its columns,
+   here going forward), the cutscene's colour; its name inside; under it the play icon + elapsed / total */
+#cutscene .cplayer { margin: 6px 0 10px; }
+#cutscene .vbar i { width: 0; background: var(--bar-sheen), var(--pat-health) 0 0 / 12px 12px repeat, var(--cutscene);
+  /* played: over the cutscene's length (--len; --delay: negative, the time already played - set once per
+     cutscene); the columns: the Refresh rate's timing (players.js patternTiming), forward */
+  animation: cut-bar var(--len, 1s) linear var(--delay, 0s) both,
+    pat-hp-fwd var(--pat-dur-hp, 1.09s) var(--pat-timing-hp, linear) infinite; }
+#cutscene .vbar.paused i { animation-play-state: paused, paused; } /* the game paused: held where it is */
+#cutscene .vbar.unknown i { width: 100%; opacity: .45; animation: pat-hp-fwd var(--pat-dur-hp, 1.09s) var(--pat-timing-hp, linear) infinite; }
+#cutscene .vnum { right: 5px; overflow: hidden; text-overflow: ellipsis; } /* its name: one line */
+@keyframes cut-bar { from { width: 0; } to { width: 100%; } }
+#cutscene .ctimes { display: flex; justify-content: space-between; align-items: center; margin-top: 6px;
+  font-size: 12px; font-variant-numeric: tabular-nums; }
+#cutscene .cnow { display: flex; align-items: center; gap: 6px; color: var(--text); font-weight: 600; }
+#cutscene .cplay { display: flex; color: var(--cutscene); }
+#cutscene .clen { color: var(--dim); }
 #mission .mname { font-weight: 600; color: var(--side); cursor: pointer; }
 .levellv { color: var(--dim); font-size: 12px; margin-top: -2px; } /* the area's level, under its name */
 .levellv:empty { display: none; }

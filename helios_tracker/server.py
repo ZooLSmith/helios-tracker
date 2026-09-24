@@ -9,6 +9,7 @@ the Hub, the server threads only read them.
     GET /<path>.js|css|png|svg   its modules / stylesheets / images under web/ (js/, js/ui/, i18n/, css/, img/)
     GET /events       SSE stream: "level", "state", "objects", "players" events, each the latest JSON
     GET /image/<level>/<n>   raw texture data of map image n of level <level> (decoded by the page)
+    GET /font/<slug>.ttf     the game's UI fonts, rebuilt as TrueType (gamefonts.py; 404 until extracted)
 """
 
 import re
@@ -22,6 +23,7 @@ WEB_DIR = Path(__file__).parent / "web"
 STATIC = re.compile(r"/(?:[a-z0-9_-]+/)*[a-z0-9_-]+\.(js|css|png|svg)")
 TYPES = {"js": "text/javascript; charset=utf-8", "css": "text/css; charset=utf-8", "png": "image/png",
          "svg": "image/svg+xml"}
+FONT = re.compile(r"/font/([a-z0-9-]+)\.ttf")
 KEEPALIVE = 10.0  # s between SSE comments when nothing changes (detects closed tabs)
 
 
@@ -32,6 +34,7 @@ class Hub:
         self._cond = threading.Condition()
         self._channels: dict[str, tuple[int, str]] = {}
         self._images: dict[tuple[int, int], bytes] = {}
+        self.fonts: dict[str, bytes] | None = None  # the game's fonts by slug (None: not extracted yet)
         self.closed = False
         self.clients = 0  # open SSE streams: the collector does nothing while there are none
 
@@ -96,6 +99,8 @@ class _Handler(BaseHTTPRequestHandler):
                 self._events()
             elif path.startswith("/image/"):
                 self._image(path)
+            elif (m := FONT.fullmatch(path)) and (data := (self.server.hub.fonts or {}).get(m[1])) is not None:
+                self._send(HTTPStatus.OK, "font/ttf", data)
             else:
                 self._send(HTTPStatus.NOT_FOUND, "text/plain", b"not found")
         except (ConnectionError, TimeoutError):

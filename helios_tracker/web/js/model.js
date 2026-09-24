@@ -6,6 +6,7 @@ export const LAYER_SETTINGS = {
   names: { type: "bool", def: false }, // names next to the markers
   floors: { type: "choice", options: ["show", "dim", "hide"], def: "dim", tip: "set.floorsTip" }, // more than FLOOR_UU above / below
   size: { type: "range", min: 50, max: 200, step: 10, def: 100 }, // marker size, %
+  opacity: { type: "range", min: 10, max: 100, step: 5, def: 100 }, // area names, fog of war: how opaque, %
   range: { type: "choice", options: [0, 25, 50, 100, 200], def: 0, select: true }, // max distance from "Who", m (0: any)
   trackedOnly: { type: "bool", def: false }, // objectives: only the tracked mission's
 };
@@ -69,6 +70,10 @@ export const LAYERS = [
   // discovered ones not told apart yet)
   { id: "vaultsymbol", group: "world", color: "#ff7eb6", on: true, settings: COMMON },
   { id: "station", group: "world", color: "#f0f0f0", on: false, settings: COMMON },
+  // the level's areas (the game's discovery areas, tools/probe_discovery.txt): their names, the ones not
+  // discovered yet dimmed; the fog of war: the game's fog pieces over the areas not discovered (its count)
+  { id: "area", group: "world", color: "#eadfbf", on: true, settings: ["size", "opacity"] },
+  { id: "fog", group: "world", color: "#56646d", on: false, settings: ["opacity"] },
   { id: "other", group: "world", color: "#7f8f99", on: false, settings: COMMON },
 ];
 export const LAYER_COLOR = Object.fromEntries(LAYERS.map((l) => [l.id, l.color]));

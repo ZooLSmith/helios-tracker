@@ -140,12 +140,12 @@ export function updatePlayerVitals(now = performance.now()) {
     // else in a menu (the same word over the bars, not red)
     const respawning = !!p && !!p.rs, dead = !!p && !!p.dd && !respawning;
     const down = respawning || dead || (!!p && (!!p.dn || (p.m > 0 && p.h <= 0 && !(p.sm > 0 && p.s > 0))));
-    const menu = !down && !!p && !!p.mn;
+    const menu = !down && !!p && (!!p.mn || !!p.ct); // (a cutscene: the same neutral look)
     const box = row.querySelector(".vitals");
     if (box.classList.contains("down") !== down) box.classList.toggle("down", down);
     if (box.classList.contains("dead") !== dead) box.classList.toggle("dead", dead);
     if (box.classList.contains("menu") !== menu) box.classList.toggle("menu", menu);
-    const text = t(respawning ? "vital.respawning" : dead ? "vital.dead" : menu ? "vital.menu" : "vital.ffyl"), label = box.querySelector(".ffyl");
+    const text = t(respawning ? "vital.respawning" : dead ? "vital.dead" : menu ? (p.ct ? "vital.cutscene" : "vital.menu") : "vital.ffyl"), label = box.querySelector(".ffyl");
     if (label.textContent !== text) label.textContent = text;
   }
 }

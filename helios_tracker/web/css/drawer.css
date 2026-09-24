@@ -17,7 +17,7 @@
 /* the mission list: the search and filters stay, only the list under them scrolls */
 .ibody.mlistview { display: flex; flex-direction: column; overflow: hidden; padding-bottom: 0; }
 .ibody.mlistview > :not(.mtotop) { flex: none; }
-/* back to top: over the list's top right, once scrolled down (its top set by the script) */
+/* back to top: over the list's top right, once scrolled down (its top set by the script; the left panel's too) */
 .ibody.mlistview { position: relative; }
 .mtotop { position: absolute; right: 14px; display: none; width: 26px; height: 26px; border-radius: 4px; padding: 0;
   align-items: center; justify-content: center; font-size: 15px; cursor: pointer; z-index: 1;
@@ -158,9 +158,9 @@
 .mobj.done .mico { color: var(--live); }
 /* the player Info tab: labelled bars (vitals, skills), the state */
 .ibar { position: relative; display: flex; align-items: center; gap: 8px; height: 22px; margin: 3px 0; padding: 0 8px;
-  background: #1c2d38; border-radius: 3px; overflow: hidden; font-size: 12.5px; }
+  background: var(--bar-track); border-radius: 3px; overflow: hidden; font-size: 12.5px; }
 .ibar i { position: absolute; left: 0; top: 0; bottom: 0; }
-.ibar span { position: relative; text-shadow: 0 0 3px #000, 0 1px 1px #000; }
+.ibar span { position: relative; text-shadow: var(--bar-text-outline); }
 .ibar .ibl { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .ibar .ibv { flex: none; font-variant-numeric: tabular-nums; font-weight: 600; }
 .ibar.sh i { background: var(--bar-sheen), var(--pat-shield) 0 50% / 18px 10.392px repeat, var(--shield);
@@ -189,7 +189,7 @@
 .pstate.ffyl { color: var(--health); }
 .pstate.dead { color: var(--dead); }
 .pstate.respawning { color: var(--dim); }
-.pstate.menu { color: var(--menu); }
+.pstate.menu, .pstate.cutscene { color: var(--menu); }
 @media (max-width: 520px) {
   #inspector { left: 12px; right: 12px; width: auto; top: auto; height: 60%; }
 }

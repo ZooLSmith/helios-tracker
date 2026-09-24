@@ -46,11 +46,30 @@ export function syncRotate() {
   box.closest("label").classList.toggle("off", box.disabled);
 }
 
+const TO_TOP_AFTER = 150; // px down a tab's content before the "back to top" button shows
+const tabScroll = {}; // each tab's scroll, kept across tab switches (a hidden tab loses its own)
+
+/** What scrolls in the shown tab: its content (the tabs and Layers' buttons stay above). */
+const panelScroller = () => document.querySelector(".ptab.on .pscroll");
+
+/** The panel's "back to top" button: shown once down the tab's content a bit, over its top right. */
+function syncPanelToTop() {
+  const list = panelScroller(), btn = $("pToTop");
+  const show = !!list && !$("panel").classList.contains("collapsed") && list.scrollTop > TO_TOP_AFTER;
+  if (btn.classList.contains("on") !== show) btn.classList.toggle("on", show);
+  if (show) btn.style.top = `${list.offsetTop + 6}px`;
+}
+
 export function showPanelTab(name) {
   if (!document.querySelector(`.ptab[data-ptab="${name}"]`)) name = "info";
+  const was = panelScroller();
+  if (was) tabScroll[settings.ui.panelTab] = was.scrollTop;
   settings.ui.panelTab = name;
   saveSettings();
   for (const el of document.querySelectorAll("#ptabs button, .ptab")) el.classList.toggle("on", el.dataset.ptab === name);
+  const now = panelScroller();
+  if (now) now.scrollTop = tabScroll[name] || 0;
+  syncPanelToTop();
 }
 
 export function initPanel() {
@@ -114,5 +133,9 @@ export function initPanel() {
     settings.ui.panelCollapsed = !settings.ui.panelCollapsed;
     saveSettings();
     fold(settings.ui.panelCollapsed);
+    syncPanelToTop();
   };
+  // The tab's content scrolling (scroll doesn't bubble: caught on the way down): its "back to top" button
+  $("panel").addEventListener("scroll", (e) => { if (e.target.classList.contains("pscroll")) syncPanelToTop(); }, true);
+  $("pToTop").onclick = () => { const list = panelScroller(); if (list) list.scrollTo({ top: 0, behavior: "smooth" }); };
 }

@@ -393,6 +393,62 @@ def _matrix(b: _Bits) -> tuple[float, float, float, float]:
     return sx, sy, b.s(n) / 20, b.s(n) / 20
 
 
+def _affine(b: _Bits) -> tuple[float, float, float, float, float, float]:
+    """The whole matrix, as a canvas transform (a, b, c, d, e, f): x' = a x + c y + e, y' = b x + d y + f
+    (SWF: ScaleX, RotateSkew0, RotateSkew1, ScaleY, TranslateX / Y in px)."""
+    sx = sy = 1.0
+    r0 = r1 = 0.0
+    if b.u(1):
+        n = b.u(5)
+        sx, sy = b.s(n) / 65536, b.s(n) / 65536
+    if b.u(1):
+        n = b.u(5)
+        r0, r1 = b.s(n) / 65536, b.s(n) / 65536
+    n = b.u(5)
+    return sx, r0, r1, sy, b.s(n) / 20, b.s(n) / 20
+
+
+def _cstr(d: bytes, o: int) -> tuple[str, int]:
+    e = d.index(0, o)
+    return d[o:e].decode("latin1"), e + 1
+
+
+def _movie_tags(raw: bytes):  # noqa: ANN202
+    """A movie's top level tags (CFX: zlib compressed, GFX: plain)."""
+    if raw[:3] == b"CFX":
+        d = raw[:8] + zlib.decompress(raw[8:])
+    elif raw[:3] == b"GFX":
+        d = raw
+    else:
+        raise ValueError(f"not a Scaleform movie ({raw[:3]!r})")
+    b = _Bits(d, 8)
+    _rect(b)
+    return _tags(d, b.align() + 4)  # (after the stage: frame rate, frame count)
+
+
+def _place2(body: bytes) -> tuple[int | None, tuple[float, ...] | None, str | None]:
+    """A PlaceObject2's (character id, matrix as _affine, name) - None for what it doesn't have."""
+    flags, o = body[0], 3
+    cid = matrix = name = None
+    if flags & 0x02:
+        cid = struct.unpack_from("<H", body, o)[0]
+        o += 2
+    if flags & 0x04:
+        b = _Bits(body, o)
+        matrix = _affine(b)
+        o = b.align()
+    if flags & 0x08:  # colour transform with alpha: skipped
+        b = _Bits(body, o)
+        add, mul, n = b.u(1), b.u(1), b.u(4)
+        b.u(n * 4 * (add + mul))
+        o = b.align()
+    if flags & 0x10:  # ratio
+        o += 2
+    if flags & 0x20:
+        name, o = _cstr(body, o)
+    return cid, matrix, name
+
+
 def _tags(d: bytes, o: int):  # noqa: ANN202
     while o + 2 <= len(d):
         code_len = struct.unpack_from("<H", d, o)[0]
@@ -441,19 +497,10 @@ def _shape_bitmap(code: int, body: bytes) -> tuple[int, tuple[float, float, floa
 
 def parse_map_movie(raw: bytes) -> list[tuple[str, tuple[float, float, float, float]]]:
     """[(image file name, (x0, x1, y0, y1) in movie px)] for each map image placed on the stage."""
-    if raw[:3] == b"CFX":
-        d = raw[:8] + zlib.decompress(raw[8:])
-    elif raw[:3] == b"GFX":
-        d = raw
-    else:
-        raise ValueError(f"not a Scaleform movie ({raw[:3]!r})")
-    b = _Bits(d, 8)
-    _rect(b)
-    o = b.align() + 4  # frame rate, frame count
     images: dict[int, str] = {}
     shapes: dict[int, tuple[tuple[float, float, float, float], int]] = {}
     out = []
-    for code, body in _tags(d, o):
+    for code, body in _movie_tags(raw):
         if code == 1009:  # GFx DefineExternalImage2: id u32, format, target w/h, export name, file name
             cid = struct.unpack_from("<I", body)[0]
             p = 10
@@ -476,6 +523,68 @@ def parse_map_movie(raw: bytes) -> list[tuple[str, tuple[float, float, float, fl
             (x0, x1, y0, y1), bmp = shapes[cid]
             out.append((images[bmp], (x0 * sx + tx, x1 * sx + tx, y0 * sy + ty, y1 * sy + ty)))
     return out
+
+
+FOG_BLOB = "fog of war blob"  # the fog piece SharedWillowTacMaps exports (tools/dump_tacmap_movie.txt)
+
+
+def parse_fog_pieces(raw: bytes) -> list[tuple[str, tuple[float, ...]]]:
+    """A level movie's fog of war (tools/dump_tacmap_movie.txt): the fog blob it imports from
+    SharedWillowTacMaps, placed once per discovery area - named by the area's short name
+    ("SOUTHERNSHELF_PWDA_1"), its matrix (as _affine, movie px) stretching the blob over it. The map
+    screen hides an area's blob once it's discovered. -> [(name, matrix)]."""
+    blobs: set[int] = set()
+    out = []
+    for code, body in _movie_tags(raw):
+        if code == 71:  # ImportAssets2: url, 2 reserved bytes, count, (id, name)...
+            _url, p = _cstr(body, 0)
+            count = struct.unpack_from("<H", body, p + 2)[0]
+            p += 4
+            for _ in range(count):
+                cid = struct.unpack_from("<H", body, p)[0]
+                name, p = _cstr(body, p + 2)
+                if name == FOG_BLOB:
+                    blobs.add(cid)
+        elif code == 26:
+            cid, matrix, name = _place2(body)
+            if cid in blobs and name and matrix:
+                out.append((name, matrix))
+    return out
+
+
+def parse_fog_blob(raw: bytes) -> tuple[str, tuple[float, float, float, float]] | None:
+    """SharedWillowTacMaps' fog blob: the image file its tactical map frame shows and that shape's
+    bounds (movie px: -128..128 - its 64 x 64 texture declared 256 x 256). The export is a sprite
+    ("tacMap" frame: the map screen's blob, "miniMap": the minimap's); its first placement is the
+    tacMap one. None if it isn't there."""
+    images: dict[int, str] = {}
+    shapes: dict[int, tuple[tuple[float, float, float, float], int]] = {}
+    sprites: dict[int, int] = {}  # sprite id -> the first character it places
+    exports: dict[str, int] = {}
+    for code, body in _movie_tags(raw):
+        if code == 1009:
+            cid = struct.unpack_from("<I", body)[0]
+            p = 10
+            p += 1 + body[p]
+            images[cid] = body[p + 1 : p + 1 + body[p]].decode("latin1")
+        elif code in (2, 22, 32, 83):
+            if (s := _shape_bitmap(code, body)) is not None and s[2] in images:
+                shapes[s[0]] = (s[1], s[2])
+        elif code == 39:
+            sid = struct.unpack_from("<H", body)[0]
+            for sub, sbody in _tags(body, 4):
+                if sub == 26 and (cid := _place2(sbody)[0]) is not None:
+                    sprites[sid] = cid
+                    break
+        elif code == 56:  # ExportAssets: count, (id, name)...
+            count, p = struct.unpack_from("<H", body)[0], 2
+            for _ in range(count):
+                cid = struct.unpack_from("<H", body, p)[0]
+                name, p = _cstr(body, p + 2)
+                exports[name] = cid
+    cid = exports.get(FOG_BLOB)
+    shape = shapes.get(sprites.get(cid, cid)) if cid is not None else None
+    return (images[shape[1]], shape[0]) if shape else None
 
 
 # endregion
@@ -528,6 +637,44 @@ def _texture(pkg: Package, idx: int) -> tuple[str, int, int, bytes]:
     raise ValueError("couldn't find the texture's top mip")
 
 
+@dataclass
+class MapFog:
+    blob: MapImage  # the fog piece (bounds: its shape's, around 0)
+    pieces: list[tuple[str, tuple[float, ...]]]  # (area short name, matrix placing the blob: _affine)
+
+
+SHARED_TACMAPS = "SharedWillowTacMaps.SharedWillowTacMaps"
+
+
+def _movie_raw(pkg: Package, idx: int) -> bytes:
+    props, _ = pkg.properties(pkg.export_data(idx))
+    raw = props["RawData"][1]
+    return raw[4 : 4 + struct.unpack_from("<i", raw)[0]]  # TArray<byte>: count + bytes
+
+
+def load_fog(package_file: Path, movie_path: str) -> MapFog | None:
+    """The level's fog of war: SharedWillowTacMaps' blob (its texture, cooked into the level's package
+    with the movie) and where the level's movie places it. None if either is missing."""
+    pkg = Package(package_file)
+    try:
+        idx, shared = pkg.find(movie_path, "SwfMovie"), pkg.find(SHARED_TACMAPS, "SwfMovie")
+        if idx is None or shared is None:
+            return None
+        pieces = parse_fog_pieces(_movie_raw(pkg, idx))
+        blob = parse_fog_blob(_movie_raw(pkg, shared))
+        if not pieces or blob is None:
+            return None
+        file_name, bounds = blob
+        stem = file_name.rpartition(".")[0] or file_name
+        tex = pkg.find(f"{SHARED_TACMAPS.partition('.')[0]}.{stem}", "Texture2D")
+        if tex is None:
+            return None
+        fmt, w, h, body = _texture(pkg, tex)
+        return MapFog(MapImage(stem, fmt, w, h, body, bounds), pieces)
+    finally:
+        pkg.close()
+
+
 def load_tactical_map(package_file: Path, movie_path: str) -> list[MapImage]:
     """The images of the tactical map movie `movie_path` (e.g. "UI_TacticalMap_Sanctuary.Sanctuary_P")."""
     pkg = Package(package_file)
@@ -535,9 +682,7 @@ def load_tactical_map(package_file: Path, movie_path: str) -> list[MapImage]:
         idx = pkg.find(movie_path, "SwfMovie")
         if idx is None:
             raise FileNotFoundError(f"{movie_path} not in {package_file.name}")
-        props, _ = pkg.properties(pkg.export_data(idx))
-        raw = props["RawData"][1]
-        raw = raw[4 : 4 + struct.unpack_from("<i", raw)[0]]  # TArray<byte>: count + bytes
+        raw = _movie_raw(pkg, idx)
         movie_pkg = movie_path.rpartition(".")[0]
         out = []
         for file_name, bounds in parse_map_movie(raw):

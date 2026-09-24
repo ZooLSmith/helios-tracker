@@ -95,6 +95,41 @@ build_mod()  # picks up hooks/options/keybinds defined in the module + metadata 
   `UI_Fonts.Font_Hud_Medium`, `EngineFonts.SmallFont`, `EngineFonts.TinyFont`.
 - Hide overlay when: no HUD movie (`pc.GetHUDMovie() is None`), menus open, in FFYL, in vehicle.
 
+## Game data dumps (Gibbed.Borderlands2)
+
+`E:\Projects\references\Gibbed.Borderlands2`: Gibbed's save editor (C#, 2021), cloned for reference
+(read-only; nothing from it goes in this repo). Its game data is JSON dumped from the game's objects,
+keyed by object path (`GD_...`), base game plus every DLC. It lives in the `Resources\Dumps` submodule
+(checked out with `git submodule update --init`):
+`projects\Gibbed.Borderlands2.GameInfo\Resources\Dumps\` (~2.8 MB)
+
+- `Missions.json`: path → `number`, `name`, `description`, `is_plot_critical`, `can_be_failed`.
+- `Travel Stations.json` / `Fast Travel Station Ordering.json`: stations → `level_name` (`*_P`),
+  display names, DLC; the fast travel list order.
+- `Items.json`: item definitions → name, `type` (`UsableItem`, …): pickups, ammo, cash, mission items.
+- `Weapon Balance.json` / `Item Balance.json` (+ `* Part Lists.json`): balances → base / item type,
+  manufacturers, parts. The balance path names the rarity grade (`_3_Rare`, `_4_VeryRare`, `_5_Alien`
+  = E-tech, `Legendary`, …).
+- `Weapon Name Parts.json` / `Item Name Parts.json`: prefixes and titles → names (`unique`: a named
+  item's).
+- `Weapon Types.json`, `Weapon Parts.json`, `Item Parts.json`: types and parts.
+- `Customizations.json` (heads / skins → name, class, DLC), `Player Classes.json`,
+  `Downloadable Contents.json` / `Downloadable Packages.json` (DLC ids → names), `Asset Library
+  Manager.json` (the save format's part indexes).
+- DLC code names (the `GD_<Name>_…` packages): Orchid = Pirate's Booty, Iris = Campaign of Carnage,
+  Sage = Hammerlock's Hunt, Aster = Dragon Keep, Anemone = Fight for Sanctuary, Flax = Bloody Harvest,
+  Allium / Nasturtium = Headhunter packs, Gladiolus / Lobelia = Ultimate Upgrade Packs,
+  Tulip = Mechromancer, Lilac = Psycho.
+- Not in there: RarityLevel values, colours, positions or level contents. Use them to put a name to
+  an object path the game gives us, or to check one, **not** as the page's text: names still come from
+  the game at runtime (memory: game text only).
+- Rarity leads: Gemstone = Dragon Keep's `GD_Aster_Weapons.*_4_<Gem>` balances (Quartz, Emerald,
+  Diamond, Citrine, Garnet, Rock...: grade 4 like Epic, with a `Prefix_Gemstone_*` name part; also
+  `GD_Anemone_Weapons...Prefix_Gemstone_Rock`). Cursed (Pirate's Booty per the wiki): no lead in the
+  dumps yet. To match against `tools/probe_rarity4.py`'s unnamed levels.
+- The code: `projects\Gibbed.Borderlands2.FileFormats` (save file and packed item / weapon formats),
+  `projects\Gibbed.Borderlands2.GameInfo` (loaders for the dumps).
+
 ## Links
 
 - Developer docs: https://bl-sdk.github.io/developing/

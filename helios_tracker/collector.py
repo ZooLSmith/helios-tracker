@@ -12,6 +12,7 @@ The page does the conversion; the level payload carries c, upp and the volume's 
 
 import json
 import sys
+import struct
 import threading
 import time
 from pathlib import Path
@@ -26,7 +27,7 @@ from .missions import MissionLog, mission_id
 from .missions import objective_index as _mission_index
 from .skills import SkillReader
 from .server import Hub
-from .tacmap import MapImage, load_tactical_map
+from .tacmap import MapFog, MapImage, load_fog, load_tactical_map
 from .util import (addr, call_str, clear_fields, def_name, exp_level, field, item_name, log, log_error, named,
                    pickup_kind, player_info, rarity_table, try_)
 
@@ -42,6 +43,11 @@ MISSIONS_EVERY = 1.0  # s between quest marker reads (owners can move: escorts, 
                       # mission log's fast pass (the tracked / active missions only)
 MISSION_LOG_EVERY = 5.0  # s between full mission log passes (every mission's status: ~290 entries)
 MAX_PAWNS = 1000  # PawnList walk guard
+VIDEO_GAP = 2.0  # s without a tick: the frames stopped - a video played (ticks: at least 1 per s otherwise)
+VIDEO_SPARE = 5.0  # s past a video's length: over even if the frames never stopped
+SCENE_RECHECK = 1.0  # s: an in-engine cutscene's Matinees - how long they still play - read this often
+SCENE_DRIFT = 0.5  # s: the page's count this far from the scene's real position - sent again
+AREAS_EVERY = 1.0  # s between reads of the discovered areas (pc.DiscoveredWorldAreas: ~50 structs)
 LOOTED_EVERY = 1.0  # s between checks of unlooted containers (two property reads each, round robin)
 LOOTED_PER_PASS = 60
 SLOW_MS = 4.0  # a task taking longer than this on the game thread is reported (it can cause a hitch)
@@ -116,6 +122,28 @@ def package_path(file_name: str) -> Path | None:
             for pkg in content.glob("*.upk"):
                 _dlc_packages.setdefault(pkg.name.lower(), pkg)
     return _dlc_packages.get(file_name.lower())
+
+
+def movie_length(name: str) -> float | None:
+    """A cutscene video's length (s), from its Bink file's header (frames, then the frame rate as
+    numerator / denominator at 28 / 32): <game>/WillowGame/Movies/<name>.bik, else a DLC's
+    (DLC/<code name>/<Lic...>/Movies: Orchid_Intro.bik, 1948 frames at 29.97 = 65.0 s - the 65 s the game
+    rendered nothing, tools/probe_cutscene_watch.txt). None if not found / not a Bink file."""
+    cooked = cooked_dir()
+    if cooked is None or not name:
+        return None
+    game = cooked.parent.parent
+    for folder in [game / "WillowGame" / "Movies", *sorted((game / "DLC").glob("*/*/Movies"))]:
+        path = folder / f"{name}.bik"
+        if path.is_file():
+            with path.open("rb") as fh:
+                head = fh.read(36)
+            if len(head) < 36 or head[:3] not in (b"BIK", b"KB2"):
+                return None
+            frames = struct.unpack_from("<I", head, 8)[0]
+            num, den = struct.unpack_from("<II", head, 28)
+            return round(frames * den / num, 1) if num and den and frames else None
+    return None
 
 
 # map name -> the level's name as the game shows it ("" if no list knows it)
@@ -223,24 +251,29 @@ def loot_info(io: Any, balance: Any) -> tuple[list[str], int, list[str]]:
 
 
 class _ImageCache:
-    """Extracted map images per (package file, mtime, movie): revisiting a level is free."""
+    """Extracted map images and fog of war per (package file, mtime, movie): revisiting a level is free."""
 
     def __init__(self, size: int = 4) -> None:
         self._size = size
-        self._items: dict[tuple[str, float, str], list[MapImage]] = {}
+        self._items: dict[tuple[str, float, str], tuple[list[MapImage], MapFog | None]] = {}
         self._lock = threading.Lock()
 
-    def get(self, pkg_file: Path, movie: str) -> list[MapImage]:
+    def get(self, pkg_file: Path, movie: str) -> tuple[list[MapImage], MapFog | None]:
         key = (str(pkg_file).lower(), pkg_file.stat().st_mtime, movie.lower())
         with self._lock:
             if key in self._items:
                 return self._items[key]
         images = load_tactical_map(pkg_file, movie)
+        try:
+            fog = load_fog(pkg_file, movie)
+        except Exception as ex:  # noqa: BLE001 - the map still shows without its fog
+            log_error("fog of war extraction", ex)
+            fog = None
         with self._lock:
-            self._items[key] = images
+            self._items[key] = (images, fog)
             while len(self._items) > self._size:
                 del self._items[next(iter(self._items))]
-        return images
+        return images, fog
 
 
 class Collector:
@@ -253,6 +286,13 @@ class Collector:
         self._level: dict[str, Any] | None = None
         self._level_key: tuple[str, str | None] | None = None
         self._images = _ImageCache()
+        self._video_at = 0.0  # a cutscene video started (monotonic time): cleared once the frames come back
+        self._video_len: float | None = None
+        self._video_gap = False  # the frames stopped since it started (the video playing)
+        self._last_tick = 0.0
+        # an in-engine cutscene (the script's cinematic mode): {"seq": its Matinee (WeakPointer) or None, "next"}
+        self._scene: dict[str, Any] | None = None
+        self._interps: tuple[int, list[Any]] | None = None  # (level id, the level's Matinees: WeakPointers)
         self._classes: dict[str, Any] = {}
         self._timings = _Timings()
         self.rate = 10.0  # updates per second (the mod's option; sent so the page can align on it)
@@ -270,6 +310,8 @@ class Collector:
 
     def _clear_contents(self) -> None:
         clear_fields()  # a new level: packages may have been unloaded (the property cache re-fills at once)
+        self._areas = []
+        self._areas_json = ""
         self._next_scan = 0.0
         self._next_objects = 0.0
         self._next_players = 0.0
@@ -305,11 +347,26 @@ class Collector:
         self._next_incomplete = 0.0
         self._unlooted: dict[tuple[int, str], WeakPointer] = {}  # lootable containers not opened yet
         self._next_looted = 0.0
+        # The level's discovery areas (static records, found by the objects scan) and the areas payload
+        self._areas: list[dict[str, Any]] = []
+        self._areas_json = ""
+        self._next_areas = 0.0
 
     # region Level
 
     def tick(self, now: float) -> None:
         run = self._timings.run
+        # A cutscene video: the game renders no frame while one plays - frames again after a gap: it's over
+        # (or skipped). Frames can go on for a moment after its start (a fade): those don't end it.
+        if self._video_at:
+            if self._last_tick and now - self._last_tick > VIDEO_GAP:
+                self._video_gap = True
+            over = self._video_gap or (self._video_len is not None and now - self._video_at > self._video_len + VIDEO_SPARE)
+            if over:
+                log(f"cutscene video over after {now - self._video_at:.1f} s (frames stopped: {self._video_gap})")
+                self._video_at, self._video_gap = 0.0, False
+                self.hub.publish("cutscene", "{}")
+        self._last_tick = now
         if now >= self._next_level_check:
             self._next_level_check = now + LEVEL_CHECK_EVERY
             run("level", self._check_level)
@@ -322,7 +379,7 @@ class Collector:
             self._active = True
             self._next_scan = self._next_objects = self._next_players = self._next_missions = self._next_log = 0.0
             self._log.dirty = self._log.defs_dirty = True  # the new page needs the log
-            self._objects_json = self._players_json = self._missions_json = ""
+            self._objects_json = self._players_json = self._missions_json = self._areas_json = ""
         # At most one heavy task (scans / players) per tick: they'd add up into one hitch
         heavy = False
         if now >= self._next_scan:
@@ -359,6 +416,9 @@ class Collector:
         if now >= self._next_missions:
             self._next_missions = now + MISSIONS_EVERY
             run("missions", self._publish_missions)
+        if now >= self._next_areas and (self._areas or (self._level or {}).get("fog")):
+            self._next_areas = now + AREAS_EVERY
+            run("areas", self._publish_areas)
         if now >= self._next_looted and self._unlooted:
             self._next_looted = now + LOOTED_EVERY
             run("looted", self._check_looted)
@@ -425,13 +485,22 @@ class Collector:
             package = package_path(f"{map_name}.upk")  # the base game's, or a DLC's
             if package is None:
                 raise FileNotFoundError(f"couldn't find {map_name}.upk (WillowGame/CookedPCConsole, DLC/*/*/Content)")
-            images = self._images.get(package, movie)
+            images, fog = self._images.get(package, movie)
         except Exception as ex:  # noqa: BLE001
             log_error("map extraction", ex)
             level.update(status="error", error=f"{type(ex).__name__}: {ex}")
             self._set_level(level)
             return
-        self.hub.set_images(level_id, [img.data for img in images])
+        self.hub.set_images(level_id, [img.data for img in images] + ([fog.blob.data] if fog else []))
+        if fog:  # the game's fog of war: its blob (the image after the map's) and where it goes, per area
+            level["fog"] = {
+                "url": f"/image/{level_id}/{len(images)}",
+                "format": fog.blob.format,
+                "width": fog.blob.width,
+                "height": fog.blob.height,
+                "bounds": fog.blob.bounds,
+                "pieces": [[name.lower(), [round(v, 4) for v in matrix]] for name, matrix in fog.pieces],
+            }
         level["images"] = [
             {
                 "url": f"/image/{level_id}/{n}",
@@ -522,6 +591,122 @@ class Collector:
             if try_(lambda p=p: self._in_world(p), False)
         }
 
+    def movie_started(self, pc: Any, name: str, no_skip: bool) -> None:
+        """From the ClientPlayBinkMovie hook: a cutscene video starts on this PC (tools/probe_cutscene_watch.txt:
+        ClientPlayBinkMovie(MovieName='Orchid_Intro'), then not one frame for its 65 s - the collector, run
+        from the frames, is silent meanwhile). Tells the page now, with its length (the file's) and start
+        (epoch s: a page opened meanwhile counts from it); the first frame after it clears it (tick).
+        Another player's controller (the host sends them theirs): not this PC's video, ignored."""
+        me = get_pc(possibly_loading=True)
+        if me is None or try_(lambda: pc._get_address() != me._get_address(), True):
+            log(f"cutscene video {name!r} on another controller ({try_(lambda: pc.Name)}, ours: {try_(lambda: me.Name)}): ignored")
+            return
+        self._video_at, self._video_gap = time.monotonic(), False
+        self._video_len = length = try_(lambda: movie_length(name))
+        log(f"cutscene video {name!r}: {length} s" + (" (can't be skipped)" if no_skip else ""))
+        self.hub.publish("cutscene", json.dumps({"video": name, "name": name, "len": length, "at": round(time.time(), 2),
+                                                 **({"noskip": 1} if no_skip else {})}))
+
+    def _check_scene(self, pc: Any, wi: Any, now: float) -> None:
+        """An in-engine cutscene on this PC (a forced scene, no video): the level script's cinematic mode
+        (tools/probe_cutscene_watch.txt: SetCinematicMode(bKismetSetCinematicMode=True) -> bCinematicMode and
+        bKismetEnabledCinematicMode, the camera on a CameraActor; a cinematic mode not from the script - after
+        a video, a respawn - doesn't count). A video's own cinematic mode: the video's (movie_started).
+        Backgrounds are one too: the main menu's (the menu map's script, its Matinee = GRI.MenuMatinee - seen
+        as a 1:40 "cutscene") and the character creation's idle (30.3 s, after the new game's intro): never
+        one - no character in the world yet (a real cutscene has the player's pawn, hidden), or a menu open.
+        Elapsed: counted here from its start (not a Matinee's Position: a scene plays several at once, some
+        started before it - seen: a 30 s one found 13.9 s in, then another 19.6 s in - the bar jumped), not
+        while paused (the game: WorldInfo.Pauser; its longest Matinee's Position not moving). Its length:
+        elapsed + the most any of its Matinees still has to play (_matinees_left, every SCENE_RECHECK) - it can
+        grow (a later shot), elapsed never jumps; no Matinee: none (the page counts up). Sent on its start,
+        a pause / resume, a length changing by over a second, the page's count drifting (SCENE_DRIFT)."""
+        if self._video_at:
+            return
+        pawn = try_(lambda: field(pc, "MyWillowPawn")) or try_(lambda: field(pc, "Pawn"))
+        background = (str((self._level or {}).get("map", "")).lower() == "menumap" or pawn is None
+                      or try_(lambda: self._in_menu(pawn), False))
+        on = not background and try_(lambda: bool(field(pc, "bCinematicMode")) and bool(field(pc, "bKismetEnabledCinematicMode")), False)
+        if not on:
+            if self._scene is not None:
+                log(f"in-engine cutscene over after {self._scene['played']:.1f} s")
+                self._scene = None
+                self.hub.publish("cutscene", "{}")
+            return
+        scene = self._scene
+        if scene is None:
+            scene = self._scene = {"played": 0.0, "t": now, "len": None, "next": 0.0, "seq": None, "pos": None,
+                                   "moved": now, "sent": None, "name": ""}
+        # Paused: the game, or its Matinee still playing but not moving; else this tick's time counted
+        seq = scene["seq"]() if scene["seq"] is not None else None
+        pos = try_(lambda: float(seq.Position)) if seq is not None and try_(lambda: bool(seq.bIsPlaying), False) else None
+        if pos is not None and pos != scene["pos"]:
+            scene["pos"], scene["moved"] = pos, now
+        paused = try_(lambda: field(wi, "Pauser") is not None, False) or (pos is not None and now - scene["moved"] > 0.3)
+        if not paused:
+            scene["played"] += now - scene["t"]
+        scene["t"] = now
+        if now >= scene["next"]:  # its Matinees: how long the longest still plays, on top of elapsed
+            scene["next"] = now + SCENE_RECHECK
+            found = try_(self._matinees_left)
+            if found:
+                seq, left, pos = found
+                scene["len"] = scene["played"] + left
+                if scene["seq"] is None or scene["seq"]() is not seq:
+                    scene["seq"], scene["pos"], scene["moved"] = WeakPointer(seq), pos, now
+                    scene["name"] = try_(lambda: self._matinee_name(seq), "") or ""
+                    log(f"in-engine cutscene {scene['name']!r}: {scene['len']:.1f} s ({scene['played']:.1f} s in;"
+                        f" {seq.Name}: {left:.1f} s left)")
+            elif scene["len"] is not None and scene["played"] >= scene["len"]:
+                scene["len"] = None  # (past every Matinee: counted up)
+        at, length, sent = time.time() - scene["played"], scene["len"], scene["sent"]
+        if (sent is None or sent["paused"] != paused or (length is None) != (sent["len"] is None) or sent["name"] != scene["name"]
+                or (length is not None and abs(length - sent["len"]) > 1.0) or (not paused and abs(at - sent["at"]) > SCENE_DRIFT)):
+            scene["sent"] = {"paused": paused, "at": at, "len": length, "name": scene["name"]}
+            self.hub.publish("cutscene", json.dumps({"scene": 1, "len": round(length, 1) if length else None, "at": round(at, 2),
+                                                     **({"name": scene["name"]} if scene["name"] else {}),
+                                                     **({"paused": 1, "pos": round(scene["played"], 2)} if paused else {})}))
+
+    @staticmethod
+    def _matinee_name(seq: Any) -> str:
+        """What a cutscene's Matinee is called: its comment in the level's script (ObjComment, if the
+        designers wrote one), else where it is in the script (its sequence's name + its own:
+        "Main_Sequence.SeqAct_Interp_1"). Identifiers, not game text (the game shows none)."""
+        comment = str(try_(lambda: seq.ObjComment, "") or "").strip()
+        if comment:
+            return comment
+        outer = try_(lambda: str(seq.Outer.Name), "")
+        return f"{outer}.{seq.Name}" if outer else str(seq.Name)
+
+    def _matinees_left(self) -> tuple[Any, float, float] | None:
+        """The Matinees playing now (SeqAct_Interp: playing, not looping - the day / night cycle's is,
+        WillowSeqAct_DayNightCycle, left out, and the menu's background, GRI.MenuMatinee), with the InterpData
+        plugged into them (a variable: its InterpLength, s): the one with the most left to play -> (it, s left
+        over its PlayRate, its Position), or None. The level's Matinees: found once per level (a find_all),
+        then only read."""
+        level_id = self.level_id
+        if self._interps is None or self._interps[0] != level_id:
+            self._interps = (level_id, [WeakPointer(s) for s in unrealsdk.find_all("SeqAct_Interp", exact=False)
+                                        if not s.Name.startswith("Default__") and "DayNight" not in str(s.Class.Name)])
+        menu = try_(lambda: ENGINE.GetCurrentWorldInfo().GRI.MenuMatinee)
+        menu_addr = try_(lambda: menu._get_address()) if menu is not None else None
+        best = None
+        for ptr in self._interps[1]:
+            seq = ptr()
+            if seq is None or not try_(lambda s=seq: bool(s.bIsPlaying) and not bool(s.bLooping), False):
+                continue
+            if menu_addr is not None and try_(lambda s=seq: s._get_address() == menu_addr, False):
+                continue
+            length = max((try_(lambda v=v: float(v.InterpLength), 0.0)
+                          for link in try_(lambda s=seq: list(s.VariableLinks), []) or []
+                          for v in try_(lambda k=link: list(k.LinkedVariables), []) or [] if v is not None), default=0.0)
+            rate = try_(lambda s=seq: float(s.PlayRate), 1.0) or 1.0
+            pos = try_(lambda s=seq: float(s.Position), 0.0)
+            left = (length - pos) / rate
+            if length > 0 and left > 0 and (best is None or left > best[1]):
+                best = (seq, left, pos)
+        return best
+
     def pickup_spawned(self, pickup: Any) -> None:
         """From the WillowPickup:PostBeginPlay hook: a new pickup (loot drop...), no scan needed."""
         if self._level_key is not None and self.hub.clients:
@@ -559,7 +744,44 @@ class Collector:
         client = self._client = getattr(try_(lambda: wi.NetMode), "name", "") == "NM_Client"
         self._waypoints = [WeakPointer(w) for w in unrealsdk.find_all("WillowWaypoint", exact=False)
                            if not w.Name.startswith("Default__")] if client else []
+        self._areas = [a for w in unrealsdk.find_all("WorldDiscoveryArea", exact=False)
+                       if (a := try_(lambda w=w: self._area_record(w) if self._in_world(w) else None))]
+        self._next_areas = 0.0
         self._publish_objects()
+
+    @staticmethod
+    def _area_record(area: Any) -> dict[str, Any]:
+        """A discovery area (tools/probe_discovery.txt: WorldDiscoveryArea, a handful per level): its short
+        name (the key pc.DiscoveredWorldAreas uses: CustomName if bUseCustomName, else
+        DefaultWorldAreaShortName - 'SOUTHERNSHELF_PWDA_4'), the game's name for it (WorldAreaDisplayName,
+        'Wreck Of The Ice Sickle'; empty for bForFogOfWarOnly ones: they only clear the map's fog),
+        where and how big (DetectionRadius, uu)."""
+        key = str(area.CustomName) if area.bUseCustomName else str(area.DefaultWorldAreaShortName)
+        loc = area.Location
+        name = str(area.WorldAreaDisplayName or "").strip()
+        return {"k": key.lower(), "x": round(loc.X), "y": round(loc.Y), "z": round(loc.Z), "r": round(area.DetectionRadius),
+                **({"n": name} if name and not area.bForFogOfWarOnly else {})}
+
+    def _publish_areas(self) -> None:
+        """The level's areas with the ones this player discovered: those in pc.DiscoveredWorldAreas[]
+        ({DiscoveryName, HasBeenUncovered} - being listed is what counts: tools/probe_fog.txt, every entry
+        HasBeenUncovered False, Glacial's too though fully explored; Southern Shelf: the 5 areas visited
+        listed, the one not reached absent). A map in pc.FullyExploredAreas: all of it. On change."""
+        pc = get_pc(possibly_loading=True)
+        if pc is None:
+            return
+        found = {str(e.DiscoveryName).lower() for e in try_(lambda: list(pc.DiscoveredWorldAreas), []) or []}
+        level = self._level or {}
+        full = str(level.get("map", "")).lower() in {str(m).lower() for m in try_(lambda: list(pc.FullyExploredAreas), []) or []}
+        areas = [{**a, **({"u": 1} if full or a["k"] in found else {})} for a in self._areas]
+        # the fog pieces of the areas discovered, by name: whether their actor is loaded or not (a streamed
+        # sublevel's: "SAGE_UNDERGROUND_DYNAMICWDA_5")
+        seen = sorted(n for n, _ in (level.get("fog") or {}).get("pieces", []) if n in found)
+        areas_json = json.dumps({"level": self.level_id, "areas": areas, "seen": seen, **({"full": 1} if full else {})},
+                                separators=(",", ":"))
+        if areas_json != self._areas_json:
+            self._areas_json = areas_json
+            self.hub.publish("areas", areas_json)
 
     def _build_pending_records(self) -> None:
         """The records of objects a scan found, within RECORDS_SECONDS per tick; shown as they're built."""
@@ -777,6 +999,8 @@ class Collector:
         t0 = time.perf_counter()
         world_now = try_(lambda: float(wi.TimeSeconds), 0.0)
         self._skills.update(pc, world_now, now)
+        self._check_scene(pc, wi, now)
+        all_cinematic = try_(lambda: bool(field(wi.GRI, "bAllInCinematicMode")), False)  # every player in a cutscene
         t_skills = time.perf_counter()
         players = []  # player pawns seen this update (the skill reader forgets the others)
         pawns = []
@@ -835,6 +1059,7 @@ class Collector:
                             **({"rs": 1 if spot is not None else 2} if respawning else {}),
                             **({"dn": 1} if down == "crippled" else {"dd": 1} if down == "dead" else {}),
                             **({"mn": 1} if is_player and self._in_menu(pawn) else {}),
+                            **({"ct": 1} if is_player and (all_cinematic or self._in_cutscene(pawn)) else {}),
                             # a vehicle's boost [left, max, seconds to full?] (its AfterburnerPool), when it has one
                             **({"bo": bo} if info["k"] == "vehicle" and (bo := self._boost(pawn, world_now)) else {}),
                             # driving: the vehicle's pawn id (a marker of its own, with its health)
@@ -896,6 +1121,15 @@ class Collector:
             return True
         pri = try_(lambda: field(pawn, "PlayerReplicationInfo"))
         return pri is not None and try_(lambda: bool(field(pri, "bGFxMenuOpen")), False)
+
+    @staticmethod
+    def _in_cutscene(pawn: Any) -> bool:
+        """Whether the player is in a cutscene: their controller's cinematic mode (tools/probe_cutscene_watch.txt:
+        the level script's SeqAct_ToggleCinematicMode -> SetCinematicMode, bCinematicMode True, the HUD
+        hidden, input ignored - a video's too). Controllers: everyone's on the host, only yours on a
+        co-op client (the GRI's bAllInCinematicMode covers all of them). Property reads."""
+        controller = try_(lambda: field(pawn, "Controller"))
+        return controller is not None and try_(lambda: bool(field(controller, "bCinematicMode")), False)
 
     @staticmethod
     def _respawn_state(pawn: Any) -> tuple[bool, Any]:

@@ -6,6 +6,10 @@ import { settings } from "./settings.js";
 export const S = {
   level: null, images: [], // [{canvas, bounds}]
   pawns: new Map(), pickups: [], objects: [],
+  areas: [], explored: false, // the level's discovery areas (names, fog of war: data.js onAreas), all of it explored
+  fogBlob: null, // the game's fog of war piece: {canvas, bounds} (placed per area: S.level.fog.pieces)
+  video: null, // a cutscene playing (a video / an in-engine one): {len (s, or null), at (epoch s), paused, pos (s), name} - data.js onCutscene
+  fogSeen: null, // the fog pieces discovered (a Set of names; null: not known yet)
   meId: null, fallback: null, // map frame for areas without a tactical map
   interval: 100, lastState: 0, hz: 0, // hz: the game's updates per second (sent with each state)
   // rot: map rotation (rad, the target's heading); the zoom is kept across reloads

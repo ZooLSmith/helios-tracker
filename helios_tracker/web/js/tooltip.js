@@ -39,6 +39,7 @@ export function tooltip(mePos, f) {
   if (it.rs) lines.push(`<span class="tl">${esc(t("tip.respawning"))}</span>`);
   else if (it.dd) lines.push(`<span class="tl">${esc(t("vital.dead"))}</span>`);
   else if (it.dn) lines.push(`<span class="tl">${esc(t("vital.ffyl"))}</span>`);
+  else if (it.ct) lines.push(`<span class="tl">${esc(t("vital.cutscene"))}</span>`);
   else if (it.mn) lines.push(`<span class="tl">${esc(t("vital.menu"))}</span>`);
   if (it.l && (best.kind !== "loot" || gear)) lines.push(`<span class="tl">${esc(t("insp.level", { n: it.l }))}</span>`);
   if (it.sm > 0) lines.push(`<span class="tl">${esc(t("tip.shield", { s: Math.round(it.s), m: Math.round(it.sm) }))}</span>`);

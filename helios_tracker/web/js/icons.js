@@ -14,6 +14,8 @@ const ICONS = {
   question: `<circle cx="6" cy="6" r="4.6" fill="none" stroke="currentColor" stroke-width="1.2"/>` +
     `<path d="M4.6 4.7a1.5 1.5 0 1 1 2.1 1.4c-.5.3-.7.6-.7 1.1" fill="none" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/>` +
     `<circle cx="6" cy="8.7" r=".75" fill="currentColor"/>`,
+  play: `<path d="M3.6 2.2 9.8 6 3.6 9.8Z" fill="currentColor" stroke="currentColor" stroke-width="0.8" stroke-linejoin="round"/>`,
+  pause: `<rect x="3" y="2.4" width="2.1" height="7.2" rx="0.5" fill="currentColor"/><rect x="6.9" y="2.4" width="2.1" height="7.2" rx="0.5" fill="currentColor"/>`,
   close: `<path d="M3 3 9 9M9 3 3 9" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/>`,
   back: `<path d="M7.6 2.4 4 6l3.6 3.6" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>`,
   chevronDown: `<path d="M3.2 4.6 6 7.4l2.8-2.8" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>`,

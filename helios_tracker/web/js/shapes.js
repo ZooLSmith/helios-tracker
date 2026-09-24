@@ -72,6 +72,14 @@ export function label(x, y, text, color, raw) { // raw: a made-up name ending in
   ctx.globalAlpha = alpha;
 }
 
+export function areaName(x, y, text, color, k = 1) { // an area's name, centred on it (the map screen's style)
+  ctx.font = `600 ${13 * k}px 'Segoe UI', system-ui, sans-serif`;
+  ctx.textAlign = "center"; ctx.textBaseline = "middle";
+  ctx.lineWidth = 3.5 * k; ctx.lineJoin = "round"; ctx.strokeStyle = "rgba(5,10,14,.85)"; ctx.fillStyle = color;
+  ctx.strokeText(text, x, y); ctx.fillText(text, x, y);
+  ctx.textAlign = "start"; ctx.textBaseline = "alphabetic"; ctx.lineJoin = "miter";
+}
+
 export function respawnRing(x, y, r, color) { // a dashed ring around a player: respawning here, or crippled (red)
   ctx.beginPath(); ctx.arc(x, y, r, 0, Math.PI * 2);
   ctx.setLineDash([3, 3]); ctx.lineWidth = 1.5; ctx.strokeStyle = color; ctx.stroke(); ctx.setLineDash([]);

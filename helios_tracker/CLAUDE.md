@@ -91,6 +91,19 @@ and interactive objects on it, with zoom / pan. Read the root `../CLAUDE.md` fir
   state, vitals, action skill, melee skill, active effects - refreshed only when a game update
   arrived (at most every 250 ms), the DOM only written when it changed. Gear stats are the live
   item's (buffs included): no base / buffed split (the user: pointless).
+- **Areas** (`area` / `fog` layers, the `areas` payload, see notes): the level's discovery areas' names (the
+  game's, centred, not-yet-discovered ones dimmed) and a fog of war (off by default): the game's own - the
+  level movie's fog blobs (`tacmap.load_fog`, extracted with the map, the `fog` part of the level payload)
+  over the areas this player hasn't discovered (`pc.DiscoveredWorldAreas`, read every 1 s, sent as `seen`;
+  none on a fully explored map).
+- **Cutscenes** (see notes): a video (the `ClientPlayBinkMovie` hook, its length from the .bik file; the game
+  renders no frame meanwhile) = the `cutscene` payload -> a CUTSCENE block at the top of the Info tab, a video
+  player's bar (elapsed / total, counted by the page); a player in cinematic mode (`bCinematicMode` /
+  `GRI.bAllInCinematicMode`, `ct`) = "In a cutscene" over their bars, like a menu.
+- **Game fonts** (`gamefonts.py`, see notes): the game's own UI fonts (WillowBody, Compacta Bd BT, Chintzy CPU BRK)
+  rebuilt as TrueType from the player's `Startup.upk` at run time (a thread, once per session), served at
+  `/font/<slug>.ttf`; `@font-face` + `--font-body` / `--font-head` in base.css (not applied yet: the retheme).
+  Never committed (extracted game files).
 - **Containers**: category from the game's loot list names - an "Epic" list = **Big chests** (red
   chests, orange-red, biggest), a "WeaponChest" list = **Weapon chests** (metal crates, bandit weapon
   chests, amber), else Containers sized by item slots (most items one opening spawns). **Looted**

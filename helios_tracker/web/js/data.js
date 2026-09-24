@@ -6,6 +6,7 @@ import { objectCategory, setRarityTable } from "./model.js";
 import { invalidate } from "./scheduler.js";
 import { settings } from "./settings.js";
 import { S, findDetail, pawnPos } from "./state.js";
+import { renderCutscene } from "./ui/cutscene.js";
 import { renderDetail } from "./ui/detail.js";
 import { restoreDrawer } from "./ui/drawer.js";
 import { closeInspector, renderInspector } from "./ui/inspector.js";
@@ -24,6 +25,7 @@ export function connect() {
   // wait until the server answers again, then reload the page (a plain F5: fresh state and code)
   es.onerror = () => {
     es.close();
+    onCutscene({}); // the game's gone: no cutscene counted on (a video plays with the server still up - its end would come)
     setStatus("bad", "status.bad");
     reloadWhenBack();
   };
@@ -34,6 +36,8 @@ export function connect() {
   on("level", onLevel);
   on("state", onState);
   on("objects", onObjects);
+  on("areas", onAreas);
+  on("cutscene", onCutscene);
   on("players", onPlayers);
   on("missions", onMissions);
   on("missiondefs", onMissionDefs);
@@ -54,7 +58,7 @@ function onLevel(level) {
   invalidate();
   const changed = !S.level || S.level.id !== level.id;
   if (changed) {
-    S.images = []; S.pawns.clear(); S.pickups = []; S.objects = []; S.fitted = false; S.fallback = null;
+    S.images = []; S.fogBlob = null; S.pawns.clear(); S.pickups = []; S.objects = []; S.areas = []; S.fogSeen = null; S.explored = false; S.fitted = false; S.fallback = null;
     S.players = []; renderPlayers(); renderInspector();
     S.missions = { tracked: null, markers: [] }; renderMission();
   }
@@ -62,12 +66,31 @@ function onLevel(level) {
   S.level = level;
   if (level.rarity) setRarityTable(level.rarity);
   renderLevel();
+  renderMessage();
+  if (level.status === "ready" && !wasReady) loadImages(level);
+}
+
+/** The message over the map: the level's (loading, no map...). */
+function renderMessage() {
+  const level = S.level;
   const inMenu = !!level.map && level.map.toLowerCase() === "menumap";
   if (level.status === "loading") setMessage("msg.loading");
   else if (level.status === "none") setMessage(inMenu ? "msg.menu" : "msg.noMap");
   else if (level.status === "error") setMessage("msg.mapError", { error: level.error });
   else setMessage(null);
-  if (level.status === "ready" && !wasReady) loadImages(level);
+}
+
+/** A cutscene on the game's PC: a video (the collector's ClientPlayBinkMovie hook: the game renders nothing
+ *  meanwhile - no updates) or an in-engine one (the script's cinematic mode, its Matinee's length if found) -
+ *  the Info tab's Cutscene bar counts it here, from its start; {} once it's over. */
+let videoTimer = 0;
+function onCutscene(msg) {
+  // (a video, or an in-engine scene; paused: stopped at pos, s)
+  S.video = msg.video || msg.scene
+    ? { len: msg.len ?? null, at: msg.at, paused: !!msg.paused, pos: msg.pos ?? 0, name: msg.name || "" } : null;
+  clearInterval(videoTimer);
+  if (S.video) videoTimer = setInterval(renderCutscene, 250); // (the time text; the bar is a CSS animation)
+  renderCutscene();
 }
 
 /** The panel's level name, its area level and the tab title - from S.level, in the page's language
@@ -86,25 +109,35 @@ export function renderLevel() {
   document.title = (level.name && !inMenu ? levelText + " · " : "") + "Helios Tracker";
 }
 
+/** A texture from the server, decoded onto a canvas. */
+async function loadTexture(img) {
+  const res = await fetch(img.url);
+  if (!res.ok) throw new Error(res.status + " " + res.statusText);
+  const data = new Uint8Array(await res.arrayBuffer());
+  const rgba = decodeTexture(img.format, img.width, img.height, data);
+  const c = document.createElement("canvas");
+  c.width = img.width; c.height = img.height;
+  c.getContext("2d").putImageData(new ImageData(rgba, img.width, img.height), 0, 0);
+  return { canvas: c, bounds: img.bounds };
+}
+
 async function loadImages(level) {
   const out = [];
   for (const img of level.images) {
     try {
-      const res = await fetch(img.url);
-      if (!res.ok) throw new Error(res.status + " " + res.statusText);
-      const data = new Uint8Array(await res.arrayBuffer());
-      const rgba = decodeTexture(img.format, img.width, img.height, data);
-      const c = document.createElement("canvas");
-      c.width = img.width; c.height = img.height;
-      c.getContext("2d").putImageData(new ImageData(rgba, img.width, img.height), 0, 0);
-      out.push({ canvas: c, bounds: img.bounds });
+      out.push(await loadTexture(img));
     } catch (err) {
       console.error("map image", img.name, err);
       setMessage("msg.imageError", { error: err.message });
     }
   }
+  let fog = null;
+  if (level.fog) { // the fog of war piece: without it, just no fog
+    try { fog = await loadTexture(level.fog); } catch (err) { console.error("fog of war", err); }
+  }
   if (S.level && S.level.id === level.id) {
     S.images = out;
+    S.fogBlob = fog;
     S.fitted = false;
     invalidate();
   }
@@ -153,6 +186,16 @@ function onObjects(msg) {
   S.objects = msg.objects;
   if (S.detail) { if (findDetail()) renderDetail(); else closeInspector(); }
   restoreDrawer("objects");
+  invalidate();
+}
+
+/** The level's discovery areas: {k, x, y, z, r, n?: the game's name, u?: discovered}; seen: the fog
+ *  pieces discovered (by name); full: all of it explored. */
+function onAreas(msg) {
+  if (!S.level || msg.level !== S.level.id) return;
+  S.areas = msg.areas;
+  S.fogSeen = new Set(msg.seen || []);
+  S.explored = !!msg.full;
   invalidate();
 }
 

@@ -6,7 +6,7 @@ import { FLOOR_UU, LAYERS, LAYER_COLOR, chestTier, isGear, lootLayer, nameText, 
 import { look, withAlpha } from "./look.js";
 import { missionItemWanted } from "./missions.js";
 import { settings } from "./settings.js";
-import { COLORS, arrow, bang, diamond, dot, label, menuBadge, respawnRing, ring, setMarkerScale, square, triangle, vitalBars } from "./shapes.js";
+import { COLORS, areaName, arrow, bang, diamond, dot, label, menuBadge, respawnRing, ring, setMarkerScale, square, triangle, vitalBars } from "./shapes.js";
 import { S, frame, pawnPos, trackedPawn } from "./state.js";
 import { tooltip } from "./tooltip.js";
 import { refreshPlayerInfo } from "./ui/inspector.js";
@@ -32,6 +32,40 @@ function drawGrid(f) { // areas without a map: a 10 m grid so movement still rea
   for (let x = x0; x < S.view.cx + r; x += step) { ctx.moveTo(x, S.view.cy - r); ctx.lineTo(x, S.view.cy + r); }
   for (let y = y0; y < S.view.cy + r; y += step) { ctx.moveTo(S.view.cx - r, y); ctx.lineTo(S.view.cx + r, y); }
   ctx.stroke();
+}
+
+// The fog of war, the game's (tools/dump_tacmap_movie.txt): its blob (a soft dark cloud) over every
+// area not discovered yet, where the level's map movie places it (one per area, by its short name);
+// the map screen hides an area's once it's discovered. Drawn in the map's transform (movie px), on a
+// canvas of its own masked by the map images (the pieces reach past the map: only where it has pixels),
+// then over the map. -> how many pieces are still fogged.
+let fogCanvas = null;
+function drawFog(lk, opacity) {
+  const blob = S.fogBlob, pieces = S.level && S.level.fog ? S.level.fog.pieces : [];
+  if (!blob || !pieces.length || S.explored || !S.fogSeen) return 0;
+  const todo = pieces.filter(([name]) => !S.fogSeen.has(name));
+  if (!todo.length) return 0;
+  const w = Math.round(W * dpr), h = Math.round(H * dpr);
+  if (!fogCanvas) fogCanvas = document.createElement("canvas");
+  if (fogCanvas.width !== w || fogCanvas.height !== h) { fogCanvas.width = w; fogCanvas.height = h; }
+  const fc = fogCanvas.getContext("2d"), m = ctx.getTransform(), [x0, x1, y0, y1] = blob.bounds;
+  fc.globalCompositeOperation = "source-over";
+  fc.setTransform(1, 0, 0, 1, 0, 0); fc.clearRect(0, 0, w, h);
+  fc.imageSmoothingEnabled = true;
+  for (const [, [a, b, c, d, e, g]] of todo) { // the pieces
+    fc.setTransform(m.multiply(new DOMMatrix([a, b, c, d, e, g])));
+    fc.drawImage(blob.canvas, x0, y0, x1 - x0, y1 - y0);
+  }
+  fc.globalCompositeOperation = "destination-in"; // kept only where the map is
+  fc.setTransform(m);
+  fc.imageSmoothingEnabled = ctx.imageSmoothingEnabled;
+  for (const img of S.images) { const [ix0, ix1, iy0, iy1] = img.bounds; fc.drawImage(img.canvas, ix0, iy0, ix1 - ix0, iy1 - iy0); }
+  ctx.save();
+  ctx.setTransform(1, 0, 0, 1, 0, 0);
+  ctx.globalAlpha = lk.map / 100 * opacity;
+  ctx.drawImage(fogCanvas, 0, 0);
+  ctx.restore();
+  return todo.length;
 }
 
 export function draw() {
@@ -64,11 +98,13 @@ export function draw() {
   }
   ctx.globalAlpha = 1;
   if (!S.images.length) drawGrid(f);
+  const L = settings.layers;
+  // (the areas payload first: before it, which areas are discovered isn't known - no fog rather than all)
+  const fogLeft = L.fog.on !== false && S.images.length ? drawFog(lk, (L.fog.opacity ?? 100) / 100) : 0;
   ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
 
   // Distances / heights are relative to the tracked player (the host by default)
   const mePos = tracked ? pawnPos(tracked, now) : null;
-  const L = settings.layers;
   const counts = Object.fromEntries(LAYERS.map((l) => [l.id, 0]));
   // How a marker of layer `id` at `pos` shows: null = not at all (out of range, hidden on another
   // floor, layer off), else its alpha, size factor and whether its name shows. Counted in the
@@ -97,6 +133,18 @@ export function draw() {
     ctx.fillStyle = "rgba(124, 245, 138, 0.13)"; ctx.fill();
     ctx.setLineDash([6, 4]); ctx.lineWidth = 1.5; ctx.strokeStyle = objColor; ctx.stroke(); ctx.setLineDash([]);
   }
+  ctx.globalAlpha = 1;
+  // the areas' names (the game's): under every marker, the ones not discovered yet dimmed
+  for (const a of S.areas) {
+    if (!a.n) continue; // fog of war only: no name
+    counts.area++;
+    if (L.area.on === false) continue;
+    const [sx, sy] = toScreen(...worldToMap(f, a.x, a.y));
+    if (sx < -200 || sy < -40 || sx > W + 200 || sy > H + 40) continue;
+    ctx.globalAlpha = (a.u ? 0.95 : 0.45) * (L.area.opacity ?? 100) / 100;
+    areaName(sx, sy, a.n, LAYER_COLOR.area, (L.area.size ?? 100) / 100 * G);
+  }
+  counts.fog = fogLeft;
   ctx.globalAlpha = 1;
   const hits = [];
   const place = (x, y) => toScreen(...worldToMap(f, x, y));

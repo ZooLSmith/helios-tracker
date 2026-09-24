@@ -14,6 +14,7 @@ with players, enemies, NPCs, vehicles, loot and interactive objects on it, live,
 import os
 import socket
 import sys
+import threading
 import time
 from typing import Any
 
@@ -21,7 +22,8 @@ from mods_base import BoolOption, ButtonOption, SliderOption, build_mod, hook
 from unrealsdk.hooks import Type
 from unrealsdk.unreal import BoundFunction, UObject, WrappedStruct
 
-from .collector import Collector
+from .collector import Collector, package_path
+from .gamefonts import load_game_fonts
 from .script import start_script
 from .server import Hub, TrackerServer
 from .util import log, log_error, start_log
@@ -131,6 +133,28 @@ def _start(new_port: int | None = None, new_lan: bool | None = None) -> None:
         where += f" (LAN: http://{ip}:{port_value}/)"
     log(f"live map at {where}")
     setattr(sys, _STALE_SCRIPT, start_script(port_value))
+    _load_fonts()
+
+
+def _load_fonts() -> None:
+    """The game's UI fonts (WillowBody...), once per session, on a thread of their own (files only:
+    gamefonts.py) - the page's @font-face rules fall back to its system fonts until they're there."""
+    if _hub.fonts is not None:
+        return
+    _hub.fonts = {}
+
+    def extract() -> None:
+        try:
+            startup = package_path("Startup.upk")
+            if startup is None:
+                raise FileNotFoundError("Startup.upk not found")
+            fonts = load_game_fonts(startup)
+            _hub.fonts = {slug: data for slug, (_name, data) in fonts.items()}
+            log(f"game fonts: {', '.join(name for name, _ in fonts.values())}")
+        except Exception as ex:  # noqa: BLE001
+            log_error("game fonts", ex)
+
+    threading.Thread(target=extract, name="helios_tracker fonts", daemon=True).start()
 
 
 def _on_enable() -> None:
@@ -160,6 +184,15 @@ def on_post_render(obj: UObject, args: WrappedStruct, ret: Any, func: BoundFunct
         _collector.tick(now)
     except Exception as ex:  # noqa: BLE001
         log_error("tick", ex)
+
+
+@hook("WillowGame.WillowPlayerController:ClientPlayBinkMovie", Type.PRE)
+def on_bink_movie(obj: UObject, args: WrappedStruct, ret: Any, func: BoundFunction) -> None:  # noqa: ARG001
+    """A cutscene video starting: the game renders nothing until it's over (tools/probe_cutscene_watch.txt)."""
+    try:
+        _collector.movie_started(obj, str(args.MovieName), bool(args.bForceNoSkip))
+    except Exception as ex:  # noqa: BLE001
+        log_error("movie hook", ex)
 
 
 @hook("WillowGame.WillowPickup:PostBeginPlay", Type.POST)
@@ -219,7 +252,7 @@ def on_object_destroyed(obj: UObject, args: WrappedStruct, ret: Any, func: Bound
 mod = build_mod(
     on_enable=_on_enable,
     on_disable=_on_disable,
-    hooks=[on_post_render, on_pickup_spawn, on_object_spawn, on_object_balance, on_object_destroyed,
+    hooks=[on_post_render, on_bink_movie, on_pickup_spawn, on_object_spawn, on_object_balance, on_object_destroyed,
            on_set_usability, on_change_usability],
     options=[open_page, port, lan, rate],
 )

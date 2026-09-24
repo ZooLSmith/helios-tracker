@@ -18,6 +18,7 @@ function stateKey(pawn) {
   if (pawn.rs) return "respawning";
   if (pawn.dd) return "dead";
   if (pawn.dn || (pawn.m > 0 && pawn.h <= 0 && !(pawn.sm > 0 && pawn.s > 0))) return "ffyl";
+  if (pawn.ct) return "cutscene";
   if (pawn.mn) return "menu";
   return "fine";
 }
