@@ -8,6 +8,7 @@ import { icon } from "../icons.js";
 import { LAYERS, LAYER_GROUPS, LAYER_SETTINGS, layerNameKey } from "../model.js";
 import { invalidate } from "../scheduler.js";
 import { layerCfg, saveSettings, settings } from "../settings.js";
+import { tipAttrs } from "./hovertip.js";
 
 // The layer's marker as drawn on the map (12 px SVG)
 function layerIcon(l) {
@@ -40,6 +41,15 @@ const foldKey = (id) => "layer:" + id; // a folder's entry in ui.closedGroups (n
 function settingHtml(l, key) {
   const s = LAYER_SETTINGS[key], v = layerCfg(l.id)[key], name = esc(t("set." + key));
   const attrs = `data-layer="${l.id}" data-set="${key}"`;
+  if (key === "nameSize" && l.settings.includes("names")) return ""; // (on the Names row: below)
+  if (key === "names" && l.settings.includes("nameSize")) {
+    // Names and their size on one row: the box, then the size's slider (no label: its tooltip says it)
+    const size = layerCfg(l.id).nameSize, sizeAttrs = `data-layer="${l.id}" data-set="nameSize"`;
+    return `<div class="cset"><label class="row cnames"><input type="checkbox" ${attrs}${v ? " checked" : ""}><span>${name}</span></label>` +
+      `<input type="range" ${sizeAttrs} min="${LAYER_SETTINGS.nameSize.min}" max="${LAYER_SETTINGS.nameSize.max}" ` +
+      `step="${LAYER_SETTINGS.nameSize.step}" value="${size}"${tipAttrs("", t("set.nameSize"))}>` +
+      `<span class="cval">${esc(t("unit.percent", { n: size }))}</span></div>`;
+  }
   if (s.type === "bool") {
     return `<label class="row cset"><input type="checkbox" ${attrs}${v ? " checked" : ""}><span>${name}</span></label>`;
   }

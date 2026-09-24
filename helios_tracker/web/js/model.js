@@ -4,13 +4,14 @@
 // A layer lists the ones that apply to it (LAYERS[].settings) and may change a default.
 export const LAYER_SETTINGS = {
   names: { type: "bool", def: false }, // names next to the markers
+  nameSize: { type: "range", min: 50, max: 200, step: 10, def: 100 }, // their text's size, % (on the map markers' size)
   floors: { type: "choice", options: ["show", "dim", "hide"], def: "dim", tip: "set.floorsTip" }, // more than FLOOR_UU above / below
   size: { type: "range", min: 50, max: 200, step: 10, def: 100 }, // marker size, %
   opacity: { type: "range", min: 10, max: 100, step: 5, def: 100 }, // area names, fog of war: how opaque, %
   range: { type: "choice", options: [0, 25, 50, 100, 200], def: 0, select: true }, // max distance from "Who", m (0: any)
   trackedOnly: { type: "bool", def: false }, // objectives: only the tracked mission's
 };
-const COMMON = ["names", "floors", "size", "range"];
+const COMMON = ["names", "nameSize", "size", "floors", "range"]; // (the panel's order: other floors just before max distance)
 
 // RarityLevel -> [name key, colour]. The game's own, sent with the level (setRarityTable): its colour
 // per level and its colour entry - levels sharing an entry are one tier (5 and 7-10: legendary,
@@ -56,7 +57,7 @@ const PICKUP_KINDS = ["ammo", "cash", "eridium", "health", "mission", "other"];
 // settings of its own; its box turns them all on / off). rarity: named by the game's rarity.
 // legacy: the id whose on / off the old storage kept (the single Loot layer, now one per rarity).
 export const LAYERS = [
-  { id: "player", group: "characters", toggle: false, settings: ["names", "floors", "size"], defaults: { names: true } },
+  { id: "player", group: "characters", toggle: false, settings: ["names", "nameSize", "size", "floors"], defaults: { names: true } },
   { id: "enemy", group: "characters", on: true, settings: COMMON },
   { id: "npc", group: "characters", on: true, settings: COMMON },
   { id: "vehicle", group: "characters", on: true, settings: COMMON },
@@ -71,7 +72,7 @@ export const LAYERS = [
   { id: "weaponchest", group: "loot", parent: "containers", on: true, settings: COMMON },
   { id: "container", group: "loot", parent: "containers", on: false, settings: COMMON }, // the other ones
   { id: "looted", group: "loot", parent: "containers", on: false, settings: COMMON }, // opened: nothing left to find
-  { id: "objective", group: "world", on: true, settings: ["names", "floors", "size", "trackedOnly"] },
+  { id: "objective", group: "world", on: true, settings: ["names", "nameSize", "size", "floors", "trackedOnly"] },
   // NPCs with a mission to give / take back: the game's yellow "!" (its directive markers, or worked out
   // from the NPCs' own mission lists - collector _npc_givers)
   { id: "giver", group: "world", on: true, settings: COMMON },

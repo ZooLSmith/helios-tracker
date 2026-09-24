@@ -1397,7 +1397,7 @@ def check_helios_tracker() -> None:  # noqa: PLR0915
     assert js["raw"] == [f"Bullymong Pile{nbsp}?", f"AI Pawn{nbsp}?", f"Fire Barrel02{nbsp}?",
                          f"Interactive Object{nbsp}?", f"Willowtree{nbsp}?", "Zer0"], js["raw"]
     mig = js["migrated"]
-    assert mig["layers"]["enemy"] == {"on": False, "names": True, "floors": "show", "size": 100, "range": 0}, mig["layers"]
+    assert mig["layers"]["enemy"] == {"on": False, "names": True, "nameSize": 100, "floors": "show", "size": 100, "range": 0}, mig["layers"]
     assert not mig["layers"]["loot.rare"]["on"] and not mig["layers"]["pickup.ammo"]["on"], "old Loot toggle not carried over"
     assert not {"gear", "pickups", "containers"} & set(mig["layers"]), "a folder has no settings"
     assert js["lootLayers"] == ["loot.common", "loot.legendary", "loot.pearl", "loot.pearl", "loot.misc", "loot.misc",
@@ -1411,11 +1411,11 @@ def check_helios_tracker() -> None:  # noqa: PLR0915
     ], js["freeRects"]
     assert js["gameRarity"] == [["legendary", "#ffb400"], ["legendary", "#ffb400"], ["seraph", "#ff9ab8"],
                                 ["unknown", "#9132c8"], "loot.legendary"], js["gameRarity"]
-    assert mig["layers"]["player"] == {"names": True, "floors": "show", "size": 100}, mig["layers"]["player"]
+    assert mig["layers"]["player"] == {"names": True, "nameSize": 100, "floors": "show", "size": 100}, mig["layers"]["player"]
     assert mig["view"]["zoom"] == 2.5 and mig["view"]["motion"] == 0, mig["view"]
     assert mig["ui"]["lang"] == "fr" and mig["ui"]["inspectorTab"] == "skills", mig["ui"]
     chk = js["checked"]
-    assert chk["enemy"] == {"on": True, "names": False, "floors": "dim", "size": 200, "range": 0}, chk
+    assert chk["enemy"] == {"on": True, "names": False, "nameSize": 100, "floors": "dim", "size": 200, "range": 0}, chk
     assert chk["view"]["follow"] is False and chk["view"]["motion"] == 15 and chk["openLayers"] == ["loot"], chk
     assert chk["drawer"] == {"k": "mission", "id": "M_Plan"} and chk["badDrawer"] == {}, chk  # restored on a refresh
     assert not js["unknownSettings"], js["unknownSettings"]

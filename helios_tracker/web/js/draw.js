@@ -116,7 +116,8 @@ export function draw() {
     if (otherFloor && cfg.floors === "hide") return null;
     if (count) counts[id]++;
     if (cfg.on === false) return null;
-    return { alpha: otherFloor && cfg.floors === "dim" ? 0.4 : 1, k: (cfg.size ?? 100) / 100 * G, names: !!cfg.names };
+    return { alpha: otherFloor && cfg.floors === "dim" ? 0.4 : 1, k: (cfg.size ?? 100) / 100 * G, names: !!cfg.names,
+      ns: (cfg.nameSize ?? 100) / 100 }; // (ns: the names' size, on top of the markers': label())
   };
   const questShown = (mk) => mk.tracked || !L.objective.trackedOnly;
   const objColor = LAYER_COLOR.objective;
@@ -169,7 +170,7 @@ export function draw() {
       ctx.lineWidth = 1.6 * st.k; ctx.strokeStyle = LAYER_COLOR[o.cat]; ctx.stroke();
       dot(sx, sy, 1.6 * st.k, LAYER_COLOR[o.cat]);
     } else square(sx, sy, size, LAYER_COLOR[o.cat]);
-    if (st.names) label(sx, sy, nameText(o), LAYER_COLOR[o.cat], o.raw);
+    if (st.names) label(sx, sy, nameText(o), LAYER_COLOR[o.cat], o.raw, st.ns);
     hits.push({ sx, sy, r: size, kind: o.cat, item: o });
   }
   // quest markers: point objectives, quest givers; areas are hit-tested at their centre too. A quest
@@ -192,16 +193,16 @@ export function draw() {
       overNpcs.push(() => {
         ctx.globalAlpha = alpha; bang(sx, sy, LAYER_COLOR.giver, st.k);
         const more = mk.list && mk.list.length > 1 ? ` +${mk.list.length - 1}` : ""; // (several: the first, "+N")
-        if (st.names) label(sx, sy, nameText(mk.mission) + more, LAYER_COLOR.giver, mk.mission.raw);
+        if (st.names) label(sx, sy, nameText(mk.mission) + more, LAYER_COLOR.giver, mk.mission.raw, st.ns);
       });
     } else if (!mk.rad) {
       overNpcs.push(() => {
         ctx.globalAlpha = alpha;
         diamond(sx, sy, 10 * st.k, objColor); ctx.beginPath(); ctx.arc(sx, sy, 3 * st.k, 0, Math.PI * 2); ctx.fillStyle = COLORS.ink; ctx.fill();
-        if (st.names && mk.objective) label(sx, sy, nameText(mk.objective), objColor, mk.objective.raw);
+        if (st.names && mk.objective) label(sx, sy, nameText(mk.objective), objColor, mk.objective.raw, st.ns);
       });
     } else if (st.names && mk.objective) {
-      ctx.globalAlpha = alpha; label(sx, sy, nameText(mk.objective), objColor, mk.objective.raw);
+      ctx.globalAlpha = alpha; label(sx, sy, nameText(mk.objective), objColor, mk.objective.raw, st.ns);
     }
     hits.push({ sx, sy, r: (mk.k === "directive" || mk.rad ? 7 : 10) * st.k, kind: mk.k, item: mk });
   }
@@ -224,7 +225,7 @@ export function draw() {
     // a mission item: a "!" (like quest givers), as big as a legendary's triangle (6.5 px: 7 x 0.93)
     else if (layer === "pickup.mission") bang(sx, sy, LAYER_COLOR[layer], 0.93 * st.k);
     else dot(sx, sy, 3.5 * st.k, LAYER_COLOR[layer]); // not gear (ammo, cash...): its kind's colour, no rarity
-    if (st.names) label(sx, sy, nameText(p), isGear(p.c) ? color : LAYER_COLOR[layer], p.raw);
+    if (st.names) label(sx, sy, nameText(p), isGear(p.c) ? color : LAYER_COLOR[layer], p.raw, st.ns);
     hits.push({ sx, sy, r: 6 * st.k, kind: "loot", item: p });
   }
   // pawns: players on top, the tracked one last
@@ -259,7 +260,7 @@ export function draw() {
       else ring(sx, sy, 4.5 * st.k, LAYER_COLOR[p.k], st.k); // NPCs: a hollow ring (pickups are dots, mission items a filled "!")
       if (hurt) vitalBars(sx, sy, { ...p, h: pos.h, s: pos.s }, st.k);
     }
-    if (st.names) label(sx, sy, nameText(p), p === tracked ? COLORS.tracked : LAYER_COLOR[layer], p.raw);
+    if (st.names) label(sx, sy, nameText(p), p === tracked ? COLORS.tracked : LAYER_COLOR[layer], p.raw, st.ns);
     hits.push({ sx, sy, r: 6 * st.k, kind: p.k, item: p, pos });
   }
   drawGivers(); // (no pawn above the NPCs)

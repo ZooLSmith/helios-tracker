@@ -169,9 +169,10 @@ and interactive objects on it, with zoom / pan. Read the root `../CLAUDE.md` fir
   `pk`, from the item definition's inventory card `Presentation`, resolved once per definition:
   see notes; eridium not probed yet, so Other), **Containers** (Big chests, Weapon
   chests, Other containers, Looted). Per-layer
-  settings (`model.js` `LAYER_SETTINGS`, which apply per layer in `LAYERS[].settings`): Names,
-  Other floors (show / dim / hide, > 6 m up / down from "Who"), Size (50-200 %), Max distance (from
-  "Who"), Tracked mission only (objectives). Counts = what passes the layer's filters, on or not.
+  settings (`model.js` `LAYER_SETTINGS`, which apply per layer in `LAYERS[].settings`, in the panel's order):
+  Names (its Name size slider on the same row, no label: 50-200 %, the labels' text), Size (50-200 %), Other
+  floors (show / dim / hide, > 6 m up / down from "Who"), Max distance (from "Who"), Tracked mission only
+  (objectives). Counts = what passes the layer's filters, on or not.
   No global names / floors / rarity settings any
   more - the loot filter will come back as a Loot setting (to design).
 - **Settings tab**: Who (host / a player, saved by name) + Follow / Rotate (map turns to their

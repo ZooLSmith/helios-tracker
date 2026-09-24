@@ -64,11 +64,13 @@ export function square(x, y, r, fill) {
 let markerScale = 1;
 export function setMarkerScale(s) { markerScale = s; }
 
-export function label(x, y, text, color, raw) { // raw: a made-up name ending in " ?", the "?" drawn dimmer
+// raw: a made-up name ending in " ?", the "?" drawn dimmer; k: its layer's Name size (the text only: it stays by
+// its marker)
+export function label(x, y, text, color, raw, k = 1) {
   const main = raw ? text.slice(0, -2) : text, s = markerScale;
-  ctx.font = `600 ${11 * s}px 'Segoe UI', system-ui, sans-serif`;
-  x += 8 * s - 8; y += 4 * s - 4; // (the offsets below: 8 right, 4 down, at 100 %)
-  ctx.lineWidth = 3; ctx.strokeStyle = COLORS.halo; ctx.fillStyle = color;
+  ctx.font = `600 ${11 * s * k}px 'Segoe UI', system-ui, sans-serif`;
+  x += 8 * s - 8; y += 4 * s - 4 + (k - 1) * 4 * s; // (the offsets below: 8 right, 4 down, at 100 %; bigger text: lower)
+  ctx.lineWidth = 3 * Math.max(0.6, k); ctx.strokeStyle = COLORS.halo; ctx.fillStyle = color;
   ctx.strokeText(main, x + 8, y + 4); ctx.fillText(main, x + 8, y + 4);
   if (!raw) return;
   const alpha = ctx.globalAlpha, qx = x + 8 + ctx.measureText(main + " ").width;

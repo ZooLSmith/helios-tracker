@@ -59,6 +59,7 @@ export default {
   "layers.closeAllTip": "Fold every category and close the layer settings",
   "layers.configure": "Layer settings",
   "set.names": "Names",
+  "set.nameSize": "Name size",
   "set.floors": "Other floors",
   "set.floorsTip": "Markers more than 6 m above or below",
   "set.floors.show": "Show",

@@ -58,6 +58,7 @@ export default {
   "layers.closeAllTip": "Replier toutes les catégories et fermer les réglages des calques",
   "layers.configure": "Réglages du calque",
   "set.names": "Noms",
+  "set.nameSize": "Taille des noms",
   "set.floors": "Autres étages",
   "set.floorsTip": "Les marqueurs à plus de 6 m au-dessus ou en dessous",
   "set.floors.show": "Afficher",
