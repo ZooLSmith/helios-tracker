@@ -502,3 +502,24 @@ co-op yet):
   tooltip's lines, computed. **Bonus ranks** (probe_skill_bonus.py): not in the tree (Grade / GetSkillGrade: the
   points spent) - the equipped items' `ItemCardModifierStats` (a class mod: AttrPresent_Steady 2.02 -> +2, its
   presentation in GD_AttributePresentation.Skills_<class>); they only count with a point in the skill.
+- **Item card icons** (gamecards.py): the manufacturer logos and item type icons are **atlas bitmaps** in the item
+  card's Scaleform component movie (BL2: WillowGame.upk's SharedWillowComponents - found, not named): a sprite
+  per list, a frame per key (the game's: ManufacturerDefinition.FlashLabelName "maliwan", WeaponTypeDefinition
+  .ScaleformFrameName "pistol"), each frame a one-shape wrapper whose bitmap fill is a GFx DefineSubImage (tag 1008:
+  bitmap id u16, atlas index u16, x0 y0 x1 y1 u16) of a DefineExternalImage2 atlas (1009: id u32 - its low word is
+  that index -, format, declared w / h, export name, file name; the texture "<movie package>.<file name>").
+  An atlas' id has a high word (0x90000, 0x90001); a plain image's not - SharedWillowComponents' 8 x 4 "scanlines-
+  independent -nopack" is id 1 and collided with atlas 1 (I38, the small variants) until atlases won.
+  The "two variants" are **layers**: the card's "item card" sprite places "manufacturer logos" (which places two
+  logo lists: depth 1 "bgdClip" - larger, black: the outline -, depth 3 "tintClip" - smaller, white: the fill, tinted
+  by the game), "item card - weapon type" (two type lists, the same way) and the element list, instance names
+  `manufacturer`, `typeIcon`, `elementalIcon`. Drawn by depth, one over the other (centred shapes: the placements'
+  translates + the shapes' bounds). Some layers are vector (Eridian's outline: a solid fill; a few type outlines):
+  that layer's missing. Other movies have type lists too (the ammo's 30 x 41 icons, the vendors' tabs) - the one
+  nearest the manufacturer's in the tree is the card's. The element list's labels: amp (slag), corrosive, explosive,
+  fire, shock, none = the DamageType enum's names without DAMAGE_TYPE_ (lower case; Incendiary's frame is "fire"). The
+  "item icons" sprite (quest, sdu, artifacts) is vector (no icon). Everything found from the game's data: the
+  packages from the engine config ([Engine.ScriptPackages], [Engine.StartupPackages], + the cooked Startup), the
+  lists by their labels vs the keys (nearest the manufacturer's, the best overlap, the largest) - for the Pre-Sequel
+  as is. The fonts the same way now (any movie's compacted fonts in those
+  packages, each name's fullest). Still named: the skill icons' packages (GD_*_Streaming_SF + Startup).

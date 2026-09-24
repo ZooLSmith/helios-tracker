@@ -107,6 +107,25 @@ and interactive objects on it, with zoom / pan. Read the root `../CLAUDE.md` fir
   Never committed (extracted game files).
 - **Skill icons** (`gameicons.py`, see notes): the game's own, from the class packages at run time, served as
   PNGs (`/icon/<path>.png`, decoded on demand, never committed); on the Skills tab's tiles (greyed without points).
+- **Item card icons** (`gamecards.py`, see notes): the manufacturer logo and the item type icon, the game's (atlas
+  bitmaps of its item card movie), found from its data (the engine config's packages, the sprites labelled with the
+  loaded definitions' keys, the element's: the damage types' enum) - no BL2 name hard-coded; served at
+  `/cardicon/<manufacturer|element|type>/<key>.png`, **layered** (the lists placed together, by depth: a black outline
+  under a white fill), the list nearest the manufacturer's in the movie's tree (the card's, not the ammo's); along the
+  bottom of every item (smaller when folded): manufacturer left (its fill in the rarity's colour, 40 % pastel),
+  element + type right (the user's order, not the game's; the element's art untouched), the type icon in the
+  element's colour = its element card line's (the damage type's own
+  `WeaponCardPresentations` line, marked `el`: its TextColor - shock's blue), else the damage type's HUDDamageColor (the
+  hit markers': fire's line has no colour - the line gets it too), else the element art's measured colour. The
+  element's stat tiles' values in that colour too (exact, not pastel), like the game's card. Non-weapons' type frame: the card's
+  `IItemCardable.GetZippyFrame()` ("Artifact", "comm", "Customization_Head": tools/probe_zippy.txt; once per definition).
+- **The game files' work off the game's Python** (`gamework.py`): the scan and every decode (fonts, icons) run in a
+  **subinterpreter** (Python 3.14, its own GIL: beside the game thread, not in turns with it - a plain thread of ours
+  froze / lagged the game), fed through a queue; results cached on disk (`.cache/assets`, gitignored). No
+  subinterpreters: in process, politely (1 ms switch interval, a pause per decompressed block).
+- **The game files' scan** (`gamescan.py`): the fonts, card icons and skill icons found in **one** pass over the packages
+  (a gamework job), started when a page first connects (once per session), cached in `.cache/scan.json` (per package,
+  by size + date: later sessions scan nothing). Font / icon requests wait for it (`SCAN_WAIT`).
 - **Containers**: category from the game's loot list names - an "Epic" list = **Big chests** (red
   chests, orange-red, biggest), a "WeaponChest" list = **Weapon chests** (metal crates, bandit weapon
   chests, amber), else Containers sized by item slots (most items one opening spawns). **Looted**

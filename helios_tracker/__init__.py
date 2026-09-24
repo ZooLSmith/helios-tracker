@@ -22,9 +22,8 @@ from mods_base import BoolOption, ButtonOption, SliderOption, build_mod, hook
 from unrealsdk.hooks import Type
 from unrealsdk.unreal import BoundFunction, UObject, WrappedStruct
 
-from .collector import Collector, cooked_dir, package_path
-from .gamefonts import load_game_fonts
-from .gameicons import set_game_dir, warm as warm_icons
+from .collector import Collector, cooked_dir
+from . import gamefonts, gamescan, gamework
 from .script import start_script
 from .server import Hub, TrackerServer
 from .util import log, log_error, start_log
@@ -134,30 +133,32 @@ def _start(new_port: int | None = None, new_lan: bool | None = None) -> None:
         where += f" (LAN: http://{ip}:{port_value}/)"
     log(f"live map at {where}")
     setattr(sys, _STALE_SCRIPT, start_script(port_value))
-    _load_fonts()
-    set_game_dir(cooked_dir())  # (the skill icons: read from its packages when asked for)
-    threading.Thread(target=warm_icons, name="helios_tracker icons", daemon=True).start()  # their index, ahead
+    _hub.fonts = gamefonts.FONTS  # (its catalogue from the game files' scan: when a page connects)
 
 
-def _load_fonts() -> None:
-    """The game's UI fonts (WillowBody...), once per session, on a thread of their own (files only:
-    gamefonts.py) - the page's @font-face rules fall back to its system fonts until they're there."""
-    if _hub.fonts is not None:
+_scan_started = [False]
+
+
+def _scan_game_files() -> None:
+    """The game files' index (fonts, item card / skill icons: gamescan.py - one pass, cached on disk), once per
+    session, when a page first connects (not at every game start); a thread waiting on gamework's subinterpreter
+    (the scan itself runs there, beside the game - or here, politely, without one)."""
+    if _scan_started[0]:
         return
-    _hub.fonts = {}
+    _scan_started[0] = True
 
-    def extract() -> None:
+    def scan() -> None:
         try:
-            startup = package_path("Startup.upk")
-            if startup is None:
-                raise FileNotFoundError("Startup.upk not found")
-            fonts = load_game_fonts(startup)
-            _hub.fonts = {slug: data for slug, (_name, data) in fonts.items()}
-            log(f"game fonts: {', '.join(name for name, _ in fonts.values())}")
+            t = time.monotonic()
+            gamescan.run(cooked_dir())
+            log(f"game files indexed in {time.monotonic() - t:.1f} s ({gamework.mode()}): fonts {', '.join(gamefonts.FONTS.names())}")
         except Exception as ex:  # noqa: BLE001
-            log_error("game fonts", ex)
+            log_error("game files scan", ex)
 
-    threading.Thread(target=extract, name="helios_tracker fonts", daemon=True).start()
+    threading.Thread(target=scan, name="helios_tracker game files", daemon=True).start()
+
+
+_collector.on_page = lambda: _scan_game_files()
 
 
 def _on_enable() -> None:
@@ -167,7 +168,20 @@ def _on_enable() -> None:
 
 def _on_disable() -> None:
     _stop()
+    _stop_worker()
     _collector.reset()
+
+
+def _stop_worker() -> None:
+    """The game files' worker (gamework's subinterpreter) - this module's, or a previous one's (a reload)."""
+    for worker in {id(w): w for w in (getattr(sys, "_helios_tracker_worker", None), gamework) if w is not None}.values():
+        try:
+            worker.stop()
+        except Exception as ex:  # noqa: BLE001
+            log_error("game files worker stop", ex)
+
+
+_stop_worker()  # (a reload: the previous module's worker)
 
 
 # endregion

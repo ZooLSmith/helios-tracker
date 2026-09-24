@@ -480,11 +480,32 @@ def check_helios_tracker() -> None:  # noqa: PLR0915
     import io  # noqa: PLC0415
     import struct  # noqa: PLC0415
 
-    from helios_tracker.gamefonts import load_game_fonts  # noqa: PLC0415
+    # The game files' scan (gamescan.py): one pass over the packages (fonts, card icons, skill icons) in gamework's
+    # subinterpreter, its cache (a temp dir here), then a second session's: from the cache, nothing scanned
+    import tempfile  # noqa: PLC0415
+
+    from helios_tracker import gamefonts, gamescan, gamework  # noqa: PLC0415
+    scan_tmp = tempfile.TemporaryDirectory()
+    gamescan.CACHE = Path(scan_tmp.name) / "scan.json"
+    gamework.ASSETS = Path(scan_tmp.name) / "assets"
     t = time.perf_counter()
-    game_fonts = load_game_fonts(GAME_COOKED / "Startup.upk")
-    assert {s: n for s, (n, _) in game_fonts.items()} == {"willowbody": "WillowBody", "compacta-bd-bt": "Compacta Bd BT",
-                                                         "chintzy-cpu-brk": "Chintzy CPU BRK"}, game_fonts.keys()
+    gamescan.run(GAME_COOKED)
+    t_scan = time.perf_counter() - t
+    assert gamescan.ready() and gamescan.CACHE.is_file()
+    assert gamework.mode() == "subinterpreter", ("the scan beside the game's Python, not in it", gamework.mode())
+    scanned = (dict(gamefonts.FONTS.catalogue), gamescan.packages(GAME_COOKED))
+    gamescan._done.clear()
+    t = time.perf_counter()
+    gamescan.run(GAME_COOKED)
+    t_cached = time.perf_counter() - t
+    assert gamefonts.FONTS.catalogue == scanned[0] and t_cached < 1.0, ("the cache gives the same index, fast", t_cached)
+    print(f"  game files scan: {len(scanned[1])} packages in {t_scan:.2f} s ({gamework.mode()}), from its cache {t_cached:.2f} s")
+    t = time.perf_counter()
+    font_lib = gamefonts.FONTS  # (the engine config's packages: no movie named)
+    names = {s: entry[0] for s, entry in font_lib.catalogue.items()}
+    assert {"willowbody": "WillowBody", "compacta-bd-bt": "Compacta Bd BT", "chintzy-cpu-brk": "Chintzy CPU BRK"}.items() <= names.items(), names
+    assert font_lib.catalogue["willowbody"][1] == 293, ("the fullest WillowBody: the font library's", font_lib.catalogue["willowbody"])
+    game_fonts = {s: (names[s], font_lib.get(s)) for s in ("willowbody", "compacta-bd-bt", "chintzy-cpu-brk")}  # (converted on demand)
     for slug, (_name, ttf) in game_fonts.items():
         n_tables = struct.unpack_from(">H", ttf, 4)[0]
         tags = {ttf[12 + 16 * i : 16 + 16 * i].decode() for i in range(n_tables)}
@@ -499,8 +520,7 @@ def check_helios_tracker() -> None:  # noqa: PLR0915
     print(f"  game fonts: {', '.join(f'{n} ({len(b) // 1024} KB)' for n, b in game_fonts.values())} ({time.perf_counter() - t:.2f} s)")
     # The skill icons (gameicons.py): the class packages' textures, as PNGs - Axton's, a DLC class's (Gaige)
     from helios_tracker import gameicons  # noqa: PLC0415
-    gameicons.set_game_dir(GAME_COOKED)
-    t = time.perf_counter()
+    t = time.perf_counter()  # (its index: the scan's)
     able = gameicons.icon_png("SharedSkillIcons_Soldier.SkillIcon-Able")
     assert able and able[:8] == b"\x89PNG\r\n\x1a\n" and struct.unpack(">II", able[16:24]) == (64, 64), "Able's icon"
     banner = gameicons.icon_png("SharedSkillIcons_Soldier.AAIcon-SoldierAA")
@@ -512,6 +532,36 @@ def check_helios_tracker() -> None:  # noqa: PLR0915
         ("every class's icons indexed, the DLC classes' (Gaige, Krieg) too", len(icons))
     assert gameicons.icon_png("SharedSkillIcons_Soldier.Nope") is None and gameicons.icon_png("../server.py") is None
     print(f"  skill icons: {len(icons)} indexed, Able {len(able)} bytes ({time.perf_counter() - t:.2f} s)")
+    gameicons._pngs.clear()
+    t = time.perf_counter()
+    assert gameicons.icon_png("SharedSkillIcons_Soldier.SkillIcon-Able") == able and time.perf_counter() - t < 0.2, \
+        "an icon decoded once: from the disk cache next time"
+    # The item card icons (gamecards.py): the engine config's packages, the sprites labelled with the game's keys
+    from helios_tracker import gamecards  # noqa: PLC0415
+    card_packages = [p.name for p in gamecards.engine_packages(GAME_COOKED)]
+    assert "WillowGame.upk" in card_packages and card_packages[-1] == "Startup.upk", card_packages
+    t = time.perf_counter()
+    assert gamecards.card_png("manufacturer", "maliwan") is None, "no keys yet: none (the collector gives them)"
+    gamecards.set_keys("manufacturer", {"jakobs", "anshin", "atlas", "dahl", "gearbox", "hyperion", "maliwan", "tediore", "torgue", "vladof"})
+    gamecards.set_keys("type", {"pistol", "shotgun", "smg", "ar", "sniper", "rocket"})  # (the six weapon types' frames)
+    gamecards.set_keys("element", {"None", "Incendiary", "Shock", "Corrosive", "Explosive", "Amp"})  # (the damage types')
+    maliwan, pistol = gamecards.card_png("manufacturer", "maliwan"), gamecards.card_png("type", "pistol")
+    card_layers = {k: [(a.group, a.depth, a.size) for a in gamecards._choose(*k)]
+                   for k in (("manufacturer", "maliwan"), ("type", "pistol"), ("element", "shock"), ("type", "shotgun"))}
+    assert len(card_layers["manufacturer", "maliwan"]) == 2 and len(card_layers["type", "pistol"]) == 2, \
+        ("two layers: the black outline under, the fill over", card_layers)
+    assert maliwan and struct.unpack(">II", maliwan[16:24]) == (126, 29), "Maliwan's logo: its outline's size"
+    assert pistol and struct.unpack(">II", pistol[16:24]) == (49, 33), "the item card's pistol (not the ammo's, 30 x 41)"
+    shock = gamecards.card_png("element", "shock")
+    assert shock and struct.unpack(">II", shock[16:24]) == (42, 42), "the item card's shock icon"
+    assert gamecards._choose("type", "shotgun")[0].group == gamecards._choose("type", "pistol")[0].group, \
+        "the shotgun from the card's type lists too (its outline's vector: one layer)"
+    assert gamecards.card_png("manufacturer", "../x") is None and gamecards.card_png("nope", "maliwan") is None
+    assert all(a.rect[2] <= a.declared[0] and a.rect[3] <= a.declared[1] for arts in gamecards._index.values() for a in arts), \
+        "every art inside its atlas (a plain image's id - the 8 x 4 scanlines, 1 - never taken for atlas 1)"
+    print(f"  card icons: {len(gamecards._index)} labels from {len(card_packages)} packages ({time.perf_counter() - t:.2f} s)")
+    gamework.stop()
+    scan_tmp.cleanup()
     # A cutscene video's length from its Bink header (a DLC's: Captain Scarlett's intro, 65.0 s)
     real_cooked_dir = col.cooked_dir
     col.cooked_dir = lambda: GAME_COOKED
@@ -695,7 +745,7 @@ def check_helios_tracker() -> None:  # noqa: PLR0915
     shield = ns(
         _get_address=lambda: 0x301, Class=ns(Name="WillowShield", SuperField=None), Inventory=None,
         GetShortHumanReadableName=lambda: "Adaptive Shield", RarityLevel=2, ExpLevel=28, MonetaryValue=900,
-        DefinitionData=None,
+        DefinitionData=None, GetZippyFrame=lambda: "Shield", ElementalFrame="None",  # (its card's type frame)
     )
     me.InvManager = ns(InventoryChain=weapon, ItemChain=None, Backpack=[shield])
     skill_def = ns(_get_address=lambda: 0x401, Name="Headsh0t", SkillName="Headsh0t", MaxGrade=5,
@@ -887,12 +937,15 @@ def check_helios_tracker() -> None:  # noqa: PLR0915
                   RoundingMode="ATTRROUNDING_IntRound", FloatPrecision=1, Prefix=more.get("pre", ""), Suffix=more.get("suf", ""),
                   bEnableTextColor=True, TextColor=ns(R=colour[0], G=colour[1], B=colour[2]), Attribute=more.get("attr"))
     shot_cost = ns(ValueResolverChain=[ns(PropertyName="ShotCost")])
-    card_gun = ns(ShotCost=2.0, WeaponCardModifierStats=[
+    # (its element's line: its damage type's own WeaponCardPresentations - marked "el")
+    vs_shields = pres("Highly effective vs Shields.", colour=(0, 100, 255))
+    vs_shields._get_address = lambda: 0xE1E
+    card_gun = ns(ShotCost=2.0, InstantHitDamageTypeDefinitions=[ns(WeaponCardPresentations=[vs_shields])], WeaponCardModifierStats=[
         ns(AttributePresentation=pres("High elemental effect chance."), ModifierValue=0.0, bShouldDisplay=True),
         ns(AttributePresentation=pres("", no_number=False, pre="Consumes [skill]", suf="ammo[-skill] per shot.", attr=shot_cost),
            ModifierValue=1.0, bShouldDisplay=True),
         ns(AttributePresentation=pres("", nc="Deals [skill]bonus elemental damage[-skill]."), ModifierValue=0.0, bShouldDisplay=True),
-        ns(AttributePresentation=pres("Highly effective vs Shields.", colour=(0, 100, 255)), ModifierValue=0.0, bShouldDisplay=True)])
+        ns(AttributePresentation=vs_shields, ModifierValue=0.0, bShouldDisplay=True)])
     card_lines = insp._card_lines(card_gun, "weapon")
     # its elemental chance (tools/probe_element_chance.txt): 20 (shock's base) x 0.6 x 1.4 = 16.8 %; with skills (1.496): 17.95 %
     import enum  # noqa: PLC0415
@@ -918,9 +971,20 @@ def check_helios_tracker() -> None:  # noqa: PLR0915
         ("DamageTypes", "Shock", "WillowMenu")], ("looked up once", localized)
     missing = ns(Localize=lambda *a: "?INT?WillowMenu.DamageTypes.Normal?")
     assert insp._element_name(ns(DamageType=DamageKind.DAMAGE_TYPE_Normal), missing) == "", "a missing entry: no name"
-    assert [(ln["d"], ln.get("cur"), ln.get("col")) for ln in card_lines] == [
-        ("High elemental effect chance.", None, None), ("", 2.0, None), ("Deals [skill]bonus elemental damage[-skill].", None, None),
-        ("Highly effective vs Shields.", None, "#0064ff")], card_lines
+    # A card line's localization reference ("$WillowGame.ItemCardPresentationDescriptions.CharacterHead": a head's
+    # card, seen raw in game): the game's text, looked up once; a missing one: no text, never the reference
+    insp_get_pc, loc_calls = insp.get_pc, []
+    insp.get_pc = lambda: ns(Localize=lambda section, key, package: loc_calls.append((package, section, key))
+                             or ("Unlocks this head." if key == "CharacterHead" else f"?INT?{package}.{section}.{key}?"))
+    head_ref = "$WillowGame.ItemCardPresentationDescriptions.CharacterHead"
+    assert insp._game_text(head_ref) == "Unlocks this head." == insp._game_text(head_ref) and loc_calls == [
+        ("WillowGame", "ItemCardPresentationDescriptions", "CharacterHead")], loc_calls
+    assert insp._game_text("$WillowGame.Nope.Missing") == "" and insp._game_text("Deals $5 damage") == "Deals $5 damage"
+    insp.get_pc = insp_get_pc
+    assert [(ln["d"], ln.get("cur"), ln.get("col"), ln.get("el")) for ln in card_lines] == [
+        ("High elemental effect chance.", None, None, None), ("", 2.0, None, None),
+        ("Deals [skill]bonus elemental damage[-skill].", None, None, None),
+        ("Highly effective vs Shields.", None, "#0064ff", 1)], card_lines
     # A class mod's bonus ranks (tools/probe_skill_bonus.txt): its card's lines whose presentation is a skill's
     def card(path, value):  # noqa: ANN001, ANN202
         return ns(AttributePresentation=ns(_path_name=lambda: path, Name=path.rpartition(".")[2]), ModifierValue=value)
@@ -1177,6 +1241,8 @@ def check_helios_tracker() -> None:  # noqa: PLR0915
     tracked = next(m for m in merged_log()["missions"] if m["i"] == tracked["i"])
     assert tracked["p"] == [1, 4, 0], tracked
     assert [b["k"] for b in player["backpack"]] == ["shield"], player["backpack"]
+    assert player["backpack"][0].get("wt") == "shield" and "el" not in player["backpack"][0], \
+        ("a non-weapon's type icon: its card's GetZippyFrame(), lower case; no element ('None')", player["backpack"][0])
     assert player["host"] is True, "solo / listen server: the mod's player hosts"
     assert player["skills"][0]["n"] == "Sniping" and player["skills"][0]["skills"][0]["g"] == 4, player["skills"]
     assert player["skills"][0]["pts"] == 4 and not player["skills"][0].get("root"), player["skills"]

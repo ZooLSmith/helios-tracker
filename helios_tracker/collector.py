@@ -286,6 +286,7 @@ class Collector:
         self._level: dict[str, Any] | None = None
         self._level_key: tuple[str, str | None] | None = None
         self._images = _ImageCache()
+        self.on_page: Any = None  # called when a page connects (the mod sets it: the game files' scan)
         self._video_at = 0.0  # a cutscene video started (monotonic time): cleared once the frames come back
         self._video_len: float | None = None
         self._video_gap = False  # the frames stopped since it started (the video playing)
@@ -377,6 +378,8 @@ class Collector:
             return
         if not self._active:  # a page just connected: fresh objects and players now
             self._active = True
+            if self.on_page is not None:  # (the mod: the game files' scan, once)
+                self.on_page()
             self._next_scan = self._next_objects = self._next_players = self._next_missions = self._next_log = 0.0
             self._log.dirty = self._log.defs_dirty = True  # the new page needs the log
             self._objects_json = self._players_json = self._missions_json = self._areas_json = ""

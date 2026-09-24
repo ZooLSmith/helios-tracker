@@ -15,7 +15,10 @@ compressed chunks. Chunks: tag, block size, sizes, block table, then LZO1X block
 """
 
 import struct
+import time
+import threading
 import zlib
+from contextlib import contextmanager
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -150,6 +153,15 @@ def decompress_chunk(data: bytes, o: int = 0) -> bytes:
 # region Package reading
 
 
+_thread = threading.local()
+
+
+def set_pause(seconds: float) -> None:
+    """This thread's pause after each decompressed block (gamescan: the game thread gets Python's lock back
+    between blocks); 0: none."""
+    _thread.pause = seconds
+
+
 class Package:
     """Lazy reader: only the blocks holding the requested byte ranges are decompressed."""
 
@@ -229,6 +241,8 @@ class Package:
             self.f.seek(foff)
             raw = self.f.read(usize if csize < 0 else csize)
             self._cache[i] = raw if csize < 0 else lzo1x_decompress(raw, usize)
+            if csize >= 0 and (pause := getattr(_thread, "pause", 0)):
+                time.sleep(pause)
         return self._cache[i]
 
     def read(self, offset: int, size: int) -> bytes:
@@ -635,6 +649,53 @@ def _texture(pkg: Package, idx: int) -> tuple[str, int, int, bytes]:
             raise ValueError("zlib-compressed texture data isn't supported")
         return fmt, w, h, body
     raise ValueError("couldn't find the texture's top mip")
+
+
+_kept: dict | None = None  # gamework's worker: packages kept open between its jobs (path -> Package), oldest first
+_textures: dict = {}  # and their textures' top mips ((path, export) -> _texture's), oldest first
+KEEP_PACKAGES = 4  # (BL2's: 1.5 - 17 MB each)
+KEEP_TEXTURES = 6  # (an atlas: 1024 x 1024 DXT5, 1 MB)
+
+
+def keep_open(on: bool) -> None:
+    """The worker's (a session long): opened packages and decoded top mips kept for the next jobs - an icon out
+    of WillowGame.upk costs its header tables (~1.3 s of LZO) and its atlas once, not per icon."""
+    global _kept  # noqa: PLW0603
+    if not on and _kept:
+        for pkg in _kept.values():
+            pkg.close()
+    _kept = {} if on else None
+    _textures.clear()
+
+
+@contextmanager
+def opened(path: Path):  # noqa: ANN201
+    """A package, closed after - or, in the worker (keep_open), kept for the next job."""
+    if _kept is None:
+        pkg = Package(path)
+        try:
+            yield pkg
+        finally:
+            pkg.close()
+        return
+    key = str(path)
+    pkg = _kept.pop(key, None) or Package(path)
+    _kept[key] = pkg  # (the most recent last)
+    while len(_kept) > KEEP_PACKAGES:
+        _kept.pop(next(iter(_kept))).close()
+    yield pkg
+
+
+def texture(path: Path, pkg: Package, idx: int) -> tuple[str, int, int, bytes]:
+    """_texture, kept in the worker (the card icons: one atlas, many icons)."""
+    if _kept is None:
+        return _texture(pkg, idx)
+    key = (str(path), idx)
+    if key not in _textures:
+        _textures[key] = _texture(pkg, idx)
+        while len(_textures) > KEEP_TEXTURES:
+            _textures.pop(next(iter(_textures)))
+    return _textures[key]
 
 
 @dataclass

@@ -7,7 +7,7 @@ import { saveSettings, settings } from "../settings.js";
 import { S, findPlayer } from "../state.js";
 import { renderDetail } from "./detail.js";
 import { saveDrawer } from "./drawer.js";
-import { itemsByKind } from "./items.js";
+import { elementIconLoaded, itemsByKind } from "./items.js";
 import { renderMissionLog } from "./missionlog.js";
 import { alignPatterns, playerSub, renderPlayers } from "./players.js";
 import { playerInfoHtml } from "./playerinfo.js";
@@ -122,4 +122,8 @@ export function initInspector() {
     b.onclick = () => { settings.ui.inspectorTab = b.dataset.tab; saveSettings(); S.skillTab = null; renderInspector(true); };
   }
   $("iclose").onclick = closeInspector;
+  // an item's element icon loaded: its colour for its type icon (load doesn't bubble: captured)
+  $("inspector").addEventListener("load", (e) => {
+    if (e.target instanceof HTMLImageElement && e.target.classList.contains("ii-element")) elementIconLoaded(e.target);
+  }, true);
 }

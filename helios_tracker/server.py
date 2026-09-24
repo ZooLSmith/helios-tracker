@@ -11,6 +11,8 @@ the Hub, the server threads only read them.
     GET /image/<level>/<n>   raw texture data of map image n of level <level> (decoded by the page)
     GET /font/<slug>.ttf     the game's UI fonts, rebuilt as TrueType (gamefonts.py; 404 until extracted)
     GET /icon/<path>.png     a skill icon ("SharedSkillIcons_Soldier.SkillIcon-Able": gameicons.py, files only)
+    GET /cardicon/<kind>/<key>.png   an item card icon: kind manufacturer / type / element, the game's key ("maliwan",
+                             "pistol", "shock")
 """
 
 import re
@@ -19,6 +21,8 @@ from http import HTTPStatus
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 
+from . import gamescan
+from .gamecards import card_png
 from .gameicons import icon_png
 
 WEB_DIR = Path(__file__).parent / "web"
@@ -28,6 +32,8 @@ TYPES = {"js": "text/javascript; charset=utf-8", "css": "text/css; charset=utf-8
          "svg": "image/svg+xml"}
 FONT = re.compile(r"/font/([a-z0-9-]+)\.ttf")
 ICON = re.compile(r"/icon/((?:UI_[A-Za-z0-9]+_)?SharedSkillIcons_[A-Za-z0-9_]+\.[A-Za-z0-9_-]+)\.png", re.I)
+CARD_ICON = re.compile(r"/cardicon/(manufacturer|type|element)/([A-Za-z0-9_]+)\.png")
+SCAN_WAIT = 30.0  # s a font / icon request waits for the game files' index (gamescan) before giving up
 KEEPALIVE = 10.0  # s between SSE comments when nothing changes (detects closed tabs)
 
 
@@ -94,6 +100,8 @@ class _Handler(BaseHTTPRequestHandler):
 
     def do_GET(self) -> None:  # noqa: N802
         path = self.path.split("?", 1)[0]
+        if path.startswith(("/font/", "/icon/", "/cardicon/")) and not gamescan.ready():
+            gamescan.wait(SCAN_WAIT)  # (the game's files not indexed yet: a page just opened - its scan's running)
         try:
             if path in ("/", "/index.html"):
                 self._send(HTTPStatus.OK, "text/html; charset=utf-8", (WEB_DIR / "index.html").read_bytes())
@@ -106,6 +114,8 @@ class _Handler(BaseHTTPRequestHandler):
             elif (m := FONT.fullmatch(path)) and (data := (self.server.hub.fonts or {}).get(m[1])) is not None:
                 self._send(HTTPStatus.OK, "font/ttf", data)
             elif (m := ICON.fullmatch(path)) and (data := icon_png(m[1])) is not None:
+                self._send(HTTPStatus.OK, "image/png", data)
+            elif (m := CARD_ICON.fullmatch(path)) and (data := card_png(m[1], m[2])) is not None:
                 self._send(HTTPStatus.OK, "image/png", data)
             else:
                 self._send(HTTPStatus.NOT_FOUND, "text/plain", b"not found")

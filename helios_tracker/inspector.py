@@ -16,9 +16,13 @@ is reported (as a reason code the page translates), not guessed. Stats are sent 
   has every player's controller), never the others' on a client.
 """
 
+import re
 from typing import Any
 
+import unrealsdk
 from mods_base import get_pc
+
+from . import gamecards
 
 from .util import addr, call_str, def_name, field, item_name, log, log_error, named, player_info, try_
 
@@ -168,13 +172,32 @@ def _item(inv: Any, equipped: bool, ctrl: Any = None) -> dict[str, Any]:
     }
     if card := _card_lines(inv, kind):
         item["card"] = card
+    # its item card icons' keys, the game's (gamecards.py serves them: /cardicon/<kind>/<key>.png): its manufacturer's
+    # FlashLabelName ("maliwan"), a weapon's type's ScaleformFrameName ("pistol" - a property), another item's
+    # type frame from the card's own IItemCardable.GetZippyFrame() ("Artifact", "comm", "Customization_Head":
+    # tools/probe_zippy.txt; a call - once per definition, cached) and its ElementalFrame (relics, grenades)
+    data = try_(lambda: inv.DefinitionData)
+    if data is not None:
+        if mf := str(try_(lambda: data.ManufacturerDefinition.FlashLabelName, "") or ""):
+            item["mf"] = mf
+        if kind == "weapon" and (wt := str(try_(lambda: data.WeaponTypeDefinition.ScaleformFrameName, "") or "")):
+            item["wt"] = wt
+    if kind != "weapon":
+        definition = try_(lambda: data.ItemDefinition) if data is not None else None
+        zkey = (str(try_(lambda: inv.Class.Name, "")), definition._get_address() if definition is not None else addr(inv))
+        if zkey not in _zippy:
+            _zippy[zkey] = str(try_(lambda: inv.GetZippyFrame(), "") or "")
+        if _zippy[zkey].lower() not in ("", "none"):
+            item["wt"] = _zippy[zkey].lower()
+        if (element := try_(lambda: str(inv.ElementalFrame), "") or "").lower() not in ("", "none"):
+            item["el"] = element
     if kind == "weapon" and (element := try_(lambda: str(inv.ElementalFrame), "") or "").lower() not in ("", "none"):
         # its element: the item card's frame for its icon ("shock" - an identifier: the game has no display name for
         # it, tools/probe_weapon_card2.txt) and its damage per second (StatusEffectDamage: 76.3 on a shock pistol)
         item["el"] = element
         item["edps"] = round(try_(lambda: float(inv.StatusEffectDamage), 0.0), 1)
-        # its colour, the game's: the damage type's HUDDamageColor (shock: a light blue) - the page colours the
-        # element's tiles with it (no display name to show: the icon will name it)
+        # its colour: its card line's TextColor (the page picks it); without one, the damage type's HUDDamageColor
+        # (the hit markers' colour, never on a card: the fallback)
         damage_type = next(iter(try_(lambda: list(inv.InstantHitDamageTypeDefinitions), []) or []), None)
         colour = try_(lambda: damage_type.HUDDamageColor) if damage_type is not None else None
         if damage_type is not None and (name := _element_name(damage_type, ctrl or get_pc())):
@@ -293,6 +316,26 @@ def _enum_name(value: Any) -> str:
     return str(getattr(value, "name", value) or "")
 
 
+_LOC_REF = re.compile(r"\$([A-Za-z0-9_]+)\.([A-Za-z0-9_]+)\.([A-Za-z0-9_]+)")
+_game_texts: dict[str, str] = {}
+
+
+def _game_text(text: str) -> str:
+    """A text as the game shows it: a localization reference ("$WillowGame.ItemCardPresentationDescriptions.
+    CharacterHead": a customization's card line) looked up in the loaded localization, in the game's language
+    (Object.Localize(section, key, package): WillowGame.int's "Unlocks this head for the Quick Change system...";
+    once per reference, cached); "" when it has none (never the raw reference). Other texts as they are."""
+    m = _LOC_REF.fullmatch(text.strip())
+    if m is None:
+        return text
+    if text not in _game_texts:
+        package, section, key = m.groups()
+        ctrl = try_(get_pc)
+        found = str(try_(lambda: ctrl.Localize(section, key, package), "") or "") if ctrl is not None else ""
+        _game_texts[text] = "" if not found or found.startswith("?") else found.strip()
+    return _game_texts[text]
+
+
 def _presentation_line(entry: Any, item: Any = None) -> dict[str, Any] | None:
     """One {AttributePresentation, ModifierValue, bShouldDisplay} entry (a skill's stats, an item card's lines) ->
     a line for the page: its text, display flags (see _skill_stats), value; None if hidden / without text.
@@ -304,10 +347,10 @@ def _presentation_line(entry: Any, item: Any = None) -> dict[str, Any] | None:
     p = try_(lambda: entry.AttributePresentation)
     if p is None or not try_(lambda: bool(entry.bShouldDisplay), True):
         return None
-    text = try_(lambda: str(p.Description), "") or ""
-    pre, suf = try_(lambda: str(p.Prefix), "") or "", try_(lambda: str(p.Suffix), "") or ""
+    text = _game_text(try_(lambda: str(p.Description), "") or "")
+    pre, suf = _game_text(try_(lambda: str(p.Prefix), "") or ""), _game_text(try_(lambda: str(p.Suffix), "") or "")
     if not text and not pre and not suf:
-        text = try_(lambda: str(p.NoConstraintText), "") or ""
+        text = _game_text(try_(lambda: str(p.NoConstraintText), "") or "")
     value = try_(lambda: float(entry.ModifierValue), None)
     if (not text and not pre and not suf) or value is None:
         return None
@@ -351,6 +394,7 @@ def _attribute_value(obj: Any, attribute: Any) -> float | None:
 
 
 _base_chances: dict[int, float | None] = {}  # status effect definition -> its base chance (%)
+_zippy: dict[tuple[str, int], str] = {}  # (item class, definition address) -> its GetZippyFrame() (its card's type frame)
 _element_names: dict[str, str] = {}  # damage type key ("Shock") -> the game's name for it, in its language
 
 
@@ -404,9 +448,43 @@ def _card_lines(inv: Any, kind: str) -> list[dict[str, Any]]:
     """An item's card lines, as the game's item card shows them (tools/probe_weapon_card.txt): a weapon's
     WeaponCardModifierStats (its material's "High elemental effect chance.", its element's "Highly effective vs
     Shields.", its shot cost...), other gear's ItemCardModifierStats (a class mod's skill bonuses...) - the same
-    entries as the skills' stats. Static per item: read with its record."""
+    entries as the skills' stats. Static per item: read with its record.
+    Its element's line (its damage type's own WeaponCardPresentations: "GD_Shock.DamageType.DmgType_Shock_Impact:
+    AttributePresentationDefinition_5") marked "el": the element's colour - its TextColor when set (shock's blue),
+    else the page falls back to the damage type's HUDDamageColor (fire's "Highly effective vs Flesh." has none)."""
     name = "WeaponCardModifierStats" if kind == "weapon" else "ItemCardModifierStats"
-    return [line for e in try_(lambda: list(getattr(inv, name)), []) or [] if (line := _presentation_line(e, inv))]
+    element_lines = {try_(lambda p=p: addr(p)) for d in try_(lambda: list(inv.InstantHitDamageTypeDefinitions), []) or [] if d is not None
+                     for p in try_(lambda d=d: list(d.WeaponCardPresentations), []) or [] if p is not None} if kind == "weapon" else set()
+    out = []
+    for e in try_(lambda: list(getattr(inv, name)), []) or []:
+        if line := _presentation_line(e, inv):
+            if element_lines and try_(lambda e=e: addr(e.AttributePresentation)) in element_lines:
+                line["el"] = 1
+            out.append(line)
+    return out
+
+
+_card_keys_sent = [False]
+
+
+def _card_keys() -> None:
+    """Once: the game's keys for the item card icons, from the loaded definitions - every manufacturer's
+    FlashLabelName, every weapon type's ScaleformFrameName (gamecards.py picks the sprites labelled with them).
+    Two find_all (each walks every object): once per session."""
+    if _card_keys_sent[0]:
+        return
+    _card_keys_sent[0] = True
+    for kind, cls, prop in (("manufacturer", "ManufacturerDefinition", "FlashLabelName"),
+                            ("type", "WeaponTypeDefinition", "ScaleformFrameName")):
+        keys = {str(try_(lambda d=d: getattr(d, prop), "") or "") for d in try_(lambda c=cls: list(unrealsdk.find_all(c, exact=False)), []) or []
+                if not d.Name.startswith("Default__")}
+        gamecards.set_keys(kind, keys - {"", "None"})
+    # the elements': the damage types' DamageType enum, its names without DAMAGE_TYPE_ (Shock, Amp: slag...) - the
+    # element list's frames ("shock", "amp"; a weapon's ElementalFrame picks one)
+    damage_type = next(iter(try_(lambda: list(unrealsdk.find_all("WillowDamageTypeDefinition", exact=False)), []) or []), None)
+    enum = type(try_(lambda: damage_type.DamageType)) if damage_type is not None else None
+    members = getattr(enum, "__members__", None) or {}
+    gamecards.set_keys("element", {name.removeprefix("DAMAGE_TYPE_") for name in members} - {"", "MAX"})
 
 
 def _skill_bonuses(pawn: Any) -> dict[str, int]:
@@ -657,6 +735,7 @@ def read_players(world_info: Any, me: Any, pc: Any = None) -> list[dict[str, Any
                     log(f"xp unavailable for the local player: controller={ctrl is not None}"
                         f" total={try_(lambda: ctrl.ExpPool.Data.CurrentValue)}"
                         f" next={try_(lambda: pri.ExpPointsNextLevelAt)} level={try_(lambda: pri.ExpLevel)}")
+                _card_keys()
                 _inventory(pawn, player)
                 _skills(ctrl, player, try_(lambda p=pawn: _skill_bonuses(p), {}))
                 players.append(player)

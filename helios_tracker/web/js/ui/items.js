@@ -59,7 +59,9 @@ function partRow([slot, tech, group, text]) {
 function cardLinesHtml(it) {
   return (it.card || []).map((f) => {
     const [before, value, after] = skillStatParts(f);
-    const colour = /^#[0-9a-f]{6}$/i.test(f.col || "") ? ` style="color:${f.col}"` : "";
+    // (its element's line without a colour of its own - fire's: the damage type's, elementColour)
+    const col = f.col || (f.el ? elementColour(it) : "");
+    const colour = /^#[0-9a-f]{6}$/i.test(col || "") ? ` style="color:${col}"` : "";
     return `<div class="icline"${colour}>${esc(before)}${value ? `<b class="sval">${esc(value)}</b>` : ""}${esc(after)}</div>`;
   }).join("");
 }
@@ -73,10 +75,10 @@ function statTilesHtml(it) {
   if (it.edps) tiles.push([element, t("unit.perSecond", { n: num(it.edps, 1) }), "", "", "element"]);
   const elementChance = (it.stats || []).findIndex(([key]) => key === "elementChance");
   if (elementChance >= 0) tiles[elementChance][4] = "element";
-  // the element's tiles (its chance, its damage) in the game's colour for it (no name: the game has none - its icon later)
-  const colour = /^#[0-9a-f]{6}$/i.test(it.ecol || "") ? `color:${it.ecol}` : "";
+  // the element's tiles (its chance, its damage) in the element's colour, like the game's card (the item's --etint:
+  // its element line's colour, else the damage type's)
   return tiles.map(([k, v, sub, tip, role]) => `<div class="istat"${tip || ""}>` +
-    `<span class="islabel">${esc(k)}</span><span class="isvalue"${role === "element" && colour ? ` style="${colour}"` : ""}>${esc(v)}</span>` +
+    `<span class="islabel">${esc(k)}</span><span class="isvalue${role === "element" ? " iselement" : ""}">${esc(v)}</span>` +
     `${sub ? `<span class="issub">${esc(sub)}</span>` : ""}</div>`).join("");
 }
 
@@ -90,20 +92,85 @@ function foldHtml(it, key, title, rows) {
     `<span class="ifcount">${esc(num(rows.length))}</span></div><div class="kv">${kv}</div></div>`;
 }
 
+const elementTints = new Map(); // an element icon's url -> its art's colour ("rgb(...)"), or "" (none found)
+
+// An item's element colour, the game's: its element's card line's (the damage type's own line - "el" - in its
+// TextColor: shock's blue), else the damage type's HUDDamageColor (the hit markers': fire's line has none); ""
+// without either (a relic: the page measures its element icon - elementIconLoaded)
+function elementColour(it) {
+  const col = (it.card || []).find((l) => l.el)?.col || it.ecol || "";
+  return /^#[0-9a-f]{6}$/i.test(col) ? col : "";
+}
+
+// The element icon's own colour (its saturated, opaque pixels, weighted by saturation - not its white outline or
+// its shading's black): the last fallback for the type icon's tint.
+function artColour(img) {
+  const w = img.naturalWidth, h = img.naturalHeight;
+  if (!w || !h) return "";
+  const c = document.createElement("canvas");
+  c.width = w;
+  c.height = h;
+  const g = c.getContext("2d", { willReadFrequently: true });
+  g.drawImage(img, 0, 0);
+  const d = g.getImageData(0, 0, w, h).data;
+  let r = 0, gr = 0, b = 0, n = 0;
+  for (let i = 0; i < d.length; i += 4) {
+    if (d[i + 3] < 200) continue;
+    const sat = Math.max(d[i], d[i + 1], d[i + 2]) - Math.min(d[i], d[i + 1], d[i + 2]);
+    if (sat < 60) continue;
+    r += d[i] * sat; gr += d[i + 1] * sat; b += d[i + 2] * sat; n += sat;
+  }
+  return n ? `rgb(${Math.round(r / n)} ${Math.round(gr / n)} ${Math.round(b / n)})` : "";
+}
+
+// An item's element icon loaded (the inspector's load listener): without a game colour for its element, its art's
+// (measured once, kept) on its type icon
+export function elementIconLoaded(img) {
+  const item = img.closest(".item");
+  if (!item || item.style.getPropertyValue("--etint")) return;
+  const src = img.getAttribute("src");
+  if (!elementTints.has(src)) elementTints.set(src, artColour(img));
+  if (elementTints.get(src)) item.style.setProperty("--etint", elementTints.get(src));
+}
+
 function itemHtml(it) {
   const [, color] = rarity(it.q || 0);
-  const meta = [it.type || t("kind." + it.k, null, it.k), it.maker, it.l ? t("item.level", { n: it.l }) : "",
-    it.v ? money(it.v) : ""].filter(Boolean).join(" · "); // (no equip slot: obvious)
+  // (no equip slot: obvious; no maker when its logo's there - the footer's, its name the logo's tooltip)
+  const logo = it.mf && /^[A-Za-z0-9_]+$/.test(it.mf);
+  const meta = [it.type || t("kind." + it.k, null, it.k), logo ? "" : it.maker, it.l ? t("item.level", { n: it.l }) : "",
+    it.v ? money(it.v) : ""].filter(Boolean).join(" · ");
   // expanded: its card's lines, its stats (tiles), then folded away - its parts, the technical details
   const card = cardLinesHtml(it), stats = statTilesHtml(it);
   const parts = foldHtml(it, "parts", t("item.parts"), (it.parts || []).map(partRow));
   const details = foldHtml(it, "details", t("item.details"), [
     [t("item.rarityLevel"), t("item.rarityGuess", { n: String(it.q), name: rarityName(it.q) })],
     [t("item.class"), null, it.c, classHtml(it.c)]]);
-  return `<div class="item${S.expanded.has(it.i) ? " expanded" : ""}" data-id="${esc(it.i)}" style="--c:${color}">` +
+  // its item card icons (the game's: gamecards.py), along the card's bottom like the game's (smaller while folded):
+  // the manufacturer's logo, the element's, the type's - each dropped if the game has none (or the key's odd); the
+  // logo missing: the maker's name instead
+  const icon = (kind, key, text = "") => (key && /^[A-Za-z0-9_]+$/.test(key)
+    ? `<img class="ii-${kind}" src="/cardicon/${kind}/${key}.png" alt="${esc(text)}"${text ? ` title="${esc(text)}"` : ""} ` +
+      `loading="lazy" draggable="false" onerror="${text
+        ? "this.replaceWith(Object.assign(document.createElement('span'), {className: 'ii-text', textContent: this.alt}))"
+        : "this.remove()"}">` : "");
+  // (the element by the type icon, not between: the game's middle spot looked odd - the user's call). Tinted, with
+  // an element: the type icon's white fill in the element's colour (--etint, made pastel), the element's art a
+  // little paler to match - a masked copy of the icon over it (css: .iitint)
+  const tinted = (html, kind, key) => (html && it.el
+    ? `<span class="iitint ${kind}" style="--src:url('/cardicon/${kind}/${key}.png')">${html}</span>` : html);
+  // the element's colour (--etint: the type icon): the game's (elementColour), else its icon's art's once seen
+  const tint = it.el ? elementColour(it) || elementTints.get(`/cardicon/element/${it.el}.png`) || "" : "";
+  const kind = tinted(icon("element", it.el), "element", it.el) + tinted(icon("type", it.wt), "type", it.wt);
+  // the manufacturer's logo: its white fill a little in the rarity's colour (--c; css: .iitint.brand)
+  const brand = icon("manufacturer", it.mf, it.maker || "");
+  const icons = (brand ? `<span class="iitint brand" style="--src:url('/cardicon/manufacturer/${it.mf}.png')">${brand}</span>` : "") +
+    (kind ? `<span class="iikind">${kind}</span>` : "");
+  return `<div class="item${S.expanded.has(it.i) ? " expanded" : ""}" data-id="${esc(it.i)}" ` +
+    `style="--c:${color}${tint ? `;--etint:${esc(tint)}` : ""}">` +
     `<div class="iname">${nameHtml(it)}</div><div class="imeta">${esc(meta)}</div>` +
     `<div class="idetail">${card ? `<div class="icard">${card}</div>` : ""}` +
-    `${stats ? `<div class="istats">${stats}</div>` : ""}${parts}${details}</div></div>`;
+    `${stats ? `<div class="istats">${stats}</div>` : ""}${parts}${details}</div>` +
+    `${icons ? `<div class="iicons">${icons}</div>` : ""}</div>`;
 }
 
 export function itemsByKind(items) {

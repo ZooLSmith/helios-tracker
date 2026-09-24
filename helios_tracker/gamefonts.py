@@ -24,13 +24,14 @@ DefineCompactedFont (after the tag's font id, u16), offsets from the data's star
 
 import re
 import struct
+import threading
 import zlib
 from dataclasses import dataclass
 from pathlib import Path
 
-from .tacmap import Package, _Bits, _rect, _tags
+from . import gamework
+from .tacmap import Package, _Bits, _rect, _tags, opened
 
-FONT_MOVIE = "UI_FontsEn.FontsEn"  # in Startup.upk (the English / Latin font library)
 
 
 # region Scaleform compacted fonts
@@ -335,16 +336,82 @@ def to_ttf(font: GameFont) -> bytes:
 # endregion
 
 
-def load_game_fonts(startup: Path) -> dict[str, tuple[str, bytes]]:
-    """The game's UI fonts from Startup.upk: {slug: (the font's name, TrueType bytes)}."""
-    pkg = Package(startup)
-    try:
-        idx = pkg.find(FONT_MOVIE, "SwfMovie")
-        if idx is None:
-            raise FileNotFoundError(f"{FONT_MOVIE} not in {startup.name}")
-        props, _ = pkg.properties(pkg.export_data(idx))
-        raw = props["RawData"][1]
-        raw = raw[4 : 4 + struct.unpack_from("<i", raw)[0]]
-    finally:
-        pkg.close()
-    return {f.slug: (f.name, to_ttf(f)) for f in movie_fonts(raw)}
+def slug(name: str) -> str:
+    return re.sub(r"[^a-z0-9]+", "-", name.lower()).strip("-")
+
+
+def movie_raw(pkg: Package, idx: int) -> bytes:
+    props, _ = pkg.properties(pkg.export_data(idx))
+    raw = props["RawData"][1]
+    return raw[4 : 4 + struct.unpack_from("<i", raw)[0]]
+
+
+def font_headers(raw: bytes) -> list[tuple[int, str, int]]:
+    """A movie's compacted fonts, their headers only (cheap: no glyph decoded): [(the tag's index among its
+    DefineCompactedFont tags, the font's name, its glyph count)]."""
+    if raw[:3] == b"CFX":
+        d = raw[:8] + zlib.decompress(raw[8:])
+    elif raw[:3] == b"GFX":
+        d = raw
+    else:
+        return []
+    b = _Bits(d, 8)
+    _rect(b)
+    out, n = [], 0
+    for code, body in _tags(d, b.align() + 4):
+        if code == 1005:
+            data = body[2:]
+            end = data.index(0)
+            count = struct.unpack_from("<I", data, end + 11)[0]
+            out.append((n, data[:end].decode("latin1"), count))
+            n += 1
+    return out
+
+
+class GameFonts:
+    """The game's UI fonts, found cheaply, converted on demand: every compacted font of the packages' Scaleform
+    movies (the engine config's packages: gamecards.engine_packages - no movie named: BL2's library is Startup.upk's
+    UI_FontsEn.FontsEn, a Pre-Sequel's wherever its config says), each font name's fullest version (menus embed
+    subsets of WillowBody: the font library has it all). Scanning reads only the fonts' headers (the Asian fonts'
+    13,000+ glyphs: a minute to convert - only when asked for); get(slug) converts once. Thread-safe; dict-like
+    for the server (get)."""
+
+    def __init__(self, catalogue: dict | None = None) -> None:
+        self._lock = threading.Lock()
+        self._ttf: dict[str, bytes | None] = {}
+        self.catalogue: dict[str, tuple[str, int, Path, int, int]] = catalogue or {}  # slug -> (name, glyphs, package, export, n)
+
+    def set_catalogue(self, catalogue: dict) -> None:
+        with self._lock:
+            self.catalogue = catalogue
+            self._ttf = {}
+
+    def names(self) -> list[str]:
+        return [name for name, *_ in self.catalogue.values()]
+
+    def get(self, slug: str, default: bytes | None = None) -> bytes | None:
+        """A font as TrueType: converted by gamework (its subinterpreter; cached on disk), kept."""
+        with self._lock:
+            if slug in self._ttf:
+                return self._ttf[slug] if self._ttf[slug] is not None else default
+            entry = self.catalogue.get(slug)
+        data = None
+        if entry is not None:
+            _name, _count, path, idx, n = entry
+            data = gamework.asset({"do": "font", "package": str(path), "export": idx, "n": n}, [path])
+        with self._lock:
+            self._ttf[slug] = data
+        return data if data is not None else default
+
+
+def font_ttf(path: Path, idx: int, n: int) -> bytes:
+    """A movie's n-th compacted font as TrueType (gamework's job)."""
+    with opened(path) as pkg:  # (the worker: kept open for the next job)
+        return to_ttf(movie_fonts(movie_raw(pkg, idx))[n])
+
+
+FONTS = GameFonts()  # the mod's: its catalogue from gamescan (the server serves it: /font/<slug>.ttf)
+
+
+def set_catalogue(catalogue: dict) -> None:
+    FONTS.set_catalogue(catalogue)

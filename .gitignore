@@ -12,3 +12,6 @@ helios_tracker/autoexec.log
 # Personal startup scripts (tunnel commands, tokens)
 helios_tracker/autoexec.ps1
 helios_tracker/-autoexec.ps1
+
+# The game files' index (gamescan.py): local
+helios_tracker/.cache/
