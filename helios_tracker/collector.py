@@ -472,6 +472,38 @@ class Collector:
         return self._classes[key]
 
     @staticmethod
+    def _boost(vehicle: Any, world_now: float) -> list[float] | None:
+        """A vehicle's boost (nitro) meter: [left, max] from its AfterburnerPool (tools/probe_vehicle.txt:
+        a resource pool next to its HealthPool) - the pool's CurrentValue and MaxValue (else
+        BaseMaxValue). None without one (or an empty max).
+        Refilling (not boosting, not full): a third value, the seconds until full - it refills like a
+        shield (tools/probe_boost.txt): OnIdleRegenerationDelay (5 s) after PoolIdleDelayStartTime (world
+        time: when the boost stopped), then OnIdleRegenerationRate per second (20)."""
+        pool = try_(lambda: field(vehicle, "AfterburnerPool").Data)
+        if pool is None:
+            return None
+        cur = try_(lambda: float(pool.CurrentValue))
+        top = try_(lambda: float(pool.MaxValue), 0.0) or try_(lambda: float(pool.BaseMaxValue), 0.0)
+        if cur is None or not top:
+            return None
+        out = [round(cur, 1), round(top, 1)]
+        rate = try_(lambda: float(pool.OnIdleRegenerationRate), 0.0)
+        if cur < top and rate > 0 and not try_(lambda: field(vehicle, "AfterburnerEngaged"), False):
+            wait = try_(lambda: float(pool.PoolIdleDelayStartTime) + float(pool.OnIdleRegenerationDelay) - world_now, 0.0)
+            out.append(round(max(0.0, wait) + (top - cur) / rate, 1))
+        return out
+
+    def _seat_vehicle(self, seat: Any) -> Any:
+        """The vehicle a seat pawn belongs to (a player on a turret: DrivenVehicle is the seat, which
+        isn't on the map - its vehicle is): UE3's links, first that's a WillowVehicle - the seat's
+        MyVehicle, what it's attached to (Base), its Owner. Property reads; None if none is."""
+        for name in ("MyVehicle", "Base", "Owner"):
+            v = try_(lambda n=name: field(seat, n))
+            if v is not None and try_(lambda v=v: self._is(v, "WillowVehicle") and not self._is_seat(v), False):
+                return v
+        return None
+
+    @staticmethod
     def _in_world(actor: Any) -> bool:
         """Placed/spawned in a level (not a template or a default object), and not being destroyed."""
         return (
@@ -743,7 +775,8 @@ class Collector:
         view_yaw = try_(lambda: pc.Rotation.Yaw, 0)
         self._state_n += 1
         t0 = time.perf_counter()
-        self._skills.update(pc, try_(lambda: float(wi.TimeSeconds), 0.0), now)
+        world_now = try_(lambda: float(wi.TimeSeconds), 0.0)
+        self._skills.update(pc, world_now, now)
         t_skills = time.perf_counter()
         players = []  # player pawns seen this update (the skill reader forgets the others)
         pawns = []
@@ -765,6 +798,8 @@ class Collector:
                     # Driving, a player's properties go wrong (seen: max health = health): the functions
                     vehicle = try_(lambda p=pawn: field(p, "DrivenVehicle")) if info["k"] in ("me", "player") else None
                     driving = vehicle is not None
+                    if driving and try_(lambda v=vehicle: self._is_seat(v), False):  # a turret / gunner seat: its vehicle (on the map)
+                        vehicle = self._seat_vehicle(vehicle) or vehicle
                     if driving and not self._drive_logged:
                         self._drive_logged = True
                         self._check_driving(pawn)
@@ -800,6 +835,8 @@ class Collector:
                             **({"rs": 1 if spot is not None else 2} if respawning else {}),
                             **({"dn": 1} if down == "crippled" else {"dd": 1} if down == "dead" else {}),
                             **({"mn": 1} if is_player and self._in_menu(pawn) else {}),
+                            # a vehicle's boost [left, max, seconds to full?] (its AfterburnerPool), when it has one
+                            **({"bo": bo} if info["k"] == "vehicle" and (bo := self._boost(pawn, world_now)) else {}),
                             # driving: the vehicle's pawn id (a marker of its own, with its health)
                             **({"dv": dv} if driving and (dv := try_(lambda v=vehicle: f"{v._get_address():x}")) else {}),
                             **skills,

@@ -152,6 +152,8 @@ export default {
   "skill.tip": "Compétence d'action",
   "vital.dead": "Mort",
   "vital.menu": "Dans un menu",
+  "vital.boost": "Turbo {n} %",
+  "pinfo.boost": "Turbo",
   "vital.respawning": "Réapparition",
   "tip.respawning": "Réapparaît ici",
   "tip.givesMission": "Donne la mission : {n}",

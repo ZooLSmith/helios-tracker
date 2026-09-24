@@ -153,6 +153,8 @@ export default {
   "skill.tip": "Action skill",
   "vital.dead": "Dead",
   "vital.menu": "In menu",
+  "vital.boost": "Boost {n} %",
+  "pinfo.boost": "Boost",
   "vital.respawning": "Respawning",
   "tip.respawning": "Respawning here",
   "tip.givesMission": "Gives mission: {n}",

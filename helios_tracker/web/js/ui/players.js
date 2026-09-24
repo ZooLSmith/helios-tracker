@@ -27,7 +27,7 @@ export function renderPlayers() {
     // shield, health and XP (the level) together, under the state overlay (crippled / dead /
     // respawning / in a menu: the word over all of them); driving: shield + health on one row, the
     // vehicle's health under them
-    `<div class="vitals"><div class="shhp">${vital("sh")}${vital("hp")}</div>${vital("vh")}${vital("xp")}` +
+    `<div class="vitals"><div class="shhp">${vital("sh")}${vital("hp")}</div><div class="vhbo">${vital("vh")}${vital("bo")}</div>${vital("xp")}` +
     `<div class="ffyl">${esc(t("vital.ffyl"))}</div></div>` +
     `</div>`).join("");
   for (const row of box.querySelectorAll(".pentry")) row.onclick = () => openInspector(row.dataset.id);
@@ -45,6 +45,7 @@ export function renderPlayers() {
     el.querySelector(".vright").textContent = t("insp.level", { n: p.lvl });
   }
   updatePlayerVitals();
+  alignPatterns(box); // (the rebuilt bars: their patterns carry on)
   renderTargets();
 }
 
@@ -54,6 +55,15 @@ export function renderPlayers() {
 // set once per setting change, nothing per frame.
 // each: [its repeat width (px), its speed (px per second): health faster than shields]
 const PATTERNS = { sh: [18, 8], hp: [12, 11], vh: [10, 8] }; // (the tiles: web/img/patterns/*.svg)
+/** The patterns' animations in `root` on the page's clock: a rebuilt bar (the list re-rendered on a
+ *  click, the Info tab refreshed) would start its pattern over - with the same start time (the page's
+ *  time zero) every bar's position depends on the time only, so a new one carries on where the old one
+ *  was. Once per rebuild, not per frame. */
+export function alignPatterns(root) {
+  if (!root || !root.getAnimations) return;
+  for (const a of root.getAnimations({ subtree: true })) if (/^pat-/.test(a.animationName || "")) a.startTime = 0;
+}
+
 export function patternTiming(motion, hz) {
   const fps = motion === "smooth" ? 0 : motion > 0 ? motion : hz || 10; // 0: every frame
   const root = document.documentElement.style;
@@ -74,7 +84,10 @@ export function updatePlayerVitals(now = performance.now()) {
     const set = (cls, cur, max, short = false) => {
       const el = row.querySelector(".vital." + cls);
       const on = !!p && max > 0;
-      if (el.classList.contains("on") !== on) el.classList.toggle("on", on);
+      if (el.classList.contains("on") !== on) {
+        el.classList.toggle("on", on);
+        if (on) alignPatterns(el); // shown now (e.g. the vehicle's bar): its pattern on the page's clock too
+      }
       if (!on) return;
       const frac = Math.max(0, Math.min(1, cur / max));
       const bar = el.querySelector("i"), width = (frac * 100).toFixed(1) + "%";
@@ -93,6 +106,20 @@ export function updatePlayerVitals(now = performance.now()) {
     set("sh", p && p.s, p && p.sm, driving);
     set("hp", p && p.h, p && p.m, driving);
     set("vh", vp && vp.h, vp && vp.m);
+    // its boost (nitro): a quarter of the row, the action skill's look, no numbers (the % on hover)
+    const bo = vp && vp.bo, boEl = row.querySelector(".vital.bo");
+    const boOn = !!(bo && bo[1] > 0);
+    if (boEl.classList.contains("on") !== boOn) { boEl.classList.toggle("on", boOn); if (boOn) alignPatterns(boEl); }
+    if (boOn) {
+      const pct = Math.max(0, Math.min(1, bo[0] / bo[1])), width = (pct * 100).toFixed(1) + "%", bar = boEl.querySelector("i");
+      if (bar.style.width !== width) bar.style.width = width;
+      const title = t("vital.boost", { n: Math.round(pct * 100) });
+      if (boEl.title !== title) boEl.title = title;
+      // refilling: the seconds until full (the collector's: delay + rate), bare like the action skill's cooldown
+      const text = bo[2] != null ? String(Math.ceil(bo[2])) : "";
+      const numEl = boEl.querySelector(".vnum b");
+      if (numEl.textContent !== text) numEl.textContent = text;
+    }
     const vitalsBox = row.querySelector(".vitals");
     if (vitalsBox.classList.contains("driving") !== driving) vitalsBox.classList.toggle("driving", driving);
     // The action skill: ready / running (a draining bar) / cooling down (seconds left)

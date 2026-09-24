@@ -333,6 +333,10 @@ item's `DefinitionData.ItemDefinition` (a `UsableItemDefinition`):
   than the layout's occupied cells - left out of the grid. Timed effects can run as helpers in no
   tree, with dev text for a name ("BloodOverdriveChild - If you are reading this please bug it!");
   a helper shares its skill's `SkillIcon` (unique per tree skill): shown under that skill's name.
+- **On a turret / gunner seat** (user, 2026-09-24): the player's `DrivenVehicle` is the seat pawn
+  (WillowWeaponPawn - not on the map), not the vehicle: the page's vehicle bar found no marker. The
+  collector (`_seat_vehicle`) takes the seat's vehicle - UE3's `MyVehicle`, else its `Base`, else its
+  `Owner`, the first that's a WillowVehicle. Which one BL2 fills: not verified in game.
 - **Driving** (a player in a vehicle): the controller possesses the vehicle (`pawn.Controller` None:
   through `DrivenVehicle.Controller`), and the pawn's health properties went wrong (max = health):
   the functions then, both logged once ("vitals check (player driving)") - to confirm in the log.

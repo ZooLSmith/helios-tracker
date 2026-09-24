@@ -9,7 +9,7 @@ import { renderDetail } from "./detail.js";
 import { saveDrawer } from "./drawer.js";
 import { itemsByKind } from "./items.js";
 import { renderMissionLog } from "./missionlog.js";
-import { playerSub, renderPlayers } from "./players.js";
+import { alignPatterns, playerSub, renderPlayers } from "./players.js";
 import { playerInfoHtml } from "./playerinfo.js";
 import { skillsHtml } from "./skills.js";
 
@@ -79,6 +79,7 @@ export function renderInspector(resetScroll) {
     html = skillsHtml(p);
   }
   body.innerHTML = html;
+  alignPatterns(body); // (rebuilt bars: their patterns carry on, not start over)
   body.dataset.info = tab === "info" ? html : "";
   body.scrollTop = resetScroll ? 0 : scroll;
   for (const b of body.querySelectorAll(".stabs button")) {
@@ -104,7 +105,7 @@ export function refreshPlayerInfo(now) {
   const p = findPlayer();
   if (!p) return;
   const html = playerInfoHtml(p), body = $("ibody");
-  if (body.dataset.info !== html) { body.dataset.info = html; body.innerHTML = html; }
+  if (body.dataset.info !== html) { body.dataset.info = html; body.innerHTML = html; alignPatterns(body); }
 }
 
 export function initInspector() {

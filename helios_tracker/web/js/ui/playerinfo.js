@@ -36,6 +36,11 @@ export function playerInfoHtml(p) {
   if (veh && veh.m > 0) {
     const v = { ...veh, ...pawnPos(veh, performance.now()) };
     html += barRow(nameText(veh), `${num(Math.round(v.h))} / ${num(Math.round(v.m))}`, v.h / v.m, "vh");
+    if (veh.bo && veh.bo[1] > 0) { // its boost (nitro), the action skill's look
+      const pct = Math.max(0, Math.min(1, veh.bo[0] / veh.bo[1]));
+      // refilling: its seconds (the bar shows how full it is)
+      html += barRow(t("pinfo.boost"), veh.bo[2] != null ? seconds(veh.bo[2]) : "", pct, "bo");
+    }
   }
   // Experience: from the players payload (it changes with kills, not per update)
   if (p.xp) {

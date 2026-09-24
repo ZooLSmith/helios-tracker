@@ -392,6 +392,22 @@ def check_helios_tracker() -> None:  # noqa: PLR0915
     part = types.SimpleNamespace(ProgressMessage="Collect parts", Outer=echo_mission)
     echo.DefinitionData.ItemDefinition.MissionDirective, echo.DefinitionData.ItemDefinition.AssociatedMissionObjective = None, part
     assert col.pickup_mission(echo) == {"i": "gd_z1_nohardfeelings.M_NoHardFeelings", "n": "No Hard Feelings", "k": "for", "o": "Collect parts"}
+    # A vehicle's boost (tools/probe_vehicle.txt: its AfterburnerPool): [left, max], MaxValue else BaseMaxValue
+    boost = col.Collector._boost
+    assert boost(types.SimpleNamespace(AfterburnerPool=types.SimpleNamespace(Data=types.SimpleNamespace(CurrentValue=30.0, MaxValue=100.0))), 0.0) == [30.0, 100.0]
+    assert boost(types.SimpleNamespace(AfterburnerPool=types.SimpleNamespace(Data=types.SimpleNamespace(CurrentValue=5.0, MaxValue=0.0, BaseMaxValue=50.0))), 0.0) == [5.0, 50.0]
+    assert boost(types.SimpleNamespace(), 0.0) is None, "no boost pool"
+    # refilling like a shield (tools/probe_boost.txt): the delay's rest, then (max - left) / rate
+    def refill(engaged=False, cur=40.0):
+        pool = types.SimpleNamespace(CurrentValue=cur, MaxValue=100.0, OnIdleRegenerationRate=20.0,
+                                     OnIdleRegenerationDelay=5.0, PoolIdleDelayStartTime=100.0)
+        return boost(types.SimpleNamespace(AfterburnerPool=types.SimpleNamespace(Data=pool), AfterburnerEngaged=engaged), 102.0)
+    assert refill() == [40.0, 100.0, 6.0], ("waiting: 3 s of delay + 60 / 20", refill())
+    assert boost(types.SimpleNamespace(AfterburnerPool=types.SimpleNamespace(Data=types.SimpleNamespace(
+        CurrentValue=40.0, MaxValue=100.0, OnIdleRegenerationRate=20.0, OnIdleRegenerationDelay=5.0,
+        PoolIdleDelayStartTime=100.0)), AfterburnerEngaged=False), 110.0) == [40.0, 100.0, 3.0], "refilling: the rate only"
+    assert refill(engaged=True) == [40.0, 100.0], "boosting: no timer"
+    assert refill(cur=100.0) == [100.0, 100.0], "full: no timer"
     # A pawn's name: its balance's PlayThroughs[].DisplayName - the current playthrough's (0-based on the
     # controller, 1-based in the entries), else the first named one; nothing: ""
     brute = types.SimpleNamespace(BalanceDefinitionState=types.SimpleNamespace(BalanceDefinition=types.SimpleNamespace(PlayThroughs=[

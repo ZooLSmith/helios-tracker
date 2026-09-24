@@ -15,6 +15,7 @@
   --dead: #8a9aa3; /* a dead player (before the respawn) */
   --menu: #d7e6ee; /* a player in a menu: neutral, like the text */
   --xp: #3fae49; /* green, like the game's experience bar */
+  --boost: #ffb42e; /* a vehicle's boost (nitro): yellow-orange like the game's (yellower than the vehicle's health) */
   --vehicle: #e8582a; /* red-orange: the driven vehicle's health (apart from the health bar's red right above it) */
   /* faint patterns over the bars' colour (the filled part only): shield hexagons, health columns,
      vehicle warning stripes (the Players list and the Info tab) */
