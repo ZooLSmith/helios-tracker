@@ -1,7 +1,7 @@
 // The canvas and the view: size, map px <-> screen px, zoom, fit, follow.
 import { $ } from "./dom.js";
 import { largestFreeRect, worldToMap } from "./geo.js";
-import { invalidate } from "./scheduler.js";
+import { invalidate, invalidateNow } from "./scheduler.js";
 import { saveSettings, settings } from "./settings.js";
 import { S, frame, pawnPos, trackedPawn } from "./state.js";
 import { syncRotate } from "./ui/panel.js";
@@ -108,7 +108,7 @@ export function zoomAt(sx, sy, factor) {
   const [mx, my] = toMap(sx, sy);
   S.view.zoom = Math.min(80, Math.max(0.05, S.view.zoom * factor));
   saveZoom();
-  invalidate();
+  invalidateNow(); // (the user zooming: not capped by the Refresh rate)
   if (settings.view.follow) return; // zoom around the followed player
   const [dx, dy] = screenToMapDelta(sx - W / 2, sy - H / 2); // keep the point under the cursor
   S.view.cx = mx - dx;

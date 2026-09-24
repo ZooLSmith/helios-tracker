@@ -1,6 +1,7 @@
 // Mouse / touch / keyboard on the map: wheel and pinch zoom, drag pan, hover, click, shortcuts.
 import { $ } from "./dom.js";
-import { invalidate } from "./scheduler.js";
+import { invalidate, invalidateNow } from "./scheduler.js";
+import { refreshTooltip } from "./tooltip.js";
 import { S } from "./state.js";
 import { openDetail } from "./ui/detail.js";
 import { closeInspector, openInspector } from "./ui/inspector.js";
@@ -27,7 +28,7 @@ export function hitAt(x, y, radius) {
 
 function clickAt(x, y) {
   const best = hitAt(x, y, 14);
-  if (!best) { closeInspector(); return; } // a click on the empty map closes the side panel
+  if (!best) return; // (the empty map: nothing - the drawer only closes with its own button)
   if (best.kind === "me" || best.kind === "player") openInspector(best.item.i);
   else openDetail(best.kind, best.item.i);
 }
@@ -53,7 +54,8 @@ export function initInput() {
   });
   canvas.addEventListener("pointermove", (e) => {
     S.mouse = { x: e.clientX, y: e.clientY };
-    invalidate(); // tooltip / coordinates
+    refreshTooltip(); // the tooltip / coordinates at once (at full speed: not capped by the Refresh rate)
+    invalidate();
     const prev = pointers.get(e.pointerId);
     if (!prev) return;
     const cur = { x: e.clientX, y: e.clientY };
@@ -69,6 +71,7 @@ export function initInput() {
       const [dx, dy] = screenToMapDelta(cur.x - prev.x, cur.y - prev.y);
       S.view.cx -= dx;
       S.view.cy -= dy;
+      invalidateNow(); // (the user dragging: not capped by the Refresh rate)
     }
   });
   const release = (e) => {
@@ -83,7 +86,7 @@ export function initInput() {
   };
   canvas.addEventListener("pointerup", release);
   canvas.addEventListener("pointercancel", release);
-  canvas.addEventListener("pointerleave", () => { S.mouse = null; invalidate(); });
+  canvas.addEventListener("pointerleave", () => { S.mouse = null; refreshTooltip(); invalidate(); });
   canvas.addEventListener("dblclick", (e) => zoomAt(e.clientX, e.clientY, 2));
 
   window.addEventListener("keydown", (e) => {

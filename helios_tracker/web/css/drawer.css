@@ -63,10 +63,51 @@
 .scell { background: #101b23; border: 1px solid #1e3444; border-radius: 4px; padding: 4px 5px; min-height: 40px;
   display: flex; flex-direction: column; justify-content: space-between; gap: 3px; cursor: help; }
 .scell.empty { background: none; border: 0; cursor: default; }
-.scell.zero { opacity: .5; }
-.scell.invested { border-color: color-mix(in srgb, var(--accent) 55%, #1e3444); }
-.scell.locked { opacity: .28; }
-.scell .sn { font-size: 11px; line-height: 1.2; overflow-wrap: anywhere; }
+/* the tree: its colours top to bottom (highlight, main, shadow: base.css --tree-N-*), coloured from the top down
+   to its last unlocked tier (--fill: skills.js), greyscale below (the same, greyed behind the tiles, a hard
+   edge), framed in its highlight like the game's; its tiles over it: an outline and rank dots once invested -
+   in progress orange, maxed green */
+/* --t-dim: the greyed part's brightness, per tree - the same grey for all three (grayscale() of green's / blue's
+   main: ~86 / 255, red's: ~51 - its main is darker): x 0.6 for green and blue, as is for red (~52 each) */
+.sgrid.tree0 { --t-hi: var(--tree-0-hi); --t-main: var(--tree-0-main); --t-shadow: var(--tree-0-shadow); --t-dim: .6; }
+.sgrid.tree1 { --t-hi: var(--tree-1-hi); --t-main: var(--tree-1-main); --t-shadow: var(--tree-1-shadow); --t-dim: .6; }
+.sgrid.tree2 { --t-hi: var(--tree-2-hi); --t-main: var(--tree-2-main); --t-shadow: var(--tree-2-shadow); --t-dim: 1; }
+/* every row the same height (the tallest's): the colour's edge falls between two rows (skills.js --fill) */
+.sgrid[class*="tree"] { position: relative; isolation: isolate; padding: 5px; border-radius: 5px; grid-auto-rows: 1fr;
+  border: 1px solid color-mix(in srgb, var(--t-hi) 80%, #000); /* 1 px, like the page's other cards */
+  /* the main colour, brightening into the highlight down to the fill's edge (the bar's lit end) with a faint white
+     glow on it (the game's), then the main again (greyed) below - a hard edge */
+  background:
+    linear-gradient(to bottom, transparent calc(var(--fill, 0%) - 56px), rgba(255, 255, 255, .14) var(--fill, 0%), transparent var(--fill, 0%)),
+    linear-gradient(to right, var(--t-shadow), transparent 24%, transparent 76%, var(--t-shadow)), /* shaded sides */
+    linear-gradient(to bottom, var(--t-main) calc(var(--fill, 0%) - 56px), var(--t-hi) var(--fill, 0%), var(--t-main) var(--fill, 0%)); }
+.sgrid[class*="tree"]::before { content: ""; position: absolute; inset: 0; z-index: -1; border-radius: inherit;
+  pointer-events: none; -webkit-backdrop-filter: grayscale(.6) brightness(var(--t-dim, .6)); backdrop-filter: grayscale(.6) brightness(var(--t-dim, .6)); /* partly: the game keeps some colour */
+  -webkit-mask-image: linear-gradient(to bottom, transparent var(--fill, 0%), #000 var(--fill, 0%)); /* a hard edge */
+  mask-image: linear-gradient(to bottom, transparent var(--fill, 0%), #000 var(--fill, 0%)); }
+/* the tiles: raised off the tree (a drop shadow, a light top edge, a glaze darker at the bottom) - apart from its
+   background and frame */
+.sgrid[class*="tree"] .scell:not(.empty) { --tile-depth: 0 2px 5px rgba(0, 0, 0, .6), 0 0 1px rgba(0, 0, 0, .8),
+    inset 0 1px 0 rgba(255, 255, 255, .09);
+  background: linear-gradient(to bottom, rgba(6, 12, 16, .38), rgba(6, 12, 16, .62));
+  box-shadow: var(--tile-depth); text-shadow: var(--bar-text-outline); }
+/* invested: a 2 px outline (the border + an inset ring of the same colour: the tile keeps its size) */
+.sgrid[class*="tree"] .scell.invested { box-shadow: inset 0 0 0 1px var(--skill-part), var(--tile-depth); }
+.sgrid[class*="tree"] .scell.maxed { box-shadow: inset 0 0 0 1px var(--skill-done), var(--tile-depth); }
+/* open (points can go in now): a light border, full brightness even at 0 points; locked (its tier out of
+   reach): greyed and dimmed, a lock in its corner */
+.scell.open:not(.invested) { border-color: rgba(255, 255, 255, .3); }
+.scell { position: relative; }
+.sgrid[class*="tree"] .scell { aspect-ratio: 1; min-height: 0; } /* square tiles (the empty slots too: even rows) */
+.scell .slock { position: absolute; top: 3px; right: 3px; display: flex; font-size: 10px; color: var(--dim); }
+.scell .pips i { background: rgba(0, 0, 0, .5); }
+.scell.invested { border-color: var(--skill-part); }
+.scell.invested .pips i.on { background: var(--skill-part); }
+.scell.maxed { border-color: var(--skill-done); }
+.scell.maxed .pips i.on { background: var(--skill-done); }
+.scell.locked { opacity: .45; filter: grayscale(1); }
+.scell .sn { font-size: 11px; line-height: 1.2; overflow-wrap: anywhere;
+  display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; line-clamp: 2; overflow: hidden; } /* 2 lines at most: even rows */
 .scell .sg { display: flex; align-items: center; justify-content: space-between; gap: 4px;
   font-size: 10px; color: var(--dim); font-variant-numeric: tabular-nums; }
 .scell .pips i { width: 5px; height: 5px; }

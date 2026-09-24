@@ -3,12 +3,14 @@
    never stored here): WillowBody (the menus' / missions' text), Compacta Bd BT (headings, the HUD),
    Chintzy CPU BRK (a few labels only: the game keeps 41 of its characters). Until they're extracted (or
    without the game files) the stacks below fall back to the system's. */
-@font-face { font-family: "WillowBody"; src: url("/font/willowbody.ttf") format("truetype"); font-display: swap; }
+/* (WillowBody's "$" is wide and blobby: left out - that one character comes from the next font, Segoe UI's) */
+@font-face { font-family: "WillowBody"; src: url("/font/willowbody.ttf") format("truetype"); font-display: swap;
+  unicode-range: U+0000-0023, U+0025-FFFF; }
 @font-face { font-family: "Compacta Bd BT"; src: url("/font/compacta-bd-bt.ttf") format("truetype"); font-display: swap; }
 @font-face { font-family: "Chintzy CPU BRK"; src: url("/font/chintzy-cpu-brk.ttf") format("truetype"); font-display: swap; }
 :root {
-  --font-body: "WillowBody", "Segoe UI", system-ui, sans-serif; /* (not applied yet: the retheme) */
-  --font-head: "Compacta Bd BT", "Segoe UI", system-ui, sans-serif;
+  --font-body: "WillowBody", "Segoe UI", system-ui, sans-serif; /* the page's text */
+  --font-head: "Compacta Bd BT", "Segoe UI", system-ui, sans-serif; /* (not used: too condensed for the small headings) */
   --bg: #0b1116;
   --panel: rgba(12, 19, 25, 0.9);
   --panel-edge: #24506a;
@@ -42,6 +44,13 @@
   --pat-scan: url("/img/patterns/scanlines.svg") 0 0 / 3px 3px repeat; /* the action skill's (still) */
   /* a bar's empty part (its track): dark, the static scanlines like the game's */
   --bar-track: var(--pat-scan), #1c2d38;
+  /* The skill trees' colours, the game's (every class: the left tree green, the middle blue, the right red):
+     highlight (top), main, shadow (bottom) - the pattern behind them: notes.md "Skill tree colours" */
+  --tree-0-hi: #369341; --tree-0-main: #426122; --tree-0-shadow: #363d20;
+  --tree-1-hi: #249ccc; --tree-1-main: #3f597d; --tree-1-shadow: #292946;
+  --tree-2-hi: #a13837; --tree-2-main: #552b19; --tree-2-shadow: #231614;
+  --skill-done: #04cc04; /* a skill maxed: its outline and rank dots */
+  --skill-part: #d46a00; /* a skill with points, not maxed */
   --objective: #7cf58a; /* light green, like the game's objective markers */
   --story: #ffcc33; /* story (main) missions: yellow; side missions: grey */
   --side: #a9b6bd;
@@ -70,13 +79,23 @@ button > .icon { vertical-align: middle; }
   * { scrollbar-width: thin; scrollbar-color: var(--scroll) transparent; }
 }
 html, body { margin: 0; height: 100%; overflow: hidden; background: var(--page-bg, var(--bg)); color: var(--text);
-  font: 13px/1.35 "Segoe UI", system-ui, sans-serif; }
+  font: 13px/1.35 var(--font-body);
+  letter-spacing: .04em; /* WillowBody is set tight (its capitals: 81 % of the size): a little air, like the game's menus */
+  /* the game's fonts have one weight: no browser-made bold (smeared) - bold text stays WillowBody's own, as in
+     the game's menus */
+  font-synthesis-weight: none; }
 /* the interface size (Settings: look.js) - the panel, the drawer, the status, not the canvas */
 #panel, #inspector, #status { zoom: var(--ui-zoom, 1); }
 canvas { position: fixed; inset: 0; width: 100%; height: 100%; display: block; cursor: grab; touch-action: none; }
 canvas.dragging { cursor: grabbing; }
 #tip { position: fixed; pointer-events: none; background: var(--panel); border: 1px solid var(--panel-edge);
   border-radius: 4px; padding: 5px 8px; display: none; white-space: nowrap; font-size: 12px; z-index: 2; }
+/* the page elements' tooltip (ui/hovertip.js): the map tooltip's look, wrapping long text, above the drawer */
+#htip { position: fixed; pointer-events: none; background: var(--panel); border: 1px solid var(--panel-edge);
+  border-radius: 4px; padding: 5px 8px; display: none; font-size: 12px; z-index: 10; max-width: 300px; }
+#htip b { display: block; font-size: 13px; margin-bottom: 2px; }
+#htip .tl { display: block; color: var(--dim); }
+#htip .tl + .tl { margin-top: 3px; }
 #tip b { display: block; font-size: 13px; }
 #tip .tl { display: block; color: var(--dim); } /* the lines under the name, one block each */
 #tip .tlist { display: block; margin: 1px 0 2px 8px; font-size: 11px; } /* e.g. a container's contents */

@@ -8,6 +8,7 @@ import { initInput } from "./input.js";
 import { applyLook } from "./look.js";
 import { invalidate } from "./scheduler.js";
 import { COLORS, initColors } from "./shapes.js";
+import { initHoverTips } from "./ui/hovertip.js";
 import { initInspector } from "./ui/inspector.js";
 import { initLayers } from "./ui/layers.js";
 import { initMission } from "./ui/mission.js";
@@ -26,6 +27,7 @@ export function start() {
   initMission();
   initMissionLog();
   initInspector();
+  initHoverTips();
   initInput();
   applyI18n();
   renderTargets();

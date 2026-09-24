@@ -1232,7 +1232,8 @@ def check_helios_tracker() -> None:  # noqa: PLR0915
     assert (best["xp"], best["cash"], best["effort"]) == ("ual3vl1ery", "vual1l3ery", "vual3l1ery"), best
     assert best["after"] == ["a"] and best["total"] == 12600 and best["otherLevel"] == 0, best
     me_info, down_info, gone_info = mis["infoHtml"]
-    for want in ("Alive", "Shield", "60 / 100", "Level 30", "500 / 1,000", "Gunzerking", "Active · 12 s", "Locked and Loaded - active", "4 s", "Melee skill", "8 s"):
+    # (a number and its unit: a no-break space between them - never on two lines)
+    for want in ("Alive", "Shield", "60 / 100", "Level 30", "500 / 1,000", "Gunzerking", "Active · 12\u202fs", "Locked and Loaded - active", "4\u202fs", "Melee skill", "8\u202fs"):
         assert want in me_info, (want, me_info)
     assert "Crippled" in down_info and "Not known here" in down_info, down_info
     assert "Not in this area" in gone_info, gone_info

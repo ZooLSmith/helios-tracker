@@ -8,7 +8,22 @@ import { S, trackedPawn } from "./state.js";
 import { rarityName } from "./ui/items.js";
 import { H, W, toMap } from "./view.js";
 
+// The last frame's context: the tooltip also follows the pointer between frames (refreshTooltip: at full speed,
+// whatever the Refresh rate - someone's using the page), from that frame's markers (S.hits)
+let lastFrame = null;
+
+/** From each frame (draw.js): the markers may have moved under the pointer. */
 export function tooltip(mePos, f) {
+  lastFrame = { mePos, f };
+  renderTooltip(mePos, f);
+}
+
+/** From the pointer (input.js): at once, not at the next frame. */
+export function refreshTooltip() {
+  if (lastFrame) renderTooltip(lastFrame.mePos, lastFrame.f);
+}
+
+function renderTooltip(mePos, f) {
   const tip = $("tip"), coords = $("coords");
   if (!S.mouse) { tip.style.display = "none"; coords.textContent = ""; return; }
   const [wx, wy] = mapToWorld(f, ...toMap(S.mouse.x, S.mouse.y));

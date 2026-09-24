@@ -345,6 +345,13 @@ item's `DefinitionData.ItemDefinition` (a `UsableItemDefinition`):
   a colour entry are one tier (5 and 7-10 legendary; 6 E-tech; 500 pearl, 501 Seraph, 506 "Rainbow"
   = effervescent; `GetRarityForLevel` gives EItemRarity but files E-tech under VeryRare). Sent with
   the level payload (`rarity`); the page names tiers by colour entry, colours are the game's.
+- **Every coloured level** (tools/probe_rarity4.txt, levels 0-2000, 2026-09-24): 18 colour entries
+  (0-17), all within 0-506. 11, 505 and 507+: none. Entries 8-11 are not gear tiers, just the
+  pickups' made-up levels: 12-170 (entry 8: black, alpha 0 = no colour), 171-175 (9: red `#cf4747`,
+  health: "Health Now!" is 171), 176-180 (10: peach `#ffc7a7`, unknown kind), 181-499 (11: yellow,
+  cash). Still unnamed: 502 (14: white), 503 (15: purple `#9132c8`), 504 (16: cyan, as pearl's 500).
+  The wiki's Gemstone (Dragon Keep: its balances are grade `_4_`) and Cursed (Pirate's Booty) tiers
+  may be among those three: not tied to an item yet (probe_rarity4 with one near).
 - (history) Player inspection candidates, before the probes: `InvManager.Backpack` / `InventoryChain` /
   `ItemChain`, `pawn.EquippedItems` / `HolsteredWeaponSlots`, item `DefinitionData`, `RarityLevel`,
   `ExpLevel`, card stat modifiers; `pc.PlayerSkillTree.Skills` / `Branches`; replicated to everyone:
@@ -432,6 +439,26 @@ item's `DefinitionData.ItemDefinition` (a `UsableItemDefinition`):
   5000000 / 166833 = 29.97 fps = 65.0 s, exactly the gap); files in WillowGame/Movies or
   DLC/<code>/<Lic>/Movies. After it: cinematic mode off, the HUD reopened. `GRI.bAllInCinematicMode`: every
   player (False here, solo). Not seen yet: an in-engine (Matinee) cutscene without a video, a co-op client.
+- **Skill tree colours** (the user's picks from the game; base.css `--tree-N-hi/main/shadow`): every class's
+  left tree green, middle blue, right red, each a highlight (top) -> main -> shadow (bottom) ramp:
+
+  | tree | highlight | main | shadow |
+  |---|---|---|---|
+  | 0 green | #369341 (OKLCH L .589 C .148 h 145) | #426122 (.454 .098 131) | #363d20 (.345 .047 120) |
+  | 1 blue | #249ccc (.651 .122 231) | #3f597d (.459 .067 257) | #292946 (.296 .052 283) |
+  | 2 red | #a13837 (.491 .140 24) | #552b19 (.341 .068 43) | #231614 (.216 .022 29) |
+
+  The pattern (OKLCH: lightness / chroma as seen): main = the highlight's lightness x 0.70-0.77, chroma x
+  0.49-0.66; shadow = lightness x 0.44-0.59, chroma x 0.16-0.43 - darker and much greyer. The hue drifts as it
+  darkens, toward the colour's darker neighbour: green -> olive (-14 deg, -25), blue -> indigo (+26, +52), red
+  -> orange-brown (+19, +4). Not one tint over them all (tested: the best shared mix colour, #281c18, misses
+  by 13/255 rms and turns blue's main teal). A new ramp from a highlight colour H: main ~ oklch(L*0.73
+  C*0.57 h+drift), shadow ~ oklch(L*0.5 C*0.3 h+2*drift), drift ~ 15-25 deg toward the darker neighbour.
+  The Skills tab (like the game's, a screenshot the user shared): the tree's background is that ramp (top to
+  bottom), coloured from the top down to its last unlocked tier, like the game's (11 points = 3 of 6 rows, 8 =
+  2, 26 = all; not points / max ranks: ~90 a tree, 25 reach its last tier - it stopped at tier 2), none with no
+  point in it, greyscale below, framed in the highlight; a tile's outline +
+  rank dots #04cc04 maxed, #d46a00 in progress (the game: "5/5" badges - the user prefers the dots).
 - **The game's UI fonts** (tools/find_fonts.py, gamefonts.py): Startup_LOC_INT.upk has UE3 bitmap fonts
   (`UI_Fonts.Font_Willowbody_18pt`, `Font_Willowhead_8pt`, `Font_Hud_Medium`: texture pages, canvas text);
   the Scaleform menus use vector ones from a font library movie, Startup.upk's `UI_FontsEn.FontsEn`

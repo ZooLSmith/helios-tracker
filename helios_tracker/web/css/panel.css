@@ -28,7 +28,7 @@
 .title .logo { height: 1.05em; width: auto; vertical-align: -0.08em; margin-right: 0.06em; }
 #collapse { background: none; border: 0; color: var(--dim); cursor: pointer; font-size: 14px; padding: 0 2px; }
 #level { font-size: 17px; font-weight: 600; margin: 6px 0 2px; }
-h3 { font-size: 11px; letter-spacing: .1em; color: var(--dim); margin: 12px 0 4px; font-weight: 600; }
+h3 { font-size: 11px; letter-spacing: .1em; color: var(--dim); margin: 12px 0 4px; font-weight: 600; } /* like the drawer's .group */
 label.row { display: flex; align-items: center; gap: 8px; padding: 2px 0; cursor: pointer; }
 label.row input { margin: 0; accent-color: var(--accent); }
 label.row.off { opacity: .45; cursor: default; } /* a setting that does nothing right now (Rotate without Follow) */

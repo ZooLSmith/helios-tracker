@@ -2,7 +2,7 @@
 // one unlocks under it; available / active / done, locked ones on request) and a mission's
 // details (description, giver, objectives with their progress, what it needs / unlocks).
 import { $, esc, gameTextHtml, nameHtml } from "../dom.js";
-import { num, t } from "../i18n.js";
+import { money, num, t } from "../i18n.js";
 import { icon } from "../icons.js";
 import { GOALS, isHere, missionAreas, missionCounts, missionDifficulty, missionState, missionTree, nodeVisible, objectiveStates,
   rankMissions, rewardFor, searchMissions, whereTo } from "../missions.js";
@@ -162,7 +162,7 @@ function bestHtml(query = "") {
     const ap = approx(r.from); // another level's reward (the local player's): "≈", whose on hover
     const values = (!r.known ? `<span class="muted">${esc(t("best.noReward"))}</span>`
       : [r.xp ? `<span class="mxp" title="${esc(ap.tip)}">${ap.mark}${esc(xpText(r.xp, player))}</span>` : "",
-        r.cash ? `<span class="mcash" title="${esc(ap.tip)}">${ap.mark}$${esc(num(r.cash))}</span>` : ""].join("")) +
+        r.cash ? `<span class="mcash" title="${esc(ap.tip)}">${ap.mark}${esc(money(r.cash))}</span>` : ""].join("")) +
       (goal === "effort" || goal === "finish" ? `<span class="mleft">${esc(t("best.left", { n: r.effort }))}</span>` : "");
     return `<div class="mbest mrow ${r.state}${m.plot ? " story" : ""}${here ? " here" : ""}" data-mission="${esc(m.i)}" title="${esc(stateText(r))}">` +
       `<span class="mrank">${n + 1}</span><span class="mico">${icon(STATE_ICON[r.state])}</span>` +
@@ -246,7 +246,7 @@ function rewardHtml(rw, player) {
   const side = (r) => {
     const rows = [];
     if (r.xp) rows.push(esc(xpText(r.xp, player)));
-    if (r.cash) rows.push(esc(r.cur === "Credits" || !r.cur ? "$" + num(r.cash) : `${num(r.cash)} ${cleanGameText(r.cur)}`));
+    if (r.cash) rows.push(esc(r.cur === "Credits" || !r.cur ? money(r.cash) : `${num(r.cash)} ${cleanGameText(r.cur)}`));
     const items = [...(r.items || []), ...(r.pools || [])].map(nameHtml);
     return [...rows.map((x) => `<div class="mrw">${x}</div>`), ...items.map((x) => `<div class="mrw mrwitem">${x}</div>`)].join("");
   };
