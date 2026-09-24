@@ -130,7 +130,7 @@ export function draw() {
     if (sx + r < 0 || sy + r < 0 || sx - r > W || sy - r > H) continue;
     ctx.globalAlpha = (mk.tracked ? 1 : 0.5) * st.alpha;
     ctx.beginPath(); ctx.arc(sx, sy, Math.max(r, 3), 0, Math.PI * 2);
-    ctx.fillStyle = "rgba(124, 245, 138, 0.13)"; ctx.fill();
+    ctx.fillStyle = objColor; ctx.globalAlpha *= 0.13; ctx.fill(); ctx.globalAlpha /= 0.13;
     ctx.setLineDash([6, 4]); ctx.lineWidth = 1.5; ctx.strokeStyle = objColor; ctx.stroke(); ctx.setLineDash([]);
   }
   ctx.globalAlpha = 1;
@@ -165,7 +165,7 @@ export function draw() {
     const size = st.k * (o.cat === "other" ? 2.5 : tier === 2 ? 7 : tier === 1 ? 5.5 : o.slots ? 2.5 + Math.min(o.slots, 4) * 0.6 : 3.5);
     if (o.cat === "vaultsymbol") { // a ring and a dot: not a container (squares)
       ctx.beginPath(); ctx.arc(sx, sy, 4.5 * st.k, 0, Math.PI * 2);
-      ctx.lineWidth = 2.5 * st.k; ctx.strokeStyle = "rgba(0,0,0,.8)"; ctx.stroke();
+      ctx.lineWidth = 2.5 * st.k; ctx.strokeStyle = COLORS.outline; ctx.stroke();
       ctx.lineWidth = 1.6 * st.k; ctx.strokeStyle = LAYER_COLOR[o.cat]; ctx.stroke();
       dot(sx, sy, 1.6 * st.k, LAYER_COLOR[o.cat]);
     } else square(sx, sy, size, LAYER_COLOR[o.cat]);
@@ -181,7 +181,7 @@ export function draw() {
     if (!visible(sx, sy)) continue;
     ctx.globalAlpha = (mk.tracked ? 1 : 0.55) * st.alpha;
     if (mk.k === "directive") bang(sx, sy, objColor, st.k);
-    else if (!mk.rad) { diamond(sx, sy, 10 * st.k, objColor); ctx.beginPath(); ctx.arc(sx, sy, 3 * st.k, 0, Math.PI * 2); ctx.fillStyle = "#1a1200"; ctx.fill(); }
+    else if (!mk.rad) { diamond(sx, sy, 10 * st.k, objColor); ctx.beginPath(); ctx.arc(sx, sy, 3 * st.k, 0, Math.PI * 2); ctx.fillStyle = COLORS.ink; ctx.fill(); }
     if (st.names && mk.objective) label(sx, sy, nameText(mk.objective), objColor, mk.objective.raw);
     hits.push({ sx, sy, r: (mk.k === "directive" || mk.rad ? 7 : 10) * st.k, kind: mk.k, item: mk });
   }
@@ -221,10 +221,10 @@ export function draw() {
     const angle = yawToAngle(f, pos.r) - S.view.rot;
     const hurt = (p.m > 0 && p.h < p.m) || (p.sm > 0 && p.s < p.sm);
     if (isPlayer) { // the tracked player: the yellow arrow; the others white
-      if (p === tracked) arrow(sx, sy, angle, 9 * st.k, "#ffcc33", "#1a1200");
-      else arrow(sx, sy, angle, 8 * st.k, LAYER_COLOR.player, "#00131a");
+      if (p === tracked) arrow(sx, sy, angle, 9 * st.k, COLORS.tracked, COLORS.ink);
+      else arrow(sx, sy, angle, 8 * st.k, LAYER_COLOR.player, COLORS.playerEdge);
       if (hurt && !p.rs && !p.dd) vitalBars(sx, sy + 3 * st.k, { ...p, h: pos.h, s: pos.s }, st.k);
-      if (p.rs) respawnRing(sx, sy, 12 * st.k, p === tracked ? "#ffcc33" : LAYER_COLOR.player);
+      if (p.rs) respawnRing(sx, sy, 12 * st.k, p === tracked ? COLORS.tracked : LAYER_COLOR.player);
       else if (p.dd) respawnRing(sx, sy, 12 * st.k, COLORS.dead); // died: grey, where their body is
       // crippled (down, fighting for their life): the same ring, red
       else if (p.dn || (p.m > 0 && pos.h <= 0 && !(p.sm > 0 && pos.s > 0))) respawnRing(sx, sy, 12 * st.k, COLORS.health);
@@ -236,7 +236,7 @@ export function draw() {
       else ring(sx, sy, 4.5 * st.k, LAYER_COLOR[p.k], st.k); // NPCs: a hollow ring (pickups are dots, mission items a filled "!")
       if (hurt) vitalBars(sx, sy, { ...p, h: pos.h, s: pos.s }, st.k);
     }
-    if (st.names) label(sx, sy, nameText(p), p === tracked ? "#ffcc33" : LAYER_COLOR[layer], p.raw);
+    if (st.names) label(sx, sy, nameText(p), p === tracked ? COLORS.tracked : LAYER_COLOR[layer], p.raw);
     hits.push({ sx, sy, r: 6 * st.k, kind: p.k, item: p, pos });
   }
   ctx.globalAlpha = 1;

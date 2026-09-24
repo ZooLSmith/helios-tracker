@@ -41,49 +41,58 @@ const LOOT_RARITIES = ["common", "uncommon", "rare", "epic", "legendary", "etech
 // Other pickups: a layer per kind (the collector's "pk", from the game's inventory card; "mission": a
 // mission item - ECHO logs, objects an objective asks for - in the objectives' green), in the Pickups
 // folder; anything else (other currencies...) is "other"
-const PICKUP_KINDS = [["ammo", "#d8c07a"], ["cash", "#6fd46f"], ["eridium", "#c77dff"], ["health", "#ff6f7d"],
-  ["mission", "#7cf58a"], ["other", "#9aa7ad"]];
+const PICKUP_KINDS = ["ammo", "cash", "eridium", "health", "mission", "other"];
 
 // Map layers, in panel order within their category. "on": shown by default; toggle: false = can't
 // be hidden (players), only configured. folder: a row holding the layers whose parent it is (no
 // settings of its own; its box turns them all on / off). rarity: named by the game's rarity.
 // legacy: the id whose on / off the old storage kept (the single Loot layer, now one per rarity).
 export const LAYERS = [
-  { id: "player", group: "characters", color: "#f4f4f4", toggle: false, settings: ["names", "floors", "size"], defaults: { names: true } },
-  { id: "enemy", group: "characters", color: "#ff4b3e", on: true, settings: COMMON },
-  { id: "npc", group: "characters", color: "#a7eeb0", on: true, settings: COMMON }, // a pale green: apart from the objectives' #7cf58a
-  { id: "vehicle", group: "characters", color: "#c08bff", on: true, settings: COMMON },
-  { id: "gear", group: "loot", color: "#ffb52e", folder: true, settings: [] },
+  { id: "player", group: "characters", toggle: false, settings: ["names", "floors", "size"], defaults: { names: true } },
+  { id: "enemy", group: "characters", on: true, settings: COMMON },
+  { id: "npc", group: "characters", on: true, settings: COMMON },
+  { id: "vehicle", group: "characters", on: true, settings: COMMON },
+  { id: "gear", group: "loot", folder: true, settings: [] },
   ...LOOT_RARITIES.map((r) => ({ id: "loot." + r, group: "loot", parent: "gear", legacy: "loot", rarity: r, color: RARITY_COLOR[r], on: true, settings: COMMON })),
   // not gear: no real rarity (made-up levels, for their colour in game)
-  { id: "pickups", group: "loot", color: "#d8c07a", folder: true, settings: [] },
-  ...PICKUP_KINDS.map(([k, color]) => ({ id: "pickup." + k, group: "loot", parent: "pickups", legacy: "loot", color, on: true, settings: COMMON,
+  { id: "pickups", group: "loot", folder: true, settings: [] },
+  ...PICKUP_KINDS.map((k) => ({ id: "pickup." + k, group: "loot", parent: "pickups", legacy: "loot", on: true, settings: COMMON,
     ...(k === "other" ? { tip: "layer.pickup.otherTip" } : {}) })),
-  { id: "containers", group: "loot", color: "#e2c170", folder: true, settings: [] },
-  { id: "chest", group: "loot", parent: "containers", color: "#ff6b2c", on: true, settings: COMMON }, // orange-red, like the red chests
-  { id: "weaponchest", group: "loot", parent: "containers", color: "#e8943a", on: true, settings: COMMON },
-  { id: "container", group: "loot", parent: "containers", color: "#e2c170", on: false, settings: COMMON }, // the other ones
-  { id: "looted", group: "loot", parent: "containers", color: "#56646d", on: false, settings: COMMON }, // opened: nothing left to find
-  { id: "objective", group: "world", color: "#7cf58a", on: true, settings: ["names", "floors", "size", "trackedOnly"] },
-  { id: "vendor", group: "world", color: "#4fd1c5", on: true, settings: COMMON },
+  { id: "containers", group: "loot", folder: true, settings: [] },
+  { id: "chest", group: "loot", parent: "containers", on: true, settings: COMMON },
+  { id: "weaponchest", group: "loot", parent: "containers", on: true, settings: COMMON },
+  { id: "container", group: "loot", parent: "containers", on: false, settings: COMMON }, // the other ones
+  { id: "looted", group: "loot", parent: "containers", on: false, settings: COMMON }, // opened: nothing left to find
+  { id: "objective", group: "world", on: true, settings: ["names", "floors", "size", "trackedOnly"] },
+  { id: "vendor", group: "world", on: true, settings: COMMON },
   // the Cult of the Vault symbols (IO_VaultRoy: clicked to discover, a challenge - tools/probe_directors.txt;
   // discovered ones not told apart yet)
-  { id: "vaultsymbol", group: "world", color: "#ff7eb6", on: true, settings: COMMON },
-  { id: "station", group: "world", color: "#f0f0f0", on: false, settings: COMMON },
+  { id: "vaultsymbol", group: "world", on: true, settings: COMMON },
+  { id: "station", group: "world", on: false, settings: COMMON },
   // the level's areas (the game's discovery areas, tools/probe_discovery.txt): their names, the ones not
   // discovered yet dimmed; the fog of war: the game's fog pieces over the areas not discovered (its count)
-  { id: "area", group: "world", color: "#eadfbf", on: true, settings: ["size", "opacity"] },
-  { id: "fog", group: "world", color: "#56646d", on: false, settings: ["opacity"] },
-  { id: "other", group: "world", color: "#7f8f99", on: false, settings: COMMON },
+  { id: "area", group: "world", on: true, settings: ["size", "opacity"] },
+  { id: "fog", group: "world", on: false, settings: ["opacity"] },
+  { id: "other", group: "world", on: false, settings: COMMON },
 ];
 export const LAYER_COLOR = Object.fromEntries(LAYERS.map((l) => [l.id, l.color]));
+
+/** The layers' colours, from the page's tokens (base.css --layer-<id>, "." as "-"): read(name) -> the value
+ *  (shapes.js initColors). The rarity layers keep the game's. */
+export function setLayerColors(read) {
+  for (const l of LAYERS) {
+    if (l.rarity) continue;
+    const c = read("--layer-" + l.id.replace(".", "-"));
+    if (c) { l.color = c; LAYER_COLOR[l.id] = c; }
+  }
+}
 
 /** The translation key of a layer's name. */
 export const layerNameKey = (l) => (l.rarity ? "rarity." + l.rarity : "layer." + l.id);
 
 /** The layer of a pickup: its rarity's for gear, else its kind's ("pickup.ammo"...). */
 export function lootLayer(p) {
-  if (!isGear(p.c)) return "pickup." + (PICKUP_KINDS.some(([k]) => k === p.pk) ? p.pk : "other");
+  if (!isGear(p.c)) return "pickup." + (PICKUP_KINDS.includes(p.pk) ? p.pk : "other");
   const [key] = rarity(p.q || 0);
   return LOOT_RARITIES.includes(key) ? "loot." + key : "loot.misc";
 }

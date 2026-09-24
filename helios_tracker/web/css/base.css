@@ -11,20 +11,39 @@
 :root {
   --font-body: "WillowBody", "Segoe UI", system-ui, sans-serif; /* the page's text */
   --font-head: "Compacta Bd BT", "Segoe UI", system-ui, sans-serif; /* (not used: too condensed for the small headings) */
-  --bg: #0b1116;
-  --panel: rgba(12, 19, 25, 0.9);
-  --panel-edge: #24506a;
+  /* Every colour of the page is a token here (a theme = these values): the CSS uses them only, the map's
+     canvas reads them at start (shapes.js initColors). Not tokens: the game's own colours (rarities: sent
+     by the mod), and plain black / white shading (shadows, sheens, outlines' alpha). */
+  /* THE THEME'S INPUTS - a theme sets these (themes.css); the colours below are mixed from them (the
+     surfaces: a ladder from --bg towards --tint; the text's shades: --text towards --tint / white), and a
+     theme may still set any of them itself (Hyperion: a brighter --panel-edge than its --tint) */
+  --bg: #0b1116; /* the darkest: the map's background */
+  --tint: #24506a; /* the surfaces' and edges' hue (a mid-dark colour: the ladder's top) */
   --text: #d7e6ee;
-  --dim: #7e98a6;
   --accent: #ffcc33;
+  /* surfaces, darkest first */
+  --panel-base: color-mix(in srgb, var(--tint) 3%, var(--bg)); /* the panels' colour: --panel is it at the panels' opacity (look.js) */
+  --panel: color-mix(in srgb, var(--panel-base) 90%, transparent); /* (look.js sets it)*/
+  --card: color-mix(in srgb, var(--tint) 16%, var(--bg)); /* cards, skill tiles, a layer's settings box */
+  --control: color-mix(in srgb, var(--tint) 26%, var(--bg)); /* buttons, fields, notes */
+  --hover: color-mix(in srgb, var(--tint) 41%, var(--bg)); /* a hovered / selected row or card */
+  --divider: color-mix(in srgb, var(--tint) 30%, var(--bg)); /* lines between list rows */
+  --card-edge: color-mix(in srgb, var(--tint) 56%, var(--bg)); /* a card's / tile's border */
+  --edge-off: color-mix(in srgb, var(--text) 23%, var(--bg)); /* a locked tile's border: grey */
+  --panel-edge: var(--tint);
+  /* text */
+  --text-bright: color-mix(in srgb, var(--text) 65%, #fff); /* on the dark bars / chips */
+  --on-fill: #fff; /* on a coloured fill (bars, chips) */
+  --name: color-mix(in srgb, var(--text) 36%, #fff); /* players' names and markers */
+  --dim: color-mix(in srgb, var(--text) 48%, var(--tint));
   --live: #5fd35f;
   --warn: #ffb03b;
   --bad: #ff5b4f;
-  --grid: rgba(120, 170, 200, 0.08);
+  --grid: color-mix(in srgb, var(--dim) 8%, transparent);
   --shield: #3fa3f0;
   --health: #d9372f; /* red, like the game's health bars */
   --dead: #8a9aa3; /* a dead player (before the respawn) */
-  --menu: #d7e6ee; /* a player in a menu: neutral, like the text */
+  --menu: var(--text); /* a player in a menu: neutral, like the text */
   --xp: #3fae49; /* green, like the game's experience bar */
   --boost: #ffb42e; /* a vehicle's boost (nitro): yellow-orange like the game's (yellower than the vehicle's health) */
   --cutscene: #d9a21e; /* a cutscene's bar: gold (the accent, a bit deeper under the health bar's pattern) */
@@ -43,7 +62,8 @@
   --pat-vehicle: url("/img/patterns/vehicle.svg");
   --pat-scan: url("/img/patterns/scanlines.svg") 0 0 / 3px 3px repeat; /* the action skill's (still) */
   /* a bar's empty part (its track): dark, the static scanlines like the game's */
-  --bar-track: var(--pat-scan), #1c2d38;
+  --track: color-mix(in srgb, var(--tint) 43%, var(--bg)); /* a bar's empty part */
+  --bar-track: var(--pat-scan), var(--track);
   /* The skill trees' colours, the game's (every class: the left tree green, the middle blue, the right red):
      highlight (top), main, shadow (bottom) - the pattern behind them: notes.md "Skill tree colours" */
   --tree-0-hi: #369341; --tree-0-main: #426122; --tree-0-shadow: #363d20;
@@ -53,10 +73,64 @@
   --skill-part: #d46a00; /* a skill with points, not maxed */
   --skill-bonus: #4aa8ff; /* bonus ranks from gear (a class mod's): blue, like the game's */
   --objective: #7cf58a; /* light green, like the game's objective markers */
-  --story: #ffcc33; /* story (main) missions: yellow; side missions: grey */
-  --side: #a9b6bd;
-  --scroll: #2a5068; /* scrollbars: a muted blue, close to the panel's colours; brighter on hover */
-  --scroll-hover: #3a7399;
+  --story: var(--accent); /* story (main) missions: yellow; side missions: grey */
+  --side: color-mix(in srgb, var(--text) 77%, var(--bg));
+  --scroll: var(--tint); /* scrollbars: a muted blue, close to the panel's colours; brighter on hover */
+  --scroll-hover: color-mix(in srgb, var(--text) 21%, var(--tint));
+  /* the panel's title (a theme may put it on a band: themes.css) */
+  --title-text: var(--accent);
+  --logo-filter: none;
+  /* rank dots not set yet */
+  --pip-off: color-mix(in srgb, var(--tint) 62%, var(--bg)); /* (the ranks' list) */
+  --pip-tile: color-mix(in srgb, var(--text) 24%, var(--bg)); /* (on a skill tile: tinted with its tree's colour) */
+  /* a fill under white text (the action skill, boost): its state's colour mixed into one dark base -
+     every state the same depth */
+  --fill-base: var(--bg);
+  --cooldown: #6f8a99;
+  --fill-ready: color-mix(in srgb, var(--live) 55%, var(--fill-base));
+  --fill-active: color-mix(in srgb, var(--accent) 55%, var(--fill-base));
+  --fill-cooldown: color-mix(in srgb, var(--cooldown) 55%, var(--fill-base));
+  --fill-boost: color-mix(in srgb, var(--boost) 55%, var(--fill-base));
+  /* a mission's level vs the player's (the game's difficulty thresholds) */
+  --diff-impossible: var(--bad);
+  --diff-hard: #ff9a3c;
+  --diff-tough: #ffd23f;
+  --diff-normal: var(--text-bright);
+  --diff-trivial: var(--dim);
+  /* the map (canvas: shapes.js initColors) - the tracked player, marker outlines, the dark glyph on a light
+     marker ("!", the objective's dot), label halos, the bars' backing */
+  --map-tracked: var(--accent);
+  --map-player-edge: color-mix(in srgb, var(--tint) 23%, #000);
+  --map-outline: rgba(0, 0, 0, .8);
+  --map-outline-soft: rgba(0, 0, 0, .6);
+  --map-ink: #1a1200;
+  --map-halo: rgba(5, 10, 14, .9);
+  --map-bar-back: rgba(0, 0, 0, .7);
+  /* the map's layers (their markers, names and Layers tab icons; not the rarities: the game's) */
+  --layer-player: var(--name);
+  --layer-enemy: #ff4b3e;
+  --layer-npc: #a7eeb0; /* a pale green: apart from the objectives' */
+  --layer-vehicle: #c08bff;
+  --layer-gear: #ffb52e;
+  --layer-pickups: #d8c07a;
+  --layer-pickup-ammo: #d8c07a;
+  --layer-pickup-cash: #6fd46f;
+  --layer-pickup-eridium: #c77dff;
+  --layer-pickup-health: #ff6f7d;
+  --layer-pickup-mission: var(--objective);
+  --layer-pickup-other: #9aa7ad;
+  --layer-containers: #e2c170;
+  --layer-chest: #ff6b2c; /* orange-red, like the red chests */
+  --layer-weaponchest: #e8943a;
+  --layer-container: #e2c170;
+  --layer-looted: #56646d;
+  --layer-objective: var(--objective);
+  --layer-vendor: #4fd1c5;
+  --layer-vaultsymbol: #ff7eb6;
+  --layer-station: #f0f0f0;
+  --layer-area: #eadfbf;
+  --layer-fog: #56646d;
+  --layer-other: #7f8f99;
   color-scheme: dark;
 }
 * { box-sizing: border-box; }

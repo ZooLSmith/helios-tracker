@@ -23,9 +23,9 @@
 .ptab > .pscroll { flex: 0 1 auto; min-height: 0; overflow: auto; padding: 0 8px 10px 4px; margin: 0 -8px 0 -4px; }
 .pscroll > h3:first-child { margin-top: 6px; }
 .head { display: flex; align-items: center; gap: 8px; }
-.title { font-weight: 700; letter-spacing: .12em; font-size: 12px; color: var(--accent); flex: 1; }
+.title { font-weight: 700; letter-spacing: .12em; font-size: 12px; color: var(--title-text); flex: 1; }
 /* the logo (img/logo.png) is the title's "H": capital height, on the baseline, tight to "ELIOS" */
-.title .logo { height: 1.05em; width: auto; vertical-align: -0.08em; margin-right: 0.06em; }
+.title .logo { height: 1.05em; width: auto; vertical-align: -0.08em; margin-right: 0.06em; filter: var(--logo-filter); }
 #collapse { background: none; border: 0; color: var(--dim); cursor: pointer; font-size: 14px; padding: 0 2px; }
 #level { font-size: 17px; font-weight: 600; margin: 6px 0 2px; }
 h3 { font-size: 11px; letter-spacing: .1em; color: var(--dim); margin: 12px 0 4px; font-weight: 600; } /* like the drawer's .group */
@@ -49,7 +49,7 @@ label.row.off { opacity: .45; cursor: default; } /* a setting that does nothing 
 .nocheck { width: 13px; flex: none; } /* a layer that can't be hidden: lines up with the checkboxes */
 .lcfg { background: none; border: 0; color: var(--dim); cursor: pointer; font-size: 13px; padding: 0 0 0 6px; line-height: 1; }
 .lcfg:hover, .lrow.open .lcfg { color: var(--accent); }
-.lcfgbox { margin: 1px 0 6px 6px; padding: 3px 6px 5px; border-left: 2px solid var(--panel-edge); background: #101b23;
+.lcfgbox { margin: 1px 0 6px 6px; padding: 3px 6px 5px; border-left: 2px solid var(--panel-edge); background: var(--card);
   border-radius: 0 4px 4px 0; }
 .cset { display: flex; flex-wrap: wrap; align-items: center; gap: 2px 6px; padding: 2px 0; font-size: 12px; }
 .cset .clabel { flex: 1; color: var(--dim); white-space: nowrap; }
@@ -58,11 +58,11 @@ label.row.cset { gap: 6px; }
 .cset input[type="range"] { width: 72px; margin: 0; accent-color: var(--accent); }
 .cset .cval { width: 36px; text-align: right; font-variant-numeric: tabular-nums; }
 .seg { display: flex; margin-left: auto; border: 1px solid var(--panel-edge); border-radius: 4px; overflow: hidden; }
-.seg button { background: #13212b; color: var(--dim); border: 0; font: inherit; font-size: 11px; padding: 2px 4px; cursor: pointer; }
+.seg button { background: var(--control); color: var(--dim); border: 0; font: inherit; font-size: 11px; padding: 2px 4px; cursor: pointer; }
 .seg button + button { border-left: 1px solid var(--panel-edge); }
 .seg button:hover { color: var(--text); }
-.seg button.on { background: color-mix(in srgb, var(--accent) 28%, #13212b); color: var(--text); }
-select, button.act { width: 100%; background: #13212b; color: var(--text); border: 1px solid var(--panel-edge);
+.seg button.on { background: color-mix(in srgb, var(--accent) 28%, var(--control)); color: var(--text); }
+select, button.act { width: 100%; background: var(--control); color: var(--text); border: 1px solid var(--panel-edge);
   border-radius: 4px; padding: 4px 6px; font: inherit; }
 button.act { cursor: pointer; margin-top: 6px; }
 .btnrow { display: flex; gap: 6px; margin: 4px 0 6px; }
@@ -72,7 +72,7 @@ button.act { cursor: pointer; margin-top: 6px; }
 button.act:hover { border-color: var(--accent); }
 .hint { color: var(--dim); font-size: 11px; margin-top: 10px; }
 .players .pentry { padding: 3px 4px 4px; margin: 0 -4px 2px; border-radius: 3px; cursor: pointer; }
-.players .pentry:hover, .players .pentry.sel { background: #16293a; }
+.players .pentry:hover, .players .pentry.sel { background: var(--hover); }
 .vital { display: none; margin-top: 2px; } /* 2 px between the shield and health bars */
 .vital.on { display: block; }
 .vbar { position: relative; display: block; height: 20px; background: var(--bar-track); border-radius: 2px; overflow: hidden; }
@@ -94,7 +94,7 @@ button.act:hover { border-color: var(--accent); }
 .vhbo .vital.vh { flex: 3; min-width: 0; }
 .vhbo .vital.bo { flex: 1; min-width: 0; }
 .vital.bo .vnum { font-size: 11px; } /* its refill seconds */
-.vital.bo .vbar i { background: var(--bar-sheen), var(--pat-scan), color-mix(in srgb, var(--boost) 55%, #1f1400); }
+.vital.bo .vbar i { background: var(--bar-sheen), var(--pat-scan), var(--fill-boost); }
 .vital.bo .vbar::after { content: ""; position: absolute; inset: 0; border-radius: inherit; pointer-events: none;
   box-shadow: inset 0 0 0 1.5px color-mix(in srgb, var(--boost) 70%, transparent); } /* its outline, above the fill */
 /* crippled / respawning: the shield, health and XP (level) bars faded (still there), the word over them in red */
@@ -113,17 +113,17 @@ button.act:hover { border-color: var(--accent); }
 .vital.xp .vnum { font-size: 11px; }
 /* the numbers inside the bar, left, vertically centred; a dark outline to read on any fill */
 .vnum { position: absolute; left: 5px; top: 50%; transform: translateY(-50%); font-size: 12.5px; line-height: 1;
-  font-weight: 700; color: #fff; font-variant-numeric: tabular-nums; white-space: nowrap;
+  font-weight: 700; color: var(--on-fill); font-variant-numeric: tabular-nums; white-space: nowrap;
   text-shadow: var(--bar-text-outline); }
 .vnum .vmax { opacity: .7; font-size: .85em; } /* "/ max": lighter and a bit smaller than the value */
 .vnum.vright { left: auto; right: 5px; }
 .players .phead { display: flex; align-items: center; gap: 6px; }
-.players .pname { color: #f4f4f4; font-weight: 600; flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+.players .pname { color: var(--name); font-weight: 600; flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; }
 /* the action skill, right of the name: ready (green), running (the seconds left over a draining bar,
    a red inner outline), cooling down (the seconds left over the cooldown's bar) */
 .askill { display: none; position: relative; flex: none; min-width: 40px; height: 17px; padding: 0 7px; border-radius: 4px;
   font-size: 11px; font-weight: 700; line-height: 17px; text-align: center; font-variant-numeric: tabular-nums;
-  overflow: hidden; background: var(--bar-track); color: #e6eef2; }
+  overflow: hidden; background: var(--bar-track); color: var(--text-bright); }
 .askill.r, .askill.a, .askill.c { display: block; }
 .askill i { position: absolute; left: 0; top: 0; bottom: 0; width: 0; }
 .askill span { position: relative; text-shadow: var(--bar-text-outline); }
@@ -131,18 +131,18 @@ button.act:hover { border-color: var(--accent); }
 /* the outlines (ready green, running red): on a layer above the fill and the text - the fill (i) covers
    the chip, an outline on the chip itself would be under it */
 .askill::after { content: ""; position: absolute; inset: 0; border-radius: inherit; pointer-events: none; }
-.askill.r { color: #fff; }
+.askill.r { color: var(--on-fill); }
 .askill.r::after { box-shadow: inset 0 0 0 1.5px var(--live); }
 .askill.r span { text-shadow: var(--bar-text-outline); }
 /* the action skill: scanlines, like the game's, over its state's colour - one mix for every state (the same
    depth: the scanlines read alike, the white timer on each); the state only picks the colour */
-.askill i { background: var(--pat-scan), color-mix(in srgb, var(--ak-fill, #6f8a99) 55%, #0b1a10); }
-.askill.r { --ak-fill: var(--live); }
-.askill.a { color: #fff; }
+.askill i { background: var(--pat-scan), var(--ak-fill, var(--fill-cooldown)); }
+.askill.r { --ak-fill: var(--fill-ready); }
+.askill.a { color: var(--on-fill); }
 .askill.a::after { box-shadow: inset 0 0 0 1.5px var(--health); }
 .askill.a span { text-shadow: var(--bar-text-outline); }
-.askill.a { --ak-fill: var(--accent); }
-.askill.c { --ak-fill: #6f8a99; }
+.askill.a { --ak-fill: var(--fill-active); }
+.askill.c { --ak-fill: var(--fill-cooldown); }
 .players .pname.me { color: var(--accent); }
 .players .pinfo { color: var(--dim); font-size: 11px; margin-top: 1px; } /* level · class, under the name */
 /* a cutscene playing (ui/cutscene.js): the Players list's bar - the health bar's look (sheen, its columns,

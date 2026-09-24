@@ -139,7 +139,8 @@ and interactive objects on it, with zoom / pan. Read the root `../CLAUDE.md` fir
 - **Settings tab**: Who (host / a player, saved by name) + Follow / Rotate (map turns to their
   heading; only while following, greyed out otherwise); Refresh rate (was "Movement": the page's redraws - markers, bars, their patterns): game updates only (the mod sends its rate, `hz`), a fps cap, or smooth;
   See-through: Background / Map / Panels opacity (`look.js`; in OBS via its browser source's "Interact"); Interface size 70-200 %;
-  Map markers 50-200 % (every marker, its label and bars - times its layer's Size).
+  Map markers 50-200 % (every marker, its label and bars - times its layer's Size); Theme (Default, Hyperion, Vladof:
+  `css/themes.css` sets base.css's tokens under `<html data-theme>`; the canvas' colours read again on a change).
 - **Storage**: one `helios.settings` localStorage object (`js/settings.js`): `layers.<id>` (each
   layer's settings), `view`, `ui` (incl. `drawer`: what the drawer shows); validated against the defaults on load (unknown / invalid values
   dropped), the old one-key-per-setting storage migrated once.
@@ -224,6 +225,12 @@ js/ui/            panel (tabs, Settings), layers (Layers tab), status, mission (
   for the HTML. Circular imports are fine (only called at runtime).
 - Per-frame code (draw, the Players list's bars / chips) only writes the DOM when a value changed;
   HTML panels that follow live data refresh at the game's update rate, not per frame.
+- **Colours are tokens** (`css/base.css` `:root`): a theme sets its inputs (`--bg`, `--tint`, `--text`,
+  `--accent`; `css/themes.css`), the surfaces / edges / text shades are `color-mix()`es of them (any token can
+  still be set by a theme). CSS uses `var(--...)` only; the canvas reads them at start through
+  `look.js` `tokenColor` (a mix resolved to a plain colour) (`shapes.js` `initColors` -> `COLORS`, the layers' `--layer-<id>` via
+  `model.js` `setLayerColors`); inline SVGs use `style="fill: var(--...)"` (not presentation attributes).
+  Not tokens: the game's rarity colours, plain black / white shading and masks. A new colour: a token first.
 - Pure logic (no DOM) goes in `geo.js` / `dxt.js` / `model.js` / `settings.js`, so it can be tested
   under Node.
 - A new per-layer setting: an entry in `LAYER_SETTINGS` (the panel builds its control; `set.<key>`

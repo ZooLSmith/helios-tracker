@@ -95,6 +95,10 @@ export default {
   "view.markerScale": "Map markers",
   "view.markerScaleTip": "Every marker on the map, with its name and bars - on top of each layer's own Size",
   "view.language": "Language",
+  "view.theme": "Theme",
+  "theme.default": "Default",
+  "theme.hyperion": "Hyperion",
+  "theme.vladof": "Vladof",
   "view.hint": "Wheel / pinch to zoom, drag to pan. Click a player to inspect them.",
 
   "tip.me": "Player",

@@ -5,8 +5,9 @@ import { connect } from "./data.js";
 import { applyI18n } from "./i18n.js";
 import { applyIcons } from "./icons.js";
 import { initInput } from "./input.js";
-import { applyLook } from "./look.js";
+import { applyLook, setThemeAttr } from "./look.js";
 import { invalidate } from "./scheduler.js";
+import { settings } from "./settings.js";
 import { COLORS, initColors } from "./shapes.js";
 import { initHoverTips } from "./ui/hovertip.js";
 import { initInspector } from "./ui/inspector.js";
@@ -19,6 +20,7 @@ import { initView } from "./view.js";
 
 export function start() {
   applyIcons();
+  setThemeAttr(settings.view.theme); // (before the colours are read)
   initColors();
   applyLook(COLORS.bg); // the page's background, as see-through as the map's
   initView();

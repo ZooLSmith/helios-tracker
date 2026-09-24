@@ -11,18 +11,18 @@ import { layerCfg, saveSettings, settings } from "../settings.js";
 
 // The layer's marker as drawn on the map (12 px SVG)
 function layerIcon(l) {
-  const c = l.color, o = `stroke="rgba(0,0,0,.8)" stroke-width="1"`;
+  const c = l.color, o = `style="stroke: var(--map-outline)" stroke-width="1"`;
   const triangle = `<polygon points="6,1.5 10.5,9.5 1.5,9.5" fill="${c}" ${o}/>`;
   const dot = `<circle cx="6" cy="6" r="3.5" fill="${c}" ${o}/>`;
   // mission items: the map's small "!" badge (a disc with a dark "!")
-  const bang = `<circle cx="6" cy="6" r="5" fill="${c}" ${o}/><rect x="5.25" y="2.6" width="1.5" height="4.4" rx=".5" fill="#1a1200"/>` +
-    `<circle cx="6" cy="8.8" r=".85" fill="#1a1200"/>`;
+  const bang = `<circle cx="6" cy="6" r="5" fill="${c}" ${o}/><rect x="5.25" y="2.6" width="1.5" height="4.4" rx=".5" style="fill: var(--map-ink)"/>` +
+    `<circle cx="6" cy="8.8" r=".85" style="fill: var(--map-ink)"/>`;
   const shape = l.rarity ? triangle : l.id === "pickup.mission" ? bang : l.id.startsWith("pickup") ? dot : {
     player: `<polygon points="6,1 10.3,10.8 6,8.3 1.7,10.8" fill="${c}" ${o}/>`,
     enemy: `<polygon points="6,1 11,6 6,11 1,6" fill="${c}" ${o}/>`,
-    npc: `<circle cx="6" cy="6" r="3.9" fill="none" stroke="rgba(0,0,0,.6)" stroke-width="2.3"/><circle cx="6" cy="6" r="3.9" fill="none" stroke="${c}" stroke-width="1.3"/>`,
+    npc: `<circle cx="6" cy="6" r="3.9" fill="none" style="stroke: var(--map-outline-soft)" stroke-width="2.3"/><circle cx="6" cy="6" r="3.9" fill="none" stroke="${c}" stroke-width="1.3"/>`,
     vehicle: `<rect x="1.5" y="1.5" width="9" height="9" fill="${c}" ${o}/>`,
-    objective: `<polygon points="6,1 11,6 6,11 1,6" fill="${c}" ${o}/><circle cx="6" cy="6" r="1.5" fill="#1a1200"/>`,
+    objective: `<polygon points="6,1 11,6 6,11 1,6" fill="${c}" ${o}/><circle cx="6" cy="6" r="1.5" style="fill: var(--map-ink)"/>`,
     gear: triangle,
     chest: `<rect x="0.5" y="0.5" width="11" height="11" fill="${c}" ${o}/>`,
     weaponchest: `<rect x="1.5" y="1.5" width="9" height="9" fill="${c}" ${o}/>`,

@@ -2,8 +2,8 @@
 // layers.js.
 import { $, esc } from "../dom.js";
 import { renderLevel } from "../data.js";
-import { LOOK_RANGES, applyLook, look } from "../look.js";
-import { COLORS } from "../shapes.js";
+import { LOOK_RANGES, THEMES, applyLook, look, setThemeAttr, themeName } from "../look.js";
+import { COLORS, initColors } from "../shapes.js";
 import { CATALOG, langPref, setLanguage, t } from "../i18n.js";
 import { icon } from "../icons.js";
 import { invalidate } from "../scheduler.js";
@@ -111,13 +111,25 @@ export function initPanel() {
   }
   $("fit").onclick = () => fit();
 
+  // Theme: the page's colours (themes.css); the canvas' and the layer icons' read again
+  const themeBox = $("theme");
+  const renderThemes = () => {
+    themeBox.innerHTML = THEMES.map((n) => `<option value="${n}">${esc(t("theme." + n))}</option>`).join("");
+    themeBox.value = themeName(settings.view.theme);
+  };
+  renderThemes();
+  themeBox.onchange = () => {
+    settings.view.theme = themeName(themeBox.value); saveSettings();
+    setThemeAttr(settings.view.theme); initColors(); applyLook(COLORS.bg); renderLayers(); invalidate();
+  };
+
   const langBox = $("lang");
   langBox.innerHTML = `<option value="auto" data-i18n="lang.auto"></option>` +
     Object.keys(CATALOG).map((c) => `<option value="${c}">${esc(CATALOG[c]["lang.name"] || c)}</option>`).join("");
   langBox.value = CATALOG[langPref] ? langPref : "auto";
   langBox.onchange = () => {
     setLanguage(langBox.value);
-    refreshStatus(); renderLevel(); renderPlayers(); renderTargets(); renderMotion(); renderLayers(); renderInspector(); renderMission(); invalidate();
+    renderThemes(); refreshStatus(); renderLevel(); renderPlayers(); renderTargets(); renderMotion(); renderLayers(); renderInspector(); renderMission(); invalidate();
   };
 
   // Tabs, collapse
