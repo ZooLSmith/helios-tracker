@@ -150,6 +150,13 @@ def _item(inv: Any, equipped: bool) -> dict[str, Any]:
         "e": equipped,
         "stats": _stats(inv, kind),
     }
+    if card := _card_lines(inv, kind):
+        item["card"] = card
+    if kind == "weapon" and (element := try_(lambda: str(inv.ElementalFrame), "") or "").lower() not in ("", "none"):
+        # its element: the item card's frame for its icon ("shock" - an identifier: the game has no display name for
+        # it, tools/probe_weapon_card2.txt) and its damage per second (StatusEffectDamage: 76.3 on a shock pistol)
+        item["el"] = element
+        item["edps"] = round(try_(lambda: float(inv.StatusEffectDamage), 0.0), 1)
     item["parts"] = _parts(inv, item)
     if kind == "weapon" and (slot := try_(lambda: int(inv.QuickSelectSlot), 0)):
         item["slot"] = slot
@@ -249,32 +256,75 @@ def _skill_stats(sd: Any, ctrl: Any, grade: int) -> list[dict[str, Any]]:
         return _stats_cache[key]
     result = try_(lambda: sd.GetSkillEffectPresentations(grade, ctrl, []))
     entries = result[1] if isinstance(result, tuple) and len(result) > 1 else []
-    out = []
-    for e in entries or []:
-        p = try_(lambda e=e: e.AttributePresentation)
-        if p is None or not try_(lambda e=e: bool(e.bShouldDisplay), True):
-            continue
-        text = try_(lambda p=p: str(p.Description), "") or ""
-        value = try_(lambda e=e: float(e.ModifierValue), None)
-        if not text or value is None:
-            continue
-        flag = lambda name, p=p: try_(lambda: bool(getattr(p, name)), False)  # noqa: E731
-        line: dict[str, Any] = {"d": text, "v": round(value, 6)}
-        for short, name in (("pct", "bDisplayAsPercentage"), ("pf", "bDisplayPercentAsFloat"), ("inv", "bDisplayAsInverse"),
-                            ("nn", "bDontDisplayNumber"), ("np", "bDontDisplayPlusSign")):
-            if flag(name):
-                line[short] = 1
-        if "Positive" in str(try_(lambda p=p: p.SignStyle, "")):
-            line["pos"] = 1
-        if "Float" in str(try_(lambda p=p: p.RoundingMode, "")):
-            line["fl"] = 1
-            line["fp"] = try_(lambda p=p: int(p.FloatPrecision), 1)
-        for short, name in (("pre", "Prefix"), ("suf", "Suffix")):
-            if (v := try_(lambda p=p, n=name: str(getattr(p, n)), "")):
-                line[short] = v
-        out.append(line)
+    out = [line for e in entries or [] if (line := _presentation_line(e))]
     _stats_cache[key] = out
     return out
+
+
+def _presentation_line(entry: Any, item: Any = None) -> dict[str, Any] | None:
+    """One {AttributePresentation, ModifierValue, bShouldDisplay} entry (a skill's stats, an item card's lines) ->
+    a line for the page: its text, display flags (see _skill_stats), value; None if hidden / without text.
+    Its text (tools/probe_weapon_card2.txt): the Description (a $NUMBER$ placeholder), else NoConstraintText
+    ("Deals bonus elemental damage."), and / or a Prefix / Suffix around the number ("Consumes [skill]" 2
+    "ammo[-skill] per shot."). Its colour: TextColor when not white (the element's: shock's blue on "Highly
+    effective vs Shields."; a unique's red text). An item's line tied to one of its attributes (the shot cost):
+    that attribute's current value on the item ("cur": 2 - ModifierValue is the modifier, 1)."""
+    p = try_(lambda: entry.AttributePresentation)
+    if p is None or not try_(lambda: bool(entry.bShouldDisplay), True):
+        return None
+    text = try_(lambda: str(p.Description), "") or ""
+    pre, suf = try_(lambda: str(p.Prefix), "") or "", try_(lambda: str(p.Suffix), "") or ""
+    if not text and not pre and not suf:
+        text = try_(lambda: str(p.NoConstraintText), "") or ""
+    value = try_(lambda: float(entry.ModifierValue), None)
+    if (not text and not pre and not suf) or value is None:
+        return None
+    flag = lambda name: try_(lambda: bool(getattr(p, name)), False)  # noqa: E731
+    line: dict[str, Any] = {"d": text, "v": round(value, 6)}
+    for short, name in (("pct", "bDisplayAsPercentage"), ("pf", "bDisplayPercentAsFloat"), ("inv", "bDisplayAsInverse"),
+                        ("nn", "bDontDisplayNumber"), ("np", "bDontDisplayPlusSign")):
+        if flag(name):
+            line[short] = 1
+    if "Positive" in str(try_(lambda: p.SignStyle, "")):
+        line["pos"] = 1
+    if "Float" in str(try_(lambda: p.RoundingMode, "")):
+        line["fl"] = 1
+        line["fp"] = try_(lambda: int(p.FloatPrecision), 1)
+    if pre:
+        line["pre"] = pre
+    if suf:
+        line["suf"] = suf
+    colour = try_(lambda: p.TextColor)
+    if colour is not None and try_(lambda: bool(p.bEnableTextColor), False):
+        rgb = tuple(try_(lambda c=c: int(getattr(colour, c)), 255) for c in ("R", "G", "B"))
+        if rgb != (255, 255, 255):
+            line["col"] = "#%02x%02x%02x" % rgb
+    if item is not None and (current := _attribute_value(item, try_(lambda: p.Attribute))) is not None:
+        line["cur"] = current
+    return line
+
+
+def _attribute_value(obj: Any, attribute: Any) -> float | None:
+    """An attribute's current value on an object, by property only: its first value resolver, when it reads a
+    property (ObjectPropertyAttributeValueResolver.PropertyName: the weapon's own field), read from the object -
+    no function call. None if it's resolved otherwise."""
+    if attribute is None:
+        return None
+    resolver = next(iter(try_(lambda: list(attribute.ValueResolverChain), []) or []), None)
+    name = str(try_(lambda: resolver.PropertyName, "") or "") if resolver is not None else ""
+    if not name or name == "None":
+        return None
+    value = try_(lambda: float(getattr(obj, name)))
+    return round(value, 4) if value is not None else None
+
+
+def _card_lines(inv: Any, kind: str) -> list[dict[str, Any]]:
+    """An item's card lines, as the game's item card shows them (tools/probe_weapon_card.txt): a weapon's
+    WeaponCardModifierStats (its material's "High elemental effect chance.", its element's "Highly effective vs
+    Shields.", its shot cost...), other gear's ItemCardModifierStats (a class mod's skill bonuses...) - the same
+    entries as the skills' stats. Static per item: read with its record."""
+    name = "WeaponCardModifierStats" if kind == "weapon" else "ItemCardModifierStats"
+    return [line for e in try_(lambda: list(getattr(inv, name)), []) or [] if (line := _presentation_line(e, inv))]
 
 
 def _skill_bonuses(pawn: Any) -> dict[str, int]:

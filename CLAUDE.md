@@ -3,7 +3,8 @@
 This repo holds **Helios Tracker**, a live web map mod for Borderlands 2, built with the
 [Python SDK](https://bl-sdk.github.io/developing/) (unrealsdk / pyunrealsdk + `mods_base` mod manager).
 The mod itself is the `helios_tracker/` package: read `helios_tracker/CLAUDE.md` (the spec) and
-`helios_tracker/.claude/documentation/notes.md` when working on it. See
+`helios_tracker/.claude/documentation/notes.md` when working on it
+(`helios_tracker/.claude/documentation/design.md`: design wishes not built yet, and why). See
 `.claude/documentation/references.md` for the game install path, installed SDK version, APIs and
 useful links.
 

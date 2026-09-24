@@ -218,6 +218,8 @@ export default {
   "item.rarityGuess": "{name} ({n})",
   "item.class": "Classe",
 
+  "stat.element": "Élément",
+  "stat.elementDamage": "Dégâts élémentaires",
   "stat.damage": "Dégâts",
   "stat.fireRate": "Cadence",
   "stat.magazine": "Chargeur",

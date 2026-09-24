@@ -219,6 +219,8 @@ export default {
   "item.rarityGuess": "{name} ({n})",
   "item.class": "Class",
 
+  "stat.element": "Element",
+  "stat.elementDamage": "Element damage",
   "stat.damage": "Damage",
   "stat.fireRate": "Fire rate",
   "stat.magazine": "Magazine",

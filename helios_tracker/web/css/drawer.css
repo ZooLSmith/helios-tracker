@@ -141,6 +141,10 @@
 .scell .sicon::after { content: ""; position: absolute; inset: 0; background: var(--t-hi, transparent); opacity: .2;
   -webkit-mask: var(--ic) center / contain no-repeat; mask: var(--ic) center / contain no-repeat; }
 .scell.zero .sicon img { filter: grayscale(1) brightness(.75); } /* (the image only: the tree's tint stays over it, always) */
+/* an item's card lines (the game's text): above its stats, the values emphasised; a unique's red text red */
+.icard { display: flex; flex-direction: column; gap: 2px; margin: 4px 0 6px; font-size: 12.5px; color: var(--dim); }
+.icard .sval { color: var(--text); font-weight: 700; font-synthesis-weight: auto; }
+.icard .icline.red { color: var(--bad); }
 .scell .slock { position: absolute; top: 3px; right: 3px; display: flex; font-size: 10px; color: var(--dim); }
 /* unset ranks: a dark grey - reads on the dark sides and on a bright tree alike */
 .scell .pips i { background: color-mix(in srgb, var(--t-hi, var(--pip-tile)) 20%, var(--pip-tile)); } /* tinted 20 % like the icons */

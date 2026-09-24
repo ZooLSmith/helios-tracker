@@ -267,6 +267,7 @@ const { objectCategory } = await load("js/model.js");
 const vaultCat = objectCategory({ d: "IO_VaultRoy", n: "Vault Roy", c: "WillowInteractiveObject" })
   + "," + objectCategory({ d: "CatchARideTerminal", n: "Catch-A-Ride", c: "WillowVehicleSpawnStationTerminal" });
 const { skillStatText } = await load("js/ui/skills.js");
+const shotCostOut = skillStatText({ d: "", v: 1, cur: 2, np: 1, pre: "Consumes [skill]", suf: "ammo[-skill] per shot." });
 const statsOut = [
   skillStatText({ d: "Gun Damage: $NUMBER$", v: 0.06, pct: 1, fl: 1, fp: 1 }),
   skillStatText({ d: "Reload Speed: $NUMBER$", v: -0.08, pct: 1, pos: 1 }),
@@ -281,7 +282,7 @@ const bonusOut = bonusLines([
   { tiers: [{ cells: [{ g: 2, m: 5, fx: [gun(0.12)] }, { g: 0, m: 5, fxn: [gun(0.05)] }] }] },
   { skills: [{ g: 1, m: 5, fx: [gun(0.07), { d: "Melee Damage: $NUMBER$", v: 0.06, pct: 1, fl: 1, fp: 1 }] }] },
 ]);
-const missionsOut = { bonusOut, statsOut, lookOut, vaultCat, items, fallback, where, tooHigh, finish, difficulty, best, search, infoHtml, areas, gameText, story: flat(tree.story), other: flat(tree.other), counts: missionCounts(log),
+const missionsOut = { shotCostOut, bonusOut, statsOut, lookOut, vaultCat, items, fallback, where, tooHigh, finish, difficulty, best, search, infoHtml, areas, gameText, story: flat(tree.story), other: flat(tree.other), counts: missionCounts(log),
   objectives: objectiveStates(log[1]).map((s) => s.state) };
 console.log(JSON.stringify({ sha: crypto.createHash("sha256").update(rgba).digest("hex"), err, back, right, raw, modules, missions: missionsOut,
   migrated, checked: { enemy: checked.layers.enemy, view: checked.view, openLayers: checked.ui.openLayers, drawer: checked.ui.drawer, badDrawer }, i18nKeys, unknownSettings, lootLayers, gameRarity, freeRects }));
@@ -867,6 +868,25 @@ def check_helios_tracker() -> None:  # noqa: PLR0915
     fx = insp._skill_stats(onslaught, stat_ctrl, 2)
     assert fx == [{"d": "Gun Damage: $NUMBER$", "v": 0.12, "pct": 1, "fl": 1, "fp": 1}], fx
     assert insp._skill_stats(onslaught, stat_ctrl, 2) == fx and calls == [2], ("cached", calls)
+    # An item card's lines (tools/probe_weapon_card.txt): WeaponCardModifierStats, the same entries; a name part's red
+    # (tools/probe_weapon_card2.txt: the text from the Description, NoConstraintText or Prefix / Suffix; the colour
+    # from TextColor; a line tied to an attribute: its current value on the weapon, by its resolver's property)
+    def pres(text, colour=(255, 255, 255), no_number=True, **more):  # noqa: ANN001, ANN202
+        return ns(Description=text, NoConstraintText=more.get("nc", ""), bDisplayAsPercentage=False, bDisplayPercentAsFloat=False,
+                  bDisplayAsInverse=False, bDontDisplayNumber=no_number, bDontDisplayPlusSign=True, SignStyle="SIGNSTYLE_AsIs",
+                  RoundingMode="ATTRROUNDING_IntRound", FloatPrecision=1, Prefix=more.get("pre", ""), Suffix=more.get("suf", ""),
+                  bEnableTextColor=True, TextColor=ns(R=colour[0], G=colour[1], B=colour[2]), Attribute=more.get("attr"))
+    shot_cost = ns(ValueResolverChain=[ns(PropertyName="ShotCost")])
+    card_gun = ns(ShotCost=2.0, WeaponCardModifierStats=[
+        ns(AttributePresentation=pres("High elemental effect chance."), ModifierValue=0.0, bShouldDisplay=True),
+        ns(AttributePresentation=pres("", no_number=False, pre="Consumes [skill]", suf="ammo[-skill] per shot.", attr=shot_cost),
+           ModifierValue=1.0, bShouldDisplay=True),
+        ns(AttributePresentation=pres("", nc="Deals [skill]bonus elemental damage[-skill]."), ModifierValue=0.0, bShouldDisplay=True),
+        ns(AttributePresentation=pres("Highly effective vs Shields.", colour=(0, 100, 255)), ModifierValue=0.0, bShouldDisplay=True)])
+    card_lines = insp._card_lines(card_gun, "weapon")
+    assert [(ln["d"], ln.get("cur"), ln.get("col")) for ln in card_lines] == [
+        ("High elemental effect chance.", None, None), ("", 2.0, None), ("Deals [skill]bonus elemental damage[-skill].", None, None),
+        ("Highly effective vs Shields.", None, "#0064ff")], card_lines
     # A class mod's bonus ranks (tools/probe_skill_bonus.txt): its card's lines whose presentation is a skill's
     def card(path, value):  # noqa: ANN001, ANN202
         return ns(AttributePresentation=ns(_path_name=lambda: path, Name=path.rpartition(".")[2]), ModifierValue=value)
@@ -1281,6 +1301,7 @@ def check_helios_tracker() -> None:  # noqa: PLR0915
     assert mis["statsOut"] == ["Gun Damage: +6\u202f%", "Reload Speed: +8\u202f%", "Shield Recharge Delay: -12\u202f%",
                                "Regenerates 0.4\u202f% of your Max Health / sec.", "Turret Duration: +2 seconds",
                                "Cooldown: 42 seconds"], ("a skill's stats, the game's way", mis["statsOut"])
+    assert mis["shotCostOut"] == "Consumes 2 ammo per shot.", ("the shot cost line, its weapon's value", mis["shotCostOut"])
     assert mis["bonusOut"] == ["Gun Damage: +19\u202f%", "Melee Damage: +6\u202f%"], ("the bonuses, added up", mis["bonusOut"])
     lk = mis["lookOut"]  # the see-through settings: 100 % by default, clamped to 0-100, the colour with its alpha
     assert (lk["lookDefault"], lk["lookClamped"], lk["rgba"]) == ({"bg": 100, "map": 100, "panel": 90, "ui": 100, "marker": 100},

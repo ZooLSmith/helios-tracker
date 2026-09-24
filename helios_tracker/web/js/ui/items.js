@@ -1,8 +1,9 @@
 // Items in the inspector (gear, backpack): one expandable card each, grouped by kind.
 import { classHtml, esc, nameHtml } from "../dom.js";
 import { money, num, t } from "../i18n.js";
-import { rarity } from "../model.js";
+import { prettyRaw, rarity } from "../model.js";
 import { S } from "../state.js";
+import { skillStatParts } from "./skills.js";
 
 const KIND_ORDER = ["weapon", "shield", "grenade", "classmod", "relic", "usable", "mission", "item"];
 
@@ -45,13 +46,23 @@ function itemHtml(it) {
   const meta = [it.type || t("kind." + it.k, null, it.k), it.maker, it.l ? t("item.level", { n: it.l }) : "",
     it.v ? money(it.v) : ""].filter(Boolean).join(" · "); // (no equip slot: obvious)
   const rows = [...(it.stats || []).map(statRow),
+    // its element: the game's frame name, no display name in the game - marked as a guess ("shock ?")
+    ...(it.el ? [[t("stat.element"), prettyRaw(it.el)]] : []),
+    ...(it.edps ? [[t("stat.elementDamage"), t("unit.perSecond", { n: num(it.edps, 1) })]] : []),
     [t("item.rarityLevel"), t("item.rarityGuess", { n: String(it.q), name: rarityName(it.q) })],
     ...(it.parts || []).map(partRow), [t("item.class"), null, it.c, classHtml(it.c)]];
   const kv = rows.map(([k, v, title, html]) =>
     `<span>${esc(k)}</span><span${title ? ` title="${esc(title)}"` : ""}>${html ?? esc(v)}</span>`).join("");
+  // its card's lines (the game's: "High elemental effect chance.", a red text...): the values emphasised
+  const card = (it.card || []).map((f) => {
+    const [before, value, after] = skillStatParts(f);
+    // (the game's colour for it, when it has one: an element's, a unique's red text)
+    const colour = /^#[0-9a-f]{6}$/i.test(f.col || "") ? ` style="color:${f.col}"` : "";
+    return `<div class="icline"${colour}>${esc(before)}${value ? `<b class="sval">${esc(value)}</b>` : ""}${esc(after)}</div>`;
+  }).join("");
   return `<div class="item${S.expanded.has(it.i) ? " expanded" : ""}" data-id="${esc(it.i)}" style="--c:${color}">` +
     `<div class="iname">${nameHtml(it)}</div><div class="imeta">${esc(meta)}</div>` +
-    `<div class="idetail"><div class="kv">${kv}</div></div></div>`;
+    `<div class="idetail">${card ? `<div class="icard">${card}</div>` : ""}<div class="kv">${kv}</div></div></div>`;
 }
 
 export function itemsByKind(items) {

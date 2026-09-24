@@ -17,17 +17,20 @@ export function skillStatText(f) {
 /** skillStatText in parts: [the text before the value, the value, the text after] - the value emphasised
  *  apart (the BONUSES). No value shown (bDontDisplayNumber): ["the text", "", ""]. */
 export function skillStatParts(f) {
-  let v = f.inv && f.v ? 1 / f.v : f.v;
-  if (f.pct) v *= 100;
+  // an item's line tied to one of its attributes: that attribute's current value (the shot cost: 2, not the +1)
+  let v = f.cur != null ? f.cur : f.inv && f.v ? 1 / f.v : f.v;
+  if (f.pct && f.cur == null) v *= 100;
   if (f.pos) v = Math.abs(v);
   const n = f.fl ? numUpTo(v, f.fp ?? 1) : num(Math.round(v));
   const plus = v > 0 && !f.np ? "+" : "";
-  const number = `${f.pre || ""}${plus}${f.pct ? t("unit.percent", { n }) : n}${f.suf || ""}`;
+  const number = `${plus}${f.pct && f.cur == null ? t("unit.percent", { n }) : n}`;
+  // the prefix / suffix around the value (game text: "Consumes" 2 "ammo per shot."), a space on each side
+  const pre = f.pre ? cleanText(f.pre) + " " : "", suf = f.suf ? " " + cleanText(f.suf) : "";
   const text = cleanText(f.d);
   if (f.nn) return [text.replace(/\$NUMBER\$\s*/g, "").trim(), "", ""];
   const at = text.indexOf("$NUMBER$");
-  if (at < 0) return ["", number, " " + text];
-  return [text.slice(0, at), number, text.slice(at + "$NUMBER$".length).replace(/\$NUMBER\$/g, number)];
+  if (at < 0) return [pre, number, suf + (text ? " " + text : "")];
+  return [text.slice(0, at) + pre, number, suf + text.slice(at + "$NUMBER$".length).replace(/\$NUMBER\$/g, number)];
 }
 
 /** A skill's tooltip, in sections: its rank and state; its stats now; "Next level" and the next rank's (what a
