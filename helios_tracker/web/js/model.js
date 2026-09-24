@@ -72,6 +72,9 @@ export const LAYERS = [
   { id: "container", group: "loot", parent: "containers", on: false, settings: COMMON }, // the other ones
   { id: "looted", group: "loot", parent: "containers", on: false, settings: COMMON }, // opened: nothing left to find
   { id: "objective", group: "world", on: true, settings: ["names", "floors", "size", "trackedOnly"] },
+  // NPCs with a mission to give / take back: the game's yellow "!" (its directive markers, or worked out
+  // from the NPCs' own mission lists - collector _npc_givers)
+  { id: "giver", group: "world", on: true, settings: COMMON },
   { id: "vendor", group: "world", on: true, settings: COMMON },
   // the Cult of the Vault symbols (IO_VaultRoy: clicked to discover, a challenge - tools/probe_directors.txt;
   // discovered ones not told apart yet)

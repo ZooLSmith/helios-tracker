@@ -9,8 +9,10 @@ import { H, W, canvas, fit, screenToMapDelta, stopFollow, zoomAt } from "./view.
 
 // The marker under the cursor: the one drawn on top wins (an item lying on its container, a player
 // next to a chest...), the nearest among those. Drawn bottom to top: objects, quest markers,
-// loot, pawns - pawns are small, loot is what you look for: loot first.
-const HIT_LAYER = { loot: 4, me: 3, player: 3, enemy: 3, npc: 3, vehicle: 3, objective: 2, directive: 2 };
+// loot, pawns - pawns are small, loot is what you look for: loot first. A quest giver's "!" and a point
+// objective (drawn over the NPC they're on) before the pawns: their panel links the NPC; an area
+// objective (a big circle) after them.
+const HIT_LAYER = { loot: 4, directive: 3.5, point: 3.5, me: 3, player: 3, enemy: 3, npc: 3, vehicle: 3, objective: 2 };
 export function hitAt(x, y, radius) {
   // Rank: the layer (loot > pawns > quest markers > objects), then being inside the marker - the
   // last drawn of those, i.e. the visible one - then the nearest centre
@@ -19,7 +21,8 @@ export function hitAt(x, y, radius) {
     const d = Math.hypot(h.sx - x, h.sy - y);
     if (d >= radius) return;
     const inside = d <= (h.r || 4) + 1.5;
-    const key = [HIT_LAYER[h.kind] || 1, inside ? 1 : 0, inside ? order : -d];
+    const kind = h.kind === "objective" && !h.item.rad ? "point" : h.kind;
+    const key = [HIT_LAYER[kind] || 1, inside ? 1 : 0, inside ? order : -d];
     if (!bestKey || key[0] > bestKey[0] || (key[0] === bestKey[0] &&
         (key[1] > bestKey[1] || (key[1] === bestKey[1] && key[2] > bestKey[2])))) { best = h; bestKey = key; }
   });

@@ -831,7 +831,7 @@ def check_helios_tracker() -> None:  # noqa: PLR0915
     tracker = ns(Name="MissionTracker_0", ActiveMission=mission, MissionList=log_entries, MissionWaypoints=[ns(Mission=mission, Waypoints=[
         waypoint(0x700, area, True, secure),
         waypoint(0x701, ns(Location=ns(X=1.0, Y=2.0, Z=3.0), AreaRadius=0), False, ns(Name="MeetBrewster", ProgressMessage="x")),
-        waypoint(0x702, ns(Location=ns(X=5.0, Y=6.0, Z=7.0)), True, cls="MissionDirectiveWaypointComponent"),
+        waypoint(0x702, ns(_get_address=lambda: 0x703, Location=ns(X=5.0, Y=6.0, Z=7.0)), True, cls="MissionDirectiveWaypointComponent"),
     ])])
     real_find_all = col.unrealsdk.find_all
     # the level's discovery areas (tools/probe_discovery.txt): a named one, a fog of war only one
@@ -877,6 +877,15 @@ def check_helios_tracker() -> None:  # noqa: PLR0915
     assert player["xp"] == [7851, 8861], player["xp"]  # in this level / the level's size
     # (stats: [key, the card's value, the current one, extra] - the fake has no BaseValue twins: the current for both)
     assert gun["k"] == "weapon" and gun["stats"][0] == ["damage", 512, 512, 3] and gun["slot"] == 1, gun
+    # the owner's bonuses: each stat's card value (its *BaseValue twin) and the current one (skills, class mod,
+    # relic) - a faster reload (2.25 s -> 1.8 s), more damage (126.4 -> 354.3), the rest without a twin: the same
+    boosted = ns(InstantHitDamage=354.3, InstantHitDamageBaseValue=126.4, ProjectilesPerShot=1.0, FireInterval=0.2,
+                 FireIntervalBaseValue=0.25, ClipSize=16.0, ReloadTime=1.8, ReloadTimeBaseValue=2.25,
+                 InstantHitDamageTypeDefinitions=[])
+    from helios_tracker import inspector as stats_insp  # noqa: PLC0415 - (insp: imported further down)
+    boosted_stats = {s[0]: s[1:3] for s in stats_insp._stats(boosted, "weapon")}
+    assert boosted_stats == {"damage": [126, 354], "fireRate": [4.0, 5.0], "magazine": [16, 16], "reload": [2.25, 1.8]}, \
+        ("the card's value, then with the owner's bonuses", boosted_stats)
     assert (gun["type"], gun["maker"]) == ("Sub-Machine Gun", "Hyperion+"), gun
     parts = {slot: (name, group, text) for slot, name, group, text in gun["parts"]}
     assert parts["Barrel"] == ("SMG_Barrel_Hyperion", "Barrel", "") and parts["Title"][2] == "Bitch", parts
@@ -1123,7 +1132,7 @@ def check_helios_tracker() -> None:  # noqa: PLR0915
     obj_mk, giver = missions["markers"]  # the inactive objective is left out
     assert (obj_mk["k"], obj_mk["rad"], obj_mk["tracked"], obj_mk["objective"]) == (
         "objective", 2125, True, {"n": "Sécuriser la ville"}), obj_mk
-    assert (giver["k"], giver["rad"], "objective" in giver) == ("directive", 0, False), giver
+    assert (giver["k"], giver["rad"], "objective" in giver, giver["by"]) == ("directive", 0, False, "703"), giver  # by: its NPC
     # The mission log: full pass (every entry, definitions cached), then the fast pass (the tracked /
     # active missions, every second) picks up progress
     def merged_log() -> dict:  # what the page builds: the definitions + the live part, by id
@@ -1195,15 +1204,37 @@ def check_helios_tracker() -> None:  # noqa: PLR0915
     c._waypoints = []
     assert [(m["i"], m["rad"], m["tracked"], m["objective"]["n"]) for m in client_marks] == [
         ("6c0", 500, True, "Tuer des bandits"), ("6c3", 0, True, "Bonus")], client_marks
-    # A co-op client's quest givers (tools/probe_directors.txt): an NPC's MissionDirectives against the log -
-    # "Side job" can be picked up (its dependency done), "Later job" can't (needs the active mission)
+    # Quest givers from the NPCs (tools/probe_directors.txt; a client has no directive waypoints, the host's
+    # miss some): an NPC's MissionDirectives against the log - "Side job" can be picked up (its dependency
+    # done), "Later job" can't (needs the active mission); an NPC with the game's own marker: skipped
     states = c._log.giver_states()
     assert states.get("GD_Z1_Side.M_Side") == "begin" and "GD_Z1_Later.M_Later" not in states, states
     giver = ns(Location=ns(X=500.0, Y=600.0, Z=700.0))
     c._givers = {0x6d0: (lambda: giver, [(later, True, True), (side, True, True)])}
-    givers = c._client_givers(mission._get_address())
+    givers = c._npc_givers(mission._get_address(), set())
+    has_marker = c._npc_givers(mission._get_address(), {0x6d0})
     c._givers = {}
     assert [(m["i"], m["k"], m["mission"]["n"], m["x"]) for m in givers] == [("g6d0", "directive", "Side job", 500)], givers
+    assert has_marker == [], has_marker
+    assert (givers[0]["mi"], givers[0]["by"]) == ("GD_Z1_Side.M_Side", "6d0"), givers  # the page links the mission / the NPC
+    # several at once (an NPC / the bounty board): one marker, every mission listed - one to hand in marked
+    # (the log's states stubbed: "Later job" ready to hand in; "Side job" listed once)
+    c._givers = {0x6d1: (lambda: giver, [(side, True, False), (later, False, True), (side, True, True), (mission, True, True)])}
+    c._log.giver_states = lambda: {"GD_Z1_Side.M_Side": "begin", "GD_Z1_Later.M_Later": "end"}
+    several = c._npc_givers(None, set())
+    del c._log.giver_states
+    c._givers = {}
+    assert [[(e["i"], e["n"], e.get("end")) for e in m["list"]] for m in several] == [
+        [("GD_Z1_Side.M_Side", "Side job", None), ("GD_Z1_Later.M_Later", "Later job", 1)]], several
+    assert (several[0]["mi"], several[0]["mission"]) == ("GD_Z1_Side.M_Side", {"n": "Side job"}), several
+    # an object's list (the bounty board: WillowInteractiveObject.Directives, tools/probe_bounty.txt) - the same
+    board = ns(Location=ns(X=900.0, Y=0.0, Z=0.0))
+    board_directive = ns(MissionDefinition=side, bBeginsMission=True, bEndsMission=False)
+    c._note_giver(0x6e0, board, ns(MissionDirectives=[board_directive]))
+    c._givers[0x6e0] = (lambda: board, c._givers[0x6e0][1])  # (the fake isn't weak-referenceable: its pointer by hand)
+    board_marks = c._npc_givers(None, set())
+    c._note_giver(0x6e0, board, None)  # no list (any other object): not a giver
+    assert [(m["i"], m["mission"]["n"], m["x"]) for m in board_marks] == [("g6e0", "Side job", 900)] and not c._givers, board_marks
     assert (tracked["ml"], tracked.get("mlk")) == (3, 1), "picked up: its level, locked"
     assert (by_id["GD_Z1_Side.M_Side"]["ml"], by_id["GD_Z1_Side.M_Side"].get("mlk")) == (3, None), "not picked up: the level it would lock at"
     assert "ml" not in by_id["GD_Episode02.M_Ep2_Henchman"], "done: no level read"

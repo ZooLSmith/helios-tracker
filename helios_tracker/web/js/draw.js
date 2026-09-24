@@ -172,17 +172,37 @@ export function draw() {
     if (st.names) label(sx, sy, nameText(o), LAYER_COLOR[o.cat], o.raw);
     hits.push({ sx, sy, r: size, kind: o.cat, item: o });
   }
-  // quest markers: point objectives, quest givers; areas are hit-tested at their centre too
+  // quest markers: point objectives, quest givers; areas are hit-tested at their centre too. A quest
+  // giver's "!" (its own layer, yellow like the game's) and a point objective ("Speak to...": on an NPC)
+  // go over the NPC they're on: drawn once the NPCs are, below
+  const overNpcs = [];
+  const drawGivers = () => {
+    for (const draw of overNpcs.splice(0)) draw();
+    ctx.globalAlpha = 1;
+  };
   for (const mk of S.missions.markers) {
-    if (!questShown(mk)) continue;
-    const st = style("objective", mk);
+    const giver = mk.k === "directive";
+    if (!giver && !questShown(mk)) continue; // (Objectives' "tracked only": a giver's mission is never the tracked one)
+    const st = style(giver ? "giver" : "objective", mk);
     if (!st) continue;
     const [sx, sy] = place(mk.x, mk.y);
     if (!visible(sx, sy)) continue;
-    ctx.globalAlpha = (mk.tracked ? 1 : 0.55) * st.alpha;
-    if (mk.k === "directive") bang(sx, sy, objColor, st.k);
-    else if (!mk.rad) { diamond(sx, sy, 10 * st.k, objColor); ctx.beginPath(); ctx.arc(sx, sy, 3 * st.k, 0, Math.PI * 2); ctx.fillStyle = COLORS.ink; ctx.fill(); }
-    if (st.names && mk.objective) label(sx, sy, nameText(mk.objective), objColor, mk.objective.raw);
+    const alpha = (mk.tracked || giver ? 1 : 0.55) * st.alpha;
+    if (giver) {
+      overNpcs.push(() => {
+        ctx.globalAlpha = alpha; bang(sx, sy, LAYER_COLOR.giver, st.k);
+        const more = mk.list && mk.list.length > 1 ? ` +${mk.list.length - 1}` : ""; // (several: the first, "+N")
+        if (st.names) label(sx, sy, nameText(mk.mission) + more, LAYER_COLOR.giver, mk.mission.raw);
+      });
+    } else if (!mk.rad) {
+      overNpcs.push(() => {
+        ctx.globalAlpha = alpha;
+        diamond(sx, sy, 10 * st.k, objColor); ctx.beginPath(); ctx.arc(sx, sy, 3 * st.k, 0, Math.PI * 2); ctx.fillStyle = COLORS.ink; ctx.fill();
+        if (st.names && mk.objective) label(sx, sy, nameText(mk.objective), objColor, mk.objective.raw);
+      });
+    } else if (st.names && mk.objective) {
+      ctx.globalAlpha = alpha; label(sx, sy, nameText(mk.objective), objColor, mk.objective.raw);
+    }
     hits.push({ sx, sy, r: (mk.k === "directive" || mk.rad ? 7 : 10) * st.k, kind: mk.k, item: mk });
   }
   ctx.globalAlpha = 1;
@@ -212,6 +232,7 @@ export function draw() {
   const rank = (p) => (p === tracked ? 4 : order[p.k]);
   const pawns = [...S.pawns.values()].sort((a, b) => rank(a) - rank(b));
   for (const p of pawns) {
+    if (overNpcs.length && rank(p) > order.npc) drawGivers(); // the NPCs done: their "!" / objectives over them
     if (p.rs === 2) continue; // respawning, the game doesn't say where: its position means nothing
     const pos = pawnPos(p, now);
     const isPlayer = p.k === "me" || p.k === "player", layer = isPlayer ? "player" : p.k; // the host is one of the players
@@ -241,7 +262,7 @@ export function draw() {
     if (st.names) label(sx, sy, nameText(p), p === tracked ? COLORS.tracked : LAYER_COLOR[layer], p.raw);
     hits.push({ sx, sy, r: 6 * st.k, kind: p.k, item: p, pos });
   }
-  ctx.globalAlpha = 1;
+  drawGivers(); // (no pawn above the NPCs)
   S.hits = hits;
 
   for (const l of LAYERS) if (l.parent) counts[l.parent] += counts[l.id]; // a folder: its layers' total

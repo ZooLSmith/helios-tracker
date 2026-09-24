@@ -133,6 +133,7 @@
   --layer-container: #e2c170;
   --layer-looted: #56646d;
   --layer-objective: var(--objective);
+  --layer-giver: #ffd23f; /* the game's yellow "!" (every theme: not the accent) */
   --layer-vendor: #4fd1c5;
   --layer-vaultsymbol: #ff7eb6;
   --layer-station: #f0f0f0;
@@ -208,8 +209,11 @@ canvas.dragging { cursor: grabbing; }
 /* the game paused (live, but nothing moves): the pause icon's two bars in the warning colour, not a dot */
 #status.paused i { width: 10px; height: 11px; border-radius: 0; background: linear-gradient(90deg, var(--warn) 0 35%,
   transparent 35% 65%, var(--warn) 65%); }
-#coords { position: fixed; right: 10px; bottom: 8px; color: var(--dim); font-size: 11px;
-  font-variant-numeric: tabular-nums; pointer-events: none; }
+/* the world X / Y under the cursor: by it, above and right (the hover tooltip goes below: tooltip.js placeCoords) -
+   never under the drawer; outlined like the map's labels, the map behind it */
+#coords { position: fixed; left: 0; top: 0; color: var(--dim); font-size: 11px; white-space: nowrap;
+  font-variant-numeric: tabular-nums; pointer-events: none; text-shadow: 0 0 2px #000, 0 0 2px #000; }
+#coords:empty { display: none; }
 #msg { position: fixed; left: 50%; top: 50%; transform: translate(-50%, -50%); color: var(--dim);
   font-size: 15px; text-align: center; pointer-events: none; }
 .muted { color: var(--dim); font-size: 12px; }

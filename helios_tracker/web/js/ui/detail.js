@@ -19,6 +19,38 @@ export function openDetail(kind, id) {
   renderInspector(true);
 }
 
+/** A link to a mission in the mission log (the drawer's delegated click: missionlog.js). */
+const missionLink = (id, name) => `<a class="mlink" data-open-mission="${esc(id)}">${nameHtml(name)}</a>`;
+/** A quest giver's listed mission ({i, n, end}): its link, "to hand in" after it for one ready. */
+const listedLink = (e) => missionLink(e.i, e) + (e.end ? ` <span class="muted">· ${esc(t("detail.handIn"))}</span>` : "");
+
+/** Who a quest giver's "!" is on (its "by": an NPC or an object, e.g. the bounty board) and the kind its
+ *  panel opens as, or null (not known here). */
+function giverOf(id) {
+  const pawn = S.pawns.get(id);
+  if (pawn) return { item: pawn, kind: pawn.k };
+  const obj = S.objects.find((o) => o.i === id);
+  return obj ? { item: obj, kind: obj.cat } : null;
+}
+
+const AT_UU = 300; // an objective point "at" an object / NPC: within 3 m of it
+
+/** What an objective point sits on (a teleporter, a chest, an NPC...): the nearest object / non-player
+ *  pawn within AT_UU, as giverOf, or null. */
+function objectiveAt(mk) {
+  let best = null, bestD = AT_UU;
+  const consider = (item, kind) => {
+    const d = Math.hypot(item.x - mk.x, item.y - mk.y, item.z - mk.z);
+    if (d < bestD) { best = { item, kind }; bestD = d; }
+  };
+  for (const o of S.objects) consider(o, o.cat);
+  for (const p of S.pawns.values()) if (p.k === "npc" || p.k === "vehicle") consider(p, p.k);
+  return best;
+}
+
+/** A link opening an NPC's / object's panel (the drawer's delegated click: missionlog.js). */
+const detailLink = (at) => `<a class="mlink" data-open-detail="${esc(at.item.i)}" data-kind="${esc(at.kind)}">${nameHtml(at.item)}</a>`;
+
 export function renderDetail(resetScroll) {
   const body = $("ibody"), scroll = body.scrollTop;
   $("itabs").style.display = "none";
@@ -45,10 +77,26 @@ export function renderDetail(resetScroll) {
   if (it.sm > 0) rows.push([t("detail.shield"), `${num(Math.round(it.s))} / ${num(Math.round(it.sm))}`]);
   if (it.m > 0) rows.push([t("detail.health"), `${num(Math.round(it.h))} / ${num(Math.round(it.m))}`]);
   if (mission) {
-    rows.push([t("detail.mission"), null, nameHtml(it.mission)]);
+    // its mission(s): links to them in the mission log (a quest giver can have several: "list" - the ones
+    // to hand in marked); a quest giver's: who gives them, a link to their panel
+    if (it.list && it.list.length > 1) rows.push([t("detail.missions"), null, it.list.map(listedLink).join("<br>")]);
+    else rows.push([t("detail.mission"), null, it.list ? listedLink(it.list[0]) : it.mi ? missionLink(it.mi, it.mission) : nameHtml(it.mission)]);
+    const by = kind === "directive" && it.by ? giverOf(it.by) : null;
+    if (by) rows.push([t("detail.giver"), null, detailLink(by)]);
+    const at = kind === "objective" && !it.rad ? objectiveAt(it) : null; // (a point, not an area)
+    if (at) rows.push([t("detail.at"), null, detailLink(at)]);
     if (it.rad) rows.push([t("detail.area"), t("unit.meters", { n: num(it.rad / UU_PER_METER, 0) })]);
     rows.push([t("detail.tracked"), t(it.tracked ? "detail.yes" : "detail.no")]);
   }
+  // an NPC / object giving missions (its quest-giver markers): links to them in the mission log
+  const gives = kind === "directive" || kind === "objective" ? []
+    : S.missions.markers.filter((m) => m.k === "directive" && m.by === it.i && m.mi).flatMap((m) => m.list || [{ i: m.mi, ...m.mission }]);
+  if (gives.length) rows.push([t("detail.missions"), null, gives.map(listedLink).join("<br>")]);
+  // the objective points on it ("Speak to...": within AT_UU): the objective, a link to its mission
+  const on = kind === "directive" || kind === "objective" || kind === "loot" ? []
+    : S.missions.markers.filter((m) => m.k === "objective" && !m.rad && Math.hypot(m.x - it.x, m.y - it.y, m.z - it.z) < AT_UU);
+  if (on.length) rows.push([t("detail.objectives"), null, on.map((m) => (m.objective ? nameHtml(m.objective) + " · " : "") +
+    (m.mi ? missionLink(m.mi, m.mission) : nameHtml(m.mission))).join("<br>")]);
   if (it.ms) { // a mission item: the mission it gives / is for - a link to it in the mission log
     rows.push([t(it.ms.k === "gives" ? "detail.givesMission" : "detail.forMission"), null,
       `<a class="mlink" data-open-mission="${esc(it.ms.i)}">${esc(it.ms.n)}</a>` + (it.ms.o ? ` · ${esc(it.ms.o)}` : "")]);

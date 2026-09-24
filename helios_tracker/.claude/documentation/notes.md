@@ -393,10 +393,18 @@ co-op yet):
   bBeginsMission, bEndsMission, BranchEnding}; Scooter: Poetic License, Swallowed Whole, Cold
   Shoulder...; Crimson Raiders: empty) and a `MissionDirectorParticle` (template
   `Part_Dynamic_Mission_Select`: the "!"; read inactive both runs - not relied on). The collector
-  (`_client_givers`, client only, no host "directive" markers) makes a giver marker per NPC with a
+  (`_npc_givers`: on the host too - its MissionWaypoints had no giver at all in Sanctuary, 2026-09-24,
+  only the tracked objective, Marcus offering Rock, Paper, Genocide; NPCs with a game marker skipped)
+  makes a giver marker per NPC with a
   mission it gives that can be picked up / takes back that's ready (MissionLog.giver_states). Not
-  verified in game yet. Bounty boards (`BountyBoard`, several missions in a submenu: also a
-  `MissionDirectorParticle`): still to probe in full (none in range in the 2nd run).
+  verified in game yet. **Bounty board** (tools/probe_bounty.txt, Sanctuary, 2026-09-25): a plain
+  `WillowInteractiveObject` (no class of its own), definition `GD_GameSystemMachines.InteractiveObjects
+  .BountyBoard` (`StatusMenuMapInfoBoxHeader` 'Bounty Board', `CompassIcon` RadarIconType_BountyBoard);
+  its missions: `WillowInteractiveObject.Directives` (a MissionDirectivesDefinition, like an NPC's
+  `MissionDirectives`), `bSetPrimaryUsabilityByMissionDirectives`, a `MissionDirectorParticle` and a
+  `MissionDirectiveWaypointComponent`. `MissionTracker.MissionDirectors` lists every giver (NPCs, the
+  board, an ECHO recorder `MO_Ep5_MissionDirectorRecorder`). The collector reads `Directives` with
+  the object's record (`_note_giver`).
 - **Vault symbols** (`IO_VaultRoy`, `InteractionIconOverride` = `Icon_DefaultDiscover`: the Cult of
   the Vault challenge, clicked to discover): two dumped in full, identical but for DrawScale (1 / 0.5)
   - nothing on the object says discovered (likely the player's challenge progress). Own map layer
@@ -476,8 +484,11 @@ co-op yet):
   by 13/255 rms and turns blue's main teal). A new ramp from a highlight colour H: main ~ oklch(L*0.73
   C*0.57 h+drift), shadow ~ oklch(L*0.5 C*0.3 h+2*drift), drift ~ 15-25 deg toward the darker neighbour.
   The Skills tab (like the game's, a screenshot the user shared): the tree's background is that ramp (top to
-  bottom), coloured from the top down to its last unlocked tier, like the game's (11 points = 3 of 6 rows, 8 =
-  2, 26 = all; not points / max ranks: ~90 a tree, 25 reach its last tier - it stopped at tier 2), none with no
+  bottom), coloured from the top down by the tree's **points / the points that unlock its last tier** (the sum
+  of the earlier tiers' need: 25 in BL2 - full when the capstone opens), like the game's, matched 1:1 in game
+  (6 rows: 5 points = just past row 1, 8 = 2, 11 ~ 3, 12 = the bottom of row 3, 26 = all). Spent points only:
+  a class mod's bonus ranks don't count (the user). Not by tiers unlocked (5 points open tier 2: two rows),
+  nor per row toward the next tier (12 showed mid-row 3), nor points / max ranks (~90 a tree); none with no
   point in it, greyscale below, framed in the highlight; a tile's outline +
   rank dots #04cc04 maxed, #d46a00 in progress (the game: "5/5" badges - the user prefers the dots).
 - **The game's UI fonts** (tools/find_fonts.py, gamefonts.py): Startup_LOC_INT.upk has UE3 bitmap fonts

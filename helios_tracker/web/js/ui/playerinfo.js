@@ -4,7 +4,12 @@
 import { esc } from "../dom.js";
 import { num, t } from "../i18n.js";
 import { nameText } from "../model.js";
+import { settings } from "../settings.js";
 import { S, pawnPos } from "../state.js";
+import { tipAttrs } from "./hovertip.js";
+
+/** A player's "Who" value (Settings): the mod's own player "me", the others by name (ids change per level). */
+export const whoValue = (p) => (p.local ? "me" : p.n);
 
 /** A labelled bar: text on the left, value on the right, the fill = fraction (0..1). */
 function barRow(label, value, fraction, cls) {
@@ -28,8 +33,17 @@ export function playerInfoHtml(p) {
   if (!pawn) return `<div class="note">${esc(t("pinfo.away"))}</div>`;
   const live = { ...pawn, ...pawnPos(pawn, performance.now()) };
   const state = stateKey(live);
-  let html = `<div class="kv"><span>${esc(t("pinfo.state"))}</span>` +
-    `<span class="pstate ${state}">${esc(t(state === "fine" ? "pinfo.fine" : "vital." + state))}</span></div>`;
+  // their state, and on its right a shortcut: make them "Who" (the tracked player: the map measures from them);
+  // once they are, Follow (the map centred on them, like F) - "Following" while it does, a click stops it (the
+  // clicks: inspector.js, delegated)
+  const tracked = settings.view.target === whoValue(p);
+  const following = tracked && settings.view.follow;
+  const track = !tracked
+    ? `<button class="ptrack" data-track="${esc(whoValue(p))}"${tipAttrs("", t("pinfo.trackTip"))}>${esc(t("pinfo.track"))}</button>`
+    : `<button class="ptrack${following ? " on" : ""}" data-follow${tipAttrs("", t(following ? "pinfo.followingTip" : "pinfo.followTip"))}>` +
+      `${esc(t(following ? "pinfo.following" : "pinfo.follow"))}</button>`;
+  let html = `<div class="pstaterow"><div class="kv"><span>${esc(t("pinfo.state"))}</span>` +
+    `<span class="pstate ${state}">${esc(t(state === "fine" ? "pinfo.fine" : "vital." + state))}</span></div>${track}</div>`;
   html += `<div class="group">${esc(t("pinfo.vitals"))}</div>`;
   if (live.sm > 0) html += barRow(t("detail.shield"), `${num(Math.round(live.s))} / ${num(Math.round(live.sm))}`, live.s / live.sm, "sh");
   if (live.m > 0) html += barRow(t("detail.health"), `${num(Math.round(live.h))} / ${num(Math.round(live.m))}`, live.h / live.m, "hp");

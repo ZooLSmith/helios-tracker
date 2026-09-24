@@ -5,15 +5,17 @@
 const ICONS = {
   check: `<path d="M2.4 6.4 4.9 8.9 9.7 3.4" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>`,
   diamond: `<path d="M6 1.6 10.4 6 6 10.4 1.6 6Z" fill="currentColor"/>`,
+  objective: `<path d="M6 1 11 6 6 11 1 6Z" fill="currentColor"/><circle cx="6" cy="6" r="1.5" style="fill: var(--map-ink)"/>`, // the map's objective marker (an active mission)
   checkCircle: `<circle cx="6" cy="6" r="4.8" fill="currentColor"/>` + // ready to turn in: a check in a disc
     `<path d="M3.7 6.2 5.3 7.8 8.4 4.4" fill="none" style="stroke: var(--bg)" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>`,
   circle: `<circle cx="6" cy="6" r="3.5" fill="none" stroke="currentColor" stroke-width="1.5"/>`,
-  circleDashed: `<circle cx="6" cy="6" r="3.5" fill="none" stroke="currentColor" stroke-width="1.3" stroke-dasharray="1.8 1.6"/>`,
   lock: `<rect x="2.8" y="5.4" width="6.4" height="4.8" rx="0.9" fill="currentColor"/>` +
     `<path d="M4.2 5.4V4a1.8 1.8 0 0 1 3.6 0v1.4" fill="none" stroke="currentColor" stroke-width="1.3"/>`,
   question: `<circle cx="6" cy="6" r="4.6" fill="none" stroke="currentColor" stroke-width="1.2"/>` +
     `<path d="M4.6 4.7a1.5 1.5 0 1 1 2.1 1.4c-.5.3-.7.6-.7 1.1" fill="none" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/>` +
     `<circle cx="6" cy="8.7" r=".75" fill="currentColor"/>`,
+  exclamation: `<path d="M3.9 1.5Q3.9 1 4.4 1H7.6Q8.1 1 8.1 1.5L6.8 7.1H5.2Z" fill="currentColor" stroke="currentColor" stroke-width=".4" stroke-linejoin="round"/>` + // a stylised "!" (the game's unknown mission): a wedge, wide on top
+    `<circle cx="6" cy="9.7" r="1.45" fill="currentColor"/>`,
   play: `<path d="M3.6 2.2 9.8 6 3.6 9.8Z" fill="currentColor" stroke="currentColor" stroke-width="0.8" stroke-linejoin="round"/>`,
   pause: `<rect x="3" y="2.4" width="2.1" height="7.2" rx="0.5" fill="currentColor"/><rect x="6.9" y="2.4" width="2.1" height="7.2" rx="0.5" fill="currentColor"/>`,
   close: `<path d="M3 3 9 9M9 3 3 9" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/>`,

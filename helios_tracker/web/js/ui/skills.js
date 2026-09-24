@@ -106,22 +106,24 @@ export function skillsHtml(p) {
 }
 
 /** A tree's grid, coloured as its place (index: 0 left - green, 1 middle - blue, 2 right - red, like the game),
- *  filled with its colour from the top down to its last unlocked tier, like the game's (a screenshot: 11 points
- *  = 3 of 6 rows, 8 = 2, 26 = all - each tier needs its predecessors' points, tier.need, 5 in BL2; not the
- *  points / every skill's max ranks: ~90, when 25 reach the last tier) - but none with no point in the tree
- *  (its first tier is open, nothing's in it). Greyscale below. */
+ *  filled with its colour from the top down by its points, like the game's: its points over the points that unlock
+ *  its last tier (every earlier tier's need: 25 in BL2) - full when the capstone opens. The user's samples, in game
+ *  (6 rows): 5 points = just past the first row (1.2), 8 = 2 rows (1.9), 11 = 3 (2.6), 12 = the bottom of the 3rd
+ *  (2.9), 26 = all; 0: none. Greyscale below. (Not by tiers unlocked, nor per row by the next tier's 5: 12 showed
+ *  mid-row 3.) */
 function skillGrid(b, index) {
   const cols = Math.max(1, ...b.tiers.map((tier) => tier.cells.length));
-  let unlocked = 0, needed = 0;
-  for (const tier of b.tiers) {
+  let unlocked = 0, needed = 0, toLast = 0;
+  b.tiers.forEach((tier, i) => {
     if (b.pts >= needed) unlocked++;
+    if (i === b.tiers.length - 1) toLast = needed; // (the points its last tier needs)
     needed += tier.need;
-  }
+  });
   const rows = b.tiers.length;
   if (!b.pts) unlocked = 0;
-  // the edge: in the middle of the gap under the last unlocked row - every row the same height (drawer.css), the
-  // grid's 5 px padding and 4 px gaps: 3px + unlocked x (100% - 6px) / rows; none / all: 0 / 100 %
-  const fill = !unlocked ? "0%" : unlocked >= rows ? "100%" : `calc(3px + ${unlocked} * (100% - 6px) / ${rows})`;
+  const frac = toLast > 0 ? Math.min(1, Math.max(0, b.pts / toLast)) : unlocked >= rows ? 1 : 0;
+  // the edge: the grid's 5 px padding (3px: in its gaps) + that share of the rest; none / all: 0 / 100 %
+  const fill = frac <= 0 ? "0%" : frac >= 1 ? "100%" : `calc(3px + ${+frac.toFixed(4)} * (100% - 6px))`;
   let need = 0, html = `<div class="sgrid tree${Math.min(index, 2)}" style="grid-template-columns: repeat(${cols}, 1fr);` +
     ` --fill: ${fill}"${tipAttrs("", t("skills.tiers", { n: unlocked, m: rows, pts: num(b.pts) }))}>`;
   for (const tier of b.tiers) {

@@ -4,6 +4,7 @@ import { UU_PER_METER, mapToWorld } from "./geo.js";
 import { t, num } from "./i18n.js";
 import { hitAt } from "./input.js";
 import { isGear, poolKinds } from "./model.js";
+import { settings } from "./settings.js";
 import { S, trackedPawn } from "./state.js";
 import { rarityName } from "./ui/items.js";
 import { H, W, toMap } from "./view.js";
@@ -27,14 +28,19 @@ function renderTooltip(mePos, f) {
   const tip = $("tip"), coords = $("coords");
   if (!S.mouse) { tip.style.display = "none"; coords.textContent = ""; return; }
   const [wx, wy] = mapToWorld(f, ...toMap(S.mouse.x, S.mouse.y));
-  coords.textContent = `X ${num(Math.round(wx))}  Y ${num(Math.round(wy))}`;
+  // (the coordinates: only when asked for - Settings, off by default)
+  coords.textContent = settings.view.coords ? `X ${num(Math.round(wx))}  Y ${num(Math.round(wy))}` : "";
+  if (settings.view.coords) placeCoords(coords);
   const best = hitAt(S.mouse.x, S.mouse.y, 12);
   if (!best) { tip.style.display = "none"; return; }
   const it = best.item, pos = best.pos || it;
   const lines = [];
   if (best.kind === "objective" || best.kind === "directive") {
     lines.push(`<span class="tl">${esc(t("tip." + best.kind))}${it.rad ? " · " + esc(t("tip.area", { d: Math.round(it.rad / UU_PER_METER) })) : ""}</span>`);
-    lines.push(`<span class="tl">${nameHtml(it.mission)}${it.tracked ? " · " + esc(t("tip.tracked")) : ""}</span>`);
+    // (a quest giver: every mission it has, one per line - the ones to hand in marked)
+    for (const m of it.list || [it.mission]) {
+      lines.push(`<span class="tl">${nameHtml(m)}${m.end ? " · " + esc(t("detail.handIn")) : ""}${it.tracked && !it.list ? " · " + esc(t("tip.tracked")) : ""}</span>`);
+    }
     if (mePos) lines.push(`<span class="tl">${esc(t("tip.away", { d: Math.round(Math.hypot(it.x - mePos.x, it.y - mePos.y, it.z - mePos.z) / UU_PER_METER) }))}</span>`);
     tip.innerHTML = `<b>${it.objective ? nameHtml(it.objective) : nameHtml(it.mission)}</b>` + lines.join("");
     placeTip(tip);
@@ -68,6 +74,14 @@ function renderTooltip(mePos, f) {
   }
   tip.innerHTML = `<b>${nameHtml(it)}</b>` + lines.join("");
   placeTip(tip);
+}
+
+// The coordinates by the cursor, above and right of it (the tooltip: below) - kept inside the window (the drawer
+// open used to hide them in the bottom right corner)
+function placeCoords(coords) {
+  const cw = coords.offsetWidth, ch = coords.offsetHeight;
+  coords.style.left = Math.max(4, Math.min(W - cw - 4, S.mouse.x + 14)) + "px";
+  coords.style.top = Math.max(4, S.mouse.y - ch - 6) + "px";
 }
 
 function placeTip(tip) {

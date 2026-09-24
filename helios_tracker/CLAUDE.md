@@ -16,7 +16,7 @@ and interactive objects on it, with zoom / pan. Read the root `../CLAUDE.md` fir
   hollow rings (not dots: cash pickups are green dots), vehicles purple, loot = triangles in rarity colour, objects = squares by category). Follow me (F), fit (0),
   **Smooth movement** (on: interpolates between updates, redraws every frame; off: markers jump,
   frames are only requested on a change - data, view, input - for weak / integrated GPUs), tooltip
-  (name, kind, health, distance, height difference), world X/Y under the cursor. Wheel / pinch zoom,
+  (name, kind, health, distance, height difference), world X/Y by the cursor (above it; Settings Show coordinates, off by default). Wheel / pinch zoom,
   drag pan. Settings remembered in localStorage. Areas without a map: a 10 m grid around the player.
 - **Player inspector**: "Players" list in the panel (or click a player's marker) opens a drawer with
   Gear / Backpack / Skills tabs; items show the game's localized weapon type / item name and
@@ -26,11 +26,20 @@ and interactive objects on it, with zoom / pan. Read the root `../CLAUDE.md` fir
   labelled "Host" (the player running the tracker). Missing data (co-op client: other players'
   inventories / skill trees) shows a reason instead.
 - **Quest markers** ("Objectives" layer): the game's active mission waypoints - area objectives as
-  dashed circles (radius = the waypoint's AreaRadius), point objectives as diamonds, quest givers as
-  "!" badges; other missions' markers fainter than the tracked one's. Tooltip: objective, mission,
-  area radius, distance. Read every 1 s from `MissionTracker.MissionWaypoints` (only `bActive`
-  components), sent on change. A co-op client has none: its objective markers come from the level's
-  `WillowWaypoint` actors (their linked objective + step restrictions vs the mission log; no quest givers).
+  dashed circles (radius = the waypoint's AreaRadius), point objectives as diamonds; other missions'
+  markers fainter than the tracked one's. Tooltip: objective, mission, area radius, distance. Read
+  every 1 s from `MissionTracker.MissionWaypoints` (only `bActive` components), sent on change. A
+  co-op client has none: its objective markers come from the level's `WillowWaypoint` actors (their
+  linked objective + step restrictions vs the mission log).
+- **Quest givers** (own layer, "Quest givers"): yellow "!" badges like the game's, drawn over their
+  NPC. The game's directive waypoints, plus NPCs (`MissionDirectives`) and objects (the bounty board:
+  `Directives`) whose lists give a mission that can be
+  picked up now / take back one ready to hand in (`_npc_givers`: host and client - the host's
+  waypoints missed givers, e.g. Marcus in Sanctuary). The "!" and point objectives ("Speak to...")
+  are drawn over the NPC they're on and clicked before it (loot still first; area circles after the
+  pawns). Panels link each other: a quest marker's mission(s) (the log; a giver's several, the ones to
+  hand in marked), a "!"'s giver (its NPC / object panel, "by"), an objective point's "At" (the object
+  / NPC within 3 m); an NPC's / board's panel: its missions and the objective points on it.
 - **Mission log** (`missions.py`, the `missionlog` payload): every mission of the playthrough from
   `MissionTracker.MissionList` - status, objectives with progress, the current step
   (`ActiveObjectiveSet`), dependencies, texts (see notes). Definitions read once (cached forever); a
@@ -94,6 +103,8 @@ and interactive objects on it, with zoom / pan. Read the root `../CLAUDE.md` fir
   arrived (at most every 250 ms), the DOM only written when it changed. Gear stats: both the card's
   value (the item's own: each attribute's *BaseValue) and the current one with the owner's bonuses (skills, class
   mod, relic), the difference in % - the tool is for the player's maths (the user's call; it once said pointless).
+  Backpack items: card values only - the game applies the owner's bonuses to equipped items alone (an estimate from
+  an equipped weapon's modifier stacks was considered and declined: the user's call).
 - **Areas** (`area` / `fog` layers, the `areas` payload, see notes): the level's discovery areas' names (the
   game's, centred, not-yet-discovered ones dimmed) and a fog of war (off by default): the game's own - the
   level movie's fog blobs (`tacmap.load_fog`, extracted with the map, the `fog` part of the level payload)

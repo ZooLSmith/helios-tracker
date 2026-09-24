@@ -799,6 +799,7 @@ class Collector:
             try:
                 records[key] = self._object_record(io, self._client) if self._in_world(io) else None
                 self._note_incomplete(key, io)
+                self._note_giver(key[0], io, try_(lambda io=io: io.Directives))
                 if (record := records[key]) is not None and not io.bHidden and not io.bDeleteMe:
                     self._objects[key] = record
                     self._objects_dirty = True
@@ -824,6 +825,7 @@ class Collector:
         key = (io._get_address(), str(io.Name))
         self._object_records[key] = record = self._object_record(io, self._client)
         self._note_incomplete(key, io)
+        self._note_giver(key[0], io, try_(lambda: io.Directives))
         if not io.bHidden:
             self._objects[key] = record
             self._objects_dirty = True
@@ -840,8 +842,21 @@ class Collector:
         else:
             self._incomplete.pop(key, None)
 
+    def _note_giver(self, key: int, actor: Any, definition: Any) -> None:
+        """An NPC's / object's missions it gives / takes back (a MissionDirectivesDefinition - an NPC's
+        MissionDirectives, an interactive object's Directives: the bounty board, tools/probe_bounty.txt;
+        static): kept for the quest-giver markers (_npc_givers)."""
+        directives = [(d.MissionDefinition, bool(d.bBeginsMission), bool(d.bEndsMission))
+                      for d in try_(lambda: list(definition.MissionDirectives), []) or []
+                      if try_(lambda d=d: d.MissionDefinition) is not None]
+        if directives:
+            self._givers[key] = (WeakPointer(actor), directives)
+        else:
+            self._givers.pop(key, None)
+
     def object_destroyed(self, io: Any) -> None:
         key = (io._get_address(), str(io.Name))
+        self._givers.pop(key[0], None)
         self._incomplete.pop(key, None)
         self._object_records.pop(key, None)
         self._unlooted.pop(key, None)
@@ -956,14 +971,7 @@ class Collector:
             # GetTransformedName give - read as a property: calling those crashed the game (a native
             # fatal error from call_str here, helios_crash.log, 2026-09-23, Tundra Express)
             name = named(pawn_display_name(pawn), def_name(try_(lambda: pawn.AIClass)), str(pawn.Class.Name))
-            # the missions it gives / takes back (MissionDirectivesDefinition.MissionDirectives: static)
-            directives = [(d.MissionDefinition, bool(d.bBeginsMission), bool(d.bEndsMission))
-                          for d in try_(lambda: list(pawn.MissionDirectives.MissionDirectives), []) or []
-                          if try_(lambda d=d: d.MissionDefinition) is not None]
-            if directives:
-                self._givers[addr] = (WeakPointer(pawn), directives)
-            else:
-                self._givers.pop(addr, None)
+            self._note_giver(addr, pawn, try_(lambda: pawn.MissionDirectives))  # the missions it gives / takes back
         info = {"i": f"{addr:x}", "k": kind, **name}
         if level := exp_level(pawn):  # re-read at each scan (enemies can level up)
             info["l"] = level
@@ -1266,32 +1274,45 @@ class Collector:
                 log_error("client mission marker", ex)
         return markers
 
-    def _client_givers(self, active_addr: int | None) -> list[dict[str, Any]]:
-        """A co-op client's quest-giver markers ("!"), which the game only registers on the host: the
-        NPCs' own lists of missions they give / take back (MissionDirectives, read with their info)
-        against the mission log - a mission it gives that can be picked up now, or one it takes back
-        that's ready to hand in (MissionLog.giver_states). The same markers as the host's ("directive"),
-        one per NPC (its first such mission). Property reads only."""
+    def _npc_givers(self, active_addr: int | None, skip: set[int]) -> list[dict[str, Any]]:
+        """Quest-giver markers ("!") worked out from the NPCs' / objects' own lists of missions they give /
+        take back (_note_giver: NPCs, the bounty board) against the mission log - a mission it gives
+        that can be picked up now, or one it takes back that's ready to hand in (MissionLog
+        .giver_states). A co-op client has no directive waypoints at all, and the host's miss givers
+        too (Sanctuary, 2026-09-24: Marcus offering Rock, Paper, Genocide, only the tracked objective
+        registered). The same markers as the game's ("directive"), one per NPC / object: its first such
+        mission ("mission" / "mi") and every one ("list": {i, n, end: 1 for one to hand in} - an NPC or
+        the bounty board can have several); skip: the ones (addresses) that already have one from the
+        game. Property reads only."""
         markers = []
         states = self._log.giver_states() if self._givers else {}
         for key, (ptr, directives) in list(self._givers.items()):
-            pawn = ptr()
-            if pawn is None:
+            giver = ptr()  # an NPC, or an object (the bounty board)
+            if giver is None:
                 del self._givers[key]
                 continue
+            if key in skip:
+                continue
             try:
+                listed, tracked = [], False
                 for mission, begins, ends in directives:
-                    state = states.get(mission_id(mission), "")
-                    if (state == "begin" and begins) or (state == "end" and ends):
-                        loc = pawn.Location
-                        markers.append({
-                            "i": f"g{key:x}", "k": "directive", "x": round(loc.X), "y": round(loc.Y), "z": round(loc.Z),
-                            "rad": 0, "tracked": mission._get_address() == active_addr,
-                            "mission": named(try_(lambda m=mission: str(m.MissionName), ""), def_name(mission)),
-                        })
-                        break
+                    mid = mission_id(mission)
+                    state = states.get(mid, "")
+                    if ((state == "begin" and begins) or (state == "end" and ends)) and all(e["i"] != mid for e in listed):
+                        entry = {"i": mid, **named(try_(lambda m=mission: str(m.MissionName), ""), def_name(mission))}
+                        if state == "end":
+                            entry["end"] = 1
+                        listed.append(entry)
+                        tracked = tracked or mission._get_address() == active_addr
+                if listed:
+                    loc, first = giver.Location, listed[0]
+                    markers.append({
+                        "i": f"g{key:x}", "k": "directive", "x": round(loc.X), "y": round(loc.Y), "z": round(loc.Z),
+                        "rad": 0, "tracked": tracked, "mission": {k: v for k, v in first.items() if k not in ("i", "end")},
+                        "mi": first["i"], "by": f"{key:x}", "list": listed,
+                    })
             except Exception as ex:  # noqa: BLE001
-                log_error("client quest giver", ex)
+                log_error("quest giver", ex)
         return markers
 
     def _publish_missions(self) -> None:
@@ -1308,7 +1329,7 @@ class Collector:
             return
         active = try_(lambda: tracker.ActiveMission)
         active_addr = active._get_address() if active is not None else None
-        markers = []
+        markers, giver_npcs = [], set()
         for entry in try_(lambda: list(tracker.MissionWaypoints), []):
             mission = try_(lambda e=entry: e.Mission)
             for comp in try_(lambda e=entry: list(e.Waypoints), []):
@@ -1317,9 +1338,12 @@ class Collector:
                         continue
                     loc = owner.Location
                     objective = try_(lambda c=comp: c.WaypointInfo.LinkedObjective)
+                    kind = "directive" if "Directive" in str(comp.Class.Name) else "objective"
+                    if kind == "directive":
+                        giver_npcs.add(owner._get_address())  # ("by": the page links the NPC / object)
                     marker = {
                         "i": addr(comp),
-                        "k": "directive" if "Directive" in str(comp.Class.Name) else "objective",
+                        "k": kind,
                         "x": round(loc.X),
                         "y": round(loc.Y),
                         "z": round(loc.Z),
@@ -1327,6 +1351,10 @@ class Collector:
                         "tracked": mission is not None and mission._get_address() == active_addr,
                         "mission": named(try_(lambda m=mission: str(m.MissionName), ""), def_name(mission)),
                     }
+                    if mission is not None:
+                        marker["mi"] = mission_id(mission)  # (the page links its mission in the log)
+                    if kind == "directive":
+                        marker["by"] = addr(owner)
                     if objective is not None:
                         marker["objective"] = named(try_(lambda o=objective: str(o.ProgressMessage), ""), def_name(objective))
                     markers.append(marker)
@@ -1334,8 +1362,7 @@ class Collector:
                     log_error("mission marker", ex)
         if not markers and self._waypoints:  # a co-op client: none registered here
             markers = self._client_markers(tracker, active_addr)
-        if self._client and not any(m["k"] == "directive" for m in markers):
-            markers += self._client_givers(active_addr)
+        markers += self._npc_givers(active_addr, giver_npcs)
         payload = {
             "level": self.level_id,
             "tracked": named(try_(lambda: str(active.MissionName), ""), def_name(active)) if active is not None else None,

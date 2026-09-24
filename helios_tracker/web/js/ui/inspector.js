@@ -3,10 +3,12 @@
 import { $, esc } from "../dom.js";
 import { num, t } from "../i18n.js";
 import { nameText } from "../model.js";
+import { invalidate } from "../scheduler.js";
 import { saveSettings, settings } from "../settings.js";
 import { S, findPlayer } from "../state.js";
 import { renderDetail } from "./detail.js";
 import { saveDrawer } from "./drawer.js";
+import { renderTargets } from "./panel.js";
 import { elementIconLoaded, itemsByKind } from "./items.js";
 import { renderMissionLog } from "./missionlog.js";
 import { alignPatterns, playerSub, renderPlayers } from "./players.js";
@@ -122,6 +124,22 @@ export function initInspector() {
     b.onclick = () => { settings.ui.inspectorTab = b.dataset.tab; saveSettings(); S.skillTab = null; renderInspector(true); };
   }
   $("iclose").onclick = closeInspector;
+  // the Info tab's "Track": that player as "Who" (Settings), like choosing them there; then "Follow": the Settings
+  // box's click (F's: centred, remembered, Rotate enabled)
+  $("inspector").addEventListener("click", (e) => {
+    const btn = e.target instanceof Element ? e.target.closest("[data-track], [data-follow]") : null;
+    if (!btn) return;
+    if (btn.dataset.track != null) {
+      settings.view.target = btn.dataset.track;
+      saveSettings();
+      renderTargets();
+      renderPlayers();
+      invalidate();
+    } else {
+      $("follow").click();
+    }
+    renderInspector();
+  });
   // an item's element icon loaded: its colour for its type icon (load doesn't bubble: captured)
   $("inspector").addEventListener("load", (e) => {
     if (e.target instanceof HTMLImageElement && e.target.classList.contains("ii-element")) elementIconLoaded(e.target);

@@ -22,6 +22,7 @@ export function defaults() {
     view: {
       zoom: 0, // 0: never zoomed, fit the map
       follow: false, rotate: false,
+      coords: false, // the world X / Y by the cursor (tooltip.js)
       target: "me", // "Who": "me" (the host) or a player's name
       // Movement: 0 = only redraw on a change (markers jump), a number = interpolated at most that
       // many fps, "smooth" = every frame
