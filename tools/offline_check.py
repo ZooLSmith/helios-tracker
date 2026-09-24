@@ -910,13 +910,14 @@ def check_helios_tracker() -> None:  # noqa: PLR0915
         image = res.read()
         assert res.status == 200 and len(image) == 468 * 512, (res.status, len(image))
         web = ROOT / "helios_tracker" / "web"
-        web_files = sorted(p for p in web.rglob("*") if p.suffix in (".js", ".css", ".png"))
+        web_files = sorted(p for p in web.rglob("*") if p.suffix in (".js", ".css", ".png", ".svg"))
         assert web / "img" / "logo.png" in web_files, "the logo (favicon, panel header)"
+        assert {web / "img" / "patterns" / f"{n}.svg" for n in ("shield", "health", "vehicle", "scanlines")} <= set(web_files), "the bars' pattern tiles"
         for file in web_files:  # every module / stylesheet / image, at its path under web/
             conn.request("GET", "/" + file.relative_to(web).as_posix())
             res = conn.getresponse()
             body = res.read()
-            want_type = {".css": "text/css", ".png": "image/png"}.get(file.suffix, "text/javascript")
+            want_type = {".css": "text/css", ".png": "image/png", ".svg": "image/svg+xml"}.get(file.suffix, "text/javascript")
             assert res.status == 200 and res.headers["Content-Type"].startswith(want_type), (file, res.status)
             assert body == file.read_bytes(), file
         for bad in ("/../server.py", "/js/../../server.py", "/web/js/main.js", "/JS/MAIN.JS", "/js/main.py"):
@@ -938,7 +939,7 @@ def check_helios_tracker() -> None:  # noqa: PLR0915
             if line.startswith("event: "):
                 events.add(line[7:].strip())
         assert events == {"level", "state", "objects", "players", "missions", "missiondefs", "missionlog"}, events
-        print(f"  server: page {len(page)} bytes + {len(web_files)} js / css / png files, image {len(image)} bytes,"
+        print(f"  server: page {len(page)} bytes + {len(web_files)} js / css / png / svg files, image {len(image)} bytes,"
               f" SSE events {sorted(events)}")
     finally:
         server.stop()
@@ -1040,7 +1041,7 @@ def check_helios_tracker() -> None:  # noqa: PLR0915
     assert (best["xp"], best["cash"], best["effort"]) == ("ual3vl1ery", "vual1l3ery", "vual3l1ery"), best
     assert best["after"] == ["a"] and best["total"] == 12600 and best["otherLevel"] == 0, best
     me_info, down_info, gone_info = mis["infoHtml"]
-    for want in ("Fine", "Shield", "60 / 100", "Level 30", "500 / 1,000", "Gunzerking", "Active · 12 s", "Locked and Loaded - active", "4 s", "Melee skill", "8 s"):
+    for want in ("Alive", "Shield", "60 / 100", "Level 30", "500 / 1,000", "Gunzerking", "Active · 12 s", "Locked and Loaded - active", "4 s", "Melee skill", "8 s"):
         assert want in me_info, (want, me_info)
     assert "Crippled" in down_info and "Not known here" in down_info, down_info
     assert "Not in this area" in gone_info, gone_info

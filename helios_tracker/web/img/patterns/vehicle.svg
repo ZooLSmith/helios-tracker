@@ -1,0 +1,6 @@
+<!-- Vehicle bar pattern: warning-tape stripes, as wide as the gaps between them (half the tile dark:
+     where 0 <= (x - y) mod 10 < 5 - a band along the diagonal + its corner piece, so the tiles join
+     into continuous slanted stripes). Repeats every 10 x 10 px. -->
+<svg xmlns="http://www.w3.org/2000/svg" width="10" height="10" viewBox="0 0 10 10">
+  <path d="M0 0H5L10 5V10ZM0 5 5 10H0Z" fill="#000" fill-opacity=".26"/>
+</svg>

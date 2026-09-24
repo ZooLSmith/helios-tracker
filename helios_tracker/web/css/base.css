@@ -15,6 +15,16 @@
   --dead: #8a9aa3; /* a dead player (before the respawn) */
   --menu: #d7e6ee; /* a player in a menu: neutral, like the text */
   --xp: #3fae49; /* green, like the game's experience bar */
+  --vehicle: #e8582a; /* red-orange: the driven vehicle's health (apart from the health bar's red right above it) */
+  /* faint patterns over the bars' colour (the filled part only): shield hexagons, health columns,
+     vehicle warning stripes (the Players list and the Info tab) */
+  --pat-shield: url("/img/patterns/shield.svg"); /* the tiles: web/img/patterns/*.svg (edit them there) */
+  /* every bar: lighter at the top than the bottom, like the game's (over the colour and pattern) */
+  --bar-sheen: linear-gradient(to bottom, rgba(255, 255, 255, .18), rgba(255, 255, 255, 0) 45%, rgba(0, 0, 0, .18));
+  /* (their scrolling: @keyframes below, timing from players.js patternTiming) */
+  --pat-health: url("/img/patterns/health.svg");
+  --pat-vehicle: url("/img/patterns/vehicle.svg");
+  --pat-scan: url("/img/patterns/scanlines.svg") 0 0 / 3px 3px repeat; /* the action skill's (still) */
   --objective: #7cf58a; /* light green, like the game's objective markers */
   --story: #ffcc33; /* story (main) missions: yellow; side missions: grey */
   --side: #a9b6bd;
@@ -23,6 +33,11 @@
   color-scheme: dark;
 }
 * { box-sizing: border-box; }
+/* the bars' patterns sliding left one tile per cycle (the sheen and the colour stay) */
+@keyframes pat-sh { from { background-position: 0 0, 0 50%, 0 0; } to { background-position: 0 0, -18px 50%, 0 0; } }
+@keyframes pat-hp { from { background-position: 0 0, 0 0, 0 0; } to { background-position: 0 0, -12px 0, 0 0; } }
+@keyframes pat-vh { from { background-position: 0 0, 0 0, 0 0; } to { background-position: 0 0, -10px 0, 0 0; } }
+@media (prefers-reduced-motion: reduce) { .vbar i, .ibar i { animation: none !important; } }
 /* icons.js: inline SVGs, 1em, coloured by currentColor */
 .icon { display: inline-block; width: 1em; height: 1em; flex: none; vertical-align: -0.125em; }
 button > .icon { vertical-align: middle; }

@@ -103,7 +103,10 @@ and interactive objects on it, with zoom / pan. Read the root `../CLAUDE.md` fir
   marker, last drawn; objects drawn by height).
 - **Skills tab**: one tab per tree (default: the one with the most points), the game's grid layout
   (`SkillTreeBranchDefinition.Tiers` + `Layout.Tiers[].bCellIsOccupied`); the root / action skill
-  branch hidden. Player vitals (shield then health bars, numbers inside) in the Players list.
+  branch hidden. Player vitals (shield then health bars, numbers inside) in the Players list;
+  driving (the collector's `dv`: the vehicle's pawn id), shield and health side by side and the
+  vehicle's health under them (orange). Faint patterns on the bars: shield hexagons, health columns,
+  vehicle warning stripes (XP plain).
 - **Layers tab**: categories (Characters, Loot, World: plain headings that fold, no box), a row
   per layer (enabled, marker icon, count, ⚙) and its settings panel inline under it (several can
   be open). Buttons: All on / All off (every layer on the map) and Collapse (every category and
@@ -119,7 +122,7 @@ and interactive objects on it, with zoom / pan. Read the root `../CLAUDE.md` fir
   No global names / floors / rarity settings any
   more - the loot filter will come back as a Loot setting (to design).
 - **Settings tab**: Who (host / a player, saved by name) + Follow / Rotate (map turns to their
-  heading; only while following, greyed out otherwise); Movement: game updates only (the mod sends its rate, `hz`), a fps cap, or smooth;
+  heading; only while following, greyed out otherwise); Refresh rate (was "Movement": the page's redraws - markers, bars, their patterns): game updates only (the mod sends its rate, `hz`), a fps cap, or smooth;
   See-through: Background / Map / Panels opacity (`look.js`; in OBS via its browser source's "Interact"); Interface size 70-200 %;
   Map markers 50-200 % (every marker, its label and bars - times its layer's Size).
 - **Storage**: one `helios.settings` localStorage object (`js/settings.js`): `layers.<id>` (each

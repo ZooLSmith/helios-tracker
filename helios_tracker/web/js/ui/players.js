@@ -1,6 +1,6 @@
 // Panel "Players" list: name, level · class, shield / health / XP bars; a click opens the inspector.
 import { esc, nameHtml } from "../dom.js";
-import { num, t } from "../i18n.js";
+import { num, numShort, t } from "../i18n.js";
 import { prettyRaw } from "../model.js";
 import { S, findPlayer, isTrackedPlayer, pawnPos } from "../state.js";
 import { openInspector } from "./inspector.js";
@@ -25,8 +25,10 @@ export function renderPlayers() {
     `<span class="askill"><i></i><span></span></span></div>` +
     `<div class="pinfo">${esc(playerSub(p))}</div>` +
     // shield, health and XP (the level) together, under the state overlay (crippled / dead /
-    // respawning / in a menu: the word over all of them)
-    `<div class="vitals">${vital("sh")}${vital("hp")}${vital("xp")}<div class="ffyl">${esc(t("vital.ffyl"))}</div></div>` +
+    // respawning / in a menu: the word over all of them); driving: shield + health on one row, the
+    // vehicle's health under them
+    `<div class="vitals"><div class="shhp">${vital("sh")}${vital("hp")}</div>${vital("vh")}${vital("xp")}` +
+    `<div class="ffyl">${esc(t("vital.ffyl"))}</div></div>` +
     `</div>`).join("");
   for (const row of box.querySelectorAll(".pentry")) row.onclick = () => openInspector(row.dataset.id);
   for (const p of S.players) { // XP: from the players payload (it changes with kills, not per frame)
@@ -46,13 +48,30 @@ export function renderPlayers() {
   renderTargets();
 }
 
+// The bars' patterns (shield hexagons, health columns, vehicle stripes: base.css) slide left: CSS
+// animations (panel.css / drawer.css), one tile per cycle. Their timing follows the Refresh rate: smooth
+// = linear, a cap (or the game's updates) = steps(), as many jumps per cycle as frames at that rate -
+// set once per setting change, nothing per frame.
+// each: [its repeat width (px), its speed (px per second): health faster than shields]
+const PATTERNS = { sh: [18, 8], hp: [12, 11], vh: [10, 8] }; // (the tiles: web/img/patterns/*.svg)
+export function patternTiming(motion, hz) {
+  const fps = motion === "smooth" ? 0 : motion > 0 ? motion : hz || 10; // 0: every frame
+  const root = document.documentElement.style;
+  for (const [key, [tile, speed]] of Object.entries(PATTERNS)) {
+    const period = tile / speed; // s per tile
+    root.setProperty(`--pat-dur-${key}`, `${period.toFixed(3)}s`);
+    root.setProperty(`--pat-timing-${key}`, fps ? `steps(${Math.max(1, Math.round(period * fps))})` : "linear");
+  }
+}
+
 // Shield, then health, under each player: from the live state (their marker), not the slower
 // players payload - only widths / numbers change, the list isn't rebuilt
 export function updatePlayerVitals(now = performance.now()) {
   for (const row of document.querySelectorAll("#players .pentry")) {
     const pawn = S.pawns.get(row.dataset.id);
     const p = pawn && { ...pawn, ...pawnPos(pawn, now) };
-    const set = (cls, cur, max) => {
+    // short: the numbers compacted ("1.7M / 1.7M": half-width bars while driving), the full ones on hover
+    const set = (cls, cur, max, short = false) => {
       const el = row.querySelector(".vital." + cls);
       const on = !!p && max > 0;
       if (el.classList.contains("on") !== on) el.classList.toggle("on", on);
@@ -60,13 +79,22 @@ export function updatePlayerVitals(now = performance.now()) {
       const frac = Math.max(0, Math.min(1, cur / max));
       const bar = el.querySelector("i"), width = (frac * 100).toFixed(1) + "%";
       if (bar.style.width !== width) bar.style.width = width; // only on a change (called with the frames)
-      const curText = num(Math.round(cur)), maxText = ` / ${num(Math.round(max))}`; // "/ max" at 70%
+      const fmt = short ? numShort : num;
+      const curText = fmt(Math.round(cur)), maxText = ` / ${fmt(Math.round(max))}`; // "/ max": smaller, at 70%
       const curEl = el.querySelector(".vnum b"), maxEl = el.querySelector(".vnum .vmax");
       if (curEl.textContent !== curText) curEl.textContent = curText;
       if (maxEl.textContent !== maxText) maxEl.textContent = maxText;
+      const title = short ? `${num(Math.round(cur))} / ${num(Math.round(max))}` : "";
+      if (el.title !== title) el.title = title;
     };
-    set("sh", p && p.s, p && p.sm);
-    set("hp", p && p.h, p && p.m);
+    // Driving: the vehicle's health (its own marker's), shield and health side by side above it
+    const veh = p && p.dv ? S.pawns.get(p.dv) : null, vp = veh ? { ...veh, ...pawnPos(veh, now) } : null;
+    const driving = !!(vp && vp.m > 0);
+    set("sh", p && p.s, p && p.sm, driving);
+    set("hp", p && p.h, p && p.m, driving);
+    set("vh", vp && vp.h, vp && vp.m);
+    const vitalsBox = row.querySelector(".vitals");
+    if (vitalsBox.classList.contains("driving") !== driving) vitalsBox.classList.toggle("driving", driving);
     // The action skill: ready / running (a draining bar) / cooling down (seconds left)
     const chip = row.querySelector(".askill"), ak = p && p.ak && p.ak[0] !== "u" ? p.ak : null; // ("u": last use only - the Info tab)
     const kind = ak ? ak[0] : "";

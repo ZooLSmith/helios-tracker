@@ -1,0 +1,4 @@
+<!-- Action skill pattern: scanlines, like the game's - a 1 px dark line every 3 px. Repeats every 3 x 3 px. -->
+<svg xmlns="http://www.w3.org/2000/svg" width="3" height="3" viewBox="0 0 3 3">
+  <rect y="2" width="3" height="1" fill="#000" fill-opacity=".28"/>
+</svg>

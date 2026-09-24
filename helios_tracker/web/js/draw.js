@@ -201,6 +201,6 @@ export function draw() {
     if (el && el.textContent !== String(n)) el.textContent = String(n);
   }
   tooltip(mePos, f);
-  updatePlayerVitals(now); // with the frames: follows the Movement setting
+  updatePlayerVitals(now); // with the frames: follows the Refresh rate setting
   refreshPlayerInfo(now);
 }

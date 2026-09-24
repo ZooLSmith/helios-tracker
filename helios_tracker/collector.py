@@ -763,7 +763,8 @@ class Collector:
                     # updates (staggered), new ones at once
                     key = pawn._get_address()
                     # Driving, a player's properties go wrong (seen: max health = health): the functions
-                    driving = info["k"] in ("me", "player") and try_(lambda p=pawn: field(p, "DrivenVehicle")) is not None
+                    vehicle = try_(lambda p=pawn: field(p, "DrivenVehicle")) if info["k"] in ("me", "player") else None
+                    driving = vehicle is not None
                     if driving and not self._drive_logged:
                         self._drive_logged = True
                         self._check_driving(pawn)
@@ -799,6 +800,8 @@ class Collector:
                             **({"rs": 1 if spot is not None else 2} if respawning else {}),
                             **({"dn": 1} if down == "crippled" else {"dd": 1} if down == "dead" else {}),
                             **({"mn": 1} if is_player and self._in_menu(pawn) else {}),
+                            # driving: the vehicle's pawn id (a marker of its own, with its health)
+                            **({"dv": dv} if driving and (dv := try_(lambda v=vehicle: f"{v._get_address():x}")) else {}),
                             **skills,
                         },
                     )

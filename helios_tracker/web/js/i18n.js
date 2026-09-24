@@ -33,6 +33,9 @@ export function t(key, vars, fallback) {
 }
 
 export const num = (n, digits = 0) => new Intl.NumberFormat(lang, { minimumFractionDigits: digits, maximumFractionDigits: digits }).format(n);
+/** A number short when it's big (10,000 and up: "1.7M", "850K" - the language's own compact form), else in full. */
+export const numShort = (n) => (Math.abs(n) >= 10000
+  ? new Intl.NumberFormat(lang, { notation: "compact", maximumFractionDigits: 1 }).format(n) : num(n));
 
 export function applyI18n() {
   document.documentElement.lang = lang;

@@ -3,6 +3,7 @@
 // their pawn in the state payload (refreshed a few times a second while the tab is open).
 import { esc } from "../dom.js";
 import { num, t } from "../i18n.js";
+import { nameText } from "../model.js";
 import { S, pawnPos } from "../state.js";
 
 /** A labelled bar: text on the left, value on the right, the fill = fraction (0..1). */
@@ -31,6 +32,11 @@ export function playerInfoHtml(p) {
   html += `<div class="group">${esc(t("pinfo.vitals"))}</div>`;
   if (live.sm > 0) html += barRow(t("detail.shield"), `${num(Math.round(live.s))} / ${num(Math.round(live.sm))}`, live.s / live.sm, "sh");
   if (live.m > 0) html += barRow(t("detail.health"), `${num(Math.round(live.h))} / ${num(Math.round(live.m))}`, live.h / live.m, "hp");
+  const veh = pawn.dv ? S.pawns.get(pawn.dv) : null; // driving: the vehicle's health
+  if (veh && veh.m > 0) {
+    const v = { ...veh, ...pawnPos(veh, performance.now()) };
+    html += barRow(nameText(veh), `${num(Math.round(v.h))} / ${num(Math.round(v.m))}`, v.h / v.m, "vh");
+  }
   // Experience: from the players payload (it changes with kills, not per update)
   if (p.xp) {
     const [cur, size] = p.xp;

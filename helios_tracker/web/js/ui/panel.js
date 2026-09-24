@@ -13,7 +13,7 @@ import { centerOnTarget, fit } from "../view.js";
 import { renderInspector } from "./inspector.js";
 import { renderLayers } from "./layers.js";
 import { renderMission } from "./mission.js";
-import { renderPlayers } from "./players.js";
+import { patternTiming, renderPlayers } from "./players.js";
 import { refreshStatus } from "./status.js";
 
 const MOTIONS = [0, 5, 10, 15, 20, 30, 60, "smooth"];
@@ -70,8 +70,10 @@ export function initPanel() {
     const v = e.target.value;
     settings.view.motion = v === "smooth" ? v : +v;
     saveSettings();
+    patternTiming(settings.view.motion, S.hz);
     invalidate();
   };
+  patternTiming(settings.view.motion, S.hz);
   $("target").onchange = (e) => { settings.view.target = e.target.value; saveSettings(); renderPlayers(); invalidate(); };
   // How see-through: the map's background, the map image, the panels; and the interface size
   for (const [id, key] of [["bgOpacity", "bg"], ["mapOpacity", "map"], ["panelOpacity", "panel"], ["uiScale", "ui"], ["markerScale", "marker"]]) {

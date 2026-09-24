@@ -67,9 +67,18 @@ button.act:hover { border-color: var(--accent); }
 .vital.on { display: block; }
 .vbar { position: relative; display: block; height: 20px; background: #1c2d38; border-radius: 2px; overflow: hidden; }
 .vbar i { display: block; height: 100%; width: 0; }
-.vital.sh .vbar i { background: var(--shield); }
-.vital.hp .vbar i { background: var(--health); }
-.vital.xp .vbar i { background: var(--xp); }
+/* (the patterns slide: base.css @keyframes, timing by players.js patternTiming) */
+.vital.sh .vbar i { background: var(--bar-sheen), var(--pat-shield) 0 50% / 18px 10.392px repeat, var(--shield);
+  animation: pat-sh var(--pat-dur-sh, 2.25s) var(--pat-timing-sh, linear) infinite; }
+.vital.hp .vbar i { background: var(--bar-sheen), var(--pat-health) 0 0 / 12px 12px repeat, var(--health);
+  animation: pat-hp var(--pat-dur-hp, 1.09s) var(--pat-timing-hp, linear) infinite; }
+.vital.xp .vbar i { background: var(--bar-sheen), var(--xp); }
+.vital.vh .vbar i { background: var(--bar-sheen), var(--pat-vehicle) 0 0 / 10px 10px repeat, var(--vehicle); /* the driven vehicle's health */
+  animation: pat-vh var(--pat-dur-vh, 1.25s) var(--pat-timing-vh, linear) infinite; }
+/* driving: shield and health side by side (each half), the vehicle's bar under them */
+.vitals.driving .shhp { display: flex; gap: 3px; }
+.vitals.driving .shhp .vital { flex: 1; min-width: 0; }
+.vitals.driving .shhp .vnum { font-size: 11.5px; }
 /* crippled / respawning: the shield, health and XP (level) bars faded (still there), the word over them in red */
 .vitals { position: relative; }
 .ffyl { display: none; position: absolute; inset: 2px 0 0; align-items: center; justify-content: center;
@@ -88,7 +97,7 @@ button.act:hover { border-color: var(--accent); }
 .vnum { position: absolute; left: 5px; top: 50%; transform: translateY(-50%); font-size: 12.5px; line-height: 1;
   font-weight: 700; color: #fff; font-variant-numeric: tabular-nums; white-space: nowrap;
   text-shadow: -1px 0 1px #000, 1px 0 1px #000, 0 -1px 1px #000, 0 1px 1px #000, 0 0 3px #000; }
-.vnum .vmax { opacity: .7; }
+.vnum .vmax { opacity: .7; font-size: .85em; } /* "/ max": lighter and a bit smaller than the value */
 .vnum.vright { left: auto; right: 5px; }
 .players .phead { display: flex; align-items: center; gap: 6px; }
 .players .pname { color: #f4f4f4; font-weight: 600; flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; }
@@ -100,13 +109,20 @@ button.act:hover { border-color: var(--accent); }
 .askill.r, .askill.a, .askill.c { display: block; }
 .askill i { position: absolute; left: 0; top: 0; bottom: 0; width: 0; }
 .askill span { position: relative; text-shadow: 0 0 2px #000, 0 1px 1px #000; }
-.askill.r { color: #0d1a10; }
-.askill.r span { text-shadow: none; }
-.askill.r i { background: var(--live); }
-.askill.a { color: #fff; box-shadow: inset 0 0 0 1.5px var(--health); }
+/* ready: white text on a dark green, a lighter green outline inside (like "running"'s red one) */
+/* the outlines (ready green, running red): on a layer above the fill and the text - the fill (i) covers
+   the chip, an outline on the chip itself would be under it */
+.askill::after { content: ""; position: absolute; inset: 0; border-radius: inherit; pointer-events: none; }
+.askill.r { color: #fff; }
+.askill.r::after { box-shadow: inset 0 0 0 1.5px var(--live); }
+.askill.r span { text-shadow: 0 0 2px #000, 0 1px 1px #000; }
+/* the action skill: scanlines, like the game's (all its states) */
+.askill.r i { background: var(--pat-scan), color-mix(in srgb, var(--live) 30%, #0b1a10); }
+.askill.a { color: #fff; }
+.askill.a::after { box-shadow: inset 0 0 0 1.5px var(--health); }
 .askill.a span { text-shadow: 0 0 3px #000, 0 0 2px #000, 0 1px 1px #000, 1px 0 1px #000, -1px 0 1px #000; }
-.askill.a i { background: color-mix(in srgb, var(--accent) 55%, #3a2a00); } /* a darker yellow: the white timer reads on it */
-.askill.c i { background: color-mix(in srgb, #6f8a99 55%, transparent); }
+.askill.a i { background: var(--pat-scan), color-mix(in srgb, var(--accent) 55%, #3a2a00); } /* a darker yellow: the white timer reads on it */
+.askill.c i { background: var(--pat-scan), color-mix(in srgb, #6f8a99 55%, transparent); }
 .players .pname.me { color: var(--accent); }
 .players .pinfo { color: var(--dim); font-size: 11px; margin-top: 1px; } /* level · class, under the name */
 #mission .mname { font-weight: 600; color: var(--side); cursor: pointer; }

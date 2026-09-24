@@ -163,13 +163,24 @@
 .ibar span { position: relative; text-shadow: 0 0 3px #000, 0 1px 1px #000; }
 .ibar .ibl { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .ibar .ibv { flex: none; font-variant-numeric: tabular-nums; font-weight: 600; }
-.ibar.sh i { background: var(--shield); }
-.ibar.hp i { background: var(--health); }
-.ibar.xp i { background: var(--xp); }
-.ibar.ready i { background: color-mix(in srgb, var(--live) 70%, transparent); }
-.ibar.active i { background: color-mix(in srgb, var(--accent) 65%, transparent); }
-.ibar.cooldown i { background: color-mix(in srgb, var(--dim) 35%, transparent); }
-.ibar.effect i { background: color-mix(in srgb, var(--objective) 45%, transparent); }
+.ibar.sh i { background: var(--bar-sheen), var(--pat-shield) 0 50% / 18px 10.392px repeat, var(--shield);
+  animation: pat-sh var(--pat-dur-sh, 2.25s) var(--pat-timing-sh, linear) infinite; }
+.ibar.hp i { background: var(--bar-sheen), var(--pat-health) 0 0 / 12px 12px repeat, var(--health);
+  animation: pat-hp var(--pat-dur-hp, 1.09s) var(--pat-timing-hp, linear) infinite; }
+.ibar.vh i { background: var(--bar-sheen), var(--pat-vehicle) 0 0 / 10px 10px repeat, var(--vehicle);
+  animation: pat-vh var(--pat-dur-vh, 1.25s) var(--pat-timing-vh, linear) infinite; }
+.ibar.xp i { background: var(--bar-sheen), var(--xp); }
+/* the action skill (and the melee cooldown): the Players list chip's look - ready: dark green, a lighter
+   green outline, white text; running: dark yellow, a red outline; cooling down: grey-blue. The
+   outlines on a layer above the fill (::after), like the chip's */
+.ibar::after { content: ""; position: absolute; inset: 0; border-radius: inherit; pointer-events: none; }
+.ibar.ready, .ibar.active { color: #fff; }
+.ibar.ready i { background: var(--bar-sheen), var(--pat-scan), color-mix(in srgb, var(--live) 30%, #0b1a10); }
+.ibar.ready::after { box-shadow: inset 0 0 0 1.5px var(--live); }
+.ibar.active i { background: var(--bar-sheen), var(--pat-scan), color-mix(in srgb, var(--accent) 55%, #3a2a00); }
+.ibar.active::after { box-shadow: inset 0 0 0 1.5px var(--health); }
+.ibar.cooldown i { background: var(--bar-sheen), var(--pat-scan), color-mix(in srgb, #6f8a99 55%, transparent); }
+.ibar.effect i { background: var(--bar-sheen), color-mix(in srgb, var(--objective) 45%, transparent); }
 .pstate { font-weight: 600; }
 .pstate.fine { color: var(--live); }
 .pstate.ffyl { color: var(--health); }

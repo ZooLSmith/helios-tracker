@@ -4,6 +4,7 @@ import { decodeTexture } from "./dxt.js";
 import { t } from "./i18n.js";
 import { objectCategory, setRarityTable } from "./model.js";
 import { invalidate } from "./scheduler.js";
+import { settings } from "./settings.js";
 import { S, findDetail, pawnPos } from "./state.js";
 import { renderDetail } from "./ui/detail.js";
 import { restoreDrawer } from "./ui/drawer.js";
@@ -11,7 +12,7 @@ import { closeInspector, renderInspector } from "./ui/inspector.js";
 import { renderMission } from "./ui/mission.js";
 import { renderMissionLog } from "./ui/missionlog.js";
 import { renderMotion } from "./ui/panel.js";
-import { renderPlayers } from "./ui/players.js";
+import { patternTiming, renderPlayers } from "./ui/players.js";
 import { isLive, setMessage, setStatus } from "./ui/status.js";
 
 const RETRY_MS = 2000; // lost the game: how often to check whether it's back
@@ -114,7 +115,7 @@ function onState(st) {
   invalidate();
   const now = performance.now();
   if (st.hz > 0) { // the game's update rate: interpolate exactly from one update to the next
-    if (S.hz !== st.hz) { S.hz = st.hz; renderMotion(); }
+    if (S.hz !== st.hz) { S.hz = st.hz; renderMotion(); patternTiming(settings.view.motion, S.hz); } // (updates only: steps at it)
     S.interval = 1000 / st.hz;
   } else if (S.lastState) S.interval = S.interval * 0.8 + Math.min(1000, now - S.lastState) * 0.2;
   S.lastState = now;
