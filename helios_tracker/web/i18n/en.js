@@ -7,6 +7,7 @@ export default {
   "status.connecting": "Connecting…",
   "status.live": "Live",
   "status.bad": "Disconnected",
+  "status.paused": "Game paused",
   "panel.collapse": "Collapse",
 
   "msg.connecting": "Connecting to the game…",

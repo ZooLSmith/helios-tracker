@@ -6,6 +6,7 @@ export default {
   "status.connecting": "Connexion…",
   "status.live": "En direct",
   "status.bad": "Déconnecté",
+  "status.paused": "Jeu en pause",
   "panel.collapse": "Réduire",
 
   "msg.connecting": "Connexion au jeu…",

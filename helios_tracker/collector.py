@@ -1087,7 +1087,8 @@ class Collector:
             except Exception as ex:  # noqa: BLE001
                 log_error("pickup", ex)
         t_pickups = time.perf_counter()
-        state = {"level": self.level_id, "t": round(now, 3), "hz": self.rate, "pawns": pawns, "pickups": pickups}
+        state = {"level": self.level_id, "t": round(now, 3), "hz": self.rate, "pawns": pawns, "pickups": pickups,
+                 **({"paused": 1} if try_(lambda: field(wi, "Pauser") is not None, False) else {})}  # the game paused (its menu)
         self.hub.publish("state", json.dumps(state, separators=(",", ":")))
         t_end = time.perf_counter()
         if (t_end - t0) * 1000 > SLOW_MS:  # slow: which part (and how many pawns / pickups)

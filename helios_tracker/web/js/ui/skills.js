@@ -83,7 +83,7 @@ export function skillsHtml(p) {
     const most = trees.reduce((best, b, i) => (b.pts > trees[best].pts ? i : best), 0);
     const sel = S.skillTab == null ? most : Math.min(Math.max(0, S.skillTab), trees.length - 1);
     html += `<div class="stabs">` + trees.map((b, i) =>
-      `<button data-stab="${i}" class="${i === sel ? "on" : ""}" title="${esc(nameText(b))}">` +
+      `<button data-stab="${i}" class="tree${Math.min(i, 2)}${i === sel ? " on" : ""}" title="${esc(nameText(b))}">` + // (its tree's colour)
       `${b.n ? nameHtml(b) : `<span class="nm">${esc(t("skills.other"))}</span>`}` +
       `<span class="spts">· ${esc(num(b.pts))}</span></button>`).join("") + `</div>`;
     html += `<div class="branch">${skillGrid(trees[sel], sel)}</div>`;
@@ -135,7 +135,12 @@ function skillGrid(b, index) {
       const cls = ["scell", state, locked ? "locked" : maxed ? "" : "open", sk.b ? "boosted" : ""].filter(Boolean).join(" ");
       const tip = t(locked ? "skills.locked" : maxed ? "skills.maxed" : "skills.open");
       html += `<div class="${cls}"${skillTip(sk, tip)}>` +
-        (locked ? `<span class="slock">${icon("lock")}</span>` : "") + `<div class="sn">${nameHtml(sk)}</div>` +
+        (locked ? `<span class="slock">${icon("lock")}</span>` : "") +
+        // its icon (the game's, from the mod: /icon/...png) - greyed until it has points, like the game's; tinted
+        // with its tree's colour through a layer masked by the icon itself (--ic)
+        (sk.ic ? `<span class="sicon" style="--ic: url('/icon/${encodeURIComponent(sk.ic)}.png')">` +
+          `<img src="/icon/${encodeURIComponent(sk.ic)}.png" alt="" loading="lazy" draggable="false"></span>` : "") +
+        `<div class="sn">${nameHtml(sk)}</div>` +
         `<div class="sg"><span class="pips">${pips}</span><span>${sk.g}/${sk.m}` +
         `${sk.b ? `<span class="sbonus${sk.g ? "" : " idle"}">${esc(t("skills.plus", { n: sk.b }))}</span>` : ""}</span></div></div>`;
     }

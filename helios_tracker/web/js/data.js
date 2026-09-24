@@ -14,7 +14,7 @@ import { renderMission } from "./ui/mission.js";
 import { renderMissionLog } from "./ui/missionlog.js";
 import { renderMotion } from "./ui/panel.js";
 import { patternTiming, renderPlayers } from "./ui/players.js";
-import { isLive, setMessage, setStatus } from "./ui/status.js";
+import { isLive, setMessage, setPaused, setStatus } from "./ui/status.js";
 
 const RETRY_MS = 2000; // lost the game: how often to check whether it's back
 
@@ -165,6 +165,7 @@ function onState(st) {
   }
   for (const id of S.pawns.keys()) if (!seen.has(id)) S.pawns.delete(id);
   S.pickups = st.pickups;
+  setPaused(st.paused);
   if (!S.level.center && !S.fallback && S.meId) {
     const me = S.pawns.get(S.meId);
     S.fallback = { center: [me.x, me.y], upp: 128, north: 0 };

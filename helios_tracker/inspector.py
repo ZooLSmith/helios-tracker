@@ -352,6 +352,8 @@ def _skills(ctrl: Any, player: dict[str, Any], bonuses: dict[str, list[list[Any]
             **named(try_(lambda: str(d.SkillName), ""), def_name(d)),
             "m": try_(lambda: int(d.MaxGrade), 0),
             "d": try_(lambda: str(d.SkillDescription), ""),
+            # its icon: the movie's path = its texture's (gameicons.py serves it: /icon/<path>.png)
+            **({"ic": ic} if (ic := try_(lambda: d.SkillIcon._path_name(), "")) else {}),
         })
         grade = try_(lambda s=s: int(s.Grade), None)
         if grade is None:

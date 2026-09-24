@@ -56,6 +56,13 @@
 .stabs button:hover { color: var(--text); }
 .stabs button.on { color: var(--text); border-bottom-color: var(--accent); }
 /* only the name shrinks (ellipsis): the points always show */
+/* the tree tabs in their trees' colours (left green, middle blue, right red): the name tinted, a faint underline;
+   the selected one brighter, underlined in the tree's highlight */
+.stabs button.tree0 { --t-hi: var(--tree-0-hi); } .stabs button.tree1 { --t-hi: var(--tree-1-hi); } .stabs button.tree2 { --t-hi: var(--tree-2-hi); }
+.stabs button[class*="tree"] { color: color-mix(in srgb, var(--t-hi) 55%, var(--dim));
+  border-bottom-color: color-mix(in srgb, var(--t-hi) 35%, transparent); }
+.stabs button[class*="tree"]:hover { color: color-mix(in srgb, var(--t-hi) 60%, var(--text)); }
+.stabs button[class*="tree"].on { color: color-mix(in srgb, var(--t-hi) 55%, #fff); border-bottom-color: var(--t-hi); }
 .stabs button .nm { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
 .stabs button .spts { flex: none; color: var(--dim); font-size: 11px; }
 /* the skill tree grid: a row per tier, the columns as in the game's menu */
@@ -79,7 +86,9 @@
      glow on it (the game's), then the main again (greyed) below - a hard edge */
   background:
     linear-gradient(to bottom, transparent calc(var(--fill, 0%) - 56px), rgba(255, 255, 255, .14) var(--fill, 0%), transparent var(--fill, 0%)),
-    linear-gradient(to right, var(--t-shadow), transparent 24%, transparent 76%, var(--t-shadow)), /* shaded sides */
+    /* shaded sides: soft and narrow (the tiles' footers - their rank dots - sit near the edges) */
+    linear-gradient(to right, color-mix(in srgb, var(--t-shadow) 60%, transparent), transparent 16%, transparent 84%,
+      color-mix(in srgb, var(--t-shadow) 60%, transparent)),
     linear-gradient(to bottom, var(--t-main) calc(var(--fill, 0%) - 56px), var(--t-hi) var(--fill, 0%), var(--t-main) var(--fill, 0%)); }
 .sgrid[class*="tree"]::before { content: ""; position: absolute; inset: 0; z-index: -1; border-radius: inherit;
   pointer-events: none; -webkit-backdrop-filter: grayscale(.6) brightness(var(--t-dim, .6)); backdrop-filter: grayscale(.6) brightness(var(--t-dim, .6)); /* partly: the game keeps some colour */
@@ -87,9 +96,16 @@
   mask-image: linear-gradient(to bottom, transparent var(--fill, 0%), #000 var(--fill, 0%)); }
 /* the tiles: raised off the tree (a drop shadow, a light top edge, a glaze darker at the bottom) - apart from its
    background and frame */
+/* the tree's scanlines going up, like the game's: a layer of their own (over the greyed part, under the tiles -
+   its moving doesn't make the greyscale's backdrop filter repaint), stepped by the Refresh rate (players.js
+   patternTiming "sc"); only painted while the Skills tab shows */
+.sgrid[class*="tree"]::after { content: ""; position: absolute; inset: 0; z-index: -1; border-radius: inherit;
+  pointer-events: none; animation: pat-sc var(--pat-dur-sc, .625s) var(--pat-timing-sc, linear) infinite;
+  /* bigger and stronger than the bars' (a 2 px line every 5 px, 40 %): its own, sharp at any size */
+  background: repeating-linear-gradient(to bottom, rgba(0, 0, 0, .4) 0 2px, transparent 2px 5px); }
 .sgrid[class*="tree"] .scell:not(.empty) { --tile-depth: 0 2px 5px rgba(0, 0, 0, .6), 0 0 1px rgba(0, 0, 0, .8),
     inset 0 1px 0 rgba(255, 255, 255, .09);
-  background: linear-gradient(to bottom, rgba(6, 12, 16, .38), rgba(6, 12, 16, .62));
+  background: linear-gradient(to bottom, rgba(6, 12, 16, .28), rgba(6, 12, 16, .45)); /* (light: the tree shows, the dots read) */
   box-shadow: var(--tile-depth); text-shadow: var(--bar-text-outline); }
 /* invested: a 2 px outline (the border + an inset ring of the same colour: the tile keeps its size) */
 .sgrid[class*="tree"] .scell.invested { box-shadow: inset 0 0 0 1px var(--skill-part), var(--tile-depth); }
@@ -112,8 +128,23 @@
 .srline .sval { color: var(--text); font-weight: 700; font-synthesis-weight: auto; }
 .scell .sbonus { color: var(--skill-bonus); margin-left: 3px; } /* an item's bonus ranks: "+2" */
 .scell .sbonus.idle { opacity: .45; } /* not counting yet: the skill has no point of its own */
+/* the tile's layout (square): its name pinned at the top, its footer (rank dots, rank) at the bottom, its icon
+   centred between them - the same on every tile whatever the name's length; greyed without points (the game's) */
+.sgrid[class*="tree"] .scell .sn { position: absolute; top: 4px; left: 5px; right: 5px; z-index: 1; }
+.sgrid[class*="tree"] .scell.locked .sn { right: 16px; } /* (the lock in the corner) */
+.sgrid[class*="tree"] .scell .sg { position: absolute; bottom: 4px; left: 5px; right: 5px; z-index: 1; }
+/* (the textures have no padding: their drawings fill 94-100 % of them) - a little see-through, tinted 20 % with the
+   tree's colour (a layer of it masked by the icon's own shape) so it sits behind the name and footer */
+.scell .sicon { position: absolute; left: 50%; top: 50%; width: 56%; aspect-ratio: 1; transform: translate(-50%, -50%);
+  opacity: .85; filter: drop-shadow(0 1px 1px rgba(0, 0, 0, .8)); pointer-events: none; }
+.scell .sicon img { display: block; width: 100%; height: 100%; object-fit: contain; }
+.scell .sicon::after { content: ""; position: absolute; inset: 0; background: var(--t-hi, transparent); opacity: .2;
+  -webkit-mask: var(--ic) center / contain no-repeat; mask: var(--ic) center / contain no-repeat; }
+.scell.zero .sicon img { filter: grayscale(1) brightness(.75); } /* (the image only: the tree's tint stays over it, always) */
 .scell .slock { position: absolute; top: 3px; right: 3px; display: flex; font-size: 10px; color: var(--dim); }
-.scell .pips i { background: rgba(0, 0, 0, .5); }
+/* unset ranks: a dark grey - reads on the dark sides and on a bright tree alike */
+.scell .pips i { background: color-mix(in srgb, var(--t-hi, #3a444b) 20%, #3a444b); } /* tinted 20 % like the icons */
+.sgrid[class*="tree"] .scell .pips { filter: drop-shadow(0 0 1px rgba(0, 0, 0, .9)) drop-shadow(0 1px 1px rgba(0, 0, 0, .7)); } /* like the text's outline */
 .scell.invested { border-color: var(--skill-part); }
 .scell.invested .pips i.on { background: var(--skill-part); }
 .scell.maxed { border-color: var(--skill-done); }

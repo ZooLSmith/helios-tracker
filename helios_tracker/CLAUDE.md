@@ -104,6 +104,8 @@ and interactive objects on it, with zoom / pan. Read the root `../CLAUDE.md` fir
   rebuilt as TrueType from the player's `Startup.upk` at run time (a thread, once per session), served at
   `/font/<slug>.ttf`; `@font-face` + `--font-body` / `--font-head` in base.css (not applied yet: the retheme).
   Never committed (extracted game files).
+- **Skill icons** (`gameicons.py`, see notes): the game's own, from the class packages at run time, served as
+  PNGs (`/icon/<path>.png`, decoded on demand, never committed); on the Skills tab's tiles (greyed without points).
 - **Containers**: category from the game's loot list names - an "Epic" list = **Big chests** (red
   chests, orange-red, biggest), a "WeaponChest" list = **Weapon chests** (metal crates, bandit weapon
   chests, amber), else Containers sized by item slots (most items one opening spawns). **Looted**

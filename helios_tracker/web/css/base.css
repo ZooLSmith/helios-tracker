@@ -64,8 +64,9 @@
 @keyframes pat-sh { from { background-position: 0 0, 0 50%, 0 0; } to { background-position: 0 0, -18px 50%, 0 0; } }
 @keyframes pat-hp { from { background-position: 0 0, 0 0, 0 0; } to { background-position: 0 0, -12px 0, 0 0; } }
 @keyframes pat-hp-fwd { from { background-position: 0 0, 0 0, 0 0; } to { background-position: 0 0, 12px 0, 0 0; } } /* (forward: the cutscene's) */
+@keyframes pat-sc { from { background-position: 0 0; } to { background-position: 0 -5px; } } /* scanlines going up (a skill tree's: 5 px) */
 @keyframes pat-vh { from { background-position: 0 0, 0 0, 0 0; } to { background-position: 0 0, -10px 0, 0 0; } }
-@media (prefers-reduced-motion: reduce) { .vbar i, .ibar i { animation: none !important; } #cutscene .vbar i { width: 100%; } }
+@media (prefers-reduced-motion: reduce) { .vbar i, .ibar i, .sgrid::after { animation: none !important; } #cutscene .vbar i { width: 100%; } }
 /* icons.js: inline SVGs, 1em, coloured by currentColor */
 .icon { display: inline-block; width: 1em; height: 1em; flex: none; vertical-align: -0.125em; }
 button > .icon { vertical-align: middle; }
@@ -113,12 +114,15 @@ canvas.dragging { cursor: grabbing; }
 #tip .tli { display: block; }
 #tip .tli::before { content: "· "; color: var(--dim); }
 /* the connection status: bottom left of the page, only while connecting / disconnected */
-#status { position: fixed; left: 10px; bottom: 8px; display: flex; align-items: center; gap: 6px; z-index: 2;
-  color: var(--dim); font-size: 12px; background: var(--panel); border: 1px solid var(--panel-edge); border-radius: 4px;
-  padding: 3px 8px; pointer-events: none; }
-#status i { width: 8px; height: 8px; border-radius: 50%; background: var(--warn); display: inline-block; }
+#status { position: fixed; left: 10px; bottom: 8px; display: flex; align-items: center; gap: 8px; z-index: 2;
+  color: var(--text); font-size: 14px; font-weight: 600; background: var(--panel); border: 1px solid var(--panel-edge);
+  border-radius: 5px; padding: 6px 12px; pointer-events: none; }
+#status i { width: 10px; height: 10px; border-radius: 50%; background: var(--warn); display: inline-block; }
 #status.live { display: none; }
 #status.bad i { background: var(--bad); }
+/* the game paused (live, but nothing moves): the pause icon's two bars in the warning colour, not a dot */
+#status.paused i { width: 10px; height: 11px; border-radius: 0; background: linear-gradient(90deg, var(--warn) 0 35%,
+  transparent 35% 65%, var(--warn) 65%); }
 #coords { position: fixed; right: 10px; bottom: 8px; color: var(--dim); font-size: 11px;
   font-variant-numeric: tabular-nums; pointer-events: none; }
 #msg { position: fixed; left: 50%; top: 50%; transform: translate(-50%, -50%); color: var(--dim);

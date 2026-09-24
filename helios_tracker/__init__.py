@@ -22,8 +22,9 @@ from mods_base import BoolOption, ButtonOption, SliderOption, build_mod, hook
 from unrealsdk.hooks import Type
 from unrealsdk.unreal import BoundFunction, UObject, WrappedStruct
 
-from .collector import Collector, package_path
+from .collector import Collector, cooked_dir, package_path
 from .gamefonts import load_game_fonts
+from .gameicons import set_game_dir, warm as warm_icons
 from .script import start_script
 from .server import Hub, TrackerServer
 from .util import log, log_error, start_log
@@ -134,6 +135,8 @@ def _start(new_port: int | None = None, new_lan: bool | None = None) -> None:
     log(f"live map at {where}")
     setattr(sys, _STALE_SCRIPT, start_script(port_value))
     _load_fonts()
+    set_game_dir(cooked_dir())  # (the skill icons: read from its packages when asked for)
+    threading.Thread(target=warm_icons, name="helios_tracker icons", daemon=True).start()  # their index, ahead
 
 
 def _load_fonts() -> None:

@@ -3,12 +3,25 @@
 import { $ } from "../dom.js";
 import { t } from "../i18n.js";
 
-let status = ["", "status.connecting"], message = ["msg.connecting"];
+let status = ["", "status.connecting"], message = ["msg.connecting"], paused = false;
+
+/** The box: the connection's state - once live, hidden unless the game is paused (then "Game paused"). */
+function renderStatus() {
+  const [kind, key] = status, pause = kind === "live" && paused;
+  $("status").className = pause ? "paused" : kind;
+  $("status").querySelector("span").textContent = t(pause ? "status.paused" : key);
+}
 
 export function setStatus(kind, key) {
   status = [kind, key];
-  $("status").className = kind;
-  $("status").querySelector("span").textContent = t(key);
+  renderStatus();
+}
+
+/** The game paused or not (each state from the game says). */
+export function setPaused(on) {
+  if (paused === !!on) return;
+  paused = !!on;
+  renderStatus();
 }
 
 export function setMessage(key, vars) {

@@ -496,6 +496,21 @@ def check_helios_tracker() -> None:  # noqa: PLR0915
     except ImportError:
         pass
     print(f"  game fonts: {', '.join(f'{n} ({len(b) // 1024} KB)' for n, b in game_fonts.values())} ({time.perf_counter() - t:.2f} s)")
+    # The skill icons (gameicons.py): the class packages' textures, as PNGs - Axton's, a DLC class's (Gaige)
+    from helios_tracker import gameicons  # noqa: PLC0415
+    gameicons.set_game_dir(GAME_COOKED)
+    t = time.perf_counter()
+    able = gameicons.icon_png("SharedSkillIcons_Soldier.SkillIcon-Able")
+    assert able and able[:8] == b"\x89PNG\r\n\x1a\n" and struct.unpack(">II", able[16:24]) == (64, 64), "Able's icon"
+    banner = gameicons.icon_png("SharedSkillIcons_Soldier.AAIcon-SoldierAA")
+    assert banner and struct.unpack(">II", banner[16:24]) == (256, 128), "the action skill's banner"
+    assert gameicons.icon_png("UI_Tulip_SharedSkillIcons_Mech.AAIcon-MechroAA"), "a texture named <movie>_I1 (Gaige's banner)"
+    assert gameicons.icon_png("SharedSkillIcons_Soldier.SkillIcon-Willing"), "an icon only in Startup.upk (Willing)"
+    icons = list(gameicons._index)
+    assert len(icons) > 150 and any(k.startswith("ui_tulip_") for k in icons) and any(k.startswith("ui_lilac_") for k in icons), \
+        ("every class's icons indexed, the DLC classes' (Gaige, Krieg) too", len(icons))
+    assert gameicons.icon_png("SharedSkillIcons_Soldier.Nope") is None and gameicons.icon_png("../server.py") is None
+    print(f"  skill icons: {len(icons)} indexed, Able {len(able)} bytes ({time.perf_counter() - t:.2f} s)")
     # A cutscene video's length from its Bink header (a DLC's: Captain Scarlett's intro, 65.0 s)
     real_cooked_dir = col.cooked_dir
     col.cooked_dir = lambda: GAME_COOKED

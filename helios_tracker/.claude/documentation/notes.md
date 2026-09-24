@@ -193,6 +193,27 @@ item's `DefinitionData.ItemDefinition` (a `UsableItemDefinition`):
   (both look replicated), and which menus besides the status menu set `bGFxMenuOpen` (pause, vendor,
   chat).
 
+## Loading screens (probe_loading.py, in game, solo host, 2026-09-24)
+
+One load seen (the main menu -> Sanctuary, `Loader` in between; no fast travel / level change in
+co-op yet):
+- **Start**: `WillowPlayerController:WillowClientShowLoadingMovie(MovieName='SanctuaryAir_P',
+  bShowMovie=True, ...)` (-> `WillowShowLoadingMovie`), right after `ClientFindPlayMovie(LevelName=)`.
+  `MovieName` = the map being loaded. Then the travel: `WorldInfo:ServerTravel('Loader?listen')`,
+  `PreClientTravel(bIsSeamlessTravel=True)`, `SeamlessTravel`, `NotifyLoadedWorld('Loader')`,
+  `ClientPrepareMapChange(<map>, bFirst..bLast)`, `RestartPlayer` / `Possess` (the pawn is back
+  before the screen goes), `ClientCommitMapChange`, `PostCommitMapChange`.
+- **End**: `WillowClientDisableLoadingMovie()`, then `WillowClientShowLoadingMovie(MovieName='',
+  bShowMovie=False)`: ~2 s after the start here.
+- The game renders **no frame** during it (a 2.2 s gap; PostRender stops): the collector can't send
+  anything meanwhile, but a hook on the start can publish right away (server threads keep serving).
+  The controller changes (new `WillowPlayerController_N`) and the PRI too (`SeamlessTravelTo`).
+- PRI fields (`bReadyToPlay`, `bWaitingPlayer`, `bIsInactive`, `bOnlySpectator`...): none moved;
+  `bSaveGameLoaded` False -> True (first load only?). `pc.bCinematicMode` True until ~4 s after.
+- Others' loading (co-op): not seen. Those are `Client*` functions, so on the host they're probably
+  also called on each remote player's controller (sent to their game): the same hook would see
+  them, with `obj` = their controller. On a co-op client, probably only your own. To verify.
+
 ## Areas, level names, where to go (probe_area.py, in game, Ice_P, 2026-09-23)
 
 - The level's name as the game shows it (the map screen's): `LevelDependencyList
@@ -469,3 +490,15 @@ item's `DefinitionData.ItemDefinition` (a `UsableItemDefinition`):
   docstring - em 256, y down, shared contours (a count with its low bit set = an earlier contour's
   offset), the closing edge implicit, Flash's even-odd fill (TrueType's non-zero: contours re-oriented by
   nesting). Rebuilt as TrueType at run time (~1 s, a thread), served at /font/<slug>.ttf.
+- **Skill icons** (gameicons.py): `SkillDefinition.SkillIcon` = a small Scaleform movie
+  ("SharedSkillIcons_Soldier.SkillIcon-Able"); its texture: the same path, or "<movie>_I1" (the importer's
+  first image: some, and the DLC classes') - in the class's streaming package: WillowGame/CookedPCConsole
+  `GD_<Class>_Streaming_SF.upk` (Soldier / Siren / Assassin / Mercenary: 31-34 each), DLC/Lilac and DLC/Tulip
+  `.../Content/GD_Lilac_Psycho_* / GD_Tulip_Mechro_Streaming_SF.upk` (named `UI_Lilac_SharedSkillIcons_Psyc.*`,
+  `UI_Tulip_SharedSkillIcons_Mech.*`): 205 in all, DXT5, 64 x 64 (the action skill's banner 256 x 128). Startup.upk
+  holds a couple too. Indexed once, decoded to PNG on demand (/icon/<path>.png).
+- **Skill stats** (probe_skill_stats*.py): `SkillDefinition.GetSkillEffectPresentations(grade, controller, out
+  lines)` -> {AttributePresentation (Description: "Gun Damage: $NUMBER$", display flags), ModifierValue} - the
+  tooltip's lines, computed. **Bonus ranks** (probe_skill_bonus.py): not in the tree (Grade / GetSkillGrade: the
+  points spent) - the equipped items' `ItemCardModifierStats` (a class mod: AttrPresent_Steady 2.02 -> +2, its
+  presentation in GD_AttributePresentation.Skills_<class>); they only count with a point in the skill.
