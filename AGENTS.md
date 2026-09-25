@@ -81,6 +81,13 @@ bl2-helios-tracker/
   source file.
 - Solo repo: commit straight to `master`, no branches - and only when asked. One exception: the website.
 
+## Repositories
+
+- `origin` = `ZooLSmith/helios-tracker-private` (private): the code, `master`.
+- `public` = `ZooLSmith/helios-tracker` (public): the site only, the `documentation` branch - **never the code**.
+  Locally `remote.public.push` sends only `documentation`, and `.git/hooks/pre-push` refuses anything else to it (a
+  fresh clone has neither: set them up again).
+
 ## Website (GitHub Pages)
 
 - The `documentation` branch is the site, served by GitHub Pages from its root at `https://helios-tracker.zoolsmith.com/` (its `CNAME`
