@@ -1,0 +1,113 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Helios Tracker | Une carte en direct pour Borderlands 2</title>
+<meta name="description" content="Helios Tracker est un mod de Borderlands 2 qui affiche le niveau en cours comme une carte en direct dans votre navigateur : joueurs, ennemis, butin et missions, pendant que vous jouez.">
+<link rel="icon" href="../assets/img/favicon.png">
+<link rel="alternate" hreflang="en" href="../en/index.html">
+<link rel="stylesheet" href="../assets/css/site.css">
+<script>document.documentElement.classList.add("js"); try { const t = localStorage.getItem("helios.site.theme"); if (t && t !== "default") document.documentElement.dataset.theme = t; } catch {}</script>
+<script type="module" src="../assets/js/site.js"></script>
+</head>
+<body>
+<a class="skip" href="#content">Aller au contenu</a>
+<header class="top">
+  <a class="brand" href="index.html" aria-label="Helios Tracker, accueil"><span class="logo" aria-hidden="true"></span><span>ELIOS TRACKER</span></a>
+  <div class="top-tools"><a class="lang" href="../?choose">Langue</a></div>
+</header>
+
+<div class="page" tabindex="-1">
+<div class="shell">
+  <nav class="side" id="pages" aria-label="Pages">
+    <h2>L'utiliser</h2>
+    <ul>
+      <li><a href="index.html" aria-current="page">Présentation</a></li>
+      <li><a href="install.html">Installation</a></li>
+      <li><a href="share.html">Trouver sa solution</a></li>
+      <li><a href="troubleshooting.html">Dépannage</a></li>
+    </ul>
+  </nav>
+
+  <main id="content">
+    <section class="hero">
+      <h1 class="wordmark" aria-label="Helios Tracker"><span class="logo" aria-hidden="true"></span><span>ELIOS TRACKER</span></h1>
+      <p class="lead">Votre partie de Borderlands 2 en carte, en direct, dans un onglet du navigateur. Le niveau où vous êtes, tiré de la carte du jeu lui-même, avec votre équipe, les ennemis, le butin et vos missions qui bougent dessus pendant que vous jouez.</p>
+      <p>Sur un second écran, un téléphone, une scène OBS, ou partagé avec vos amis. Il lit le jeu et n'y dessine rien.</p>
+      <div class="actions">
+        <a class="button primary" href="install.html">L'installer</a>
+        <a class="button" href="https://github.com/ZooLSmith/helios-tracker">Le code sur GitHub</a>
+      </div>
+    </section>
+
+    <div class="doc wide">
+      <h2 id="carte">Sur la carte</h2>
+      <p>Chaque sorte de marqueur est un calque : à afficher ou non, à agrandir, à nommer, ou à limiter selon la distance et l'étage.</p>
+      <ul class="legend">
+        <li><svg viewBox="-10 -10 20 20" aria-hidden="true"><path d="M-3.2-8.2 1.3 3.3-3.2.6-7.7 3.3Z" style="fill: var(--m-tracked); stroke: var(--outline); stroke-width: 1"/><path d="M4.2-2.8 8.5 8.4 4.2 5.8-.1 8.4Z" style="fill: var(--m-player); stroke: var(--outline); stroke-width: 1"/></svg>
+          <div><b>Joueurs</b><span>Vous en jaune (ou le joueur que vous suivez), les autres en blanc avec leur nom.</span></div></li>
+        <li><svg viewBox="-10 -10 20 20" aria-hidden="true"><path d="M0-7 7 0 0 7-7 0Z" style="fill: var(--m-enemy); stroke: var(--outline)"/></svg>
+          <div><b>Ennemis</b><span>Des losanges rouges, comme sur la mini-carte, avec une barre de santé une fois touchés.</span></div></li>
+        <li><svg viewBox="-10 -10 20 20" aria-hidden="true"><circle r="6" style="fill: none; stroke: var(--m-npc); stroke-width: 1.8"/></svg>
+          <div><b>PNJ et alliés</b><span>Des anneaux verts. Distributeurs, stations et symboles de la Crypte ont leurs propres calques.</span></div></li>
+        <li><svg viewBox="-10 -10 20 20" aria-hidden="true"><circle r="7.5" style="fill: var(--m-giver); stroke: #111; stroke-width: 1.2"/><path d="M0-4.6v5.4M0 3.2v1.4" style="stroke: #111; stroke-width: 2.2"/></svg>
+          <div><b>Donneurs de missions</b><span>Une mission à prendre, ou une prête à rendre.</span></div></li>
+        <li><svg viewBox="-10 -10 20 20" aria-hidden="true"><circle r="7.5" style="fill: none; stroke: var(--m-objective); stroke-width: 1.5; stroke-dasharray: 3 2.4"/><path d="M0-3.5 3.5 0 0 3.5-3.5 0Z" style="fill: var(--m-objective)"/></svg>
+          <div><b>Objectifs</b><span>Les repères de vos missions, donnés par le jeu : les zones en cercles pointillés, les points en losanges.</span></div></li>
+        <li><svg viewBox="-10 -10 20 20" aria-hidden="true"><path d="M0-7.5 6.8 5.2-6.8 5.2Z" style="fill: #ffb400; stroke: var(--outline)"/></svg>
+          <div><b>Équipement</b><span>Armes, boucliers, mods et reliques au sol, dans la couleur de leur rareté.</span></div></li>
+        <li><svg viewBox="-10 -10 20 20" aria-hidden="true"><circle r="4" style="fill: var(--m-cash); stroke: var(--outline)"/></svg>
+          <div><b>Consommables</b><span>Argent, munitions, santé, éridium et objets de mission.</span></div></li>
+        <li><svg viewBox="-10 -10 20 20" aria-hidden="true"><rect x="-6.5" y="-6.5" width="13" height="13" style="fill: var(--m-chest); stroke: var(--outline)"/></svg>
+          <div><b>Coffres et conteneurs</b><span>Les coffres rouges en plus gros. Ceux déjà pillés passent sur leur propre calque ; cliquez-en un pour voir ce qu'il peut donner.</span></div></li>
+      </ul>
+      <p>Survolez un marqueur pour son nom, sa santé, sa distance et sa hauteur ; cliquez dessus pour le détail.</p>
+
+      <h2 id="plus">Plus qu'une carte</h2>
+      <ul>
+        <li><strong>L'inspecteur de joueur.</strong> Cliquez sur un joueur pour voir son équipement, son sac à dos et ses arbres de compétences. Les fiches d'objets reprennent les noms, statistiques, pièces et icônes du jeu.</li>
+        <li><strong>Le journal des missions.</strong> Toutes les missions de votre partie : l'histoire dans l'ordre avec les missions secondaires que chacune débloque, ou par zone, avec les récompenses à votre niveau.</li>
+        <li><strong>La vue Meilleures.</strong> Classe les missions faisables tout de suite selon l'expérience, l'argent ou les deux, et indique où aller ensuite.</li>
+        <li><strong>Les compétences.</strong> La compétence d'action de chaque joueur (prête, active ou en recharge) et leurs effets temporaires.</li>
+        <li><strong>Zones et brouillard de guerre.</strong> Les noms de zones et le brouillard du jeu, sur les endroits pas encore découverts.</li>
+        <li><strong>La coop.</strong> Un seul joueur en a besoin. Il marche pour l'hôte comme pour les invités, au mieux chez l'hôte : <a href="install.html#coop">pourquoi</a>.</li>
+        <li><strong>Votre langue.</strong> La page est en français ou en anglais. Les noms d'objets, de compétences et de lieux viennent du jeu, dans sa langue.</li>
+      </ul>
+
+      <h2 id="ou">Où l'ouvrir</h2>
+      <ul>
+        <li><strong>Un second écran</strong>, dans n'importe quel navigateur du PC de jeu.</li>
+        <li><strong>Un téléphone ou une tablette</strong> sur votre réseau : <a href="share.html?path=home">activez l'accès réseau</a>.</li>
+        <li><strong>OBS</strong>, en source navigateur au fond transparent : <a href="share.html?path=stream">la mettre en place</a>.</li>
+        <li><strong>Le navigateur de l'overlay Steam</strong>, par-dessus le jeu : <a href="share.html?path=overlay">comment faire</a>.</li>
+      </ul>
+
+      <h2 id="ressources">Tiré de votre propre jeu</h2>
+      <p>Le téléchargement ne contient aucun fichier du jeu : ni cartes, ni polices, ni icônes, ni textes. Le mod les lit dans votre propre copie de Borderlands 2, en direct, pendant que vous jouez :</p>
+      <ul>
+        <li><strong>Les cartes</strong> sortent du paquet de chaque niveau au moment où vous y entrez.</li>
+        <li><strong>Les polices</strong> sont celles de l'interface du jeu, reconstruites depuis ses fichiers : la page se lit comme ses menus.</li>
+        <li><strong>Les icônes</strong> (compétences, fabricants, éléments, types d'objets) sont décodées depuis les images du jeu la première fois que la page les demande.</li>
+        <li><strong>Les noms</strong> des objets, compétences, missions et lieux viennent du jeu en cours, dans sa langue.</li>
+      </ul>
+      <p>Ce qu'il en tire reste sur votre PC, en cache, pour que la session suivante soit immédiate. C'est aussi pour ça que les DLC que vous possédez apparaissent sans rien installer de plus.</p>
+
+      <h2 id="garanties">Ce qu'il ne fait pas</h2>
+      <ul>
+        <li>Il ne modifie ni le jeu ni votre sauvegarde. Il se contente de lire.</li>
+        <li>Il ne dessine rien en jeu : rien ne cache l'interface.</li>
+        <li>Il ne va pas sur internet. Votre PC sert la page, et la page ne charge rien depuis internet.</li>
+      </ul>
+    </div>
+  </main>
+</div>
+
+<footer class="foot">
+  <div>
+    <p>Helios Tracker est un mod de fan, ni fait ni approuvé par Gearbox Software ou 2K. Borderlands et ses noms leur appartiennent.</p>
+  </div>
+</footer>
+</div>
+</body>
+</html>

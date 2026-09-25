@@ -1,0 +1,94 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Installation | Helios Tracker</title>
+<meta name="description" content="Installer Helios Tracker : le SDK Python, un fichier .sdkmod, puis ouvrir la carte dans un navigateur, sur un téléphone, dans OBS ou dans l'overlay Steam.">
+<link rel="icon" href="../assets/img/favicon.png">
+<link rel="alternate" hreflang="en" href="../en/install.html">
+<link rel="stylesheet" href="../assets/css/site.css">
+<script>document.documentElement.classList.add("js"); try { const t = localStorage.getItem("helios.site.theme"); if (t && t !== "default") document.documentElement.dataset.theme = t; } catch {}</script>
+<script type="module" src="../assets/js/site.js"></script>
+</head>
+<body>
+<a class="skip" href="#content">Aller au contenu</a>
+<header class="top">
+  <a class="brand" href="index.html" aria-label="Helios Tracker, accueil"><span class="logo" aria-hidden="true"></span><span>ELIOS TRACKER</span></a>
+  <div class="top-tools"><a class="lang" href="../?choose">Langue</a></div>
+</header>
+
+<div class="page" tabindex="-1">
+<div class="shell">
+  <nav class="side" id="pages" aria-label="Pages">
+    <h2>L'utiliser</h2>
+    <ul>
+      <li><a href="index.html">Présentation</a></li>
+      <li><a href="install.html" aria-current="page">Installation</a></li>
+      <li><a href="share.html">Trouver sa solution</a></li>
+      <li><a href="troubleshooting.html">Dépannage</a></li>
+    </ul>
+  </nav>
+
+  <main id="content" class="doc">
+    <h1>Installation</h1>
+    <p class="lead">Il vous faut Borderlands 2 sur PC avec le SDK Python. Ensuite, c'est un seul fichier.</p>
+
+    <ol class="steps">
+      <li>
+        <h3 id="sdk">Installer le SDK Python</h3>
+        <p>Le SDK est le gestionnaire de mods sur lequel tournent les mods de Borderlands 2. Suivez son guide d'installation sur <a href="https://bl-sdk.github.io/">bl-sdk.github.io</a>. Helios Tracker demande le SDK actuel (la version 3, avec le menu Mods en jeu). Les anciens mods faits pour l'ancien SDK sont une autre histoire.</p>
+      </li>
+      <li>
+        <h3 id="telecharger">Télécharger le mod</h3>
+        <p>Récupérez <code>helios_tracker.sdkmod</code> sur la <a href="https://github.com/ZooLSmith/helios-tracker/releases">page des versions</a>.</p>
+      </li>
+      <li>
+        <h3 id="copier">Le mettre dans <code>sdk_mods</code></h3>
+        <p>Copiez le fichier dans le dossier <code>sdk_mods</code> de l'installation du jeu.</p>
+        <p>Sur Steam : clic droit sur Borderlands 2 dans la bibliothèque, puis <strong>Gérer</strong>, <strong>Parcourir les fichiers locaux</strong>.</p>
+        <div class="code"><pre><code>Borderlands 2\sdk_mods\helios_tracker.sdkmod</code></pre></div>
+      </li>
+      <li>
+        <h3 id="activer">L'activer</h3>
+        <p>Lancez le jeu, ouvrez <strong>Mods</strong> depuis le menu principal, choisissez <strong>Helios Tracker</strong> et activez-le. Il le reste pour les sessions suivantes.</p>
+      </li>
+      <li>
+        <h3 id="ouvrir">Ouvrir la carte</h3>
+        <p>Dans les options du mod, appuyez sur <strong>Open Map in Browser</strong>, ou allez à cette adresse dans n'importe quel navigateur du même PC :</p>
+        <div class="code"><pre><code>http://localhost:8777/</code></pre></div>
+        <p>Laissez l'onglet ouvert pendant que vous jouez : il vous suit de niveau en niveau tout seul.</p>
+      </li>
+    </ol>
+    <p class="note">Les options du mod, dans le jeu, sont en anglais : <strong>Open Map in Browser</strong>, <strong>Port</strong>, <strong>Allow LAN Access</strong>, <strong>Updates Per Second</strong>. La page, elle, est en français.</p>
+
+    <h2 id="coop">Jouer en coop</h2>
+    <p>Un seul joueur a besoin du mod. Si vous avez le choix, installez-le sur le PC de l'<strong>hôte</strong> : son jeu sait tout, celui d'un invité seulement ce que l'hôte lui envoie.</p>
+    <p>Chez un invité, il marche quand même, avec moins de choses :</p>
+    <ul>
+      <li>l'équipement, le sac à dos et les arbres de compétences des autres joueurs ne sont pas disponibles (la page dit pourquoi) ;</li>
+      <li>les compétences, les recharges et les récompenses de missions sont seulement les vôtres ;</li>
+      <li>la carte montre ce que le jeu de l'hôte partage avec le vôtre.</li>
+    </ul>
+
+    <h2 id="ensuite">Autres façons de l'ouvrir</h2>
+    <ul>
+      <li><a href="share.html?path=home">Sur votre réseau local</a> : un téléphone, une tablette, un autre PC</li>
+      <li><a href="share.html?path=stream">Dans OBS</a>, au fond transparent</li>
+      <li><a href="share.html?path=overlay">Dans l'overlay Steam</a></li>
+    </ul>
+    <p>Si la carte ne s'ouvre pas, voir le <a href="troubleshooting.html">Dépannage</a>.</p>
+
+    <h2 id="maj">Le mettre à jour ou l'enlever</h2>
+    <p>Pour le mettre à jour, remplacez <code>helios_tracker.sdkmod</code> par le nouveau et relancez le jeu. Pour l'enlever, supprimez le fichier. Les options du mod sont enregistrées à part, dans <code>sdk_mods\settings</code>.</p>
+  </main>
+</div>
+
+<footer class="foot">
+  <div>
+    <p>Helios Tracker est un mod de fan, ni fait ni approuvé par Gearbox Software ou 2K. Borderlands et ses noms leur appartiennent.</p>
+  </div>
+</footer>
+</div>
+</body>
+</html>

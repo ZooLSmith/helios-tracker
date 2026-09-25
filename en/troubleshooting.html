@@ -1,0 +1,58 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Troubleshooting | Helios Tracker</title>
+<meta name="description" content="What to check when the live map won't open, and how to change its port.">
+<link rel="icon" href="../assets/img/favicon.png">
+<link rel="alternate" hreflang="fr" href="../fr/troubleshooting.html">
+<link rel="stylesheet" href="../assets/css/site.css">
+<script>document.documentElement.classList.add("js"); try { const t = localStorage.getItem("helios.site.theme"); if (t && t !== "default") document.documentElement.dataset.theme = t; } catch {}</script>
+<script type="module" src="../assets/js/site.js"></script>
+</head>
+<body>
+<a class="skip" href="#content">Skip to content</a>
+<header class="top">
+  <a class="brand" href="index.html" aria-label="Helios Tracker, home"><span class="logo" aria-hidden="true"></span><span>ELIOS TRACKER</span></a>
+  <div class="top-tools"><a class="lang" href="../?choose">Language</a></div>
+</header>
+
+<div class="page" tabindex="-1">
+<div class="shell">
+  <nav class="side" id="pages" aria-label="Pages">
+    <h2>Use it</h2>
+    <ul>
+      <li><a href="index.html">Overview</a></li>
+      <li><a href="install.html">Install</a></li>
+      <li><a href="share.html">Find your setup</a></li>
+      <li><a href="troubleshooting.html" aria-current="page">Troubleshooting</a></li>
+    </ul>
+  </nav>
+
+  <main id="content" class="doc">
+    <h1>Troubleshooting</h1>
+    <p class="lead">When the map won't open, check these in order.</p>
+
+    <h2 id="enabled">Is the mod enabled?</h2>
+    <p>The server only runs while the mod is on: open <strong>Mods</strong> in the game and check <strong>Helios Tracker</strong> is enabled.</p>
+
+    <h2 id="port">Is the port taken?</h2>
+    <p>The map uses port 8777. If another program already has it, the server can't start: change <strong>Port</strong> in the mod's options, and the server restarts at once on the new one. Update your bookmarks and OBS sources to match.</p>
+
+    <h2 id="device">From another device?</h2>
+    <p>Check <a href="share.html#lan-allow">LAN access</a> is on, the device is on the same network, and <a href="share.html#lan-firewall">the firewall</a> lets the game through.</p>
+
+    <h2 id="help">Still stuck?</h2>
+    <p>Everything the mod prints also goes to <code>Binaries\Win32\Plugins\unrealsdk.log</code> in the game's folder. Attach it to an <a href="https://github.com/ZooLSmith/helios-tracker/issues">issue</a>.</p>
+  </main>
+</div>
+
+<footer class="foot">
+  <div>
+    <p>Helios Tracker is a fan-made mod, not made or endorsed by Gearbox Software or 2K. Borderlands and its names belong to them.</p>
+  </div>
+</footer>
+</div>
+</body>
+</html>

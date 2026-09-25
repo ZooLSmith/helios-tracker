@@ -1,0 +1,62 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Helios Tracker</title>
+<meta name="robots" content="noindex">
+<link rel="icon" href="../assets/img/favicon.png">
+<style>
+  :root { color-scheme: dark; }
+  body { margin: 0; min-height: 100vh; display: grid; place-content: center; padding: 1.5rem; background: #0b1116; color: #d7e6ee;
+    font: 1rem/1.5 "Segoe UI", system-ui, sans-serif; text-align: center; }
+  h1 { margin: 0 0 .4rem; font-size: 1.3rem; color: #ffcc33; }
+  p { margin: 0; max-width: 34rem; color: #9fb3bf; }
+  code { color: #d7e6ee; }
+  a { color: #ffcc33; }
+</style>
+</head>
+<body>
+<!-- The live map, opened from this site's stable address: /live/?at=<the tunnel's host>. It loads the map page from
+     the player's mod, through their tunnel, and runs it here - so the page's settings (saved per site) stay, whatever
+     the tunnel's address. Everything the page then asks for (its files, the live stream, the map images) goes to the
+     mod: the page's base address is the tunnel's. The mod allows this site to read it (server.py SITE_ORIGINS). -->
+<main>
+  <h1 id="title">Connecting to the map…</h1>
+  <p id="msg"></p>
+</main>
+<script>
+  (async () => {
+    const fr = (navigator.languages || [navigator.language || ""]).some((l) => l.toLowerCase().startsWith("fr"));
+    const say = (title, msg) => { document.getElementById("title").textContent = title; document.getElementById("msg").textContent = msg; };
+    // the map's address: a host name (and port), nothing else - https, except a map on this PC (a local test)
+    const at = (new URLSearchParams(location.search).get("at") || "").trim().replace(/^https?:\/\//i, "").replace(/\/.*$/, "");
+    if (!/^[a-z0-9.-]+(:\d{1,5})?$/i.test(at)) {
+      say(fr ? "Pas d'adresse de carte" : "No map address",
+          fr ? "Ce lien ne dit pas où est la carte : demandez le lien complet à la personne qui la partage."
+             : "This link doesn't say where the map is: ask whoever shares it for the full link.");
+      return;
+    }
+    const local = /^(localhost|127\.0\.0\.1)(:|$)/i.test(at);
+    const base = (local ? "http://" : "https://") + at + "/";
+    let html;
+    try {
+      const res = await fetch(base, { cache: "no-store" });
+      if (!res.ok) throw new Error(res.status);
+      html = await res.text();
+      if (!/Helios Tracker/.test(html)) throw new Error("not the map");
+    } catch {
+      say(fr ? "La carte ne répond pas" : "The map isn't answering",
+          fr ? `Impossible de joindre ${at}. Le jeu tourne-t-il, avec le mod activé et le tunnel ouvert ?`
+             : `Can't reach ${at}. Is the game running, with the mod enabled and the tunnel open?`);
+      return;
+    }
+    // the map page, here, with its base address the mod's: every relative / root address in it goes there
+    html = html.replace(/<head>/i, `<head><base href="${base}">`);
+    document.open();
+    document.write(html);
+    document.close();
+  })();
+</script>
+</body>
+</html>

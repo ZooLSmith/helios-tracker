@@ -1,0 +1,213 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Find your setup | Helios Tracker</title>
+<meta name="description" content="A few questions to find the best way to open or share the live map: this PC, your home network, OBS, or over the internet.">
+<link rel="icon" href="../assets/img/favicon.png">
+<link rel="alternate" hreflang="fr" href="../fr/share.html">
+<link rel="stylesheet" href="../assets/css/site.css">
+<script>document.documentElement.classList.add("js"); try { const t = localStorage.getItem("helios.site.theme"); if (t && t !== "default") document.documentElement.dataset.theme = t; } catch {}</script>
+<script type="module" src="../assets/js/site.js"></script>
+</head>
+<body>
+<a class="skip" href="#content">Skip to content</a>
+<header class="top">
+  <a class="brand" href="index.html" aria-label="Helios Tracker, home"><span class="logo" aria-hidden="true"></span><span>ELIOS TRACKER</span></a>
+  <div class="top-tools"><a class="lang" href="../?choose">Language</a></div>
+</header>
+
+<div class="page" tabindex="-1">
+<div class="shell">
+  <nav class="side" id="pages" aria-label="Pages">
+    <h2>Use it</h2>
+    <ul>
+      <li><a href="index.html">Overview</a></li>
+      <li><a href="install.html">Install</a></li>
+      <li><a href="share.html" aria-current="page">Find your setup</a></li>
+      <li><a href="troubleshooting.html">Troubleshooting</a></li>
+    </ul>
+  </nav>
+
+  <main id="content" class="doc">
+    <h1>Find your setup</h1>
+    <p class="lead">A few questions, and the best way to open or share the map for what you want.</p>
+    <div class="quiz" data-start="who" data-restart="Start over" data-so-far="Your answers">
+      <section class="step question" id="q-who" data-step="q:who">
+        <h2>Who should see the map?</h2>
+        <ul class="answers">
+          <li><a href="#r-this-pc" data-key="pc" data-next="r:this-pc">Just me, on this PC</a></li>
+          <li><a href="#r-lan" data-key="home" data-next="r:lan">Me, on another device at home</a></li>
+          <li><a href="#r-overlay" data-key="overlay" data-next="r:overlay">Me, without leaving the game</a></li>
+          <li><a href="#r-obs" data-key="stream" data-next="r:obs">In my stream, for viewers</a></li>
+          <li><a href="#q-whom" data-key="elsewhere" data-next="q:whom">People elsewhere, in their own browser</a></li>
+        </ul>
+      </section>
+      <section class="step question" id="q-whom" data-step="q:whom">
+        <h2>Who are they?</h2>
+        <ul class="answers">
+          <li><a href="#q-domain" data-key="friends" data-next="q:domain">A few friends I choose</a></li>
+          <li><a href="#q-count" data-key="anyone" data-next="q:count">Anyone with the link: stream chat, a community</a></li>
+        </ul>
+      </section>
+      <section class="step question" id="q-count" data-step="q:count">
+        <h2>How many at once?</h2>
+        <ul class="answers">
+          <li><a href="#q-domain" data-key="upto50" data-next="q:domain">Up to about 50</a></li>
+          <li><a href="#r-more" data-key="more" data-next="r:more">More than that</a></li>
+        </ul>
+      </section>
+      <section class="step question" id="q-domain" data-step="q:domain">
+        <h2>Do you have a domain on Cloudflare?</h2>
+        <ul class="answers">
+          <li><a href="#r-cloudflare" data-key="domain" data-next="r:cloudflare">I have a domain on Cloudflare</a></li>
+          <li><a href="#q-account" data-key="no-domain" data-next="q:account">No domain</a></li>
+        </ul>
+      </section>
+      <section class="step question" id="q-account" data-step="q:account">
+        <h2>Is signing in with Google, Microsoft, GitHub or Apple fine?</h2>
+        <ul class="answers">
+          <li><a href="#r-funnel" data-key="account" data-next="r:funnel">Signing in is fine</a></li>
+          <li><a href="#r-quick" data-key="no-account" data-next="r:quick">Nothing to sign up for</a></li>
+        </ul>
+      </section>
+      <section class="step result" id="r-this-pc" data-step="r:this-pc">
+        <h2>Open it on this PC</h2>
+        <p>In the mod's options, press <strong>Open Map in Browser</strong>, or go to this address in any browser on the gaming PC:</p>
+        <div class="code"><pre><code>http://localhost:8777/</code></pre></div>
+        <p>See <a href="install.html#open">Install</a>.</p>
+      </section>
+      <section class="step result" id="r-lan" data-step="r:lan">
+        <h2>Your local network</h2>
+        <p>Any device on the same network as the gaming PC can open the map: a phone, a tablet, another PC. Nothing leaves your home network.</p>
+        <ol class="steps">
+          <li>
+            <h3 id="lan-allow">Allow LAN access</h3>
+            <p>Turn on <strong>Allow LAN Access</strong> in the mod's options. With it off, only the gaming PC can open the map.</p>
+          </li>
+          <li>
+            <h3 id="lan-address">Find the gaming PC's address</h3>
+            <p>On the gaming PC, open Windows <strong>Settings</strong>, <strong>Network &amp; internet</strong>, then the Wi-Fi or Ethernet connection it's using, and note its <strong>IPv4 address</strong>.</p>
+          </li>
+          <li>
+            <h3 id="lan-open">Open it on the other device</h3>
+            <p>On the phone or the other PC, connected to the same network, type <code>http://</code> followed by that address and <code>:8777/</code> in the browser.</p>
+          </li>
+        </ol>
+        <h3 id="lan-firewall">The firewall</h3>
+        <p>Windows may ask whether to let Borderlands 2 through its firewall: allow it on private networks. If you said no before, the other device can't connect: allow the game in <strong>Windows Defender Firewall</strong>, <strong>Allow an app through firewall</strong>.</p>
+      </section>
+      <section class="step result" id="r-overlay" data-step="r:overlay">
+        <h2>The Steam overlay</h2>
+        <p>Press <kbd>Shift</kbd>+<kbd>Tab</kbd> in game, open the <strong>Web browser</strong> and go to <code>http://localhost:8777/</code>.</p>
+        <p>The overlay's browser has no zoom: use the <strong>Interface</strong> size in the page's Settings instead.</p>
+      </section>
+      <section class="step result" id="r-obs" data-step="r:obs">
+        <h2>An OBS overlay</h2>
+        <p>The map in a scene, over your game, with its background see-through. Viewers see it in the stream: nothing to share.</p>
+        <ol class="steps">
+          <li>
+            <h3 id="obs-source">Add a browser source</h3>
+            <p>Add a <strong>Browser</strong> source with the URL <code>http://localhost:8777/</code>.</p>
+          </li>
+          <li>
+            <h3 id="obs-interact">Reach the page</h3>
+            <p>Right-click the source and choose <strong>Interact</strong>.</p>
+          </li>
+          <li>
+            <h3 id="obs-see-through">Make it see-through</h3>
+            <p>In the page's <strong>Settings</strong> tab, under <strong>See-through</strong>, lower <strong>Background</strong> to 0 %. The scene now shows through, with only the level's shape and the markers left. <strong>Map</strong> and <strong>Panels</strong> fade the rest.</p>
+          </li>
+        </ol>
+        <p>The page remembers its settings per browser, so the OBS source keeps its own look apart from your normal browser.</p>
+      </section>
+      <section class="step result" id="r-funnel" data-step="r:funnel" data-internet="">
+        <h2>Tailscale Funnel</h2>
+        <p>A public HTTPS address that stays the same: anyone with it opens the map, with no account and nothing to install on their side.</p>
+        <ol>
+          <li>Install <a href="https://tailscale.com/download">Tailscale</a> on the gaming PC and sign in.</li>
+          <li>Run this. The first time, it gives a link to turn Funnel on for your account:</li>
+        </ol>
+        <div class="code"><pre><code>tailscale funnel 8777</code></pre></div>
+        <p>It prints your address, <code>https://</code> then your PC's name on <code>ts.net</code>. Details: <a href="https://tailscale.com/kb/1223/funnel">Tailscale Funnel</a>.</p>
+        <details class="extra" id="funnel-autoexec">
+          <summary>Optional: start it automatically with the map</summary>
+          <ol>
+            <li>In <code>sdk_mods</code>, next to <code>helios_tracker.sdkmod</code>, create a text file named <code>helios_tracker.autoexec.ps1</code>.</li>
+            <li>Paste this line in it:
+              <div class="code"><pre><code>tailscale funnel $env:HELIOS_PORT</code></pre></div></li>
+            <li>From now on the tunnel starts with the map, and stops with it.</li>
+          </ol>
+        </details>
+      </section>
+      <section class="step result" id="r-cloudflare" data-step="r:cloudflare" data-internet="">
+        <h2>A Cloudflare tunnel</h2>
+        <p>A named tunnel publishes the map on your own domain, like <code>map.</code> and your domain, with HTTPS.</p>
+        <p>Create a tunnel in Cloudflare's dashboard and give it a hostname on your domain. Then run it on the gaming PC, with its name:</p>
+        <div class="code"><pre><code>cloudflared tunnel run --url http://127.0.0.1:8777 your-tunnel-name</code></pre></div>
+        <p>Details: <a href="https://developers.cloudflare.com/cloudflare-one/connections/connect-networks/">Cloudflare Tunnel</a>.</p>
+        <p>No domain? A <a href="#r-quick">quick tunnel</a> does without, with a random address instead.</p>
+        <details class="extra" id="cloudflare-autoexec">
+          <summary>Optional: start it automatically with the map</summary>
+          <ol>
+            <li>In <code>sdk_mods</code>, next to <code>helios_tracker.sdkmod</code>, create a text file named <code>helios_tracker.autoexec.ps1</code>.</li>
+            <li>Paste this line in it:
+              <div class="code"><pre><code>cloudflared tunnel run --url http://127.0.0.1:$env:HELIOS_PORT your-tunnel-name</code></pre></div></li>
+            <li>From now on the tunnel starts with the map, and stops with it. Use your tunnel's name.</li>
+          </ol>
+        </details>
+      </section>
+      <section class="step result" id="r-quick" data-step="r:quick" data-internet="">
+        <h2>A quick Cloudflare tunnel</h2>
+        <p>No account and no domain: one program and one command. Install <a href="https://developers.cloudflare.com/cloudflare-one/connections/connect-networks/downloads/">cloudflared</a> (or, in a terminal: <code>winget install Cloudflare.cloudflared</code>), then run this while the map runs, and share the <code>trycloudflare.com</code> address it prints:</p>
+        <div class="code"><pre><code>cloudflared tunnel --url http://127.0.0.1:8777</code></pre></div>
+        <p>Good for an evening, not for a stream's fixed link:</p>
+        <ul>
+          <li>The address changes at every start, and Cloudflare offers quick tunnels for testing, with no guarantee.</li>
+          <li>For the first half-minute after the page opens (and after each refresh), movement comes in bursts; then it's smooth.</li>
+          <li>The page remembers its settings per address: with a new one each time, everyone starts from the defaults. To keep them, <a href="#r-funnel">Tailscale Funnel</a> gives a fixed address, for signing in once.</li>
+        </ul>
+        <details class="extra" id="quick-autoexec">
+          <summary>Optional: start it automatically with the map</summary>
+          <ol>
+            <li>In <code>sdk_mods</code>, next to <code>helios_tracker.sdkmod</code>, create a text file named <code>helios_tracker.autoexec.ps1</code>.</li>
+            <li>Paste this line in it:
+              <div class="code"><pre><code>cloudflared tunnel --url http://127.0.0.1:$env:HELIOS_PORT</code></pre></div></li>
+            <li>From now on the tunnel starts with the map, and stops with it. The address to share is then written in <code>helios_tracker.autoexec.log</code>, next to it.</li>
+          </ol>
+        </details>
+        <details class="extra" id="quick-ssh">
+          <summary>Or, with nothing to install: an SSH tunnel</summary>
+          <p>Windows already has <code>ssh</code>. Free services run these tunnels, for example localhost.run. Run this in a terminal while the map runs, answer <code>yes</code> the first time, and share the <code>https://</code> address it prints:</p>
+          <div class="code"><pre><code>ssh -R 80:127.0.0.1:8777 nokey@localhost.run</code></pre></div>
+          <p>These are third-party services, not part of Helios Tracker: their free plans have time limits and can change, and a service can close. Like a quick tunnel, the address changes every time, and the page's settings with it. If it stops working, another SSH tunnel service works the same way: check that its address doesn't contain your IP (some free ones do). Details: <a href="https://localhost.run/">localhost.run</a>.</p>
+        </details>
+      </section>
+      <section class="step result" id="r-more" data-step="r:more">
+        <h2>More than 50 viewers</h2>
+        <p>That's beyond what the mod can serve: every viewer gets every update straight from your PC, and your upload runs out long before that.</p>
+        <p>It needs a <strong>relay</strong>: a server that receives the map's stream once and sends it on to every viewer, so your PC uploads it only once. Or, for Twitch, an extension that shows the map in the player. Both mean running a service of your own: Helios Tracker doesn't provide one.</p>
+      </section>
+      <section class="before" id="before-sharing">
+        <h3>Before you share</h3>
+        <ul>
+          <li>Anyone with the link sees the map, the players' names and their gear.</li>
+          <li>Stop the tunnel when you're done.</li>
+          <li><strong>Allow LAN Access</strong> isn't needed: the tunnel connects to the PC itself.</li>
+          <li data-when="friends"><strong>Why not just open a port on the router?</strong> You can, but everyone you send the link to sees your home IP, the address changes now and then, and many internet providers don't allow it at all. A tunnel keeps your IP private and the link working.</li>
+          <li>Keep it to a few viewers for now: each one gets every update from your PC, at the full rate.</li>
+        </ul>
+      </section>
+    </div>
+  </main>
+</div>
+
+<footer class="foot">
+  <div>
+    <p>Helios Tracker is a fan-made mod, not made or endorsed by Gearbox Software or 2K. Borderlands and its names belong to them.</p>
+  </div>
+</footer>
+</div>
+</body>
+</html>

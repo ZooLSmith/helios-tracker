@@ -1,0 +1,35 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Helios Tracker</title>
+<meta name="description" content="Helios Tracker: a live map for Borderlands 2, in your web browser.">
+<link rel="icon" href="assets/img/favicon.png">
+<link rel="alternate" hreflang="en" href="en/index.html">
+<link rel="alternate" hreflang="fr" href="fr/index.html">
+<link rel="stylesheet" href="assets/css/site.css">
+<script type="module">
+  // To the visitor's language (languages.js: their pick before, else their browser's); ?choose: stay and choose
+  import { LANGUAGES, preferred, remember } from "./assets/js/languages.js";
+  if (!new URLSearchParams(location.search).has("choose")) location.replace(preferred() + "/" + location.hash);
+  const list = document.querySelector(".pick .actions");
+  list.replaceChildren(...LANGUAGES.map((l, i) => {
+    const a = document.createElement("a");
+    a.className = i ? "button" : "button primary";
+    a.href = l.code + "/"; a.hreflang = a.lang = l.code; a.textContent = l.name;
+    a.addEventListener("click", () => remember(l.code));
+    return a;
+  }));
+</script>
+</head>
+<body>
+<main class="pick">
+  <h1 class="wordmark" aria-label="Helios Tracker"><span class="logo" aria-hidden="true"></span><span>ELIOS TRACKER</span></h1>
+  <div class="actions">
+    <a class="button primary" href="en/" hreflang="en" lang="en">English</a>
+    <a class="button" href="fr/" hreflang="fr" lang="fr">Français</a>
+  </div>
+</main>
+</body>
+</html>
