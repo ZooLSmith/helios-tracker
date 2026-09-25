@@ -80,3 +80,20 @@ after the page opens (or an F5) the updates arrive in ~1.5 s batches (gaps up to
 localhost. Unchanged with `--protocol http2`, an HTTP/1.1 chunked reply with `Cache-Control: no-cache, no-transform` +
 `X-Accel-Buffering: no`, or 64 KB of padding first: on Cloudflare's side, time-based. A named tunnel doesn't do it.
 The page's reload after a dropped stream restarts it (a reconnect of the stream alone would, too).
+
+## The site's /live/ page (built: a prototype)
+
+**What it is** (2026-09-25): `https://helios-tracker.zoolsmith.com/live/?at=<a tunnel's host>` (the `documentation`
+branch's `live/index.html`) opens a shared map from the site's stable address: it fetches the map page from the mod
+through the tunnel, adds `<base href="https://<host>/">` and `document.write`s it - every address in the page then goes
+to the mod, while the page runs on the site's origin. So the page's settings (localStorage, per origin) survive the
+tunnel's changing addresses, and viewers get one recognisable kind of link (the questionnaire's link maker builds it).
+The mod allows it: `server.py` `SITE_ORIGINS` (CORS; plus pages on this PC), tested in offline_check; the item icon
+loads as CORS (`crossorigin`: `artColour` reads its pixels). Tested end to end through a quick tunnel.
+
+**Open - a safety problem, to fix before it's advertised:** the shell runs whatever page the `?at=` address serves, on
+the site's origin: a crafted link can show anyone's content under `helios-tracker.zoolsmith.com` (nothing to steal
+there, but it's the user's name). The fix: the page's code from the site itself, per mod version - each release
+publishes its `web/` to the `documentation` branch (`live/<version>/`), the mod answers its version (a small
+`/version` reply, with CORS), the shell loads that version's page from the site; only data comes through the tunnel.
+It fits the release tool (not written yet). Doesn't fix Cloudflare quick tunnels' ~30 s warm-up (in the data).
