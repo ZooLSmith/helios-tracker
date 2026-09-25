@@ -139,10 +139,12 @@ let err = 0, back = 0;
 for (const [x, y, mx, my] of samples) {
   const [a, b] = worldToMap(level, x, y);
   err = Math.max(err, Math.hypot(a - mx, b - my));
-  for (const north of [0, 30]) { // map -> world undoes world -> map, north offset included
+  for (const north of [0, 90]) { // map -> world undoes world -> map; the north offset moves nothing (notes.md)
     const turned = { ...level, north };
     const [wx, wy] = mapToWorld(turned, ...worldToMap(turned, x, y));
     back = Math.max(back, Math.hypot(wx - x, wy - y));
+    const [ta, tb] = worldToMap(turned, x, y);
+    err = Math.max(err, Math.hypot(ta - mx, tb - my));
   }
 }
 const right = yawToAngle(level, 16384);

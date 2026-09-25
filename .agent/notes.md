@@ -41,11 +41,22 @@ Least squares against world X/Y:
 => `movie x = (Y - c.Y) / 128`, `movie y = -(X - c.X) / 128`; 128 = volume UnrealUnitsPerPixel (32)
 x 4 (matches the movie's Mult4 rescale). The formula never reads the minimap.
 
-**Non-zero `NorthOffsetInDegreesClockwise` - the page's rotation is probably wrong** (offline, 2026-09-25: the nav
+**Non-zero `NorthOffsetInDegreesClockwise` - it doesn't turn the map: geo.js no longer uses it** (2026-09-25: the
+user saw the markers all wrong in The Dust with the rotation; fixed - confirmed by the user on the page, The Dust). **What it's for**: the only script reading it is
+`StatusMenuMapGFxObject.Init`, which copies it into the map screen's `MapYawOffset` - it turns the pause menu's map
+view (cosmetic; the image stays world-aligned). **The page does the same** (2026-09-25, geo.js `mapTurn` -> view.js /
+draw.js `S.view.rot`, never the positions): S.view.rot = +north, i.e. the image turns **counterclockwise** by the
+offset on screen - the sign checked against the game's map screen in The Dust (the first guess, clockwise, was
+backwards). Rotate-with-heading, while following, still overrides it. The evidence (offline: the nav
 mesh fitted onto the map image at every angle, see "Level geometry for a 3D map"): 5 base game levels set one -
 Grass_Cliffs_P 180, HyperionCity_P 325, Luckys_P -90, PandoraPark_P 170, Interlude_P 90. On the first four the image
 fits the world **unrotated** (97-98 % of the nav mesh on drawn pixels; every other angle <= 72 %), while geo.js rotates
-positions by it. Interlude_P fits best at 270-285 (92 % vs 73 % unrotated) - unclear. To confirm in game before
+positions by it. Interlude_P fits best at 270-285 (92 % vs 73 % unrotated) - unclear. **The Dust in game**
+(probe_navwalk 2026-09-25, runtime centre 8288, 13659, north 90, upp 32; tools/probe_navwalk_thedust.txt): with the
+true centre the page's rotation (+90) is the worst fit (40.8 % of the nav mesh on drawn pixels) vs unrotated 68 %,
+-90 71.5 %, best single angle 73 % (315) - no clean fit on this map (Sanctuary: 98 %), part of its nav mesh isn't
+drawn; the movie places its image unrotated (no rotation in PlaceObject / the bitmap fill). 26 positions on foot
+all on player collision or terrain; its streaming like Southern Shelf's (all Kismet loaded, `_Px` not). To confirm in game before
 changing geo.js: tools/probe_navwalk.py + check_navwalk.py compare both with the runtime centre (the page rotates
 clockwise by it - unverified), or several map images (`_I2`...; handled, unverified).
 

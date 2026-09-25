@@ -1,6 +1,6 @@
 // The canvas and the view: size, map px <-> screen px, zoom, fit, follow.
 import { $ } from "./dom.js";
-import { largestFreeRect, worldToMap } from "./geo.js";
+import { largestFreeRect, mapTurn, worldToMap } from "./geo.js";
 import { invalidate, invalidateNow } from "./scheduler.js";
 import { saveSettings, settings } from "./settings.js";
 import { S, frame, pawnPos, trackedPawn } from "./state.js";
@@ -65,19 +65,23 @@ export const toMap = (sx, sy) => {
 function saveZoom() { settings.view.zoom = S.view.zoom; saveSettings(); } // remembered
 
 export function fit(keepZoom = false) { // keepZoom: only re-centre (a level change keeps the zoom)
+  const f = frame();
   let x0 = Infinity, x1 = -Infinity, y0 = Infinity, y1 = -Infinity;
   for (const img of S.images) {
     const [a, b, c, d] = img.bounds;
     x0 = Math.min(x0, a); x1 = Math.max(x1, b); y0 = Math.min(y0, c); y1 = Math.max(y1, d);
   }
   if (!isFinite(x0)) { // no image: around the player
-    const f = frame(), me = S.pawns.get(S.meId);
+    const me = S.pawns.get(S.meId);
     if (!f || !me) return;
     const [mx, my] = worldToMap(f, me.x, me.y);
     x0 = mx - 60; x1 = mx + 60; y0 = my - 60; y1 = my + 60;
   }
   S.view.cx = (x0 + x1) / 2; S.view.cy = (y0 + y1) / 2;
-  if (!keepZoom || !S.zoomed) { S.view.zoom = Math.min(W / (x1 - x0), H / (y1 - y0)) * 0.92; saveZoom(); }
+  // the map's box as the view turns it (a level with a north offset: its map screen's turn, see mapTurn)
+  const a = f ? mapTurn(f) : 0, c = Math.abs(Math.cos(a)), s = Math.abs(Math.sin(a));
+  const w = (x1 - x0) * c + (y1 - y0) * s, h = (x1 - x0) * s + (y1 - y0) * c;
+  if (!keepZoom || !S.zoomed) { S.view.zoom = Math.min(W / w, H / h) * 0.92; saveZoom(); }
   S.fitted = S.zoomed = true;
   invalidate();
 }

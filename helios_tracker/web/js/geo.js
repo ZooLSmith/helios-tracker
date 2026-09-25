@@ -23,27 +23,27 @@ export function largestFreeRect(w, h, rects) {
   return best.w ? best : { x: 0, y: 0, w, h };
 }
 
+// The volume's NorthOffsetInDegreesClockwise (level.north) isn't in the map's coordinates: the image fits the world
+// unrotated on the levels that set one (Thousand Cuts 180, Opportunity 325...; notes.md) - rotating positions by it put
+// the markers wrong (The Dust, 90). The game's map screen turns its whole view by it (MapYawOffset): mapTurn, the
+// view's turn (view.js), does the same.
+
 /** World (X, Y) -> tactical map movie px. World +X is up (north), +Y is right. */
 export function worldToMap(level, x, y) {
-  let mx = (y - level.center[1]) / level.upp;
-  let my = -(x - level.center[0]) / level.upp;
-  if (level.north) { // volume's NorthOffsetInDegreesClockwise (0 on every level checked so far)
-    const a = level.north * Math.PI / 180, c = Math.cos(a), s = Math.sin(a);
-    [mx, my] = [mx * c - my * s, mx * s + my * c];
-  }
-  return [mx, my];
+  return [(y - level.center[1]) / level.upp, -(x - level.center[0]) / level.upp];
 }
 
 /** Map movie px -> world (X, Y): the inverse of worldToMap. */
 export function mapToWorld(level, mx, my) {
-  if (level.north) {
-    const a = -level.north * Math.PI / 180, c = Math.cos(a), s = Math.sin(a);
-    [mx, my] = [mx * c - my * s, mx * s + my * c];
-  }
   return [level.center[0] - my * level.upp, level.center[1] + mx * level.upp];
 }
 
 /** UE yaw (65536 = full turn, 0 = +X) -> clockwise screen angle in radians (0 = up). */
 export function yawToAngle(level, yaw) {
-  return ((yaw % 65536) / 65536) * 2 * Math.PI + (level.north || 0) * Math.PI / 180;
+  return ((yaw % 65536) / 65536) * 2 * Math.PI;
+}
+
+/** The view's turn (S.view.rot) that shows the map like the game's map screen (the sign checked in The Dust). */
+export function mapTurn(level) {
+  return (level.north || 0) * Math.PI / 180;
 }

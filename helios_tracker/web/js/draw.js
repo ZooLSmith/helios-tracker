@@ -1,7 +1,7 @@
 // One frame: the map images, then the markers bottom to top (quest areas, objects, quest markers,
 // loot, pawns), each styled by its layer's settings; records what's where (S.hits) for hover /
 // click, updates the layer counts.
-import { UU_PER_METER, worldToMap, yawToAngle } from "./geo.js";
+import { UU_PER_METER, mapTurn, worldToMap, yawToAngle } from "./geo.js";
 import { FLOOR_UU, LAYERS, LAYER_COLOR, chestTier, isGear, lootLayer, nameText, rainbowAt, rarity } from "./model.js";
 import { look, withAlpha } from "./look.js";
 import { missionItemWanted } from "./missions.js";
@@ -128,9 +128,9 @@ export function draw() {
   if (!f) return;
   if (!S.fitted && (S.images.length || S.meId)) fit(true); // first time: fits; after a level change: keeps the zoom
   const tracked = trackedPawn();
-  // Rotate: only while following - the map turns so their heading points up
+  // Rotate: only while following - the map turns so their heading points up; else as the game's map screen shows it
   const target = settings.view.rotate && settings.view.follow ? tracked : null;
-  S.view.rot = target ? yawToAngle(f, pawnPos(target, now).r) : 0;
+  S.view.rot = target ? yawToAngle(f, pawnPos(target, now).r) : mapTurn(f);
   if (settings.view.follow) centerOnTarget(); // (after the rotation: the player's offset is on screen)
 
   // map images (and the grid), in movie px
