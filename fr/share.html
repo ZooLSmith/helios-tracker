@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Trouver sa solution | Helios Tracker</title>
+<title>Ouvrir ou partager la carte | Helios Tracker</title>
 <meta name="description" content="Quelques questions pour trouver la meilleure façon d'ouvrir ou de partager la carte en direct : ce PC, votre réseau, OBS ou internet.">
 <link rel="icon" href="../assets/img/favicon.png">
 <link rel="alternate" hreflang="en" href="../en/share.html">
@@ -21,17 +21,16 @@
 <div class="page" tabindex="-1">
 <div class="shell">
   <nav class="side" id="pages" aria-label="Pages">
-    <h2>L'utiliser</h2>
     <ul>
       <li><a href="index.html">Présentation</a></li>
       <li><a href="install.html">Installation</a></li>
-      <li><a href="share.html" aria-current="page">Trouver sa solution</a></li>
+      <li><a href="share.html" aria-current="page">Ouvrir ou partager</a></li>
       <li><a href="troubleshooting.html">Dépannage</a></li>
     </ul>
   </nav>
 
   <main id="content" class="doc">
-    <h1>Trouver sa solution</h1>
+    <h1>Ouvrir ou partager la carte</h1>
     <p class="lead">Quelques questions, et la meilleure façon d'ouvrir ou de partager la carte selon ce que vous voulez.</p>
     <div class="quiz" data-start="who" data-restart="Recommencer" data-so-far="Vos réponses">
       <section class="step question" id="q-who" data-step="q:who">
@@ -45,30 +44,18 @@
         </ul>
       </section>
       <section class="step question" id="q-whom" data-step="q:whom">
-        <h2>Qui sont-ils ?</h2>
+        <h2>Qui regarde ?</h2>
         <ul class="answers">
           <li><a href="#q-domain" data-key="friends" data-next="q:domain">Quelques amis que je choisis</a></li>
-          <li><a href="#q-count" data-key="anyone" data-next="q:count">Quiconque a le lien : le chat d'un stream, une communauté</a></li>
-        </ul>
-      </section>
-      <section class="step question" id="q-count" data-step="q:count">
-        <h2>Combien en même temps ?</h2>
-        <ul class="answers">
-          <li><a href="#q-domain" data-key="upto50" data-next="q:domain">Jusqu'à une cinquantaine</a></li>
-          <li><a href="#r-more" data-key="more" data-next="r:more">Plus que ça</a></li>
+          <li><a href="#q-domain" data-key="upto50" data-next="q:domain">Les spectateurs de mon stream, jusqu'à une cinquantaine</a></li>
+          <li><a href="#r-more" data-key="more" data-next="r:more">Plus de 50 spectateurs</a></li>
         </ul>
       </section>
       <section class="step question" id="q-domain" data-step="q:domain">
-        <h2>Avez-vous un domaine sur Cloudflare ?</h2>
+        <h2>Qu'est-ce qui vous convient ?</h2>
         <ul class="answers">
           <li><a href="#r-cloudflare" data-key="domain" data-next="r:cloudflare">J'ai un domaine sur Cloudflare</a></li>
-          <li><a href="#q-account" data-key="no-domain" data-next="q:account">Pas de domaine</a></li>
-        </ul>
-      </section>
-      <section class="step question" id="q-account" data-step="q:account">
-        <h2>Se connecter avec Google, Microsoft, GitHub ou Apple vous va ?</h2>
-        <ul class="answers">
-          <li><a href="#r-funnel" data-key="account" data-next="r:funnel">Me connecter me va</a></li>
+          <li><a href="#r-funnel" data-key="account" data-next="r:funnel">Me connecter une fois avec Google, Microsoft, GitHub ou Apple me va</a></li>
           <li><a href="#r-quick" data-key="no-account" data-next="r:quick">Rien à créer</a></li>
         </ul>
       </section>
@@ -125,12 +112,22 @@
       <section class="step result" id="r-funnel" data-step="r:funnel" data-internet="">
         <h2>Tailscale Funnel</h2>
         <p>Une adresse HTTPS publique qui ne change pas : quiconque l'a ouvre la carte, sans compte ni rien à installer de son côté.</p>
-        <ol>
-          <li>Installez <a href="https://tailscale.com/download">Tailscale</a> sur le PC de jeu et connectez-vous.</li>
-          <li>Lancez ceci. La première fois, il donne un lien pour activer Funnel sur votre compte :</li>
+        <ol class="steps">
+          <li>
+            <h3 id="funnel-install">Installer Tailscale</h3>
+            <p>Installez <a href="https://tailscale.com/download">Tailscale</a> sur le PC de jeu et connectez-vous.</p>
+          </li>
+          <li>
+            <h3 id="funnel-run">Ouvrir le funnel</h3>
+            <p>Lancez ceci dans un terminal. La première fois, il donne un lien pour activer Funnel sur votre compte :</p>
+            <div class="code"><pre><code>tailscale funnel 8777</code></pre></div>
+          </li>
+          <li>
+            <h3 id="funnel-share">Partager l'adresse</h3>
+            <p>Il affiche votre adresse : <code>https://</code> puis le nom de votre PC sur <code>ts.net</code>. Elle reste la même à chaque fois.</p>
+          </li>
         </ol>
-        <div class="code"><pre><code>tailscale funnel 8777</code></pre></div>
-        <p>Il affiche votre adresse, <code>https://</code> puis le nom de votre PC sur <code>ts.net</code>. Détails : <a href="https://tailscale.com/kb/1223/funnel">Tailscale Funnel</a>.</p>
+        <p>Détails : <a href="https://tailscale.com/kb/1223/funnel">Tailscale Funnel</a>.</p>
         <details class="extra" id="funnel-autoexec">
           <summary>Optionnel : le lancer automatiquement avec la carte</summary>
           <ol>
@@ -144,10 +141,26 @@
       <section class="step result" id="r-cloudflare" data-step="r:cloudflare" data-internet="">
         <h2>Un tunnel Cloudflare</h2>
         <p>Un tunnel nommé publie la carte sur votre propre domaine, comme <code>map.</code> suivi de votre domaine, en HTTPS.</p>
-        <p>Créez un tunnel dans le tableau de bord de Cloudflare et donnez-lui un nom d'hôte sur votre domaine. Puis lancez-le sur le PC de jeu, avec son nom :</p>
-        <div class="code"><pre><code>cloudflared tunnel run --url http://127.0.0.1:8777 nom-de-votre-tunnel</code></pre></div>
+        <ol class="steps">
+          <li>
+            <h3 id="cloudflare-install">Installer cloudflared</h3>
+            <p>Installez <a href="https://developers.cloudflare.com/cloudflare-one/connections/connect-networks/downloads/">cloudflared</a> sur le PC de jeu (ou, dans un terminal : <code>winget install Cloudflare.cloudflared</code>).</p>
+          </li>
+          <li>
+            <h3 id="cloudflare-create">Créer le tunnel</h3>
+            <p>Dans le tableau de bord de Cloudflare, créez un tunnel et donnez-lui un nom d'hôte sur votre domaine.</p>
+          </li>
+          <li>
+            <h3 id="cloudflare-run">Le lancer</h3>
+            <p>Sur le PC de jeu, avec le nom de votre tunnel :</p>
+            <div class="code"><pre><code>cloudflared tunnel run --url http://127.0.0.1:8777 nom-de-votre-tunnel</code></pre></div>
+          </li>
+          <li>
+            <h3 id="cloudflare-share">Partager l'adresse</h3>
+            <p>Votre nom d'hôte, avec <code>https://</code>. Il reste le même à chaque fois.</p>
+          </li>
+        </ol>
         <p>Détails : <a href="https://developers.cloudflare.com/cloudflare-one/connections/connect-networks/">Cloudflare Tunnel</a>.</p>
-        <p>Pas de domaine ? Un <a href="#r-quick">tunnel rapide</a> s'en passe, avec une adresse au hasard à la place.</p>
         <details class="extra" id="cloudflare-autoexec">
           <summary>Optionnel : le lancer automatiquement avec la carte</summary>
           <ol>
@@ -160,26 +173,35 @@
       </section>
       <section class="step result" id="r-quick" data-step="r:quick" data-internet="">
         <h2>Un tunnel Cloudflare rapide</h2>
-        <p>Ni compte ni domaine : un programme et une commande. Installez <a href="https://developers.cloudflare.com/cloudflare-one/connections/connect-networks/downloads/">cloudflared</a> (ou, dans un terminal : <code>winget install Cloudflare.cloudflared</code>), puis lancez ceci pendant que la carte tourne, et partagez l'adresse <code>trycloudflare.com</code> affichée :</p>
-        <div class="code"><pre><code>cloudflared tunnel --url http://127.0.0.1:8777</code></pre></div>
+        <p>Ni compte ni domaine : un programme et une commande.</p>
+        <ol class="steps">
+          <li>
+            <h3 id="quick-install">Installer cloudflared</h3>
+            <p>Installez <a href="https://developers.cloudflare.com/cloudflare-one/connections/connect-networks/downloads/">cloudflared</a> sur le PC de jeu (ou, dans un terminal : <code>winget install Cloudflare.cloudflared</code>).</p>
+          </li>
+          <li>
+            <h3 id="quick-run">Ouvrir le tunnel</h3>
+            <p>Lancez ceci dans un terminal pendant que la carte tourne, et laissez-le ouvert :</p>
+            <div class="code"><pre><code>cloudflared tunnel --url http://127.0.0.1:8777</code></pre></div>
+          </li>
+          <li>
+            <h3 id="quick-share">Partager le lien</h3>
+            <p>Il affiche une adresse <code>trycloudflare.com</code> : collez-la ici, et partagez le lien obtenu. Chacun garde ses propres réglages avec, même si l'adresse change à chaque démarrage.</p>
+            <div class="live-maker" data-live-maker>
+              <p class="nojs">Ou construisez-le à la main : <code>https://helios-tracker.zoolsmith.com/live/?at=</code> suivi de l'adresse du tunnel, sans <code>https://</code>.</p>
+              <label class="live-in">L'adresse de votre tunnel <input type="url" placeholder="https://exemple.trycloudflare.com" autocomplete="off" spellcheck="false"></label>
+              <div class="live-out" hidden><a class="live-link" target="_blank" rel="noopener"></a><button type="button" class="live-copy"></button></div>
+            </div>
+          </li>
+        </ol>
         <p>Bien pour une soirée, pas pour le lien fixe d'un stream :</p>
         <ul>
           <li>L'adresse change à chaque démarrage, et Cloudflare propose les tunnels rapides pour des essais, sans garantie.</li>
           <li>Pendant la première demi-minute après l'ouverture de la page (et après chaque actualisation), les mouvements arrivent par à-coups ; ensuite, c'est fluide.</li>
-          <li>L'adresse change à chaque fois : partagez-la via le site (ci-dessous), et chacun garde ses réglages quand même.</li>
         </ul>
-        <details class="extra" id="quick-autoexec">
-          <summary>Optionnel : le lancer automatiquement avec la carte</summary>
-          <ol>
-            <li>Dans <code>sdk_mods</code>, à côté de <code>helios_tracker.sdkmod</code>, créez un fichier texte nommé <code>helios_tracker.autoexec.ps1</code>.</li>
-            <li>Collez-y cette ligne :
-              <div class="code"><pre><code>cloudflared tunnel --url http://127.0.0.1:$env:HELIOS_PORT</code></pre></div></li>
-            <li>Désormais, le tunnel démarre avec la carte, et s'arrête avec elle. L'adresse à partager est alors écrite dans <code>helios_tracker.autoexec.log</code>, à côté.</li>
-          </ol>
-        </details>
         <details class="extra" id="quick-ssh">
           <summary>Ou, sans rien installer : un tunnel SSH</summary>
-          <p>Windows a déjà <code>ssh</code>. Des services gratuits font tourner ces tunnels, par exemple localhost.run. Lancez ceci dans un terminal pendant que la carte tourne, répondez <code>yes</code> la première fois, et partagez l'adresse <code>https://</code> affichée :</p>
+          <p>Windows a déjà <code>ssh</code>. Des services gratuits font tourner ces tunnels, par exemple localhost.run. Lancez ceci dans un terminal pendant que la carte tourne, répondez <code>yes</code> la première fois, et collez l'adresse <code>https://</code> affichée dans la case de l'étape 3 :</p>
           <div class="code"><pre><code>ssh -R 80:127.0.0.1:8777 nokey@localhost.run</code></pre></div>
           <p>Ce sont des services tiers, sans lien avec Helios Tracker : leurs offres gratuites sont limitées dans le temps et peuvent changer, et un service peut fermer. Comme pour un tunnel rapide, l'adresse change à chaque fois : partagez-la aussi via le site. S'il ne marche plus, un autre service de tunnel SSH fonctionne de la même façon : vérifiez que son adresse ne contient pas votre IP (certains gratuits le font). Détails : <a href="https://localhost.run/">localhost.run</a>.</p>
         </details>
@@ -191,18 +213,12 @@
       </section>
       <section class="before" id="before-sharing">
         <h3>Avant de partager</h3>
-        <div class="live-maker" data-live-maker>
-          <p><strong>Partagez-la via ce site :</strong> collez l'adresse affichée par votre tunnel, et envoyez le lien ci-dessous. Chacun garde ses propres réglages avec, même quand l'adresse du tunnel change.</p>
-          <p class="nojs">Ou construisez-le à la main : <code>https://helios-tracker.zoolsmith.com/live/?at=</code> suivi de l'adresse du tunnel, sans <code>https://</code>.</p>
-          <label class="live-in">L'adresse de votre tunnel <input type="url" placeholder="https://exemple.trycloudflare.com" autocomplete="off" spellcheck="false"></label>
-          <div class="code live-out" hidden><pre><code></code></pre></div>
-        </div>
         <ul>
           <li>Quiconque a le lien voit la carte, le nom des joueurs et leur équipement.</li>
           <li>Arrêtez le tunnel quand vous avez fini.</li>
           <li><strong>Allow LAN Access</strong> n'est pas nécessaire : le tunnel se connecte au PC lui-même.</li>
-          <li data-when="friends"><strong>Pourquoi ne pas simplement ouvrir un port sur la box ?</strong> C'est possible, mais tous ceux à qui vous envoyez le lien voient votre IP, l'adresse change de temps en temps, et beaucoup de fournisseurs d'accès ne le permettent pas du tout. Un tunnel garde votre IP privée et le lien valable.</li>
-          <li>Limitez-vous à quelques spectateurs pour l'instant : chacun reçoit chaque mise à jour de votre PC, à plein rythme.</li>
+          <li data-when="friends"><strong>Pourquoi ne pas simplement ouvrir un port sur la box ?</strong> C'est possible, mais le lien est alors votre adresse IP : quiconque l'a, et quiconque à qui il le transmet, la connaît, et tant que le port est ouvert, votre PC est joignable par tout internet à travers lui. L'adresse change aussi de temps en temps, et beaucoup de fournisseurs d'accès ne le permettent pas du tout. Un tunnel garde votre IP privée et le lien valable.</li>
+          <li><strong>Chaque spectateur utilise votre débit montant :</strong> votre PC envoie à chacun chaque mise à jour, environ 0,6 Mbit/s par spectateur (plus dans les niveaux chargés). Pour le ménager, baissez <strong>Updates Per Second</strong> dans les options du mod (10 par défaut ; 5 le divise par deux) : la page lisse les mouvements entre deux mises à jour. C'est pour tout le monde, votre propre page aussi.</li>
         </ul>
       </section>
     </div>

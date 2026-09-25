@@ -386,8 +386,24 @@ function initLanguage() {
 }
 
 // ---- the questionnaire (share.html): one step at a time, the answers' keys as the URL's path
-// (?path=elsewhere/anyone/upto50) - Back / Forward walk it, a link reopens it, the language switch keeps it. The
+// (?path=elsewhere/upto50/account) - Back / Forward walk it, a link reopens it, the language switch keeps it. The
 // steps are the page's HTML (each language's own text; without JS they read as a tree of links). ----
+
+// The questionnaire's answer icons (12 x 12, currentColor), by answer key
+const ANSWER_ICONS = {
+    "pc": `<rect x="1.4" y="2" width="9.2" height="6.2" rx=".7" fill="none" stroke="currentColor" stroke-width="1.1" stroke-linecap="round" stroke-linejoin="round"/><path d="M6 8.2v2.2M4.2 10.4h3.6" fill="none" stroke="currentColor" stroke-width="1.1" stroke-linecap="round" stroke-linejoin="round"/>`,
+    "home": `<path d="M1.6 6 6 2.2 10.4 6M2.9 5v5.2h6.2V5M5.1 10.2V7.6h1.8v2.6" fill="none" stroke="currentColor" stroke-width="1.1" stroke-linecap="round" stroke-linejoin="round"/>`,
+    "overlay": `<rect x="1.4" y="1.8" width="6.8" height="5" rx=".6" fill="none" stroke="currentColor" stroke-width="1.1" stroke-linecap="round" stroke-linejoin="round"/><rect x="3.8" y="5.2" width="6.8" height="5" rx=".6" fill="none" stroke="currentColor" stroke-width="1.1" stroke-linecap="round" stroke-linejoin="round" style="fill: currentColor; fill-opacity: .18"/>`,
+    "stream": `<circle cx="6" cy="6" r="1.2" style="fill: currentColor"/><path d="M4 4a2.9 2.9 0 0 0 0 4M8 4a2.9 2.9 0 0 1 0 4M2.3 2.3a5.3 5.3 0 0 0 0 7.4M9.7 2.3a5.3 5.3 0 0 1 0 7.4" fill="none" stroke="currentColor" stroke-width="1.1" stroke-linecap="round" stroke-linejoin="round"/>`,
+    "elsewhere": `<circle cx="6" cy="6" r="4.8" fill="none" stroke="currentColor" stroke-width="1.1" stroke-linecap="round" stroke-linejoin="round"/><ellipse cx="6" cy="6" rx="2.1" ry="4.8" fill="none" stroke="currentColor" stroke-width="1.1" stroke-linecap="round" stroke-linejoin="round"/><path d="M1.4 4.4h9.2M1.4 7.6h9.2" fill="none" stroke="currentColor" stroke-width="1.1" stroke-linecap="round" stroke-linejoin="round"/>`,
+    "friends": `<circle cx="4.3" cy="4.1" r="1.6" fill="none" stroke="currentColor" stroke-width="1.1" stroke-linecap="round" stroke-linejoin="round"/><path d="M1.4 10.2a2.9 2.9 0 0 1 5.8 0" fill="none" stroke="currentColor" stroke-width="1.1" stroke-linecap="round" stroke-linejoin="round"/><circle cx="8.5" cy="4.6" r="1.3" fill="none" stroke="currentColor" stroke-width="1.1" stroke-linecap="round" stroke-linejoin="round"/><path d="M7.9 7.5a2.4 2.4 0 0 1 2.9 2.7" fill="none" stroke="currentColor" stroke-width="1.1" stroke-linecap="round" stroke-linejoin="round"/>`,
+    "anyone": `<path d="M5 7 7 5M4.4 5.4 3.1 6.7a1.7 1.7 0 0 0 2.4 2.4l1.3-1.3M7.6 6.6l1.3-1.3a1.7 1.7 0 0 0-2.4-2.4L5.2 4.2" fill="none" stroke="currentColor" stroke-width="1.1" stroke-linecap="round" stroke-linejoin="round"/>`,
+    "upto50": `<path d="M1 8.6V3.4q0-.9.9-.9h7.6q1 0 1.4.9l.6 1.7v3.5Z" fill="none" stroke="currentColor" stroke-width="1.1" stroke-linecap="round" stroke-linejoin="round"/><path d="M2.4 4.2h1.7v1.6H2.4ZM5.2 4.2h1.7v1.6H5.2ZM8 4.2h1.5l.5 1.6H8Z" fill="none" stroke="currentColor" stroke-width="1.1" stroke-linecap="round" stroke-linejoin="round"/><circle cx="3.3" cy="8.9" r="1.05" fill="none" stroke="currentColor" stroke-width="1.1" stroke-linecap="round" stroke-linejoin="round" style="fill: var(--card)"/><circle cx="8.6" cy="8.9" r="1.05" fill="none" stroke="currentColor" stroke-width="1.1" stroke-linecap="round" stroke-linejoin="round" style="fill: var(--card)"/>`,
+    "more": `<circle cx="6" cy="6" r="4.8" fill="none" stroke="currentColor" stroke-width="1.1" stroke-linecap="round" stroke-linejoin="round"/><ellipse cx="6" cy="6" rx="2.1" ry="4.8" fill="none" stroke="currentColor" stroke-width="1.1" stroke-linecap="round" stroke-linejoin="round"/><path d="M1.4 4.4h9.2M1.4 7.6h9.2" fill="none" stroke="currentColor" stroke-width="1.1" stroke-linecap="round" stroke-linejoin="round"/>`, // (the same globe as "People elsewhere")
+    "domain": `<rect x="1.2" y="3.4" width="9.6" height="5.2" rx="1" fill="none" stroke="currentColor" stroke-width="1.1" stroke-linecap="round" stroke-linejoin="round"/><path d="M3.1 6h.01M4.8 6h4.2" fill="none" stroke="currentColor" stroke-width="1.1" stroke-linecap="round" stroke-linejoin="round"/>`,
+    "account": `<circle cx="6" cy="4" r="2" fill="none" stroke="currentColor" stroke-width="1.1" stroke-linecap="round" stroke-linejoin="round"/><path d="M2.5 10.5a3.5 3.5 0 0 1 7 0" fill="none" stroke="currentColor" stroke-width="1.1" stroke-linecap="round" stroke-linejoin="round"/>`,
+    "no-account": `<path d="M6.8 1.2 2.6 6.9h3.2L5.2 10.8l4.2-5.7H6.2Z" fill="none" stroke="currentColor" stroke-width="1.1" stroke-linecap="round" stroke-linejoin="round"/>`,
+};
 
 function initQuiz() {
   const quiz = document.querySelector(".quiz");
@@ -400,6 +416,11 @@ function initQuiz() {
   trail.setAttribute("aria-label", quiz.dataset.soFar);
   quiz.prepend(trail);
   for (const s of steps.values()) s.querySelector("h2").tabIndex = -1;
+  // each answer's icon, by its key (the cards: the same in every language)
+  for (const a of quiz.querySelectorAll(".answers a[data-key]")) {
+    const art = ANSWER_ICONS[a.dataset.key];
+    if (art) a.insertAdjacentHTML("afterbegin", `<svg class="icon" viewBox="0 0 12 12" aria-hidden="true">${art}</svg>`);
+  }
 
   const keysFromUrl = () => (new URLSearchParams(location.search).get("path") || "").split("/").filter(Boolean);
   const answer = (step, key) => steps.get(step)?.querySelector(`.answers a[data-key="${CSS.escape(key)}"]`);
@@ -496,16 +517,45 @@ function initQuiz() {
 // settings kept whatever the tunnel's address) ----
 
 function initLiveMaker() {
-  for (const box of document.querySelectorAll("[data-live-maker]")) {
-    const input = box.querySelector("input"), out = box.querySelector(".live-out"), code = out.querySelector("code");
-    box.querySelector(".nojs").hidden = true;
-    input.addEventListener("input", () => {
-      const host = input.value.trim().replace(/^[a-z]+:\/\//i, "").replace(/[/?#].*$/, "");
-      const ok = /^[a-z0-9.-]+\.[a-z]{2,}(:\d{1,5})?$/i.test(host);
-      out.hidden = !ok;
-      if (ok) code.textContent = `${location.origin}/live/?at=${host}`;
+  const LOCAL = /^(localhost|127(\.\d+){3}|0\.0\.0\.0|10(\.\d+){3}|192\.168(\.\d+){2}|172\.(1[6-9]|2\d|3[01])(\.\d+){2}|\[?::1\]?)(:\d+)?$/i;
+  document.querySelectorAll("[data-live-maker]").forEach((box, n) => {
+    const input = box.querySelector("input"), out = box.querySelector(".live-out");
+    const link = out.querySelector(".live-link"), copy = out.querySelector(".live-copy");
+    copy.textContent = STR.copy;
+    copy.addEventListener("click", async () => {
+      try {
+        await navigator.clipboard.writeText(link.href);
+        copy.textContent = STR.copied;
+        setTimeout(() => { copy.textContent = STR.copy; }, 1500);
+      } catch { /* no clipboard: the link can still be selected */ }
     });
-  }
+    box.querySelector(".nojs").hidden = true;
+    const err = document.createElement("p");
+    err.className = "live-err";
+    err.id = `live-err-${n}`;
+    err.setAttribute("role", "alert");
+    err.hidden = true;
+    input.closest("label").after(err);
+    input.setAttribute("aria-describedby", err.id);
+    const show = (message) => {
+      err.textContent = message || "";
+      err.hidden = !message;
+      input.setAttribute("aria-invalid", String(!!message));
+    };
+    input.addEventListener("input", () => {
+      let text = input.value.trim();
+      out.hidden = true;
+      if (!text) { show(""); return; }
+      const at = text.match(/[?&]at=([^&#\s]+)/); // a site link pasted back: its tunnel's address
+      if (at) text = decodeURIComponent(at[1]);
+      const host = text.replace(/^[a-z]+:\/\//i, "").replace(/[/?#].*$/, "");
+      if (LOCAL.test(host)) { show(STR.linkLocal); return; }
+      if (!/^[a-z0-9]([a-z0-9-]*[a-z0-9])?(\.[a-z0-9]([a-z0-9-]*[a-z0-9])?)*\.[a-z]{2,}(:\d{1,5})?$/i.test(host)) { show(STR.linkBad); return; }
+      show("");
+      link.href = link.textContent = `${location.origin}/live/?at=${host}`;
+      out.hidden = false;
+    });
+  });
 }
 
 // ---- small screens: the page menu (.side) as a drawer, opened by a button at the left of the top bar (CSS shows
