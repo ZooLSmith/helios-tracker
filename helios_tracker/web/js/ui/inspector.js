@@ -1,5 +1,5 @@
 // The right drawer: a player's Gear / Backpack / Skills (or a clicked object: detail.js, the
-// mission log: missionlog.js).
+// mission log: missionlog.js, the vending machines: shops.js).
 import { $, esc } from "../dom.js";
 import { num, t } from "../i18n.js";
 import { nameText } from "../model.js";
@@ -11,6 +11,7 @@ import { saveDrawer } from "./drawer.js";
 import { renderTargets } from "./panel.js";
 import { elementIconLoaded, itemsByKind } from "./items.js";
 import { renderMissionLog } from "./missionlog.js";
+import { renderShopsView } from "./shops.js";
 import { alignPatterns, playerSub, renderPlayers } from "./players.js";
 import { playerInfoHtml } from "./playerinfo.js";
 import { skillsHtml } from "./skills.js";
@@ -21,6 +22,7 @@ export function openInspector(id) {
   S.inspect = { id: p.i, name: p.n };
   S.detail = null;
   S.missionView = null;
+  S.shopView = null;
   S.skillTab = null; // back to their tree with the most points
   $("inspector").classList.add("open");
   saveDrawer();
@@ -32,6 +34,7 @@ export function closeInspector() {
   S.inspect = null;
   S.detail = null;
   S.missionView = null;
+  S.shopView = null;
   $("inspector").classList.remove("open");
   saveDrawer();
   renderPlayers();
@@ -44,6 +47,7 @@ export function renderInspector(resetScroll) {
     $("ifold").hidden = true;
   }
   if (S.missionView) { renderMissionLog(resetScroll); return; }
+  if (S.shopView) { renderShopsView(resetScroll); return; }
   if (S.detail) { renderDetail(resetScroll); return; }
   $("itabs").style.display = "";
   if (!S.inspect) { box.classList.remove("open"); return; }
@@ -87,6 +91,11 @@ export function renderInspector(resetScroll) {
   for (const b of body.querySelectorAll(".stabs button")) {
     b.onclick = () => { S.skillTab = +b.dataset.stab; renderInspector(); };
   }
+  bindItems(body);
+}
+
+/** The item cards in `body` (items.js): a click opens / closes one, a fold's header its fold. */
+export function bindItems(body) {
   for (const el of body.querySelectorAll(".item")) {
     el.onclick = (e) => {
       const id = el.dataset.id;
@@ -109,7 +118,7 @@ let nextInfo = 0, infoState = 0;
 /** From the frames: the Info tab follows the game's data - only when a new update arrived (the
  *  game's rate), at most every 250 ms, and the DOM only touched when its content changed. */
 export function refreshPlayerInfo(now) {
-  if (!S.inspect || S.detail || S.missionView || settings.ui.inspectorTab !== "info") return;
+  if (!S.inspect || S.detail || S.missionView || S.shopView || settings.ui.inspectorTab !== "info") return;
   if (now < nextInfo || S.lastState === infoState) return;
   nextInfo = now + 250;
   infoState = S.lastState;

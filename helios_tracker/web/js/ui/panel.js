@@ -132,6 +132,24 @@ export function initPanel() {
     renderThemes(); refreshStatus(); renderLevel(); renderPlayers(); renderTargets(); renderMotion(); renderLayers(); renderInspector(); renderMission(); invalidate();
   };
 
+  // The Info tab's sections (Mission, Shops, Players): a click on the heading folds / unfolds one (its buttons do their own
+  // thing) - remembered, like the Layers tab's categories
+  const foldSection = (sec) => {
+    const closed = settings.ui.closedInfo.includes(sec.dataset.sec);
+    sec.classList.toggle("closed", closed);
+    sec.querySelector(".isfold").innerHTML = icon(closed ? "chevronRight" : "chevronDown");
+  };
+  for (const sec of document.querySelectorAll(".isec")) {
+    foldSection(sec);
+    sec.querySelector(".ishead").addEventListener("click", (e) => {
+      if (e.target.closest("button")) return;
+      const key = sec.dataset.sec, list = settings.ui.closedInfo;
+      settings.ui.closedInfo = list.includes(key) ? list.filter((k) => k !== key) : [...list, key];
+      saveSettings();
+      foldSection(sec);
+    });
+  }
+
   // Tabs, collapse
   for (const b of $("ptabs").querySelectorAll("button")) b.onclick = () => showPanelTab(b.dataset.ptab);
   showPanelTab(settings.ui.panelTab);

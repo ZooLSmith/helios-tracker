@@ -13,6 +13,7 @@ import { closeInspector, renderInspector } from "./ui/inspector.js";
 import { renderMission } from "./ui/mission.js";
 import { renderMissionLog } from "./ui/missionlog.js";
 import { renderMotion } from "./ui/panel.js";
+import { renderShops, renderShopsView } from "./ui/shops.js";
 import { patternTiming, renderPlayers } from "./ui/players.js";
 import { isLive, setMessage, setPaused, setStatus } from "./ui/status.js";
 
@@ -42,6 +43,8 @@ export function connect() {
   on("missions", onMissions);
   on("missiondefs", onMissionDefs);
   on("missionlog", onMissionLog);
+  on("shops", onShops);
+  on("shoptimer", onShopTimer);
 }
 
 function reloadWhenBack() {
@@ -61,6 +64,7 @@ function onLevel(level) {
     S.images = []; S.fogBlob = null; S.pawns.clear(); S.pickups = []; S.objects = []; S.areas = []; S.fogSeen = null; S.explored = false; S.fitted = false; S.fallback = null;
     S.players = []; renderPlayers(); renderInspector();
     S.missions = { tracked: null, markers: [] }; renderMission();
+    S.shops = null; S.shopTimer = null; renderShops();
   }
   const wasReady = S.level && S.level.id === level.id && S.level.status === "ready";
   S.level = level;
@@ -89,7 +93,9 @@ function onCutscene(msg) {
   S.video = msg.video || msg.scene
     ? { len: msg.len ?? null, at: msg.at, paused: !!msg.paused, pos: msg.pos ?? 0, name: msg.name || "" } : null;
   clearInterval(videoTimer);
-  if (S.video) videoTimer = setInterval(renderCutscene, 250); // (the time text; the bar is a CSS animation)
+  // (the time text; the bar is a CSS animation) - its own timer, the one exception to "refreshes follow the Refresh
+  // rate setting" (AGENTS.md): no game updates reach the page while a video plays, so the frames would freeze it
+  if (S.video) videoTimer = setInterval(renderCutscene, 250);
   renderCutscene();
 }
 
@@ -225,6 +231,24 @@ function mergeLog() {
   renderMission();
   if (S.missionView) renderMissionLog();
   restoreDrawer("log");
+}
+
+/** The level's vending machines and their stock (shops.py: when it changes - a sale, a restock). */
+function onShops(msg) {
+  if (!S.level || msg.level !== S.level.id) return;
+  S.shops = { client: !!msg.client, machines: msg.machines };
+  renderShops();
+  if (S.shopView) renderShopsView();
+  if (S.detail) renderDetail(); // (a machine's panel: its stock's count)
+  restoreDrawer("shops");
+}
+
+/** The shops' restock timer: the game's count (sent again when the page's would drift from it). */
+function onShopTimer(msg) {
+  if (!S.level || msg.level !== S.level.id) return;
+  const first = !S.shopTimer;
+  S.shopTimer = { left: msg.left, rate: msg.rate, at: performance.now() };
+  if (first) renderShops(); // (its countdown line; then only its text, every second)
 }
 
 function onMissions(msg) {

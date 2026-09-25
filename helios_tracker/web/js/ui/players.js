@@ -15,6 +15,8 @@ export function playerSub(p) {
 
 export function renderPlayers() {
   const box = document.getElementById("players");
+  const count = document.getElementById("playersCount"); // (the heading's: shown while the section is folded)
+  if (count && count.textContent !== String(S.players.length || "")) count.textContent = String(S.players.length || "");
   if (!S.players.length) { box.innerHTML = '<div class="muted">—</div>'; return; }
   const sel = findPlayer();
   const vital = (cls) => `<div class="vital ${cls}"><span class="vbar"><i></i><span class="vnum"><b></b><span class="vmax"></span></span>` +

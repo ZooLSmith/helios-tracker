@@ -2,6 +2,7 @@
 import { $, classHtml, esc, nameHtml } from "../dom.js";
 import { UU_PER_METER } from "../geo.js";
 import { num, t } from "../i18n.js";
+import { icon } from "../icons.js";
 import { isGear, nameText } from "../model.js";
 import { S, findDetail, pawnPos, trackedPawn } from "../state.js";
 import { saveDrawer } from "./drawer.js";
@@ -9,10 +10,13 @@ import { renderInspector } from "./inspector.js";
 import { rarityName } from "./items.js";
 import { renderPlayers } from "./players.js";
 
+/** Opens an object's / marker's panel. From the vending machines' list: a back button to it (`back`: that machine
+ *  first on return - shops.js). */
 export function openDetail(kind, id) {
-  S.detail = { kind, id };
+  S.detail = { kind, id, back: S.shopView ? { k: "shops", id } : null };
   S.inspect = null;
   S.missionView = null;
+  S.shopView = null;
   $("inspector").classList.add("open");
   saveDrawer();
   renderPlayers();
@@ -62,7 +66,8 @@ export function renderDetail(resetScroll) {
     return;
   }
   const mission = kind === "objective" || kind === "directive";
-  $("iwho").innerHTML = mission ? nameHtml(it.objective || it.mission) : nameHtml(it);
+  const back = S.detail.back ? `<button class="mback" data-detail-back title="${esc(t("shops.back"))}">${icon("back")}</button>` : "";
+  $("iwho").innerHTML = back + (mission ? nameHtml(it.objective || it.mission) : nameHtml(it));
   const gear = kind === "loot" && isGear(it.c);
   const kindText = kind === "loot" ? (gear ? rarityName(it.q) + " · " : "") + nameText({ n: String(it.c || "Pickup"), raw: 1 })
     : t("tip." + kind, null, kind);
@@ -100,6 +105,12 @@ export function renderDetail(resetScroll) {
   if (it.ms) { // a mission item: the mission it gives / is for - a link to it in the mission log
     rows.push([t(it.ms.k === "gives" ? "detail.givesMission" : "detail.forMission"), null,
       `<a class="mlink" data-open-mission="${esc(it.ms.i)}">${esc(it.ms.n)}</a>` + (it.ms.o ? ` · ${esc(it.ms.o)}` : "")]);
+  }
+  // a vending machine: its stock, a link to it in the Shops list (shops.js)
+  const shop = kind === "vendor" && S.shops ? S.shops.machines.find((m) => m.i === it.i) : null;
+  if (shop) {
+    const n = shop.items.length + (shop.feat ? 1 : 0);
+    rows.push([t("detail.stock"), null, `<a class="mlink" data-open-shop="${esc(shop.i)}">${esc(t("detail.stockItems", { n: num(n) }))}</a>`]);
   }
   if (it.lootable) rows.push([t("detail.status"), t(it.looted ? "detail.looted" : "detail.unlooted")]);
   if (it.slots) rows.push([t("detail.slots"), num(it.slots)]);

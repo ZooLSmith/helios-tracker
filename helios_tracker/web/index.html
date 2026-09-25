@@ -26,10 +26,22 @@
     </div>
     <section class="ptab" data-ptab="info"><div class="pscroll">
       <div id="cutscene" hidden></div>
-      <h3 data-i18n="h.mission"></h3>
-      <div id="mission"><div class="muted" data-i18n="mission.none"></div></div>
-      <h3 data-i18n="h.players"></h3>
-      <div id="players" class="players"><div class="muted">—</div></div>
+      <div class="isec" data-sec="mission">
+        <div class="ishead" data-i18n-title="info.foldTip"><span class="isfold"></span><h3 data-i18n="h.mission"></h3>
+          <button class="islink" id="missionAll" data-log="1" data-i18n="info.all" data-i18n-title="mission.all" hidden></button></div>
+        <div id="mission" class="isbody"><div class="muted" data-i18n="mission.none"></div></div>
+      </div>
+      <div class="isec" data-sec="shops">
+        <div class="ishead" data-i18n-title="info.foldTip"><span class="isfold"></span><h3 data-i18n="h.shops"></h3>
+          <span class="istimer" id="shopsTimer" hidden><span data-icon="timer"></span><span data-shop-clock></span></span>
+          <button class="islink" id="shopsAll" data-shops="1" data-i18n="info.all" data-i18n-title="shops.all" hidden></button></div>
+        <div id="shops" class="isbody"></div>
+      </div>
+      <div class="isec" data-sec="players">
+        <div class="ishead" data-i18n-title="info.foldTip"><span class="isfold"></span><h3 data-i18n="h.players"></h3>
+          <span class="iscount" id="playersCount"></span></div>
+        <div id="players" class="players isbody"><div class="muted">—</div></div>
+      </div>
     </div></section>
     <section class="ptab" data-ptab="layers">
     <div class="btnrow">

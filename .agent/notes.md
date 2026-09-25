@@ -284,6 +284,41 @@ co-op yet):
 - Functions: `MissionDefinition.GetExpLevel / GetGameStage / GetExpectedGameStage`,
   `pc.GetGameStageFromRegion(region)`, `pc.GetLevelForMission(mission)` (a map name?) - not called yet.
 
+## Vending machines (offline, WillowGame.upk / Startup.upk + probe_vending.py in game, 2026-09-25)
+
+- **Contents are per machine**: every `WillowVendingMachine` actor (base `WillowVendingMachineBase`, an
+  interactive object) has its own `ShopInventory` (array of `WillowInventory`), `FeaturedItem` (the item of the
+  day) + `FeaturedItemPickup` (the one shown in the glass), `LastInventoryResetTime`, and its own loot
+  configurations (`InventoryConfigurationName`, `FeaturedItemConfigurationName`, `FeaturedItemGameStage` /
+  `AwesomeLevel` / `CommerceMarkup`), set by its `PopulationFactoryVendingMachine`. `ShopType` (weapons, items,
+  health, black market), `FormOfCurrency`. Crazy Earl is `WillowVendingMachineBlackMarket`: its items are built
+  per player (`CreateNecessaryBlackMarketItems`, `BuildUpgradeItemForPlayer`).
+- **The timer is global**: `WillowGameInfo.LastShopResetTime` / `SecondsUntilShopsReset` / `ShopTimerRate`
+  (an attribute with a modifier stack) on the host, replicated as `WillowGameReplicationInfo.SecondsUntilShopsReset`
+  / `ShopTimerRate` (`SecondsUntilShopTimerResend`, `SHOP_TIMER_RESEND_RATE`: the host resends it).
+  `GlobalsDefinition.MinutesBetweenShopResets` = 20 (class default, `GD_Globals.General.Globals` keeps it).
+  Paid resets exist in the script (`GetResetCost`, `ServerPlayerResetShop`, `Globals.ShopResetCost`).
+- The menu (`VendingMachineExGFxMovie`) only shows it: `UpdateTimeRemaining` every `VendingMachineRefreshRate`
+  = 0.5 s, "ITEM OF THE DAY" / "Time is running out!" labels.
+
+In game (probe_vending.py, Sanctuary_P, solo listen server, 2026-09-25): **confirmed per machine**. 9 machines
+(3 `SType_Items`, 2 `SType_Weapons`, 3 `SType_Health`, 1 black market, in 5 groups - all real, the user confirmed), every item a distinct object
+(`Owner` = its machine), no item in two machines, each its own featured item. On the host:
+- `ShopInventory` is a fixed 30-slot array: the items first (7-12 here), then `None`s - skip them. Items are the
+  usual inventory objects (`WillowWeapon`, `WillowShield`, `WillowGrenadeMod`, `WillowClassMod`, `WillowUsableItem`
+  = shop ammo `GD_ItemGrades.Ammo_Shop.*`), with `GetShortHumanReadableName`, `RarityLevel`, `DefinitionData`
+  (`BalanceDefinition`, `ManufacturerGradeIndex` = the item level: 7-9 at game stage 9).
+- `FeaturedItem` can be any inventory kind (a weapons machine featured a Mechromancer skin,
+  `WillowUsableCustomizationItem`). `FeaturedItemPickup` read None (the glass display: not spawned / not near?).
+- The black market has an empty `ShopInventory` and no `FeaturedItem` until opened (built per player).
+- Timer: `GRI.SecondsUntilShopsReset` 1169 at `TimeSeconds` 139, the machines' `CreationTime` 108.85: it started at
+  1200 (20 min) when the level loaded. `Game.LastShopResetTime` and every `LastInventoryResetTime` read 0 (no reset
+  yet). `ShopTimerRate` 1, empty modifier stack. When it expires: "Shops have new inventory!" (`NewShopInventory`, 5 s).
+- Price: `GetSellingPriceForInventory(InventoryForSale, WPC, Quantity) -> int` (not called yet); markup from
+  `CommerceMarkup` (`GD_Economy.VendingMachine.Init_MarkupCalc_P1`).
+- Not seen yet: the reset itself (every machine at once? the timer back to 1200?), a level reload, a co-op client
+  (is `ShopInventory` replicated? the machines are `bAlwaysRelevant`).
+
 ## Backlog
 
 - **Mission log cost** (user, 2026-09-23: 20-40 ms often) - (1) and (3) DONE, to measure in game; (2) if still needed:
@@ -464,6 +499,8 @@ co-op yet):
   bKismetEnabledCinematicMode, bCinematicModeHidePlayer, bIgnoreMove/LookInput 2, HUD bShowHUD False, pawn
   hidden), then a video: `ClientPlayBinkMovie(MovieName='Orchid_Intro', bStreamed, bLooping, bForceNoSkip)`
   - and **not one frame (PostRender) for its whole length** (65 s): nothing runs on the frames meanwhile.
+  The `MovieName` comes with or without its extension: 'Orchid_Intro', 'MegaIntro', but 'TC_Marcus.bik' (the log,
+  2026-09-24/25: its length read None - looked for 'TC_Marcus.bik.bik'; `movie_length` drops a ".bik" now).
   Its length: the .bik header (frames at 8, frame rate numerator / denominator at 28 / 32: 1948 frames,
   5000000 / 166833 = 29.97 fps = 65.0 s, exactly the gap); files in WillowGame/Movies or
   DLC/<code>/<Lic>/Movies. After it: cinematic mode off, the HUD reopened. `GRI.bAllInCinematicMode`: every

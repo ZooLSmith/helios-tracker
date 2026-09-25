@@ -133,13 +133,14 @@ export function elementIconLoaded(img) {
   if (elementTints.get(src)) item.style.setProperty("--etint", elementTints.get(src));
 }
 
-function itemHtml(it, ownerLevel) {
+/** `it.cur`: its price's currency when not cash (a vending machine's: "eridium"...). */
+export function itemHtml(it, ownerLevel) {
   const [tier, color] = rarity(it.q || 0);
   // (no equip slot: obvious; no maker when its logo's there - the footer's, its name the logo's tooltip; its level
   // and price in the card's top right)
   const logo = it.mf && /^[A-Za-z0-9_]+$/.test(it.mf);
   const meta = [it.type || t("kind." + it.k, null, it.k), logo ? "" : it.maker].filter(Boolean).join(" · ");
-  const price = it.v ? `<span class="iprice">${esc(money(it.v))}</span>` : "";
+  const price = it.v ? `<span class="iprice">${esc(it.cur ? t("currency." + it.cur, { n: num(it.v) }) : money(it.v))}</span>` : "";
   // its level, top right - red above its owner's (the game's rule: not equippable yet)
   const tooHigh = it.l && ownerLevel && it.l > ownerLevel;
   const level = it.l ? `<span class="ilvl${tooHigh ? " toohigh" : ""}"${tooHigh ? tipAttrs("", t("item.levelTooHigh", { n: ownerLevel })) : ""}>` +

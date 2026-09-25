@@ -15,6 +15,7 @@ import { initLayers } from "./ui/layers.js";
 import { initMission } from "./ui/mission.js";
 import { initMissionLog } from "./ui/missionlog.js";
 import { initPanel, renderTargets } from "./ui/panel.js";
+import { initShops } from "./ui/shops.js";
 import { refreshStatus } from "./ui/status.js";
 import { initView } from "./view.js";
 
@@ -28,6 +29,7 @@ export function start() {
   initLayers();
   initMission();
   initMissionLog();
+  initShops();
   initInspector();
   initHoverTips();
   initInput();

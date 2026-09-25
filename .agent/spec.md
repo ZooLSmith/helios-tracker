@@ -82,6 +82,24 @@ It draws nothing in game: everything it shows is on the page.
   picked up now: its region's current stage), coloured by the game's difficulty thresholds for the
   selected player; a 5th goal, **Finish first**: picked-up missions, the furthest below the player
   first. GameStage / bGameStageLocked: two property reads per not-done mission per full pass.
+- **Shops** (`shops.py`, see notes "Vending machines": each machine has its own stock, the timer is the game's):
+  the `shops` payload (the level's machines: name = the vending menu's title, the game's; kind; position; stock
+  and item of the day as inspector item records, "v" = the machine's price, `GetSellingPriceForInventory`) when it
+  changes, `shoptimer` ({left, rate}: `WorldInfo.Game`, else the replicated GRI) when the page's countdown would be
+  off by more than 1 s (a restock sends both). Read every 2 s; new item records built a few ms per pass (a level's
+  ~70: never one hitch). Ammo and health vials (`pickup_kind`: every machine always sells them) go apart as
+  `basics` (name, price: no card). Info tab: a Shops section - its heading: the restock countdown by a timer icon
+  (always, open or folded) and "All"; its body: the 2 closest machines (name, distance, their item of the day in its
+  rarity's colour; a click: the list on it), kept current from the frames (the Refresh rate rule). The drawer: a tab
+  per kind of machine (named by the vending menu's title, the remembered tab `ui.shopTab`; in the skill trees'
+  colours: weapons red, ammo / grenades green, shields / health blue), in it the kind's "Always for sale" price list
+  (the closest machine's), then its machines, the closest first, each its item of the day then its stock (the item
+  cards); a machine's name opens its panel, which then has a back button to the list (on that machine), and whose
+  "For sale" row links back to its tab. Crazy Earl left out (no stock until opened, built per player: only his marker).
+- **Info tab sections** (Mission, Shops, Players - meant to hold more of these panes): a heading row (fold chevron, title,
+  what fits beside it - Shops' countdown; Players' count, folded only -, a small "All" link opening its drawer)
+  whose click folds the section (`ui.closedInfo`,
+  remembered). The look to be redone.
 - The drawer closes when what it shows is gone (loot picked up, pawn dead, marker done).
 - **Drawer restored on a refresh (F5)** (`ui/drawer.js`, `ui.drawer`): what it shows is remembered -
   a player (by name), a mission / the mission list, a map object (by id) - and reopened once its data
@@ -155,7 +173,10 @@ It draws nothing in game: everything it shows is on the page.
 - **Click panel**: clicking any marker opens a detail drawer (players: the inspector) - containers
   (status, slots, loot lists, every pool), loot, pawns (level, shield, health), quest markers.
   Hover / click pick the marker drawn on top (loot > pawns > quest markers > objects; inside the
-  marker, last drawn; objects drawn by height).
+  marker, last drawn; objects drawn by height). **Selection highlight** (`draw.js` drawSelection): what the drawer
+  shows (an object, a marker, an inspected player - not the tracked one) gets corner brackets sized to its marker and
+  a dashed line from the tracked player, both in the tracked colour, over every marker; the brackets breathe when
+  the page animates (still with "Updates only"). Opening / closing the drawer redraws at once (`saveDrawer`).
 - **Skills tab**: one tab per tree (default: the one with the most points), the game's grid layout
   (`SkillTreeBranchDefinition.Tiers` + `Layout.Tiers[].bCellIsOccupied`); the root / action skill
   branch hidden. Player vitals (shield then health bars, numbers inside) in the Players list;
@@ -222,6 +243,7 @@ It draws nothing in game: everything it shows is on the page.
   `HELIOS_PORT`, runs hidden, and its output goes to `autoexec.log` / `helios_tracker.autoexec.log` beside it. It sits in a kill-on-close job object: server stop, port / LAN
   restart, mod disable, or the game exiting ends it along with its children.
 - `skills.py`: the players' skills (action skill, timed effects, melee cooldown), per update.
+- `shops.py`: the vending machines' stock, prices and the restock timer (`shops` / `shoptimer`), every 2 s.
 - `util.py`: shared helpers (`try_`, `call_str`, `def_name`, `addr`, `log_error`, `field`).
 - **Per-update / per-pass reads go through `util.field(obj, name)`** (the property looked up once per
   class, then `_get_field`: 1-2 us instead of 15-24 us by name - tools/probe_perf.txt); structs held
@@ -258,7 +280,8 @@ js/missions.js    the mission log: states, the tree, objective states (pure)
 js/icons.js       the icons: inline SVGs (currentColor), icon(name) - no emoji / glyphs as icons
 js/ui/            panel (tabs, Settings), layers (Layers tab), status, mission (Info panel), missionlog
                   (drawer: tree, details, back history), players, inspector, detail, items, skills,
-                  drawer (what the drawer shows: remembered, restored on a refresh)
+                  shops (Info section + drawer: the vending machines), drawer (what the drawer shows:
+                  remembered, restored on a refresh)
 ```
 
 - Modules only define things at import time (no DOM access): the offline check imports every one of
@@ -267,7 +290,9 @@ js/ui/            panel (tabs, Settings), layers (Layers tab), status, mission (
 - State changes: mutate `S`, then `invalidate()` for the canvas and the relevant `ui/` render function
   for the HTML. Circular imports are fine (only called at runtime).
 - Per-frame code (draw, the Players list's bars / chips) only writes the DOM when a value changed;
-  HTML panels that follow live data refresh at the game's update rate, not per frame.
+  HTML panels that follow live data refresh at the game's update rate, not per frame. Whatever changes by itself
+  (countdowns...) is refreshed from the frames, so it follows the Refresh rate setting - no timers of its own
+  (AGENTS.md "Page refreshes follow the Refresh rate setting"; offline_check enforces it).
 - **Colours are tokens** (`css/base.css` `:root`): a theme sets its inputs (`--bg`, `--tint`, `--text`,
   `--accent`; `css/themes.css`), the surfaces / edges / text shades are `color-mix()`es of them (any token can
   still be set by a theme). CSS uses `var(--...)` only; the canvas reads them at start through

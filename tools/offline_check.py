@@ -572,6 +572,9 @@ def check_helios_tracker() -> None:  # noqa: PLR0915
     col.cooked_dir = lambda: GAME_COOKED
     if (GAME_COOKED.parent.parent / "DLC" / "Orchid").is_dir():
         assert col.movie_length("Orchid_Intro") == 65.0, col.movie_length("Orchid_Intro")
+    # (the game names some with their extension: the Marcus intro came as 'TC_Marcus.bik' - its length was lost)
+    if (GAME_COOKED.parent / "Movies" / "TC_Marcus.bik").is_file():
+        assert col.movie_length("TC_Marcus.bik") == col.movie_length("TC_Marcus") == 19.3, col.movie_length("TC_Marcus.bik")
     assert col.movie_length("NoSuchMovie") is None
     col.cooked_dir = real_cooked_dir
     # A DLC map: its package is under DLC/<code name>/{Lic,Compat}/Content (the collector's package_path)
@@ -1129,6 +1132,71 @@ def check_helios_tracker() -> None:  # noqa: PLR0915
     c.tick(1001.4)
     names = [o["n"] for o in json.loads(hub._channels["objects"][1])["objects"]]
     assert names == ["Explosive Gas Tank", "Treasure Chest"], names
+    # Vending machines (tools/probe_vending.txt): a machine's 30-slot stock (the items, then None), its item of the
+    # day, the price the machine asks; the restock timer from WorldInfo.Game (the host) - sent when it drifts
+    from helios_tracker import shops as vend_mod  # noqa: PLC0415
+    vend_shop_type = enum.IntEnum("EShopType", ["SType_Weapons", "SType_Items", "SType_Health", "SType_BlackMarket"], start=0)
+    vend_currency = enum.IntEnum("ECurrencyType", ["CURRENCY_Credits", "CURRENCY_Eridium"], start=0)
+    vend_gun = ns(**{**vars(weapon), "Name": "WillowWeapon_27", "_get_address": lambda: 0x520})
+    vend_feat = ns(**{**vars(shield), "Name": "WillowShield_14", "_get_address": lambda: 0x521})
+    vend_prices = {0x520: 669, 0x521: 766, 0x522: 120, 0x523: 10}
+    # shop ammo (always sold: a price list - "basics" - not an item card), by the pickups' rule (util.pickup_kind)
+    vend_ammo = ns(Name="WillowUsableItem_23", _get_address=lambda: 0x523, Class=ns(Name="WillowUsableItem", SuperField=None),
+                   GetShortHumanReadableName=lambda: "SMG Ammo", DefinitionData=ns(ItemDefinition=ns(
+                       _get_address=lambda: 0x524, ItemName="SMG Ammo", Presentation=ns(Name="WeaponAmmo_SMG"))))
+    vend_machine = ns(**{**vars(barrel), "Name": "WillowVendingMachine_3", "_get_address": lambda: 0x510,
+                         "Class": ns(Name="WillowVendingMachine", SuperField=ns(Name="WillowVendingMachineBase", SuperField=None)),
+                         "ShopType": vend_shop_type.SType_Weapons, "FormOfCurrency": vend_currency.CURRENCY_Credits,
+                         "ShopInventory": [vend_gun, vend_ammo, None], "FeaturedItem": vend_feat,
+                         "GetSellingPriceForInventory": lambda inv, pc, n: vend_prices[inv._get_address()]})
+    vend_game = ns(SecondsUntilShopsReset=1169.0, ShopTimerRate=1.0)
+    vend_world = ns(Game=vend_game)
+    vend_saved = (col.ENGINE, getattr(vend_mod.unrealsdk, "find_class", None))
+    col.ENGINE = ns(GetCurrentWorldInfo=lambda: vend_world)
+    vend_mod.unrealsdk.find_class = lambda name: ns(ClassDefaultObject=ns(WeaponsShopTitle="Marcus Munitions"))
+    vend_earl = ns(**{**vars(vend_machine), "Name": "WillowVendingMachineBlackMarket_0", "_get_address": lambda: 0x511,
+                      "ShopType": vend_shop_type.SType_BlackMarket, "ShopInventory": [], "FeaturedItem": None})
+    c.object_spawned(vend_machine)  # (the hook: noted as a machine; the scan does the same)
+    c.object_spawned(vend_earl)  # Crazy Earl: left out of the list
+    assert json.loads(hub._channels["shops"][1])["machines"] == [], "a stock before any machine"  # (the ticks: none yet)
+    vend_empty = hub._channels["shops"][0]
+    vend_mod.BUILD_SECONDS, vend_budget = -1.0, vend_mod.BUILD_SECONDS  # no time for item records this pass
+    c._publish_shops(2000.0)
+    assert c._shops.pending and hub._channels["shops"][0] == vend_empty and c._next_shops == 2000.0 + col.SHOPS_RETRY, (
+        "a half-built stock sent")
+    vend_mod.BUILD_SECONDS = vend_budget
+    c._publish_shops(2000.1)
+    (vend_rec,) = json.loads(hub._channels["shops"][1])["machines"]
+    assert (vend_rec["n"], vend_rec["k"], "raw" in vend_rec, "cur" in vend_rec) == ("Marcus Munitions", "weapons", False, False), vend_rec
+    assert [(it["n"], it["v"]) for it in vend_rec["items"]] == [("Unkempt Harold", 669)], vend_rec["items"]  # (the machine's price)
+    assert vend_rec["basics"] == [{"n": "SMG Ammo", "k": "ammo", "v": 10}], vend_rec.get("basics")
+    assert (vend_rec["feat"]["n"], vend_rec["feat"]["v"], vend_rec["feat"]["k"]) == ("Adaptive Shield", 766, "shield"), vend_rec["feat"]
+    assert json.loads(hub._channels["shoptimer"][1]) == {"level": c.level_id, "left": 1169.0, "rate": 1.0}
+    vend_versions = (hub._channels["shops"][0], hub._channels["shoptimer"][0])
+    vend_game.SecondsUntilShopsReset = 1159.0  # 10 s later, as counted: nothing to send
+    c._publish_shops(2010.1)
+    assert (hub._channels["shops"][0], hub._channels["shoptimer"][0]) == vend_versions, "sent again unchanged"
+    vend_game.SecondsUntilShopsReset = 1100.0  # the page's count would be off: the timer again, not the stock
+    c._publish_shops(2011.1)
+    assert (hub._channels["shops"][0], hub._channels["shoptimer"][1]) == (vend_versions[0], json.dumps(
+        {"level": c.level_id, "left": 1100.0, "rate": 1.0}, separators=(",", ":"))), "a drifted timer not sent"
+    vend_new = ns(**{**vars(vend_gun), "Name": "WillowWeapon_31", "_get_address": lambda: 0x522})
+    vend_machine.ShopInventory = [vend_new, None]  # restocked: a new item, the timer back up
+    vend_game.SecondsUntilShopsReset = 1200.0
+    c._publish_shops(2012.1)
+    (vend_rec,) = json.loads(hub._channels["shops"][1])["machines"]
+    assert [it["v"] for it in vend_rec["items"]] == [120] and json.loads(hub._channels["shoptimer"][1])["left"] == 1200.0, vend_rec
+    assert "basics" not in vend_rec, vend_rec  # (none left in that stock)
+    assert (0x520, "WillowWeapon_27") not in c._shops._items, "a sold item's record kept"
+    c.object_destroyed(vend_machine)
+    c._publish_shops(2013.1)
+    assert json.loads(hub._channels["shops"][1])["machines"] == [], "a destroyed machine still listed"
+    col.ENGINE, vend_find_class = vend_saved
+    if vend_find_class is None:
+        del vend_mod.unrealsdk.find_class
+    else:
+        vend_mod.unrealsdk.find_class = vend_find_class
+    print(f"  shops: {vend_rec['n']!r}, stock + item of the day with the machine's prices, the timer sent on drift / restock")
     missions = json.loads(hub._channels["missions"][1])
     assert missions["tracked"] == {"n": "Ménage à Liar's Berg"}, missions
     obj_mk, giver = missions["markers"]  # the inactive objective is left out
@@ -1345,11 +1413,12 @@ def check_helios_tracker() -> None:  # noqa: PLR0915
         res = sse.getresponse()
         assert res.headers["Content-Type"] == "text/event-stream", res.headers
         events = set()
-        while len(events) < 8:
+        while len(events) < 10:
             line = res.fp.readline().decode()
             if line.startswith("event: "):
                 events.add(line[7:].strip())
-        assert events == {"level", "state", "objects", "players", "missions", "missiondefs", "missionlog", "areas"}, events
+        assert events == {"level", "state", "objects", "players", "missions", "missiondefs", "missionlog", "areas", "shops",
+                          "shoptimer"}, events
         # CORS: the project's site (its /live/ page) and local pages may read, any other site not - files and the stream
         for cors_origin, cors_ok in (("https://helios-tracker.zoolsmith.com", True), ("https://zoolsmith.github.io", True), ("http://127.0.0.1:8931", True),
                                      ("http://localhost", True), ("https://evil.example", False), ("", False)):
@@ -1392,6 +1461,24 @@ def check_helios_tracker() -> None:  # noqa: PLR0915
         k.endswith(".") and any(e.startswith(k) for e in langs["en"])))
     assert not missing, missing
     print(f"  i18n: {sorted(langs)} with {len(langs['en'])} keys each, {len(used)} literal keys used by the page")
+
+    # Page refreshes follow the Refresh rate setting (AGENTS.md): what changes by itself is updated from the frames
+    # (a refresh...(now) at the end of draw.js' frame), never by a timer of its own - every timer in the page's code
+    # is one of these, each with its reason; a new one fails here
+    timer_allowed = {
+        ("scheduler.js", "setTimeout"): 1,  # the frame scheduler itself: the capped rate's wait between frames
+        ("settings.js", "setTimeout"): 1,  # saving the settings, debounced (no drawing)
+        ("data.js", "setTimeout"): 1,  # the game gone: checking whether it's back, to reload (no drawing)
+        ("data.js", "setInterval"): 1,  # the cutscene clock: no game updates reach the page while a video plays
+    }
+    timer_found: dict[tuple[str, str], int] = {}
+    for timer_file in (web / "js").rglob("*.js"):
+        for timer_call in re.findall(r"\b(setInterval|setTimeout)\s*\(", timer_file.read_text(encoding="utf-8")):
+            timer_key = (timer_file.name, timer_call)
+            timer_found[timer_key] = timer_found.get(timer_key, 0) + 1
+    assert timer_found == timer_allowed, ("a page timer outside the Refresh rate setting - refresh it from the frames "
+                                          "(AGENTS.md: Page refreshes follow the Refresh rate setting)", timer_found)
+    print(f"  page timers: only the {sum(timer_allowed.values())} allowed (everything else refreshes with the frames)")
 
     # The page's JS: DXT decoding (against the reference decoder above) and world -> map
     node = shutil.which("node")

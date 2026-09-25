@@ -38,8 +38,10 @@ export function defaults() {
       missionGroup: "chain", missionGoal: "xp",
       missionFiltersClosed: false, // the mission list's filters folded away (more room for the list)
       panelCollapsed: false, // the left panel folded (its title row and the level only)
+      closedInfo: [], // the Info tab's sections folded (their data-sec: "mission", "shops", "players")
+      shopTab: "weapons", // the vending machines' tab (a machine kind: shops.py KINDS)
       // what the drawer shows, reopened on a refresh (ui/drawer.js): {} (closed), { k: "player", name },
-      // { k: "mission", id } ("": the list), { k: "detail", kind, id }
+      // { k: "mission", id } ("": the list), { k: "shops", id } ("": no machine first), { k: "detail", kind, id }
       drawer: {} },
   };
 }

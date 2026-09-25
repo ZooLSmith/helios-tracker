@@ -25,6 +25,7 @@ from unrealsdk.unreal import WeakPointer
 from .inspector import read_players
 from .missions import MissionLog, mission_id
 from .missions import objective_index as _mission_index
+from .shops import ShopReader
 from .skills import SkillReader
 from .server import Hub
 from .tacmap import MapFog, MapImage, load_fog, load_tactical_map
@@ -50,6 +51,8 @@ SCENE_DRIFT = 0.5  # s: the page's count this far from the scene's real position
 AREAS_EVERY = 1.0  # s between reads of the discovered areas (pc.DiscoveredWorldAreas: ~50 structs)
 LOOTED_EVERY = 1.0  # s between checks of unlooted containers (two property reads each, round robin)
 LOOTED_PER_PASS = 60
+SHOPS_EVERY = 2.0  # s between vending machine reads (their stock: new items only after a sale / restock)
+SHOPS_RETRY = 0.1  # s: item records left to build (a few ms per pass) - the next pass this soon
 SLOW_MS = 4.0  # a task taking longer than this on the game thread is reported (it can cause a hitch)
 RECORDS_SECONDS = 0.002  # per tick, building the records of newly found interactive objects (a scan's backlog)
 INCOMPLETE_EVERY = 1.0  # s between retries of object records built before their definition arrived
@@ -128,8 +131,11 @@ def movie_length(name: str) -> float | None:
     """A cutscene video's length (s), from its Bink file's header (frames, then the frame rate as
     numerator / denominator at 28 / 32): <game>/WillowGame/Movies/<name>.bik, else a DLC's
     (DLC/<code name>/<Lic...>/Movies: Orchid_Intro.bik, 1948 frames at 29.97 = 65.0 s - the 65 s the game
-    rendered nothing, tools/probe_cutscene_watch.txt). None if not found / not a Bink file."""
+    rendered nothing, tools/probe_cutscene_watch.txt). None if not found / not a Bink file. The game names some with
+    their extension ('TC_Marcus.bik', 'MegaIntro' without): dropped first (it looked for 'TC_Marcus.bik.bik')."""
     cooked = cooked_dir()
+    if name and name.lower().endswith(".bik"):
+        name = name[:-4]
     if cooked is None or not name:
         return None
     game = cooked.parent.parent
@@ -352,6 +358,8 @@ class Collector:
         self._areas: list[dict[str, Any]] = []
         self._areas_json = ""
         self._next_areas = 0.0
+        self._shops = ShopReader()  # the level's vending machines (from the objects scan / spawn hook)
+        self._next_shops = 0.0
 
     # region Level
 
@@ -383,6 +391,8 @@ class Collector:
             self._next_scan = self._next_objects = self._next_players = self._next_missions = self._next_log = 0.0
             self._log.dirty = self._log.defs_dirty = True  # the new page needs the log
             self._objects_json = self._players_json = self._missions_json = self._areas_json = ""
+            self._shops.resend()
+            self._next_shops = 0.0
         # At most one heavy task (scans / players) per tick: they'd add up into one hitch
         heavy = False
         if now >= self._next_scan:
@@ -422,6 +432,9 @@ class Collector:
         if now >= self._next_areas and (self._areas or (self._level or {}).get("fog")):
             self._next_areas = now + AREAS_EVERY
             run("areas", self._publish_areas)
+        if now >= self._next_shops and not heavy:
+            self._next_shops = now + SHOPS_EVERY
+            run("shops", self._publish_shops, now)
         if now >= self._next_looted and self._unlooted:
             self._next_looted = now + LOOTED_EVERY
             run("looted", self._check_looted)
@@ -726,6 +739,8 @@ class Collector:
         for io in unrealsdk.find_all("WillowInteractiveObject", exact=False):
             try:
                 key = (io._get_address(), str(io.Name))
+                if self._in_world(io):
+                    self._shops.note(io)
                 if key not in records or key in self._incomplete:  # new / built too early: (again) later, a few per tick
                     self._pending_records.setdefault(key, WeakPointer(io))
                     if key not in records:
@@ -808,6 +823,16 @@ class Collector:
             except Exception as ex:  # noqa: BLE001
                 log_error("interactive object", ex)
 
+    def _publish_shops(self, now: float) -> None:
+        """The vending machines' stock (when it changed) and the restock timer (when the page's count drifted)."""
+        stock, timer = self._shops.read(ENGINE.GetCurrentWorldInfo(), get_pc(), self.level_id, self._client, now)
+        if self._shops.pending:
+            self._next_shops = now + SHOPS_RETRY
+        if stock is not None:
+            self.hub.publish("shops", stock)
+        if timer is not None:
+            self.hub.publish("shoptimer", timer)
+
     def _publish_objects(self) -> None:
         objects = list(self._objects.values())
         objects_json = json.dumps({"level": self.level_id, "objects": objects}, separators=(",", ":"))
@@ -826,6 +851,7 @@ class Collector:
         self._object_records[key] = record = self._object_record(io, self._client)
         self._note_incomplete(key, io)
         self._note_giver(key[0], io, try_(lambda: io.Directives))
+        self._shops.note(io)
         if not io.bHidden:
             self._objects[key] = record
             self._objects_dirty = True
@@ -857,6 +883,7 @@ class Collector:
     def object_destroyed(self, io: Any) -> None:
         key = (io._get_address(), str(io.Name))
         self._givers.pop(key[0], None)
+        self._shops.forget(key)
         self._incomplete.pop(key, None)
         self._object_records.pop(key, None)
         self._unlooted.pop(key, None)

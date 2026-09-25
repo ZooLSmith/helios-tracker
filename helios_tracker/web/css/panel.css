@@ -149,7 +149,7 @@ button.act:hover { border-color: var(--accent); }
 .askill.a span { text-shadow: var(--bar-text-outline); }
 .askill.a { --ak-fill: var(--fill-active); }
 .askill.c { --ak-fill: var(--fill-cooldown); }
-.players .pname.me { color: var(--accent); }
+.players .pname.me { color: var(--map-tracked); } /* (the map's arrow's) */
 .players .pinfo { color: var(--dim); font-size: 11px; margin-top: 1px; } /* level · class, under the name */
 /* a cutscene playing (ui/cutscene.js): the Players list's bar - the health bar's look (sheen, its columns,
    here going forward), the cutscene's colour; its name inside; under it the play icon + elapsed / total */
@@ -183,7 +183,29 @@ button.act:hover { border-color: var(--accent); }
 #mission .obj.done { color: var(--dim); }
 #mission .obj.done .on { text-decoration: line-through; }
 .mopt { color: var(--dim); font-size: 11px; font-style: italic; }
-button.act.mall { margin-top: 6px; font-size: 12px; padding: 3px 6px; }
+/* Info tab sections (Mission, Shops): a heading row - fold chevron, the title, what's left of it (a countdown), its
+   "All" link at the end - that folds its body; a small link, not a full-width button (room for the content) */
+.ishead { display: flex; align-items: center; gap: 6px; margin: 12px 0 4px; cursor: pointer; }
+.ishead h3 { margin: 0; }
+.isfold { color: var(--dim); font-size: 10px; display: flex; }
+.ishead:hover h3, .ishead:hover .isfold { color: var(--text); }
+.istimer { display: flex; align-items: center; gap: 3px; color: var(--dim); font-size: 11px; font-variant-numeric: tabular-nums; }
+.istimer[hidden] { display: none; }
+.iscount { color: var(--dim); font-size: 11px; font-variant-numeric: tabular-nums; }
+.isec:not(.closed) .iscount { display: none; } /* (a count: only while folded - open, the list shows them) */
+/* the Shops section: the closest machines, a row each (its name, distance; its item of the day in its rarity's colour) */
+.shnear { padding: 2px 4px; margin: 0 -4px 2px; border-radius: 3px; cursor: pointer; font-size: 12px; }
+.shnear:hover { background: var(--hover); }
+.shnear .shnh { display: flex; gap: 6px; }
+.shnear .shnn { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.shnear .shnd { color: var(--dim); font-variant-numeric: tabular-nums; }
+.shnear .shnf { display: flex; align-items: center; gap: 4px; min-width: 0; overflow: hidden; text-overflow: ellipsis;
+  white-space: nowrap; font-size: 11px; }
+.shnear .shnf .icon { flex: none; color: var(--accent); }
+.islink { margin-left: auto; background: none; border: 0; padding: 0 2px; color: var(--dim); font: inherit; font-size: 11px;
+  letter-spacing: .06em; cursor: pointer; }
+.islink:hover { color: var(--accent); }
+.isec.closed .isbody { display: none; }
 @media (max-width: 520px) {
   #panel { width: calc(100% - 24px); max-height: 45%; }
 }

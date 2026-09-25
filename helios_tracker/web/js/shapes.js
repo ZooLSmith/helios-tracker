@@ -87,6 +87,34 @@ export function areaName(x, y, text, color, k = 1) { // an area's name, centred 
   ctx.textAlign = "start"; ctx.textBaseline = "alphabetic"; ctx.lineJoin = "miter";
 }
 
+/** The selected marker (its panel open): four corner brackets around it, half-size `s` - no marker uses brackets, so
+ *  it reads at any zoom; a dark outline under the colour, like the rings. */
+export function brackets(x, y, s, color, k = 1) {
+  const arm = Math.max(3, s * 0.45);
+  ctx.beginPath();
+  for (const [dx, dy] of [[-1, -1], [1, -1], [1, 1], [-1, 1]]) {
+    const cx = x + dx * s, cy = y + dy * s;
+    ctx.moveTo(cx - dx * arm, cy); ctx.lineTo(cx, cy); ctx.lineTo(cx, cy - dy * arm);
+  }
+  ctx.lineCap = "round"; ctx.lineJoin = "round";
+  ctx.lineWidth = 3.4 * k; ctx.strokeStyle = COLORS.outlineSoft; ctx.stroke();
+  ctx.lineWidth = 1.7 * k; ctx.strokeStyle = color; ctx.stroke();
+  ctx.lineCap = "butt"; ctx.lineJoin = "miter";
+}
+
+/** A dashed line from (x0, y0) to (x1, y1), stopping `gap0` / `gap1` px short of each end (their markers stay clear):
+ *  from the tracked player to the selected marker. Nothing when they're too close. */
+export function leader(x0, y0, x1, y1, gap0, gap1, color, k = 1) {
+  const d = Math.hypot(x1 - x0, y1 - y0);
+  if (d <= gap0 + gap1 + 4) return;
+  const ux = (x1 - x0) / d, uy = (y1 - y0) / d;
+  ctx.beginPath(); ctx.moveTo(x0 + ux * gap0, y0 + uy * gap0); ctx.lineTo(x1 - ux * gap1, y1 - uy * gap1);
+  ctx.setLineDash([5 * k, 4 * k]);
+  ctx.lineWidth = 3 * k; ctx.strokeStyle = COLORS.outlineSoft; ctx.stroke();
+  ctx.lineWidth = 1.4 * k; ctx.strokeStyle = color; ctx.stroke();
+  ctx.setLineDash([]);
+}
+
 export function respawnRing(x, y, r, color) { // a dashed ring around a player: respawning here, or crippled (red)
   ctx.beginPath(); ctx.arc(x, y, r, 0, Math.PI * 2);
   ctx.setLineDash([3, 3]); ctx.lineWidth = 1.5; ctx.strokeStyle = color; ctx.stroke(); ctx.setLineDash([]);

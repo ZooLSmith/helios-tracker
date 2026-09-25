@@ -9,6 +9,9 @@ const ICONS = {
   checkCircle: `<circle cx="6" cy="6" r="4.8" fill="currentColor"/>` + // ready to turn in: a check in a disc
     `<path d="M3.7 6.2 5.3 7.8 8.4 4.4" fill="none" style="stroke: var(--bg)" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>`,
   circle: `<circle cx="6" cy="6" r="3.5" fill="none" stroke="currentColor" stroke-width="1.5"/>`,
+  timer: `<circle cx="6" cy="6.8" r="4.2" fill="none" stroke="currentColor" stroke-width="1.3"/>` + // the shops' restock countdown
+    `<path d="M6 6.8V4.4M4.8 1.3h2.4" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/>`,
+  star: `<path d="M6 1.2 7.4 4.3 10.8 4.6 8.2 6.9 9 10.2 6 8.5 3 10.2 3.8 6.9 1.2 4.6 4.6 4.3Z" fill="currentColor"/>`, // a vending machine's item of the day
   lock: `<rect x="2.8" y="5.4" width="6.4" height="4.8" rx="0.9" fill="currentColor"/>` +
     `<path d="M4.2 5.4V4a1.8 1.8 0 0 1 3.6 0v1.4" fill="none" stroke="currentColor" stroke-width="1.3"/>`,
   question: `<circle cx="6" cy="6" r="4.6" fill="none" stroke="currentColor" stroke-width="1.2"/>` +

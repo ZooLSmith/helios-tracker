@@ -97,3 +97,14 @@ there, but it's the user's name). The fix: the page's code from the site itself,
 publishes its `web/` to the `documentation` branch (`live/<version>/`), the mod answers its version (a small
 `/version` reply, with CORS), the shell loads that version's page from the site; only data comes through the tunnel.
 It fits the release tool (not written yet). Doesn't fix Cloudflare quick tunnels' ~30 s warm-up (in the data).
+
+## Shop prices (the vending machines pane)
+
+**The wish** (the user, 2026-09-25): "design something for prices, especially for the always there stuff". Built so
+far: ammo and health vials (every machine has them) aren't item cards but one "Always for sale" price list per tab
+(the closest machine's: the same kind sells the same basics); each item card shows the machine's price top right.
+**Ideas, not built:** what the tracked player can afford - their cash isn't sent yet (the players payload has no
+currency; `pc.PlayerReplicationInfo` / the inventory manager's currency to probe first, and a client's view of the
+others'); then prices out of reach dimmed / red, a "you have $x" line in the drawer's heading, maybe a filter
+(affordable only). Also: the price per ammo unit / per full refill (the game sells ammo by the pack), the item of the
+day's markup vs a normal item. To go with the look rework.

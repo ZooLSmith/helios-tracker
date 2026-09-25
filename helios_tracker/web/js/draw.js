@@ -6,11 +6,13 @@ import { FLOOR_UU, LAYERS, LAYER_COLOR, chestTier, isGear, lootLayer, nameText, 
 import { look, withAlpha } from "./look.js";
 import { missionItemWanted } from "./missions.js";
 import { settings } from "./settings.js";
-import { COLORS, areaName, arrow, bang, diamond, dot, label, menuBadge, respawnRing, ring, setMarkerScale, square, triangle, vitalBars } from "./shapes.js";
-import { S, frame, pawnPos, trackedPawn } from "./state.js";
+import { COLORS, areaName, arrow, bang, brackets, diamond, dot, label, leader, menuBadge, respawnRing, ring, setMarkerScale, square, triangle,
+  vitalBars } from "./shapes.js";
+import { S, findDetail, findPlayer, frame, pawnPos, trackedPawn } from "./state.js";
 import { tooltip } from "./tooltip.js";
 import { refreshPlayerInfo } from "./ui/inspector.js";
 import { updatePlayerVitals } from "./ui/players.js";
+import { refreshShops } from "./ui/shops.js";
 import { H, W, centerOnTarget, ctx, dpr, fit, toScreen } from "./view.js";
 
 /** The mission log by mission id (mission items check their mission): rebuilt only when the log changes. */
@@ -19,6 +21,34 @@ function logById() {
   if (!S.log) return null;
   if (byIdFor !== S.log) { byIdFor = S.log; byIdMap = new Map(S.log.missions.map((m) => [m.i, m])); }
   return byIdMap;
+}
+
+/** What the drawer shows on the map (a clicked object, a marker, an inspected player), or null: the item, where it is
+ *  now (a pawn: interpolated). The tracked player itself: null (its yellow arrow says it). */
+function selectedOnMap(now, tracked) {
+  let item = S.detail ? findDetail() : null;
+  if (!item && S.inspect) { const p = findPlayer(); item = p ? S.pawns.get(p.i) : null; }
+  if (!item || item === tracked || item.x == null) return null;
+  if (item.rs === 2) return null; // respawning: its position means nothing (not drawn either)
+  return { item, pos: item.fx !== undefined ? pawnPos(item, now) : item };
+}
+
+/** The selected marker's highlight (the user's pick, 2026-09-25): brackets around it, a dashed line to it from the
+ *  tracked player - over everything. The brackets breathe a little when the page animates (Refresh rate: a number /
+ *  Smooth); with "Updates only" they stay still (a clock-driven size would jump at each update). */
+function drawSelection(f, now, tracked, mePos, hits, place) {
+  const sel = selectedOnMap(now, tracked);
+  if (!sel) return;
+  const G = look().marker / 100;
+  const [sx, sy] = place(sel.pos.x, sel.pos.y);
+  const hit = hits.find((h) => h.item === sel.item); // (drawn: its marker's size; else - hidden layer, off screen - a default)
+  const r = hit ? hit.r : 6 * G;
+  const breathe = settings.view.motion ? Math.sin(now / 320) * 1.2 * G : 0;
+  if (mePos) {
+    const [mx, my] = place(mePos.x, mePos.y);
+    leader(mx, my, sx, sy, 12 * G, r + 9 * G, COLORS.tracked, G);
+  }
+  brackets(sx, sy, r + 5 * G + breathe, COLORS.tracked, G);
 }
 
 function drawGrid(f) { // areas without a map: a 10 m grid so movement still reads (map transform set)
@@ -264,6 +294,8 @@ export function draw() {
     hits.push({ sx, sy, r: 6 * st.k, kind: p.k, item: p, pos });
   }
   drawGivers(); // (no pawn above the NPCs)
+  ctx.globalAlpha = 1;
+  drawSelection(f, now, tracked, mePos, hits, place); // (over every marker)
   S.hits = hits;
 
   for (const l of LAYERS) if (l.parent) counts[l.parent] += counts[l.id]; // a folder: its layers' total
@@ -275,4 +307,5 @@ export function draw() {
   tooltip(mePos, f);
   updatePlayerVitals(now); // with the frames: follows the Refresh rate setting
   refreshPlayerInfo(now);
+  refreshShops(now); // (the restock countdowns, the closest machines: the same)
 }

@@ -22,6 +22,9 @@ export const S = {
   // the drawer shows the log: { id, history } - id: a mission's details, null: the tree; history:
   // where Back goes ({ id, scroll }, the last one first)
   missionView: null,
+  // the level's vending machines (shops.py): {client, machines: [{i, n, k, x, y, z, cur?, items, feat?}]}; the restock
+  // timer: {left (s, when it came), rate, at (performance.now())}; the drawer shows them: { id } (a machine to show first)
+  shops: null, shopTimer: null, shopView: null,
   // inspect: the inspected player { id, name } (ids change when a level loads);
   // detail: a clicked map object { kind, id }
   players: [], inspect: null, detail: null,

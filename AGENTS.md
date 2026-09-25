@@ -70,6 +70,15 @@ bl2-helios-tracker/
 - **Dev overlays**: anything drawn on the canvas from `PostRender` renders in front of the console (a
   console-state check doesn't help): give it an auto-timeout (~15 s) and a short, blind-typeable off
   command (`pyexec <mod>/off.py`), said before it runs.
+- **Page refreshes follow the Refresh rate setting** (Settings, `view.motion`: Updates only / N fps / Smooth - it's
+  there to keep the GPU and Windows' compositor quiet next to the game): anything on the page that changes by itself
+  (a countdown, a live value, an animation step) is updated from the frames - a `refresh...(now)` called at the end
+  of `draw.js`'s frame (like `refreshPlayerInfo`, `refreshShops`), throttled inside (e.g. 250 ms), writing the
+  DOM only when the text changed. Never its own `setInterval` / `setTimeout` loop: that runs at its own rate whatever
+  the setting says (the shops' countdown first did - the user caught it). `offline_check` fails on any timer that
+  isn't in its short allowlist (the frame scheduler, the settings save, the reconnect retry, the cutscene clock: the
+  one exception - no game updates reach the page while a video plays, so frames would freeze it); a new one needs a
+  reason there.
 - **offline_check: unique names**: `check_helios_tracker()` is one very long function; a new test
   block's variables share its scope - reusing a name (`later`, `gun`) broke asserts far below twice.
   Use specific names (`card_gun`, `later_shot`) and grep before introducing one.
@@ -79,6 +88,10 @@ bl2-helios-tracker/
 - Edit scripts containing backslash escapes must be written to a file first: shell heredocs (even
   quoted ones, through some agent shells) can turn `\\` into `\`, which once wrote NUL bytes into a
   source file.
+- **Line endings: keep each file's own.** The repo mixes CRLF and LF files and git converts nothing (`core.autocrlf`
+  false): an edit script's Python `read_text` / `write_text` turns a file into CRLF on Windows (text mode) - whole
+  files then show as rewritten in the diff (it happened to 8 files once). Scripts edit bytes (`read_bytes` /
+  `write_bytes`) or open with `newline=""`; check `git diff --stat` for a file suddenly "all changed" before committing.
 - Solo repo: commit straight to `master`, no branches - and only when asked. One exception: the website.
 
 ## Repositories

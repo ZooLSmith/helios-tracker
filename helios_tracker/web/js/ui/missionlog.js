@@ -21,6 +21,7 @@ export function openMissionLog(id = null) {
   S.missionView = { id, history: [] };
   S.inspect = null;
   S.detail = null;
+  S.shopView = null;
   $("inspector").classList.add("open");
   saveDrawer();
   renderPlayers();
