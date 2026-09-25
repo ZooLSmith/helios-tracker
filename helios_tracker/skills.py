@@ -3,7 +3,7 @@ Player skills (game thread): each player's action skill (ready / running / cooli
 timed passive effects (e.g. Locked and Loaded's buff) and melee skill cooldown - for the page's
 Players list and player Info tab.
 
-Verified in game (tools/probe_passives.txt, tools/probe_cooldown*.py via skill_timer):
+Verified in game (tools/probe_passives.txt, cooldown probes):
 - pc.GetSkillManager() = the SkillEffectManager (one for everyone); its ActiveSkills = the running
   Skill instances: Definition (SkillDefinition: SkillName localized, SkillType SKILL_TYPE_Action /
   SKILL_TYPE_Passive, DurationType DURATION_Timed / DURATION_Infinite), SkillState (SKILL_Active),

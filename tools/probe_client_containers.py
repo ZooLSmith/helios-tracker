@@ -4,17 +4,18 @@
 # Logs: every interactive object within 25 m: its name, definition, distance, SimpleAnimState,
 # RepSimpleAnimState, bCanBeUsed, and every other property whose name looks state / use / open / loot
 # related (to spot what differs between the opened and unopened one).
-# Writes E:\Projects\python\bl2-helios-tracker\tools\probe_client_containers.txt (overwrites)
-#   py exec(open(r"E:\Projects\python\bl2-helios-tracker\tools\probe_client_containers.py").read())
+# Writes tools/probe_client_containers.txt (overwrites)
+#   py exec(open(r"<repo>\tools\probe_client_containers.py").read())
 import enum
 import math
 import re
+import sys
 from pathlib import Path
 
 import unrealsdk
 from mods_base import ENGINE, get_pc
 
-OUT = Path(r"E:\Projects\python\bl2-helios-tracker\tools\probe_client_containers.txt")
+OUT = Path(sys.modules["helios_tracker"].__file__).resolve().parents[1] / "tools" / "probe_client_containers.txt"  # the repo, through the mod's junction
 RANGE = 2500.0  # uu (25 m)
 PATTERN = re.compile(r"state|use|usab|open|loot|anim|spawn|empty|close|activ", re.I)
 SCALARS = {"BoolProperty", "ByteProperty", "IntProperty", "FloatProperty", "NameProperty", "ObjectProperty", "StructProperty"}

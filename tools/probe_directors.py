@@ -6,17 +6,18 @@
 # property / component whose name looks mission / director / particle / icon related (the "!" is a
 # particle: MissionTracker.StaticSetMissionDirectorParticle), with the particle components' template and
 # active flag; the MissionTracker's IconHelper_Directors and DynamicMissionDirectives.
-# Writes E:\Projects\python\bl2-helios-tracker\tools\probe_directors.txt (overwrites)
-#   py exec(open(r"E:\Projects\python\bl2-helios-tracker\tools\probe_directors.py").read())
+# Writes tools/probe_directors.txt (overwrites)
+#   py exec(open(r"<repo>\tools\probe_directors.py").read())
 import enum
 import math
 import re
+import sys
 from pathlib import Path
 
 import unrealsdk
 from mods_base import ENGINE, get_pc
 
-OUT = Path(r"E:\Projects\python\bl2-helios-tracker\tools\probe_directors.txt")
+OUT = Path(sys.modules["helios_tracker"].__file__).resolve().parents[1] / "tools" / "probe_directors.txt"  # the repo, through the mod's junction
 RANGE = 4000.0  # uu (40 m)
 PATTERN = re.compile(r"mission|director|particle|icon|psc|eligible|redeem|exclaim|quest", re.I)
 SKIP = {"Object", "Actor"}

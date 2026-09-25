@@ -25,8 +25,9 @@ export function defaults() {
       coords: false, // the world X / Y by the cursor (tooltip.js)
       target: "me", // "Who": "me" (the host) or a player's name
       // Movement: 0 = only redraw on a change (markers jump), a number = interpolated at most that
-      // many fps, "smooth" = every frame
-      motion: "smooth",
+      // many fps, "smooth" = every frame. 30 by default: smooth enough, and lighter next to the game
+      // (the compositor, the GPU) than the monitor's rate
+      motion: 30,
       // how see-through the map's background / the map image / the panels are, % (look.js)
       bgOpacity: 100, mapOpacity: 100, panelOpacity: 90,
       uiScale: 100, // the interface size, % (70-200: look.js)

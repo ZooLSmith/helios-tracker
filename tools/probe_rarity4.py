@@ -3,14 +3,15 @@
 # may be those, or the unnamed 8 / 14-16). Consecutive levels with the same colour entry and colour
 # are one range. Then the items loaded now (pickups, inventories) whose level the page doesn't name,
 # with their game name - to tie a tier to real items (have a Gemstone / Cursed item near you).
-# Writes E:\Projects\python\bl2-helios-tracker\tools\probe_rarity4.txt (appends)
-#   py exec(open(r"E:\Projects\python\bl2-helios-tracker\tools\probe_rarity4.py").read())
+# Writes tools/probe_rarity4.txt (appends)
+#   py exec(open(r"<repo>\tools\probe_rarity4.py").read())
 from enum import Enum
+import sys
 from pathlib import Path
 
 import unrealsdk
 
-OUT = Path(r"E:\Projects\python\bl2-helios-tracker\tools\probe_rarity4.txt")
+OUT = Path(sys.modules["helios_tracker"].__file__).resolve().parents[1] / "tools" / "probe_rarity4.txt"  # the repo, through the mod's junction
 lines: list[str] = ["#" * 70]
 NAMED = {0, 1, 2, 3, 4, 5, 6, 7, 12, 13, 17}  # colour entries the page names (model.js TIER_BY_ENTRY)
 

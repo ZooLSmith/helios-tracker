@@ -7,16 +7,17 @@
 #    percentage?, sign...) - found by the attribute they point to;
 #  - the SkillDefinition's functions named like description / effect / string / text / value (signatures),
 #    and the few that only read (Get*Description / Get*Value with no out params) called for its grade.
-# Writes E:\Projects\python\bl2-helios-tracker\tools\probe_skill_stats.txt (overwrites)
-#   py exec(open(r"E:\Projects\python\bl2-helios-tracker\tools\probe_skill_stats.py").read())
+# Writes tools/probe_skill_stats.txt (overwrites)
+#   py exec(open(r"<repo>\tools\probe_skill_stats.py").read())
 import enum
 import re
+import sys
 from pathlib import Path
 
 import unrealsdk
 from mods_base import get_pc
 
-OUT = Path(r"E:\Projects\python\bl2-helios-tracker\tools\probe_skill_stats.txt")
+OUT = Path(sys.modules["helios_tracker"].__file__).resolve().parents[1] / "tools" / "probe_skill_stats.txt"  # the repo, through the mod's junction
 lines: list[str] = []
 
 

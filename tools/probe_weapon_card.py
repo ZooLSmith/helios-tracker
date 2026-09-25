@@ -9,15 +9,16 @@
 #  - the weapon's functions named like card / description / string / text / stat / info (signatures only: calling
 #    its parameterless getters crashed the game - the first version).
 # The file is written after each section (a crash leaves what came before).
-# Writes E:\Projects\python\bl2-helios-tracker\tools\probe_weapon_card.txt (overwrites)
-#   py exec(open(r"E:\Projects\python\bl2-helios-tracker\tools\probe_weapon_card.py").read())
+# Writes tools/probe_weapon_card.txt (overwrites)
+#   py exec(open(r"<repo>\tools\probe_weapon_card.py").read())
 import enum
 import re
+import sys
 from pathlib import Path
 
 from mods_base import get_pc
 
-OUT = Path(r"E:\Projects\python\bl2-helios-tracker\tools\probe_weapon_card.txt")
+OUT = Path(sys.modules["helios_tracker"].__file__).resolve().parents[1] / "tools" / "probe_weapon_card.txt"  # the repo, through the mod's junction
 WEAPON_FIELDS = re.compile(r"card|descr|present|stat|flavor|modif|element|damage|chance|text|title|unique|red", re.I)
 PART_FIELDS = re.compile(r"present|descr|effect|attribute|title|flavor|text|unique|name", re.I)
 FUNCS = re.compile(r"card|descr|string|text|stat|info|flavor|element", re.I)

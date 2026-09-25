@@ -5,16 +5,17 @@
 # a non-empty mission-looking property - every property of it and of its definition (property reads
 # only, no function called), and the MissionTracker's DynamicMissionDirectives / MissionDirectors.
 # The file is written after each section (a crash keeps what came before).
-# Writes E:\Projects\python\bl2-helios-tracker\tools\probe_bounty.txt (overwrites)
-#   py exec(open(r"E:\Projects\python\bl2-helios-tracker\tools\probe_bounty.py").read())
+# Writes tools/probe_bounty.txt (overwrites)
+#   py exec(open(r"<repo>\tools\probe_bounty.py").read())
 import enum
 import re
+import sys
 from pathlib import Path
 
 import unrealsdk
 from mods_base import ENGINE
 
-OUT = Path(r"E:\Projects\python\bl2-helios-tracker\tools\probe_bounty.txt")
+OUT = Path(sys.modules["helios_tracker"].__file__).resolve().parents[1] / "tools" / "probe_bounty.txt"  # the repo, through the mod's junction
 MISSIONISH = re.compile(r"mission|director|bounty", re.I)
 SKIP = {"Object", "Actor", "GBXDefinition"}
 lines: list[str] = []

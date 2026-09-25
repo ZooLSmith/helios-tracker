@@ -6,17 +6,18 @@
 # SavedSkillTreeSkill, every float / int / bool / byte property on the controller, pawn and player info
 # whose name looks action skill / cooldown related; the running action skill instances in the skill
 # manager (by instigator); and once, the controllers' tree action skill.
-# Writes E:\Projects\python\bl2-helios-tracker\tools\probe_action_skill.txt (overwrites)
-#   py exec(open(r"E:\Projects\python\bl2-helios-tracker\tools\probe_action_skill.py").read())
+# Writes tools/probe_action_skill.txt (overwrites)
+#   py exec(open(r"<repo>\tools\probe_action_skill.py").read())
 import enum
 import re
 import time
+import sys
 from pathlib import Path
 
 from mods_base import ENGINE, get_pc
 from unrealsdk.hooks import Type, add_hook, remove_hook
 
-OUT = Path(r"E:\Projects\python\bl2-helios-tracker\tools\probe_action_skill.txt")
+OUT = Path(sys.modules["helios_tracker"].__file__).resolve().parents[1] / "tools" / "probe_action_skill.txt"  # the repo, through the mod's junction
 SAMPLE_FOR = 120.0
 SAMPLE_EVERY = 0.25
 PATTERN = re.compile(r"action|cooldown|skill|ability", re.I)

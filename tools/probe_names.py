@@ -1,12 +1,13 @@
 # Dev probe (in game), instant: what each name source returns for every pawn in the level (to see
 # why some enemies get no game name in helios_tracker). Stand near a few enemies / NPCs.
-# Writes E:\Projects\python\bl2-helios-tracker\tools\probe_names.txt (appends)
-#   py exec(open(r"E:\Projects\python\bl2-helios-tracker\tools\probe_names.py").read())
+# Writes tools/probe_names.txt (appends)
+#   py exec(open(r"<repo>\tools\probe_names.py").read())
+import sys
 from pathlib import Path
 
 from mods_base import ENGINE
 
-OUT = Path(r"E:\Projects\python\bl2-helios-tracker\tools\probe_names.txt")
+OUT = Path(sys.modules["helios_tracker"].__file__).resolve().parents[1] / "tools" / "probe_names.txt"  # the repo, through the mod's junction
 lines: list[str] = []
 
 

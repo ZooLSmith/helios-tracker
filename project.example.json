@@ -1,0 +1,13 @@
+{
+  "about": "This machine's paths. Copy to project.json (gitignored) and fill them in; forward slashes are fine on Windows.",
+  "game": {
+    "path": "C:/Program Files (x86)/Steam/steamapps/common/Borderlands 2",
+    "about": "The Borderlands 2 install (the folder holding Binaries/, WillowGame/, DLC/, sdk_mods/)."
+  },
+  "references": {
+    "gibbed": {
+      "path": "",
+      "about": "Optional. A clone of Gibbed.Borderlands2 (https://github.com/gibbed/Gibbed.Borderlands2, with its Resources/Dumps submodule)."
+    }
+  }
+}

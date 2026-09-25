@@ -9,19 +9,20 @@
 #    and every player's replication info (the GRI's PRIArray): name, pawn or not, and their fields named
 #    like loading / travel / ready / spectator / waiting (listed once at the start).
 # Again: restarts. Stop early: py helios_loading_stop()
-# Writes E:\Projects\python\bl2-helios-tracker\tools\probe_loading.txt (overwrites; as it goes)
-#   py exec(open(r"E:\Projects\python\bl2-helios-tracker\tools\probe_loading.py").read())
+# Writes tools/probe_loading.txt (overwrites; as it goes)
+#   py exec(open(r"<repo>\tools\probe_loading.py").read())
 import builtins
 import enum
 import re
 import time
+import sys
 from pathlib import Path
 
 import unrealsdk
 from mods_base import ENGINE, get_pc
 from unrealsdk.hooks import Type, add_hook, remove_hook
 
-OUT = Path(r"E:\Projects\python\bl2-helios-tracker\tools\probe_loading.txt")
+OUT = Path(sys.modules["helios_tracker"].__file__).resolve().parents[1] / "tools" / "probe_loading.txt"  # the repo, through the mod's junction
 RUN_FOR = 15 * 60.0
 SAMPLE_EVERY = 0.25
 GAP = 1.0

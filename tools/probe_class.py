@@ -1,11 +1,12 @@
 # Dev probe (in game), instant: where the player's localized class name ("Gunzerker") is.
-# Writes E:\Projects\python\bl2-helios-tracker\tools\probe_class.txt (appends)
-#   py exec(open(r"E:\Projects\python\bl2-helios-tracker\tools\probe_class.py").read())
+# Writes tools/probe_class.txt (appends)
+#   py exec(open(r"<repo>\tools\probe_class.py").read())
+import sys
 from pathlib import Path
 
 from mods_base import get_pc
 
-OUT = Path(r"E:\Projects\python\bl2-helios-tracker\tools\probe_class.txt")
+OUT = Path(sys.modules["helios_tracker"].__file__).resolve().parents[1] / "tools" / "probe_class.txt"  # the repo, through the mod's junction
 
 
 def _try(fn):  # noqa: ANN001, ANN202

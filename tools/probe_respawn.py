@@ -4,17 +4,18 @@
 # Logs (changes only, sampled every 0.25 s): the controller's state, its pawn (which one, where,
 # health, IsInjured), every player pawn in the level; and at the start every respawn / revive /
 # death related field on the controller, the pawn and the game info (the respawn station?).
-# Writes E:\Projects\python\bl2-helios-tracker\tools\probe_respawn.txt (overwrites)
-#   py exec(open(r"E:\Projects\python\bl2-helios-tracker\tools\probe_respawn.py").read())
+# Writes tools/probe_respawn.txt (overwrites)
+#   py exec(open(r"<repo>\tools\probe_respawn.py").read())
 import enum
 import re
 import time
+import sys
 from pathlib import Path
 
 from mods_base import ENGINE, get_pc
 from unrealsdk.hooks import Type, add_hook, remove_hook
 
-OUT = Path(r"E:\Projects\python\bl2-helios-tracker\tools\probe_respawn.txt")
+OUT = Path(sys.modules["helios_tracker"].__file__).resolve().parents[1] / "tools" / "probe_respawn.txt"  # the repo, through the mod's junction
 SAMPLE_FOR = 90.0
 SAMPLE_EVERY = 0.25
 PATTERN = re.compile(r"respawn|revive|death|dead|injur|dying|down|newu|healthstation|spawnpoint|restart", re.I)

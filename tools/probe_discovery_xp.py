@@ -7,16 +7,17 @@
 #    discovery / exploration related - a base discovery reward and its scaling;
 #  - the SeqEvent_WorldDiscoveryArea events of the level (the Kismet hooks an area fires);
 #  - the challenges named like discovery / exploration (the "explore every area" ones).
-# Writes E:\Projects\python\bl2-helios-tracker\tools\probe_discovery_xp.txt (overwrites)
-#   py exec(open(r"E:\Projects\python\bl2-helios-tracker\tools\probe_discovery_xp.py").read())
+# Writes tools/probe_discovery_xp.txt (overwrites)
+#   py exec(open(r"<repo>\tools\probe_discovery_xp.py").read())
 import enum
 import re
+import sys
 from pathlib import Path
 
 import unrealsdk
 from mods_base import ENGINE, get_pc
 
-OUT = Path(r"E:\Projects\python\bl2-helios-tracker\tools\probe_discovery_xp.txt")
+OUT = Path(sys.modules["helios_tracker"].__file__).resolve().parents[1] / "tools" / "probe_discovery_xp.txt"  # the repo, through the mod's junction
 PATTERN = re.compile(r"discover|explor|worldarea|exp(erience)?(reward|scale|multiplier|level)|xp", re.I)
 lines: list[str] = []
 

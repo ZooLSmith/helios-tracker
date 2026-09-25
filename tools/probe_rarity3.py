@@ -2,14 +2,15 @@
 # GlobalsDefinition.GetRarityForLevel (-> EItemRarity) / GetRarityColorForLevel /
 # GetRarityLevelColorsIndexforLevel, for levels 0-15 and 500-510 (probe_rarity2.txt found them;
 # the RarityLevelColors table itself read empty). Plus the EItemRarity enum's members.
-# Writes E:\Projects\python\bl2-helios-tracker\tools\probe_rarity3.txt (appends)
-#   py exec(open(r"E:\Projects\python\bl2-helios-tracker\tools\probe_rarity3.py").read())
+# Writes tools/probe_rarity3.txt (appends)
+#   py exec(open(r"<repo>\tools\probe_rarity3.py").read())
 from enum import Enum
+import sys
 from pathlib import Path
 
 import unrealsdk
 
-OUT = Path(r"E:\Projects\python\bl2-helios-tracker\tools\probe_rarity3.txt")
+OUT = Path(sys.modules["helios_tracker"].__file__).resolve().parents[1] / "tools" / "probe_rarity3.txt"  # the repo, through the mod's junction
 lines: list[str] = ["#" * 70]
 
 

@@ -3,15 +3,16 @@
 # NextActionSkillCooldownAbilityTime on their pawn (148.9 both, 0 on ours) - world times, but of what?
 # Logs them with the world time (and ours, from our controller, for comparison) whenever they change.
 # Run it joined to someone else's game, then ask them to use their action skill (and wait out the cooldown).
-# Writes E:\Projects\python\bl2-helios-tracker\tools\probe_coop_skill.txt (overwrites)
-#   py exec(open(r"E:\Projects\python\bl2-helios-tracker\tools\probe_coop_skill.py").read())
+# Writes tools/probe_coop_skill.txt (overwrites)
+#   py exec(open(r"<repo>\tools\probe_coop_skill.py").read())
 import time
+import sys
 from pathlib import Path
 
 from mods_base import ENGINE, get_pc
 from unrealsdk.hooks import Type, add_hook, remove_hook
 
-OUT = Path(r"E:\Projects\python\bl2-helios-tracker\tools\probe_coop_skill.txt")
+OUT = Path(sys.modules["helios_tracker"].__file__).resolve().parents[1] / "tools" / "probe_coop_skill.txt"  # the repo, through the mod's junction
 SAMPLE_FOR, SAMPLE_EVERY = 90.0, 0.25
 FIELDS = ("NextActionSkillActiveAbilityTime", "NextActionSkillCooldownAbilityTime")
 lines: list[str] = []

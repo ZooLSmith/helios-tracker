@@ -2,15 +2,16 @@
 # shock Maliwan pistol whose StatusEffectChanceModifier base is 1.4, BaseStatusEffectChanceModifier 0.6) is made -
 # hold the gun. Dumps the weapon's status effect chance fields and its damage type's StatusEffect definition
 # (every field: its base chance?), then that definition's nested chance data. Written after each section.
-# Writes E:\Projects\python\bl2-helios-tracker\tools\probe_element_chance.txt (overwrites)
-#   py exec(open(r"E:\Projects\python\bl2-helios-tracker\tools\probe_element_chance.py").read())
+# Writes tools/probe_element_chance.txt (overwrites)
+#   py exec(open(r"<repo>\tools\probe_element_chance.py").read())
 import enum
 import re
+import sys
 from pathlib import Path
 
 from mods_base import get_pc
 
-OUT = Path(r"E:\Projects\python\bl2-helios-tracker\tools\probe_element_chance.txt")
+OUT = Path(sys.modules["helios_tracker"].__file__).resolve().parents[1] / "tools" / "probe_element_chance.txt"  # the repo, through the mod's junction
 SKIP = {"VfTableObject", "HashNext", "ObjectFlags", "HashOuterNext", "StateFrame", "Linker", "LinkerIndex",
         "ObjectInternalInteger", "NetIndex", "ObjectArchetype"}
 lines: list[str] = []

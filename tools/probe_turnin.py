@@ -5,15 +5,16 @@
 # objective counts vs progress (optional marked), the current step (ActiveObjectiveSet: can it complete
 # the mission, next set); the tracker's functions about turning in / completing (names + params), and
 # the read-only ones (Is* / Get* / Can* / Has*) taking a mission called on each of those missions.
-# Writes E:\Projects\python\bl2-helios-tracker\tools\probe_turnin.txt (overwrites)
-#   py exec(open(r"E:\Projects\python\bl2-helios-tracker\tools\probe_turnin.py").read())
+# Writes tools/probe_turnin.txt (overwrites)
+#   py exec(open(r"<repo>\tools\probe_turnin.py").read())
 import enum
 import re
+import sys
 from pathlib import Path
 
 import unrealsdk
 
-OUT = Path(r"E:\Projects\python\bl2-helios-tracker\tools\probe_turnin.txt")
+OUT = Path(sys.modules["helios_tracker"].__file__).resolve().parents[1] / "tools" / "probe_turnin.txt"  # the repo, through the mod's junction
 PATTERN = re.compile(r"turn|redeem|ready|complet|finish|reward|status", re.I)
 READ_ONLY = re.compile(r"^(Is|Get|Can|Has)")
 lines: list[str] = []

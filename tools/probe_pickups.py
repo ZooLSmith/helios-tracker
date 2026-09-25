@@ -2,14 +2,15 @@
 # Stand near some drops (kill a few enemies, open ammo crates / a safe) and run it. Every pickup in
 # the level is listed; each distinct item definition is dumped once, field by field (the pickup,
 # its inventory item and the item's definition, up to the engine base classes).
-# Writes E:\Projects\python\bl2-helios-tracker\tools\probe_pickups.txt (appends)
-#   py exec(open(r"E:\Projects\python\bl2-helios-tracker\tools\probe_pickups.py").read())
+# Writes tools/probe_pickups.txt (appends)
+#   py exec(open(r"<repo>\tools\probe_pickups.py").read())
 import enum
+import sys
 from pathlib import Path
 
 import unrealsdk
 
-OUT = Path(r"E:\Projects\python\bl2-helios-tracker\tools\probe_pickups.txt")
+OUT = Path(sys.modules["helios_tracker"].__file__).resolve().parents[1] / "tools" / "probe_pickups.txt"  # the repo, through the mod's junction
 SCALARS = ("StrProperty", "NameProperty", "ObjectProperty", "ClassProperty", "ByteProperty", "IntProperty",
            "FloatProperty", "BoolProperty", "EnumProperty", "StructProperty", "ArrayProperty")
 STOP = {"Object", "Actor", "GBXDefinition", "Inventory", "DroppedPickup"}  # engine bases: not dumped

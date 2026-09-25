@@ -12,6 +12,8 @@ import sys
 import types
 from pathlib import Path
 
+import project
+
 ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT))
 
@@ -106,7 +108,7 @@ def _install_fakes() -> None:
 # endregion
 
 
-GAME_COOKED = Path(r"E:\SteamLibrary\steamapps\common\Borderlands 2\WillowGame\CookedPCConsole")
+GAME_COOKED = project.cooked_dir()  # project.json's game; None: the game file checks are skipped
 
 # Run as an ES module: node test.mjs <web dir> <image file>
 PAGE_TEST_JS = """
@@ -459,8 +461,8 @@ def check_helios_tracker() -> None:  # noqa: PLR0915
     col.unrealsdk.find_all = saved_find_all
     col._level_names.clear()
     assert names == ["Three Horns - Divide", "Gluttony Gulch", ""], names
-    if not GAME_COOKED.is_dir():
-        print("  game files not found: skipping the map / server checks")
+    if GAME_COOKED is None or not GAME_COOKED.is_dir():
+        print("  game files not found (project.json's game): skipping the map / server checks")
         return
     # Map images straight from the game's packages
     from helios_tracker.tacmap import load_fog  # noqa: PLC0415
@@ -1345,8 +1347,21 @@ def check_helios_tracker() -> None:  # noqa: PLR0915
             if line.startswith("event: "):
                 events.add(line[7:].strip())
         assert events == {"level", "state", "objects", "players", "missions", "missiondefs", "missionlog", "areas"}, events
+        # CORS: the project's site (its /live/ page) and local pages may read, any other site not - files and the stream
+        for cors_origin, cors_ok in (("https://helios-tracker.zoolsmith.com", True), ("https://zoolsmith.github.io", True), ("http://127.0.0.1:8931", True),
+                                     ("http://localhost", True), ("https://evil.example", False), ("", False)):
+            cors_conn = http.client.HTTPConnection("127.0.0.1", server.port, timeout=5)
+            for cors_path in ("/", "/js/main.js", "/events"):
+                cors_conn.request("GET", cors_path, headers={"Origin": cors_origin} if cors_origin else {})
+                cors_res = cors_conn.getresponse()
+                cors_allow = cors_res.headers.get("Access-Control-Allow-Origin")
+                assert cors_allow == (cors_origin if cors_ok else None), (cors_origin, cors_path, cors_allow)
+                if cors_path == "/events":
+                    break  # (a stream: never ends)
+                cors_res.read()
+            cors_conn.close()
         print(f"  server: page {len(page)} bytes + {len(web_files)} js / css / png / svg files, image {len(image)} bytes,"
-              f" SSE events {sorted(events)}")
+              f" SSE events {sorted(events)}, CORS for the site / local pages only")
     finally:
         server.stop()
     assert not server._thread.is_alive(), "server thread still running"
@@ -1462,9 +1477,34 @@ def check_helios_tracker() -> None:  # noqa: PLR0915
           f" world->map within {js['err']:.3f} px of the probe samples")
 
 
+def check_script() -> None:
+    """The user script's lookup: the mod folder's autoexec.ps1 first, else sdk_mods/helios_tracker.autoexec.ps1 -
+    beside a folder install or a .sdkmod (a zip: the package's parent is a file)."""
+    import tempfile  # noqa: PLC0415
+
+    from helios_tracker.script import find_script  # noqa: PLC0415
+
+    with tempfile.TemporaryDirectory() as tmp:
+        sdk_mods = Path(tmp) / "sdk_mods"
+        folder_pkg = sdk_mods / "helios_tracker"
+        folder_pkg.mkdir(parents=True)
+        zip_pkg = sdk_mods / "helios_tracker.sdkmod" / "helios_tracker"  # (inside the zip: not on disk)
+        (sdk_mods / "helios_tracker.sdkmod").write_bytes(b"PK")
+        assert find_script(folder_pkg) is None and find_script(zip_pkg) is None
+        beside = sdk_mods / "helios_tracker.autoexec.ps1"
+        beside.write_text("")
+        assert find_script(zip_pkg) == (beside, sdk_mods / "helios_tracker.autoexec.log"), find_script(zip_pkg)
+        assert find_script(folder_pkg) == (beside, sdk_mods / "helios_tracker.autoexec.log")
+        inside = folder_pkg / "autoexec.ps1"
+        inside.write_text("")
+        assert find_script(folder_pkg) == (inside, folder_pkg / "autoexec.log")  # the folder's own first
+    print("  user script: the mod folder's autoexec.ps1, else sdk_mods/helios_tracker.autoexec.ps1 (folder / .sdkmod)")
+
+
 def main() -> None:
     _install_fakes()
     check_helios_tracker()
+    check_script()
     print("OK")
 
 

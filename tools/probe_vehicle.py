@@ -4,15 +4,16 @@
 # Logs: the player's DrivenVehicle (a seat on a turret: then its MyVehicle / Base / Owner), the vehicle's
 # every property / function whose name looks boost / nitro / turbo / pool / resource / health / seat
 # related (resource pools with their Data: CurrentValue, MaxValue...), and its controller's too.
-# Writes E:\Projects\python\bl2-helios-tracker\tools\probe_vehicle.txt (overwrites)
-#   py exec(open(r"E:\Projects\python\bl2-helios-tracker\tools\probe_vehicle.py").read())
+# Writes tools/probe_vehicle.txt (overwrites)
+#   py exec(open(r"<repo>\tools\probe_vehicle.py").read())
 import enum
 import re
+import sys
 from pathlib import Path
 
 from mods_base import get_pc
 
-OUT = Path(r"E:\Projects\python\bl2-helios-tracker\tools\probe_vehicle.txt")
+OUT = Path(sys.modules["helios_tracker"].__file__).resolve().parents[1] / "tools" / "probe_vehicle.txt"  # the repo, through the mod's junction
 PATTERN = re.compile(r"boost|nitro|turbo|pool|resource|health|seat|fuel|energy|shield", re.I)
 lines: list[str] = []
 

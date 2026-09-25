@@ -8,16 +8,17 @@
 #  - the fields of the controller, pawn, PRI, HUD, world / game / replication info and the map info
 #    whose name looks related (their values: arrays with their length and first entries).
 # Run it in a level with a few areas discovered and some not (e.g. Southern Shelf part way).
-# Writes E:\Projects\python\bl2-helios-tracker\tools\probe_discovery.txt (overwrites)
-#   py exec(open(r"E:\Projects\python\bl2-helios-tracker\tools\probe_discovery.py").read())
+# Writes tools/probe_discovery.txt (overwrites)
+#   py exec(open(r"<repo>\tools\probe_discovery.py").read())
 import enum
 import re
+import sys
 from pathlib import Path
 
 import unrealsdk
 from mods_base import ENGINE, get_pc
 
-OUT = Path(r"E:\Projects\python\bl2-helios-tracker\tools\probe_discovery.txt")
+OUT = Path(sys.modules["helios_tracker"].__file__).resolve().parents[1] / "tools" / "probe_discovery.txt"  # the repo, through the mod's junction
 PATTERN = re.compile(r"discover|fog|fow|explor|reveal|unveil|areaname|worldarea|mapdata", re.I)
 FULL = 4  # actors dumped in full per class
 lines: list[str] = []

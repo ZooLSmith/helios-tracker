@@ -4,17 +4,18 @@
 # Logs: every interactive object within 10 m: class, name, net mode, its definition, its balance
 # (BalanceDefinitionState), the balance's DefaultDisplayName, the definition's name-ish fields, and what
 # GetTargetName / GetHumanReadableName give (the collector's fallbacks).
-# Writes E:\Projects\python\bl2-helios-tracker\tools\probe_object_names.txt (overwrites)
-#   py exec(open(r"E:\Projects\python\bl2-helios-tracker\tools\probe_object_names.py").read())
+# Writes tools/probe_object_names.txt (overwrites)
+#   py exec(open(r"<repo>\tools\probe_object_names.py").read())
 import enum
 import math
 import re
+import sys
 from pathlib import Path
 
 import unrealsdk
 from mods_base import ENGINE, get_pc
 
-OUT = Path(r"E:\Projects\python\bl2-helios-tracker\tools\probe_object_names.txt")
+OUT = Path(sys.modules["helios_tracker"].__file__).resolve().parents[1] / "tools" / "probe_object_names.txt"  # the repo, through the mod's junction
 RANGE = 1000.0  # uu (10 m)
 PATTERN = re.compile(r"name|display|text|balance|definition|header|title", re.I)
 lines: list[str] = []

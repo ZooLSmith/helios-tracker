@@ -154,7 +154,7 @@ function itemHtml(it, ownerLevel) {
   // the manufacturer's logo, the element's, the type's - each dropped if the game has none (or the key's odd); the
   // logo missing: the maker's name instead
   const icon = (kind, key, text = "") => (key && /^[A-Za-z0-9_]+$/.test(key)
-    ? `<img class="ii-${kind}" src="/cardicon/${kind}/${key}.png" alt="${esc(text)}"${text ? ` title="${esc(text)}"` : ""} ` +
+    ? `<img class="ii-${kind}" src="/cardicon/${kind}/${key}.png" crossorigin="anonymous" alt="${esc(text)}"${text ? ` title="${esc(text)}"` : ""} ` +
       `loading="lazy" draggable="false" onerror="${text
         ? "this.replaceWith(Object.assign(document.createElement('span'), {className: 'ii-text', textContent: this.alt}))"
         : "this.remove()"}">` : "");

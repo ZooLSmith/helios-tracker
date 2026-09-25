@@ -3,14 +3,15 @@
 # (tools/probe_skill_stats.txt). For every skill of your tree: its grade, the call at that grade and the next
 # (the out array's entries in full: presentation, value...), and its own SkillEffectPresentations[] (their
 # Description and display flags).
-# Writes E:\Projects\python\bl2-helios-tracker\tools\probe_skill_stats2.txt (overwrites)
-#   py exec(open(r"E:\Projects\python\bl2-helios-tracker\tools\probe_skill_stats2.py").read())
+# Writes tools/probe_skill_stats2.txt (overwrites)
+#   py exec(open(r"<repo>\tools\probe_skill_stats2.py").read())
 import enum
+import sys
 from pathlib import Path
 
 from mods_base import get_pc
 
-OUT = Path(r"E:\Projects\python\bl2-helios-tracker\tools\probe_skill_stats2.txt")
+OUT = Path(sys.modules["helios_tracker"].__file__).resolve().parents[1] / "tools" / "probe_skill_stats2.txt"  # the repo, through the mod's junction
 PRES_FIELDS = ("Description", "Prefix", "Suffix", "bDisplayAsPercentage", "bDisplayPercentAsFloat", "bDisplayAsInverse",
                "bDontDisplayNumber", "bDontDisplayPlusSign", "SignStyle", "RoundingMode", "FloatPrecision", "Attribute")
 lines: list[str] = []

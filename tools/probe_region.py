@@ -4,17 +4,18 @@
 # game info and replication info; every WillowRegionDefinition (the first ones in full, the others one
 # line) with pc.GetGameStageFromRegion(region) - and which ones the missions of this map point to
 # (MissionDefinition.GameStageRegion, their TravelStation in this map); the enemies' levels here.
-# Writes E:\Projects\python\bl2-helios-tracker\tools\probe_region.txt (overwrites)
-#   py exec(open(r"E:\Projects\python\bl2-helios-tracker\tools\probe_region.py").read())
+# Writes tools/probe_region.txt (overwrites)
+#   py exec(open(r"<repo>\tools\probe_region.py").read())
 import enum
 import re
 from collections import Counter
+import sys
 from pathlib import Path
 
 import unrealsdk
 from mods_base import ENGINE, get_pc
 
-OUT = Path(r"E:\Projects\python\bl2-helios-tracker\tools\probe_region.txt")
+OUT = Path(sys.modules["helios_tracker"].__file__).resolve().parents[1] / "tools" / "probe_region.txt"  # the repo, through the mod's junction
 PATTERN = re.compile(r"region|gamestage|stage|arealevel|explevel|zonelevel|awesome", re.I)
 SCALARS = {"StrProperty", "NameProperty", "ObjectProperty", "ByteProperty", "IntProperty", "BoolProperty",
            "FloatProperty", "ArrayProperty", "StructProperty"}

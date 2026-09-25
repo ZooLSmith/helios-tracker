@@ -5,17 +5,18 @@
 # delays...), the vehicle's and its definition's fields whose names look boost / afterburner / regen /
 # delay / recharge related; then the pool's value every 0.1 s (changes only, with the time) - the delay
 # is the pause between the drop stopping and the refill starting.
-# Writes E:\Projects\python\bl2-helios-tracker\tools\probe_boost.txt (overwrites)
-#   py exec(open(r"E:\Projects\python\bl2-helios-tracker\tools\probe_boost.py").read())
+# Writes tools/probe_boost.txt (overwrites)
+#   py exec(open(r"<repo>\tools\probe_boost.py").read())
 import enum
 import re
 import time
+import sys
 from pathlib import Path
 
 from mods_base import get_pc
 from unrealsdk.hooks import Type, add_hook, remove_hook
 
-OUT = Path(r"E:\Projects\python\bl2-helios-tracker\tools\probe_boost.txt")
+OUT = Path(sys.modules["helios_tracker"].__file__).resolve().parents[1] / "tools" / "probe_boost.txt"  # the repo, through the mod's junction
 SAMPLE_FOR = 25.0
 SAMPLE_EVERY = 0.1
 PATTERN = re.compile(r"boost|after|burner|turbo|regen|delay|recharge|pool|nitro", re.I)

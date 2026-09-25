@@ -109,7 +109,7 @@ def _stats(inv: Any, kind: str) -> list[list[Any]]:
 def _localized(obj: Any, grade: int) -> str:
     """The game's own display text for a definition, in the game's language ("" if it has none).
 
-    Localized properties (see .claude/documentation/notes.md): name parts' PartName, weapon types'
+    Localized properties (see the repo's .agent/notes.md): name parts' PartName, weapon types'
     Typename, item definitions' ItemName, manufacturers' Grades[grade].DisplayName.
     """
     for prop in ("PartName", "Typename", "ItemName"):

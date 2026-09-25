@@ -9,13 +9,14 @@
 #  - WillowItem.GetRainGrenadeIcon(out RainGrenadeFrame) -> str   (grenade mods only)
 # plus properties: ShieldDef.ShieldTypeFlashFrameName / PrimedFlashFrameName (shields), the grenade's
 # projectile's FlashIconName, the definition's ManufacturerDefinition.FlashLabelName.
-# Writes E:\Projects\python\bl2-helios-tracker\tools\probe_zippy.txt (overwrites)
-#   py exec(open(r"E:\Projects\python\bl2-helios-tracker\tools\probe_zippy.py").read())
+# Writes tools/probe_zippy.txt (overwrites)
+#   py exec(open(r"<repo>\tools\probe_zippy.py").read())
+import sys
 from pathlib import Path
 
 from mods_base import get_pc
 
-OUT = Path(r"E:\Projects\python\bl2-helios-tracker\tools\probe_zippy.txt")
+OUT = Path(sys.modules["helios_tracker"].__file__).resolve().parents[1] / "tools" / "probe_zippy.txt"  # the repo, through the mod's junction
 lines: list[str] = []
 
 

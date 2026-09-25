@@ -2,18 +2,21 @@
 # libraries (SwfMovie with DefineFont2/3 tags: vector glyphs) - in the game's startup / UI packages.
 #   python tools/find_fonts.py [package ...]   (default: the startup packages + GFxUI)
 # Writes tools/find_fonts.txt (overwrites)
+# The game: project.json's game.path
 import importlib.util
 import struct
 import sys
 import zlib
 from pathlib import Path
 
+import project
+
 _spec = importlib.util.spec_from_file_location("tacmap", Path(__file__).resolve().parents[1] / "helios_tracker" / "tacmap.py")
 _tacmap = importlib.util.module_from_spec(_spec)
 _spec.loader.exec_module(_tacmap)
 Package, _Bits, _rect, _tags = _tacmap.Package, _tacmap._Bits, _tacmap._rect, _tacmap._tags
 
-COOKED = Path(r"E:\SteamLibrary\steamapps\common\Borderlands 2\WillowGame\CookedPCConsole")
+COOKED = project.require(project.cooked_dir(), "The game's CookedPCConsole")
 OUT = Path(__file__).with_suffix(".txt")
 lines: list[str] = []
 state_movies = [0]

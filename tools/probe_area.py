@@ -7,16 +7,17 @@
 # station to the level; the functions on the player controller / world info / tracker that map a
 # region or mission to a level, and GetLevelForMission for the tracked mission; and the level's own
 # name (LevelDependencyList.GetFriendlyLevelNameFromMapName, the map info, functions naming levels).
-# Writes E:\Projects\python\bl2-helios-tracker\tools\probe_area.txt (overwrites)
-#   py exec(open(r"E:\Projects\python\bl2-helios-tracker\tools\probe_area.py").read())
+# Writes tools/probe_area.txt (overwrites)
+#   py exec(open(r"<repo>\tools\probe_area.py").read())
 import enum
 import re
+import sys
 from pathlib import Path
 
 import unrealsdk
 from mods_base import ENGINE, get_pc
 
-OUT = Path(r"E:\Projects\python\bl2-helios-tracker\tools\probe_area.txt")
+OUT = Path(sys.modules["helios_tracker"].__file__).resolve().parents[1] / "tools" / "probe_area.txt"  # the repo, through the mod's junction
 SCALARS = {"StrProperty", "NameProperty", "ObjectProperty", "ByteProperty", "IntProperty", "BoolProperty", "ArrayProperty"}
 STOP = {"Object", "Actor", "GBXDefinition"}
 FULL = 4  # station definitions dumped in full

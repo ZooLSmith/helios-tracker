@@ -6,16 +6,17 @@
 # WillowWaypoint actors (the first 8 in full, then one line each: what links one to a mission /
 # objective, what says it's shown), the controller's / HUD's / replication info's properties whose name
 # looks waypoint / objective / mission related, and their functions of that kind.
-# Writes E:\Projects\python\bl2-helios-tracker\tools\probe_client_waypoints.txt (overwrites)
-#   py exec(open(r"E:\Projects\python\bl2-helios-tracker\tools\probe_client_waypoints.py").read())
+# Writes tools/probe_client_waypoints.txt (overwrites)
+#   py exec(open(r"<repo>\tools\probe_client_waypoints.py").read())
 import enum
 import re
+import sys
 from pathlib import Path
 
 import unrealsdk
 from mods_base import ENGINE, get_pc
 
-OUT = Path(r"E:\Projects\python\bl2-helios-tracker\tools\probe_client_waypoints.txt")
+OUT = Path(sys.modules["helios_tracker"].__file__).resolve().parents[1] / "tools" / "probe_client_waypoints.txt"  # the repo, through the mod's junction
 PATTERN = re.compile(r"waypoint|objective|mission|marker|directive|compass", re.I)
 STOP = {"Object"}
 FULL = 8

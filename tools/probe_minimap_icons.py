@@ -5,15 +5,16 @@
 # MissionEligible, MissionRedeemable): every entry, field by field (a struct / object: nested one level)
 # - which ones are in use, what they point at (an actor? a location? a radius?); and the minimap's
 # other fields whose name looks objective / mission / icon related.
-# Writes E:\Projects\python\bl2-helios-tracker\tools\probe_minimap_icons.txt (overwrites)
-#   py exec(open(r"E:\Projects\python\bl2-helios-tracker\tools\probe_minimap_icons.py").read())
+# Writes tools/probe_minimap_icons.txt (overwrites)
+#   py exec(open(r"<repo>\tools\probe_minimap_icons.py").read())
 import enum
 import re
+import sys
 from pathlib import Path
 
 import unrealsdk
 
-OUT = Path(r"E:\Projects\python\bl2-helios-tracker\tools\probe_minimap_icons.txt")
+OUT = Path(sys.modules["helios_tracker"].__file__).resolve().parents[1] / "tools" / "probe_minimap_icons.txt"  # the repo, through the mod's junction
 LISTS = ("Icons_Objective", "Icons_AreaObjective", "Icons_AreaObjectiveSticky", "Icons_MissionEligible", "Icons_MissionRedeemable")
 PATTERN = re.compile(r"objective|mission|waypoint|icon|target|marker", re.I)
 lines: list[str] = []

@@ -1,13 +1,14 @@
 # Dev probe (in game), instant: why the fog of war covers everything - this level's discovery areas vs
 # the player's DiscoveredWorldAreas (every entry, uncovered or not) and FullyExploredAreas.
-# Writes E:\Projects\python\bl2-helios-tracker\tools\probe_fog.txt (overwrites)
-#   py exec(open(r"E:\Projects\python\bl2-helios-tracker\tools\probe_fog.py").read())
+# Writes tools/probe_fog.txt (overwrites)
+#   py exec(open(r"<repo>\tools\probe_fog.py").read())
+import sys
 from pathlib import Path
 
 import unrealsdk
 from mods_base import ENGINE, get_pc
 
-OUT = Path(r"E:\Projects\python\bl2-helios-tracker\tools\probe_fog.txt")
+OUT = Path(sys.modules["helios_tracker"].__file__).resolve().parents[1] / "tools" / "probe_fog.txt"  # the repo, through the mod's junction
 lines: list[str] = []
 try:
     pc = get_pc()

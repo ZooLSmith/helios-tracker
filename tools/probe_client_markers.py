@@ -5,15 +5,16 @@
 # MissionWaypoints: per mission, each component's class, bActive, owner, location, linked objective);
 # every waypoint component in memory (MissionObjective / MissionDirective WaypointComponent) with the
 # same, and whether a tracker lists it; the WillowWaypoint actors; the HUD minimap's icon lists.
-# Writes E:\Projects\python\bl2-helios-tracker\tools\probe_client_markers.txt (overwrites)
-#   py exec(open(r"E:\Projects\python\bl2-helios-tracker\tools\probe_client_markers.py").read())
+# Writes tools/probe_client_markers.txt (overwrites)
+#   py exec(open(r"<repo>\tools\probe_client_markers.py").read())
 import enum
+import sys
 from pathlib import Path
 
 import unrealsdk
 from mods_base import ENGINE, get_pc
 
-OUT = Path(r"E:\Projects\python\bl2-helios-tracker\tools\probe_client_markers.txt")
+OUT = Path(sys.modules["helios_tracker"].__file__).resolve().parents[1] / "tools" / "probe_client_markers.txt"  # the repo, through the mod's junction
 lines: list[str] = []
 
 

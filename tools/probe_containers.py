@@ -1,16 +1,17 @@
 # Dev probe (in game), instant: what tells containers apart - their loot configuration (item pools),
 # balance loot lists, icons, and state (opened / used). One object per definition, the closest first.
 # Run it once, then OPEN a chest or two and run it again: the state fields that change show "looted".
-# Writes E:\Projects\python\bl2-helios-tracker\tools\probe_containers.txt (appends)
-#   py exec(open(r"E:\Projects\python\bl2-helios-tracker\tools\probe_containers.py").read())
+# Writes tools/probe_containers.txt (appends)
+#   py exec(open(r"<repo>\tools\probe_containers.py").read())
 import math
 import re
+import sys
 from pathlib import Path
 
 import unrealsdk
 from mods_base import get_pc
 
-OUT = Path(r"E:\Projects\python\bl2-helios-tracker\tools\probe_containers.txt")
+OUT = Path(sys.modules["helios_tracker"].__file__).resolve().parents[1] / "tools" / "probe_containers.txt"  # the repo, through the mod's junction
 MAX_TYPES = 30
 STATE = re.compile(r"(?i)used|open|loot|state|enabled|usable|locked|spawn|looted|empty|active|cost")
 lines: list[str] = []

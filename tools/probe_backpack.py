@@ -6,18 +6,19 @@
 #     list or not;
 #  3) for 60 s: their backpack count / owned item count on every change - have them PICK UP an item
 #     (the host runs pickups: it may land here) and then drop one.
-# Writes E:\Projects\python\bl2-helios-tracker\tools\probe_backpack.txt (overwrites)
-#   py exec(open(r"E:\Projects\python\bl2-helios-tracker\tools\probe_backpack.py").read())
+# Writes tools/probe_backpack.txt (overwrites)
+#   py exec(open(r"<repo>\tools\probe_backpack.py").read())
 import re
 import time
 from enum import Enum
+import sys
 from pathlib import Path
 
 import unrealsdk
 from mods_base import ENGINE, get_pc
 from unrealsdk.hooks import Type, add_hook, remove_hook
 
-OUT = Path(r"E:\Projects\python\bl2-helios-tracker\tools\probe_backpack.txt")
+OUT = Path(sys.modules["helios_tracker"].__file__).resolve().parents[1] / "tools" / "probe_backpack.txt"  # the repo, through the mod's junction
 SAMPLE_FOR, SAMPLE_EVERY = 60.0, 0.5
 PC_KEYS = re.compile(r"Inv|Item|Backpack|Stash|Bank|Weapon|Gear|Equip|Save|Loadout", re.I)
 INV_CLASSES = ("WillowWeapon", "WillowShield", "WillowGrenadeMod", "WillowClassMod", "WillowArtifact",

@@ -1,15 +1,16 @@
 # Dev probe (in game), instant: current map name, its WillowMapInfo / tactical map volume, and the
 # numbers needed to convert world positions to tactical map pixels.
 # Run it twice, standing at two different spots, ideally once with the map (status menu) open.
-# Writes E:\Projects\python\bl2-helios-tracker\tools\probe_map.txt (appends)
-#   py exec(open(r"E:\Projects\python\bl2-helios-tracker\tools\probe_map.py").read())
+# Writes tools/probe_map.txt (appends)
+#   py exec(open(r"<repo>\tools\probe_map.py").read())
 import re
+import sys
 from pathlib import Path
 
 import unrealsdk
 from mods_base import ENGINE, get_pc
 
-OUT = Path(r"E:\Projects\python\bl2-helios-tracker\tools\probe_map.txt")
+OUT = Path(sys.modules["helios_tracker"].__file__).resolve().parents[1] / "tools" / "probe_map.txt"  # the repo, through the mod's junction
 INTERESTING = re.compile(r"(?i)map|scale|unit|pixel|north|yaw|offset|transform|center|size|radius|location|volume")
 
 lines: list[str] = []

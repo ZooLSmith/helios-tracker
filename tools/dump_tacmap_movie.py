@@ -3,10 +3,13 @@
 # package's exports under the movie's package. Looking for how the game draws its fog of war.
 #   python tools/dump_tacmap_movie.py [Map_P]   (default SouthernShelf_P)
 # Writes tools/dump_tacmap_movie.txt (overwrites)
+# The game: project.json's game.path
 import struct
 import sys
 import zlib
 from pathlib import Path
+
+import project
 
 import importlib.util  # noqa: E402
 
@@ -16,7 +19,7 @@ _tacmap = importlib.util.module_from_spec(_spec)
 _spec.loader.exec_module(_tacmap)
 Package, _Bits, _matrix, _rect, _tags = _tacmap.Package, _tacmap._Bits, _tacmap._matrix, _tacmap._rect, _tacmap._tags
 
-COOKED = Path(r"E:\SteamLibrary\steamapps\common\Borderlands 2\WillowGame\CookedPCConsole")
+COOKED = project.require(project.cooked_dir(), "The game's CookedPCConsole")
 OUT = Path(__file__).with_suffix(".txt")
 NAMES = {0: "End", 1: "ShowFrame", 2: "DefineShape", 4: "PlaceObject", 5: "RemoveObject", 9: "SetBackgroundColor",
          12: "DoAction", 22: "DefineShape2", 26: "PlaceObject2", 28: "RemoveObject2", 32: "DefineShape3",

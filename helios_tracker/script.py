@@ -1,10 +1,14 @@
 """
-The user's own `autoexec.ps1` (next to this file, optional): run while the server runs.
+The user's own PowerShell script (optional): run while the server runs. The first found of:
 
-For a tunnel (`cloudflared tunnel run ...`) or anything else that should live with the map. It gets
-the server's port in `HELIOS_PORT`, runs hidden (no console window over the game), its output goes
-to `autoexec.log`. The process and everything it starts are in a job object: stopping the
-server - or the game exiting / crashing - ends the whole tree.
+- `autoexec.ps1` in the mod's folder (a folder install: the dev setup's junction), its output in `autoexec.log`;
+- `helios_tracker.autoexec.ps1` in `sdk_mods`, beside the mod (the place for a `.sdkmod`, a zip: nothing can
+  go inside it), its output in `helios_tracker.autoexec.log`.
+
+For a tunnel (`tailscale funnel 8777`, `cloudflared tunnel run ...`) or anything else that should live with
+the map. It gets the server's port in `HELIOS_PORT`, runs hidden (no console window over the game). The
+process and everything it starts are in a job object: stopping the server - or the game exiting / crashing -
+ends the whole tree.
 """
 
 import ctypes
@@ -16,8 +20,18 @@ from pathlib import Path
 
 from .util import log, log_error
 
-SCRIPT = Path(__file__).with_name("autoexec.ps1")
-SCRIPT_LOG = Path(__file__).with_name("autoexec.log")
+PACKAGE = Path(__file__).parent  # sdk_mods/helios_tracker: a folder, or a folder inside helios_tracker.sdkmod
+
+
+def find_script(package: Path = PACKAGE) -> tuple[Path, Path] | None:
+    """The script to run and its log file, or None."""
+    # sdk_mods: the package's parent - or, in a .sdkmod (a zip: a file, not a folder), the zip's
+    sdk_mods = package.parent if package.parent.is_dir() else package.parent.parent
+    for script, output in ((package / "autoexec.ps1", package / "autoexec.log"),
+                           (sdk_mods / "helios_tracker.autoexec.ps1", sdk_mods / "helios_tracker.autoexec.log")):
+        if script.is_file():
+            return script, output
+    return None
 
 _JOB_OBJECT_EXTENDED_LIMIT_INFORMATION = 9
 _JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE = 0x2000
@@ -68,7 +82,7 @@ def _kernel32() -> ctypes.WinDLL:
 class UserScript:
     """One run of the script; stop() ends it and whatever it started."""
 
-    def __init__(self, port: int) -> None:
+    def __init__(self, script: Path, output: Path, port: int) -> None:
         self._k = _kernel32()
         self._job = self._k.CreateJobObjectW(None, None)
         if not self._job:
@@ -80,11 +94,11 @@ class UserScript:
             err = ctypes.WinError(ctypes.get_last_error())
             self._k.CloseHandle(self._job)
             raise err
-        with SCRIPT_LOG.open("w", encoding="utf-8") as out:  # the child keeps its own handle
+        with output.open("w", encoding="utf-8") as out:  # the child keeps its own handle
             self._proc = subprocess.Popen(  # noqa: S603
                 ["powershell.exe", "-NoProfile", "-NonInteractive", "-ExecutionPolicy", "Bypass",
-                 "-File", str(SCRIPT)],
-                cwd=SCRIPT.parent, env={**os.environ, "HELIOS_PORT": str(port)},
+                 "-File", str(script)],
+                cwd=script.parent, env={**os.environ, "HELIOS_PORT": str(port)},
                 stdin=subprocess.DEVNULL, stdout=out, stderr=subprocess.STDOUT,
                 creationflags=subprocess.CREATE_NO_WINDOW,
             )
@@ -101,12 +115,14 @@ class UserScript:
 
 
 def start_script(port: int) -> UserScript | None:
-    if sys.platform != "win32" or not SCRIPT.is_file():
+    found = find_script() if sys.platform == "win32" else None
+    if found is None:
         return None
+    path, output = found
     try:
-        script = UserScript(port)
+        script = UserScript(path, output, port)
     except Exception as ex:  # noqa: BLE001
-        log_error("starting autoexec.ps1", ex)
+        log_error(f"starting {path.name}", ex)
         return None
-    log(f"started {SCRIPT.name} (output: {SCRIPT_LOG.name})")
+    log(f"started {path} (output: {output.name})")
     return script

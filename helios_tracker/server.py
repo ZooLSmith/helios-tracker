@@ -34,6 +34,11 @@ FONT = re.compile(r"/font/([a-z0-9-]+)\.ttf")
 ICON = re.compile(r"/icon/((?:UI_[A-Za-z0-9]+_)?SharedSkillIcons_[A-Za-z0-9_]+\.[A-Za-z0-9_-]+)\.png", re.I)
 CARD_ICON = re.compile(r"/cardicon/(manufacturer|type|element)/([A-Za-z0-9_]+)\.png")
 SCAN_WAIT = 30.0  # s a font / icon request waits for the game files' index (gamescan) before giving up
+# Pages from these origins may read everything here (CORS): the project's site - its /live/ page opens the map through
+# a tunnel from a stable address, so the page's settings (localStorage: per origin) survive the tunnel's changing
+# ones - and pages on this PC (localhost, 127.0.0.1, any port: a local preview of the site)
+SITE_ORIGINS = ("https://helios-tracker.zoolsmith.com", "https://zoolsmith.github.io")  # (the site: its domain, GitHub's own address)
+LOCAL_ORIGIN = re.compile(r"http://(?:localhost|127\.0\.0\.1)(?::\d+)?")
 KEEPALIVE = 10.0  # s between SSE comments when nothing changes (detects closed tabs)
 
 
@@ -122,8 +127,16 @@ class _Handler(BaseHTTPRequestHandler):
         except (ConnectionError, TimeoutError):
             pass  # tab closed / navigated away
 
+    def _cors(self) -> None:
+        """The CORS header for an allowed page's origin (see SITE_ORIGINS); none for anyone else."""
+        origin = self.headers.get("Origin", "")
+        if origin in SITE_ORIGINS or LOCAL_ORIGIN.fullmatch(origin):
+            self.send_header("Access-Control-Allow-Origin", origin)
+            self.send_header("Vary", "Origin")
+
     def _send(self, status: HTTPStatus, ctype: str, body: bytes) -> None:
         self.send_response(status)
+        self._cors()
         self.send_header("Content-Type", ctype)
         self.send_header("Content-Length", str(len(body)))
         self.send_header("Cache-Control", "no-store")
@@ -145,6 +158,7 @@ class _Handler(BaseHTTPRequestHandler):
     def _events(self) -> None:
         hub = self.server.hub
         self.send_response(HTTPStatus.OK)
+        self._cors()
         self.send_header("Content-Type", "text/event-stream")
         self.send_header("Cache-Control", "no-store")
         self.end_headers()

@@ -3,14 +3,15 @@
 # 1) every property / function with "Rarity" or "Color" in its name on the inventory, pickup, item
 #    card and globals classes (walking up the class chain); 2) per rarity level, one loaded item's
 #    no-argument rarity / colour getters called (read-only getters only: Get*).
-# Writes E:\Projects\python\bl2-helios-tracker\tools\probe_rarity2.txt (appends)
-#   py exec(open(r"E:\Projects\python\bl2-helios-tracker\tools\probe_rarity2.py").read())
+# Writes tools/probe_rarity2.txt (appends)
+#   py exec(open(r"<repo>\tools\probe_rarity2.py").read())
 from enum import Enum
+import sys
 from pathlib import Path
 
 import unrealsdk
 
-OUT = Path(r"E:\Projects\python\bl2-helios-tracker\tools\probe_rarity2.txt")
+OUT = Path(sys.modules["helios_tracker"].__file__).resolve().parents[1] / "tools" / "probe_rarity2.txt"  # the repo, through the mod's junction
 KEYS = ("rarity", "color", "colour")
 lines: list[str] = ["#" * 70]
 

@@ -2,11 +2,13 @@
 # placement (the minimap moves/rotates/scales the tactical map movie so the player is centered),
 # to fit the exact world -> tactical map pixel transform. Draws nothing.
 # Console (with the HUD minimap visible, not in a menu):
-#   py exec(open(r"E:\Projects\python\bl2-helios-tracker\tools\probe_map2.py").read())
+#   py exec(open(r"<repo>\tools\probe_map2.py").read())
 # Then WALK AROUND AND TURN for 20 s (both directions, long straight lines help).
-# Stop early: pyexec ammo_counter/off.py (the file keeps what was sampled so far).
-# Writes E:\Projects\python\bl2-helios-tracker\tools\probe_map2.txt
+# Stops by itself after SAMPLE_FOR; early: py import unrealsdk.hooks as h; h.remove_hook("WillowGame.WillowGameViewportClient:PostRender", h.Type.POST, "helios_probe_map2")
+# (the file keeps what was sampled so far).
+# Writes tools/probe_map2.txt
 import time
+import sys
 from pathlib import Path
 
 import unrealsdk
@@ -14,7 +16,7 @@ from mods_base import get_pc
 from unrealsdk.hooks import Type, add_hook, remove_hook
 from unrealsdk.unreal import WeakPointer
 
-OUT = Path(r"E:\Projects\python\bl2-helios-tracker\tools\probe_map2.txt")
+OUT = Path(sys.modules["helios_tracker"].__file__).resolve().parents[1] / "tools" / "probe_map2.txt"  # the repo, through the mod's junction
 SAMPLE_FOR = 20.0
 SAMPLE_EVERY = 0.25
 FLASH_VARS = ("_x", "_y", "_rotation", "_xscale", "_yscale", "_width", "_height")
@@ -55,7 +57,7 @@ else:
     # Never keep UObjects across frames: hold the widget weakly, fetch MapClip each sample.
     _weak = WeakPointer(w)
     _HOOK_FUNC = "WillowGame.WillowGameViewportClient:PostRender"
-    _HOOK_ID = "ammo_counter_preview_texture"  # shared id, so ammo_counter/off.py stops it too
+    _HOOK_ID = "helios_probe_map2"
     remove_hook(_HOOK_FUNC, Type.POST, _HOOK_ID)
     _t0 = time.monotonic()
     _next = [0.0]

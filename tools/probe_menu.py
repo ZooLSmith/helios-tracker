@@ -8,18 +8,19 @@
 # looks menu / input / UI related, on each player's controller, HUD, pawn and player info (all bool /
 # byte ones on the player infos: whatever is replicated); the controllers' state; the open GFx movies
 # (every 1 s).
-# Writes E:\Projects\python\bl2-helios-tracker\tools\probe_menu.txt (overwrites)
-#   py exec(open(r"E:\Projects\python\bl2-helios-tracker\tools\probe_menu.py").read())
+# Writes tools/probe_menu.txt (overwrites)
+#   py exec(open(r"<repo>\tools\probe_menu.py").read())
 import enum
 import re
 import time
+import sys
 from pathlib import Path
 
 import unrealsdk
 from mods_base import ENGINE, get_pc
 from unrealsdk.hooks import Type, add_hook, remove_hook
 
-OUT = Path(r"E:\Projects\python\bl2-helios-tracker\tools\probe_menu.txt")
+OUT = Path(sys.modules["helios_tracker"].__file__).resolve().parents[1] / "tools" / "probe_menu.txt"  # the repo, through the mod's junction
 SAMPLE_FOR = 120.0
 SAMPLE_EVERY = 0.25
 MOVIES_EVERY = 1.0

@@ -2,11 +2,13 @@
 
 ## Game install
 
-- **Borderlands 2 is installed at:** `E:\SteamLibrary\steamapps\common\Borderlands 2`
-- Executable / SDK plugin folder: `...\Borderlands 2\Binaries\Win32\`
+- **Where Borderlands 2 is installed:** `project.json`'s `game.path` (written `<game>` below;
+  `<repo>` is this repo's root). Steam's default: `C:\Program Files (x86)\Steam\steamapps\common\Borderlands 2`.
+- Executable / SDK plugin folder: `<game>\Binaries\Win32\`
   - `Plugins\` — `unrealsdk.dll`, `pyunrealsdk.dll`, `python314.dll` (**Python 3.14, 32-bit**),
     `unrealsdk.toml` (SDK config), `unrealsdk.log` (SDK log — check here for tracebacks)
-- Mods folder: `...\Borderlands 2\sdk_mods\`
+- Game packages: `<game>\WillowGame\CookedPCConsole\`, DLCs' in `<game>\DLC\<Name>\...\Content`
+- Mods folder: `<game>\sdk_mods\`
   - `__main__.py` — mod manager init script
   - `*.sdkmod` — installed mods/libs (zips): `mods_base`, `ui_utils`, `keybinds`, `networking`,
     `save_options`, `console_mod_menu`, `willow2_mod_menu`, `legacy_compat`, …
@@ -27,8 +29,9 @@
 
 ### Loading mods from this project folder
 
-Current setup: each mod is a **directory junction** in `sdk_mods` pointing back here:
-- `sdk_mods\helios_tracker` → `E:\Projects\python\bl2-helios-tracker\helios_tracker`
+Current setup: each mod is a **directory junction** in `sdk_mods` pointing back here
+(`python tools/link_mod.py` makes it):
+- `<game>\sdk_mods\helios_tracker` → `<repo>\helios_tracker`
 
 Deleting a junction (`Remove-Item <link>` — no `-Recurse`) only removes the link, not the project.
 
@@ -40,7 +43,7 @@ Alternative (not used): create `Binaries\Win32\Plugins\unrealsdk.user.toml` (ove
 console_log_level = "DWRN"   # show developer warnings in the console
 
 [mod_manager]
-extra_folders = ["E:\\Projects\\python\\bl2-helios-tracker"]
+extra_folders = ["<repo>"]   # absolute, with doubled backslashes
 ```
 
 ### Dev tips
@@ -97,8 +100,9 @@ build_mod()  # picks up hooks/options/keybinds defined in the module + metadata 
 
 ## Game data dumps (Gibbed.Borderlands2)
 
-`E:\Projects\references\Gibbed.Borderlands2`: Gibbed's save editor (C#, 2021), cloned for reference
-(read-only; nothing from it goes in this repo). Its game data is JSON dumped from the game's objects,
+`project.json`'s `references.gibbed` (https://github.com/gibbed/Gibbed.Borderlands2): Gibbed's save
+editor (C#, 2021), cloned for reference (read-only; nothing from it goes in this repo). Paths below are
+relative to that clone. Its game data is JSON dumped from the game's objects,
 keyed by object path (`GD_...`), base game plus every DLC. It lives in the `Resources\Dumps` submodule
 (checked out with `git submodule update --init`):
 `projects\Gibbed.Borderlands2.GameInfo\Resources\Dumps\` (~2.8 MB)
@@ -122,7 +126,7 @@ keyed by object path (`GD_...`), base game plus every DLC. It lives in the `Reso
   Tulip = Mechromancer, Lilac = Psycho.
 - Not in there: RarityLevel values, colours, positions or level contents. Use them to put a name to
   an object path the game gives us, or to check one, **not** as the page's text: names still come from
-  the game at runtime (memory: game text only).
+  the game at runtime (`AGENTS.md`: game text only).
 - Rarity leads: Gemstone = Dragon Keep's `GD_Aster_Weapons.*_4_<Gem>` balances (Quartz, Emerald,
   Diamond, Citrine, Garnet, Rock...: grade 4 like Epic, with a `Prefix_Gemstone_*` name part; also
   `GD_Anemone_Weapons...Prefix_Gemstone_Rock`). Cursed (Pirate's Booty per the wiki): no lead in the

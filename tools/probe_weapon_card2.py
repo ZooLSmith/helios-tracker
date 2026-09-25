@@ -4,14 +4,15 @@
 #  - its damage type definitions (InstantHitDamageTypeDefinitions[]) and its elemental part: every field - the
 #    element's name as the game writes it, if any.
 # Written after each section.
-# Writes E:\Projects\python\bl2-helios-tracker\tools\probe_weapon_card2.txt (overwrites)
-#   py exec(open(r"E:\Projects\python\bl2-helios-tracker\tools\probe_weapon_card2.py").read())
+# Writes tools/probe_weapon_card2.txt (overwrites)
+#   py exec(open(r"<repo>\tools\probe_weapon_card2.py").read())
 import enum
+import sys
 from pathlib import Path
 
 from mods_base import get_pc
 
-OUT = Path(r"E:\Projects\python\bl2-helios-tracker\tools\probe_weapon_card2.txt")
+OUT = Path(sys.modules["helios_tracker"].__file__).resolve().parents[1] / "tools" / "probe_weapon_card2.txt"  # the repo, through the mod's junction
 SKIP = {"VfTableObject", "HashNext", "ObjectFlags", "HashOuterNext", "StateFrame", "Linker", "LinkerIndex",
         "ObjectInternalInteger", "NetIndex", "ObjectArchetype"}
 lines: list[str] = []

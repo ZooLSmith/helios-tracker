@@ -3,17 +3,18 @@
 # Logs the fields named like cinematic / matinee / cutscene / movie / HUD shown / input ignored / view
 # target on the controller, pawn, HUD, world info, GRI and the game info, plus the view target and the
 # active Matinee sequences (SeqAct_Interp being played).
-# Appends to E:\Projects\python\bl2-helios-tracker\tools\probe_cutscene.txt
-#   py exec(open(r"E:\Projects\python\bl2-helios-tracker\tools\probe_cutscene.py").read())
+# Appends to tools/probe_cutscene.txt
+#   py exec(open(r"<repo>\tools\probe_cutscene.py").read())
 import enum
 import re
 import time
+import sys
 from pathlib import Path
 
 import unrealsdk
 from mods_base import ENGINE, get_pc
 
-OUT = Path(r"E:\Projects\python\bl2-helios-tracker\tools\probe_cutscene.txt")
+OUT = Path(sys.modules["helios_tracker"].__file__).resolve().parents[1] / "tools" / "probe_cutscene.txt"  # the repo, through the mod's junction
 PATTERN = re.compile(r"cinemat|matinee|cutscene|movie|showhud|bshowhud|ignore(move|look)input|viewtarget|"
                      r"playersonly|hidehud|bhidden$|interp|scripted", re.I)
 lines: list[str] = [f"######## run at {time.strftime('%H:%M:%S')}"]

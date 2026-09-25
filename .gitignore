@@ -15,3 +15,9 @@ helios_tracker/-autoexec.ps1
 
 # The game files' index (gamescan.py): local
 helios_tracker/.cache/
+
+# This machine's paths (template: project.example.json)
+project.json
+
+# Random WIP work stuff
+_work/

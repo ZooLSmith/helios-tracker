@@ -10,19 +10,20 @@
 #  - every call of a game function named like movie / cinematic / matinee / cutscene / bink (hooked),
 #    with its arguments (the movie's name...) and the time since the previous call (a video's length).
 # Again: restarts. Stop early: py helios_cutscene_stop()
-# Writes E:\Projects\python\bl2-helios-tracker\tools\probe_cutscene_watch.txt (overwrites; as it goes)
-#   py exec(open(r"E:\Projects\python\bl2-helios-tracker\tools\probe_cutscene_watch.py").read())
+# Writes tools/probe_cutscene_watch.txt (overwrites; as it goes)
+#   py exec(open(r"<repo>\tools\probe_cutscene_watch.py").read())
 import builtins
 import enum
 import re
 import time
+import sys
 from pathlib import Path
 
 import unrealsdk
 from mods_base import ENGINE, get_pc
 from unrealsdk.hooks import Type, add_hook, remove_hook
 
-OUT = Path(r"E:\Projects\python\bl2-helios-tracker\tools\probe_cutscene_watch.txt")
+OUT = Path(sys.modules["helios_tracker"].__file__).resolve().parents[1] / "tools" / "probe_cutscene_watch.txt"  # the repo, through the mod's junction
 RUN_FOR = 15 * 60.0
 SAMPLE_EVERY = 0.25
 GAP = 1.0
