@@ -96,16 +96,37 @@ def _str_result(r: Any) -> str:
     return ""
 
 
-# (class address, property name) -> the property: looked up once per class. Cleared on every level
+# Class address -> property name -> the property: looked up once per class. Cleared on every level
 # change (clear_fields): the engine unloads packages then - a class freed, another one at its address,
 # would get a stale property. The script classes read per update most likely stay loaded, but this
 # doesn't rely on it
-_fields: dict[tuple[int, str], Any] = {}
+_fields: dict[int, dict[str, Any]] = {}  # class address -> property name -> property
 
 
 def clear_fields() -> None:
     """Forgets the looked-up properties (a level change: packages may have been unloaded)."""
     _fields.clear()
+
+
+def reader(obj: Any) -> Any:
+    """field() bound to one object: `get = reader(pawn); get("Location")`. Its class and the class's properties
+    looked up once for all the reads - field()'s own overhead (obj.Class, its address, the cache key) was a third of
+    the state update with 50 pawns ~10 reads each (tools/probe_profile.txt). Plain Python objects: getattr."""
+    get = getattr(type(obj), "_get_field", None)
+    if get is None:
+        return lambda name: getattr(obj, name)
+    cls = obj.Class
+    props = _fields.get(cls_key := cls._get_address())
+    if props is None:
+        props = _fields[cls_key] = {}
+
+    def read(name: str) -> Any:
+        prop = props.get(name)
+        if prop is None:
+            prop = props[name] = cls._find(name)
+        return get(obj, prop)
+
+    return read
 
 
 def field(obj: Any, name: str) -> Any:
@@ -117,10 +138,12 @@ def field(obj: Any, name: str) -> Any:
     if get is None:
         return getattr(obj, name)
     cls = obj.Class
-    key = (cls._get_address(), name)
-    prop = _fields.get(key)
+    props = _fields.get(cls_key := cls._get_address())
+    if props is None:
+        props = _fields[cls_key] = {}
+    prop = props.get(name)
     if prop is None:
-        prop = _fields[key] = cls._find(name)
+        prop = props[name] = cls._find(name)
     return get(obj, prop)
 
 

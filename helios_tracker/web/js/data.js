@@ -46,6 +46,8 @@ export function connect() {
   on("shops", onShops);
   on("shoptimer", onShopTimer);
   on("lootpools", onLootPools);
+  on("pickups", onPickups);
+  on("pawninfo", onPawnInfo);
 }
 
 function reloadWhenBack() {
@@ -62,7 +64,7 @@ function onLevel(level) {
   invalidate();
   const changed = !S.level || S.level.id !== level.id;
   if (changed) {
-    S.images = []; S.fogBlob = null; S.pawns.clear(); S.pickups = []; S.objects = []; S.areas = []; S.fogSeen = null; S.explored = false; S.fitted = false; S.fallback = null;
+    S.images = []; S.fogBlob = null; S.pawns.clear(); S.pawnInfo = {}; S.pickups = []; S.objects = []; S.areas = []; S.fogSeen = null; S.explored = false; S.fitted = false; S.fallback = null;
     S.players = []; renderPlayers(); renderInspector();
     S.missions = { tracked: null, markers: [] }; renderMission();
     S.shops = null; S.shopTimer = null; renderShops();
@@ -161,17 +163,21 @@ function onState(st) {
   S.lastState = now;
   const seen = new Set();
   S.meId = null;
-  for (const p of st.pawns) {
+  for (const moving of st.pawns) {
+    // its description (kind, name, level: the "pawninfo" channel, sent on change) with what moves - one not described
+    // yet waits for it (drawn half-known, it has no layer)
+    const info = S.pawnInfo[moving.i];
+    if (!info) continue;
+    const p = { ...info, ...moving };
     seen.add(p.i);
     if (p.k === "me") S.meId = p.i;
     // Rebuilt from each state (not merged into the old one): a field the game stopped sending,
-    // like the made-up-name flag "r" once the real name is known, must go away
+    // like the made-up-name flag "raw" once the real name is known, must go away
     const old = S.pawns.get(p.i);
     const from = old && !old.rs === !p.rs ? pawnPos(old, now) : p; // respawn start / end: no slide
     S.pawns.set(p.i, { ...p, fx: from.x, fy: from.y, fz: from.z, fr: from.r, fh: from.h, fs: from.s, t0: now });
   }
   for (const id of S.pawns.keys()) if (!seen.has(id)) S.pawns.delete(id);
-  S.pickups = st.pickups;
   setPaused(st.paused);
   if (!S.level.center && !S.fallback && S.meId) {
     const me = S.pawns.get(S.meId);
@@ -185,6 +191,28 @@ function onState(st) {
  *  killed, done): close it. */
 function closeIfGone() {
   if (S.detail && !findDetail()) closeInspector();
+}
+
+/** The level's pickups (sent when they change: one appears / goes / moves - thrown, dropped). */
+function onPickups(msg) {
+  if (!S.level || msg.level !== S.level.id) return;
+  S.pickups = msg.pickups;
+  closeIfGone();
+  invalidate();
+}
+
+/** The pawns' descriptions (kind, name, level - sent when they change); the pawns on the map get them at once (a
+ *  real name that came in, a level up), without waiting for their next move. */
+function onPawnInfo(msg) {
+  if (!S.level || msg.level !== S.level.id) return;
+  S.pawnInfo = msg.pawns;
+  for (const [id, p] of S.pawns) {
+    const info = S.pawnInfo[id];
+    if (!info) continue;
+    const { raw, ...rest } = p; // (the made-up-name flag: only if the description still has it)
+    S.pawns.set(id, { ...rest, ...info });
+  }
+  invalidate();
 }
 
 function onObjects(msg) {

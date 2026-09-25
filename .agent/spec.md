@@ -294,7 +294,8 @@ It draws nothing in game: everything it shows is on the page.
 - `server.py`: stdlib `ThreadingHTTPServer`; `/` (page, read from disk per request),
   `/<path>.js|css|png|svg|woff2` (any module / stylesheet / image / font under `web/`: `img/favicon.png` = the tab icon,
   64 x 64, the logo; `fonts/helios-h-*.woff2` = the panel title's "H", the logo as a font of one letter - see base.css;
-  both built from the logo's sources, a local repo kept out of git in `_work/logo/`), `/events` (SSE: `level`, `state`, `objects`, `players`, latest
+  both built from the logo's sources, a local repo kept out of git in `_work/logo/`), `/events` (SSE: `level`, `state` - only what moves: the pawns' positions / health (yaw: the players' only), sent only when
+  something did -, `pawninfo` - the pawns' kind / name / level - and `pickups`, both on change, `objects`, `players`, latest
   payload each), `/image/<level>/<n>`. Server changes need a mod reload; page / i18n edits only a
   browser refresh. The Hub holds
   the payloads; server threads never touch UObjects. The running server is kept on

@@ -6,6 +6,7 @@ import { settings } from "./settings.js";
 export const S = {
   level: null, images: [], // [{canvas, bounds}]
   pawns: new Map(), pickups: [], objects: [],
+  pawnInfo: {}, // id -> the pawn's description {k, n, raw?, l?} (the "pawninfo" channel: data.js merges it in each state)
   areas: [], explored: false, // the level's discovery areas (names, fog of war: data.js onAreas), all of it explored
   fogBlob: null, // the game's fog of war piece: {canvas, bounds} (placed per area: S.level.fog.pieces)
   video: null, // a cutscene playing (a video / an in-engine one): {len (s, or null), at (epoch s), paused, pos (s), name} - data.js onCutscene
@@ -45,8 +46,10 @@ export function pawnPos(p, now) {
   if (!settings.view.motion) return { x: p.x, y: p.y, z: p.z, r: p.r, h: p.h, s: p.s }; // "updates only": no interpolation
   const t = Math.min(1, (now - p.t0) / Math.max(16, S.interval));
   const lerp = (from, to) => (from === undefined || to === undefined ? to : from + (to - from) * t);
-  let dr = (((p.r - p.fr) % 65536) + 98304) % 65536 - 32768; // shortest turn
-  return { x: lerp(p.fx, p.x), y: lerp(p.fy, p.y), z: lerp(p.fz, p.z), r: p.fr + dr * t, h: lerp(p.fh, p.h), s: lerp(p.fs, p.s) };
+  // the heading (the players' only: the others are dots) - the shortest turn
+  const dr = p.r === undefined || p.fr === undefined ? 0 : (((p.r - p.fr) % 65536) + 98304) % 65536 - 32768;
+  const r = p.fr === undefined ? p.r : p.fr + dr * t;
+  return { x: lerp(p.fx, p.x), y: lerp(p.fy, p.y), z: lerp(p.fz, p.z), r, h: lerp(p.fh, p.h), s: lerp(p.fs, p.s) };
 }
 
 /** The "Who" player's pawn (the host by default). */

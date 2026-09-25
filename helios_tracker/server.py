@@ -8,7 +8,8 @@ the Hub, the server threads only read them.
     GET /             the page (web/index.html; every file is read from disk on each request)
     GET /<path>.js|css|png|svg|woff2   its modules / stylesheets / images / fonts under web/ (js/, js/ui/, i18n/,
                              css/, img/, fonts/: the title's "H", ours)
-    GET /events       SSE stream: "level", "state", "objects", "players" events, each the latest JSON
+    GET /events       SSE stream: "level", "state" (what moves), "pawninfo", "pickups", "objects", "players"... events,
+                      each the latest JSON
     GET /image/<level>/<n>   raw texture data of map image n of level <level> (decoded by the page)
     GET /font/<slug>.ttf     the game's UI fonts, rebuilt as TrueType (gamefonts.py; 404 until extracted)
     GET /icon/<path>.png     a skill icon ("SharedSkillIcons_Soldier.SkillIcon-Able": gameicons.py, files only)

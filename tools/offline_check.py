@@ -360,6 +360,7 @@ def check_helios_tracker() -> None:  # noqa: PLR0915
     from helios_tracker.server import Hub, TrackerServer  # noqa: PLC0415
     from helios_tracker.tacmap import load_tactical_map  # noqa: PLC0415
     from helios_tracker.util import clear_fields, field, pickup_kind  # noqa: PLC0415
+    from helios_tracker.util import reader as field_reader  # noqa: PLC0415 - ("reader": a SkillReader below)
 
     # Every @hook of the mod is in build_mod's hooks list (an explicit list: one left out never runs -
     # the cutscene video hook once was)
@@ -397,6 +398,10 @@ def check_helios_tracker() -> None:  # noqa: PLR0915
     clear_fields()  # a level change
     field(obj, "HealthVar")
     assert FakeClass.finds == 2, "looked up again after clear_fields()"
+    read_obj = field_reader(obj)  # field() bound to one object: the same cache
+    assert read_obj("HealthVar") == "value of prop:HealthVar" and read_obj("ShieldVar") == "value of prop:ShieldVar", "reader()"
+    assert FakeClass.finds == 3, ("reader(): one lookup per new property", FakeClass.finds)
+    assert field_reader(types.SimpleNamespace(x=6))("x") == 6, "reader(), plain objects: getattr"
 
 
     # Pickup kinds: the definition's inventory card (Presentation), resolved once per definition
@@ -722,7 +727,8 @@ def check_helios_tracker() -> None:  # noqa: PLR0915
 
     def pawn(addr: int, name: str, x: float, y: float, nxt: object = None, enemy: bool = False) -> object:
         return ns(
-            _get_address=lambda: addr, Name=name, Class=ns(Name="WillowAIPawn"), bDeleteMe=False, bIsDead=False,
+            _get_address=lambda: addr, Name=name, Class=ns(Name="WillowAIPawn", _get_address=lambda: 0xC100), bDeleteMe=False,
+            bIsDead=False,
             Location=ns(X=x, Y=y, Z=3690.0), Rotation=ns(Yaw=16384), GetMaxHealth=lambda: 100.0,
             GetHealth=lambda: 40.0, IsEnemy=lambda other: enemy, GetExpLevel=lambda: 12,
             GetShieldStrength=lambda: 25.0, GetMaxShieldStrength=lambda: 50.0 if enemy else 0.0,
@@ -735,10 +741,10 @@ def check_helios_tracker() -> None:  # noqa: PLR0915
         )
 
     seat = pawn(0x210, "seat", 10000.0, 3000.0)  # a vehicle's turret seat: not shown
-    seat.Class = ns(Name="WillowWeaponPawn", SuperField=None)
+    seat.Class = ns(Name="WillowWeaponPawn", SuperField=None, _get_address=lambda: 0xC200)  # (seats: by class address)
     enemy = pawn(0x200, "bullymong", 10000.0, 3000.0, nxt=seat, enemy=True)
     me = pawn(0x100, "me", 10635.4, 5702.0, nxt=enemy)
-    me.Class = ns(Name="WillowPlayerPawn", SuperField=None)
+    me.Class = ns(Name="WillowPlayerPawn", SuperField=None, _get_address=lambda: 0xC300)
     # Driving: the vehicle has taken the PlayerReplicationInfo (as seen in game)
     me.PlayerReplicationInfo = None
     me.DrivenVehicle = ns(PlayerReplicationInfo=ns(PlayerName="Zer0", ExpLevel=30, ExpPointsNextLevelAt=78861, CharacterNameIdDef=ns(
@@ -884,11 +890,18 @@ def check_helios_tracker() -> None:  # noqa: PLR0915
     fog = level.get("fog")
     assert fog and fog["url"] == f"/image/{level['id']}/1" and fog["pieces"][0][0] == "sanctuary_pwda_1", fog  # (the fake level: Sanctuary)
     state = json.loads(hub._channels["state"][1])
-    kinds = {p["n"]: p["k"] for p in state["pawns"]}
-    assert not any(p.get("raw") for p in state["pawns"]), state["pawns"]  # both have game names
-    assert all(p.get("l") == 12 for p in state["pawns"]), state["pawns"]
-    assert state["hz"] == 10.0, state.get("hz")
-    shields = {p["n"]: (p.get("s"), p.get("sm")) for p in state["pawns"]}
+    # the pawns: their descriptions apart ("pawninfo", on change), the state what moves - merged as the page does
+    pawn_infos = json.loads(hub._channels["pawninfo"][1])["pawns"]
+    assert all(set(p) <= {"i", "x", "y", "z", "r", "h", "m", "s", "sm", "rs", "dn", "dd", "mn", "ct", "bo", "dv", "ak", "ps", "mk"}
+               for p in state["pawns"]), ("the state: only what moves", state["pawns"])
+    state_pawns = [{**pawn_infos[p["i"]], **p} for p in state["pawns"]]
+    kinds = {p["n"]: p["k"] for p in state_pawns}
+    assert all(("r" in p) == (p["k"] in ("me", "player")) for p in state_pawns), ("a heading: the players' only", state_pawns)
+    assert not any(p.get("raw") for p in state_pawns), state_pawns  # both have game names
+    assert all(p.get("l") == 12 for p in state_pawns), state_pawns
+    assert state["hz"] == 10.0 and "t" in state, state
+    assert "pickups" not in state and "pickups" in json.loads(hub._channels["pickups"][1]), "the pickups: a channel of their own"
+    shields = {p["n"]: (p.get("s"), p.get("sm")) for p in state_pawns}
     assert shields == {"Zer0": (60.0, 120.0), "Bullymong": (25.0, 50.0)}, shields  # properties / functions
     assert kinds == {"Zer0": "me", "Bullymong": "enemy"}, kinds
     print(f"  collector: level {level['name']!r} {level['status']}, pawns {kinds}")
@@ -1503,12 +1516,12 @@ def check_helios_tracker() -> None:  # noqa: PLR0915
         res = sse.getresponse()
         assert res.headers["Content-Type"] == "text/event-stream", res.headers
         events = set()
-        while len(events) < 11:
+        while len(events) < 13:
             line = res.fp.readline().decode()
             if line.startswith("event: "):
                 events.add(line[7:].strip())
         assert events == {"level", "state", "objects", "players", "missions", "missiondefs", "missionlog", "areas", "shops",
-                          "shoptimer", "lootpools"}, events
+                          "shoptimer", "lootpools", "pickups", "pawninfo"}, events
         # CORS: the project's site (its /live/ page) and local pages may read, any other site not - files and the stream
         for cors_origin, cors_ok in (("https://helios-tracker.zoolsmith.com", True), ("https://zoolsmith.github.io", True), ("http://127.0.0.1:8931", True),
                                      ("http://localhost", True), ("https://evil.example", False), ("", False)):

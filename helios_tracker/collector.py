@@ -31,7 +31,7 @@ from .skills import SkillReader
 from .server import Hub
 from .tacmap import MapFog, MapImage, load_fog, load_tactical_map
 from .util import (addr, call_str, clear_fields, def_name, exp_level, field, item_name, log, log_error, named,
-                   pickup_kind, player_info, rarity_table, try_)
+                   pickup_kind, player_info, rarity_table, reader, try_)
 
 MOVIE_SCALE = 4  # movie px per volume "pixel": UnrealUnitsPerPixel is 32, the fit gave 128 uu / px
 LEVEL_CHECK_EVERY = 1.0  # s
@@ -318,6 +318,7 @@ class Collector:
 
     def _clear_contents(self) -> None:
         clear_fields()  # a new level: packages may have been unloaded (the property cache re-fills at once)
+        self._seats: dict[int, bool] = {}  # class address -> a vehicle seat's (_is_seat; addresses: per level, as above)
         self._areas = []
         self._areas_json = ""
         self._next_scan = 0.0
@@ -326,6 +327,9 @@ class Collector:
         self._players_json = ""
         self._next_missions = 0.0
         self._missions_json = ""
+        # what the state update last sent, split by how often it changes (_publish_state): the pickups, the pawns'
+        # descriptions, the moving part (without its time)
+        self._pickups_json = self._pawninfo_json = self._state_key = ""
         self._tracker: WeakPointer | None = None  # the MissionTracker, found at each scan
         # A co-op client: the level's WillowWaypoint actors (no waypoint components there: the
         # markers are worked out from them - _client_markers), found at each objects scan
@@ -393,6 +397,7 @@ class Collector:
             self._next_scan = self._next_objects = self._next_players = self._next_missions = self._next_log = 0.0
             self._log.dirty = self._log.defs_dirty = True  # the new page needs the log
             self._objects_json = self._players_json = self._missions_json = self._areas_json = ""
+            self._pickups_json = self._pawninfo_json = self._state_key = ""
             self._pools_sent = None
             self._shops.resend()
             self._next_shops = 0.0
@@ -548,16 +553,16 @@ class Collector:
 
     def _is_seat(self, pawn: Any) -> bool:
         """A vehicle seat pawn (WillowWeaponPawn: a turret's gunner seat...): by class name up the
-        chain, cached per class."""
+        chain, cached per class (by address, not its name: read per pawn per update)."""
         cls = pawn.Class
-        key = ("seat", str(cls.Name))
-        if key not in self._classes:
+        key = cls._get_address()
+        if (seat := self._seats.get(key)) is None:
             c, seat = cls, False
             while c is not None and not seat:
                 seat = "WeaponPawn" in str(c.Name)
                 c = try_(lambda c=c: c.SuperField)
-            self._classes[key] = seat
-        return self._classes[key]
+            self._seats[key] = seat
+        return seat
 
     @staticmethod
     def _boost(vehicle: Any, world_now: float) -> list[float] | None:
@@ -1058,6 +1063,7 @@ class Collector:
         t_skills = time.perf_counter()
         players = []  # player pawns seen this update (the skill reader forgets the others)
         pawns = []
+        infos: dict[str, dict[str, Any]] = {}  # id -> kind, name, level: sent apart, on change
         health = {}
         pawn = wi.PawnList
         for n in range(MAX_PAWNS):
@@ -1066,33 +1072,41 @@ class Collector:
             try:
                 # Vehicle seats (a turret's gunner seat...) are pawns of their own, at the vehicle: the
                 # vehicle and its passengers are already shown
-                # (field(): the per-update reads through properties looked up once - ~10x cheaper)
-                if not field(pawn, "bDeleteMe") and not field(pawn, "bIsDead") and not self._is_seat(pawn):
-                    info = self._pawn_info(pawn, me)
-                    loc = field(pawn, "Location")
-                    # Health / shield: function calls, so each pawn is read every HEALTH_EVERY
-                    # updates (staggered), new ones at once
+                # (reader(): the per-update reads through properties looked up once - ~10x cheaper)
+                get = reader(pawn)
+                if not get("bDeleteMe") and not get("bIsDead") and not self._is_seat(pawn):
                     key = pawn._get_address()
+                    new = key not in self._info  # (its description not cached yet: first seen, or since the last scan)
+                    info = self._pawn_info(pawn, me)
+                    is_player = info["k"] in ("me", "player")
+                    loc = get("Location")
                     # Driving, a player's properties go wrong (seen: max health = health): the functions
-                    vehicle = try_(lambda p=pawn: field(p, "DrivenVehicle")) if info["k"] in ("me", "player") else None
+                    vehicle = try_(lambda: get("DrivenVehicle")) if is_player else None
                     driving = vehicle is not None
                     if driving and try_(lambda v=vehicle: self._is_seat(v), False):  # a turret / gunner seat: its vehicle (on the map)
                         vehicle = self._seat_vehicle(vehicle) or vehicle
                     if driving and not self._drive_logged:
                         self._drive_logged = True
                         self._check_driving(pawn)
-                    hp = None if driving else self._vitals_vars(pawn)  # cheap properties: every update
+                    # Health / shield: properties (cheap) every update - but the NPCs' (not fighting: 50 walking
+                    # around Sanctuary) every HEALTH_EVERY, staggered, new ones at once
+                    stagger = (n + self._state_n) % HEALTH_EVERY
+                    if driving:
+                        hp = None
+                    elif info["k"] == "npc" and stagger and key in self._health:
+                        hp = self._health[key]
+                    else:
+                        hp = self._vitals_vars(get)
                     if hp is None:  # no usable properties: function calls, staggered
                         hp = self._health.get(key)
-                        if hp is None or (n + self._state_n) % HEALTH_EVERY == 0:
+                        if hp is None or not stagger:
                             hp = self._vitals(pawn)
                     health[key] = hp
-                    if len(self._vars_logged) < 3:
-                        self._check_vitals(pawn)
+                    if new and len(self._vars_logged) < 3:  # (not per update: function calls, and a kind never met
+                        self._check_vitals(pawn)             # - no vehicle around - kept it running for every pawn)
                     # A player respawning (dead, the New-U effect): the game parks the pawn somewhere,
                     # hidden - show where they'll come back instead (rs 1), or nothing if it doesn't say
                     # (rs 2: the position is meaningless)
-                    is_player = info["k"] in ("me", "player")
                     if is_player:
                         players.append(pawn)
                     respawning, spot = self._respawn_state(pawn) if is_player else (False, None)
@@ -1100,13 +1114,15 @@ class Collector:
                     skills = self._skills.player(pawn, now) if is_player else {}
                     if spot is not None:
                         loc = spot
+                    infos[info["i"]] = {k: v for k, v in info.items() if k != "i"}  # (its description: "pawninfo")
                     pawns.append(
                         {
-                            **info,
+                            "i": info["i"],
                             "x": round(loc.X),
                             "y": round(loc.Y),
                             "z": round(loc.Z),
-                            "r": view_yaw if info["k"] == "me" else field(pawn, "Rotation").Yaw,
+                            # the heading: the players' only (their arrows; the others are dots)
+                            **({"r": view_yaw if info["k"] == "me" else get("Rotation").Yaw} if is_player else {}),
                             "h": hp[0],
                             "m": hp[1],
                             **({"s": hp[2], "sm": hp[3]} if hp[3] else {}),
@@ -1141,9 +1157,24 @@ class Collector:
             except Exception as ex:  # noqa: BLE001
                 log_error("pickup", ex)
         t_pickups = time.perf_counter()
-        state = {"level": self.level_id, "t": round(now, 3), "hz": self.rate, "pawns": pawns, "pickups": pickups,
+        # Three channels by how often they change (the stream grew fast with nothing moving - the user: everything went
+        # out 10 times a second): the pickups and the pawns' descriptions only when they change (a pickup moves while
+        # thrown / spawned - then every update); the state - what moves - only when something did. Descriptions and
+        # pickups first: a new pawn's arrives with (or before) its first move (the page waits for it anyway).
+        pickups_json = json.dumps({"level": self.level_id, "pickups": pickups}, separators=(",", ":"))
+        if pickups_json != self._pickups_json:
+            self._pickups_json = pickups_json
+            self.hub.publish("pickups", pickups_json)
+        pawninfo_json = json.dumps({"level": self.level_id, "pawns": infos}, separators=(",", ":"))
+        if pawninfo_json != self._pawninfo_json:
+            self._pawninfo_json = pawninfo_json
+            self.hub.publish("pawninfo", pawninfo_json)
+        state = {"level": self.level_id, "hz": self.rate, "pawns": pawns,
                  **({"paused": 1} if try_(lambda: field(wi, "Pauser") is not None, False) else {})}  # the game paused (its menu)
-        self.hub.publish("state", json.dumps(state, separators=(",", ":")))
+        state_key = json.dumps(state, separators=(",", ":"))
+        if state_key != self._state_key:
+            self._state_key = state_key
+            self.hub.publish("state", state_key[:-1] + f',"t":{round(now, 3)}}}')  # (the time: not a change)
         t_end = time.perf_counter()
         if (t_end - t0) * 1000 > SLOW_MS:  # slow: which part (and how many pawns / pickups)
             for part, a, b in (("skills", t0, t_skills), ("pawns", t_skills, t_pawns), ("pickups", t_pawns, t_pickups),
@@ -1203,18 +1234,18 @@ class Collector:
         return True, spot
 
     @staticmethod
-    def _vitals_vars(pawn: Any) -> tuple[float, float, float, float] | None:
-        """(health, max, shield, max shield) from the pawn's replicated properties - plain reads, much
-        cheaper than the function calls. Verified on the player pawn (2026-09-23): HealthVar /
+    def _vitals_vars(get: Any) -> tuple[float, float, float, float] | None:
+        """(health, max, shield, max shield) from the pawn's replicated properties (get: its reader()) - plain
+        reads, much cheaper than the function calls. Verified on the player pawn (2026-09-23): HealthVar /
         HealthMaxVar exact, ShieldVar / ShieldMaxVar the shield rounded down. None if unusable."""
-        hp_max = try_(lambda: float(field(pawn, "HealthMaxVar")), 0.0)
+        hp_max = try_(lambda: float(get("HealthMaxVar")), 0.0)
         if not hp_max:
             return None
-        sh_max = try_(lambda: float(field(pawn, "ShieldMaxVar")), 0.0)
+        sh_max = try_(lambda: float(get("ShieldMaxVar")), 0.0)
         return (
-            try_(lambda: float(field(pawn, "HealthVar")), 0.0),
+            try_(lambda: float(get("HealthVar")), 0.0),
             hp_max,
-            try_(lambda: float(field(pawn, "ShieldVar")), 0.0) if sh_max else 0.0,
+            try_(lambda: float(get("ShieldVar")), 0.0) if sh_max else 0.0,
             sh_max,
         )
 
