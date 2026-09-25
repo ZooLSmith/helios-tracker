@@ -101,6 +101,8 @@ export default {
   "theme.default": "ECHO-2",
   "theme.hyperion": "Hyperion",
   "theme.vladof": "Vladof",
+  "theme.dahl": "Dahl",
+  "theme.eridian": "Eridian",
   "view.hint": "Wheel / pinch to zoom, drag to pan. Click a player to inspect them.",
 
   "tip.me": "Player",

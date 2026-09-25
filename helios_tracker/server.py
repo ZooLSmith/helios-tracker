@@ -6,7 +6,8 @@ No SDK imports and no UObjects here, ever: the game thread publishes plain JSON 
 the Hub, the server threads only read them.
 
     GET /             the page (web/index.html; every file is read from disk on each request)
-    GET /<path>.js|css|png|svg   its modules / stylesheets / images under web/ (js/, js/ui/, i18n/, css/, img/)
+    GET /<path>.js|css|png|svg|woff2   its modules / stylesheets / images / fonts under web/ (js/, js/ui/, i18n/,
+                             css/, img/, fonts/: the title's "H", ours)
     GET /events       SSE stream: "level", "state", "objects", "players" events, each the latest JSON
     GET /image/<level>/<n>   raw texture data of map image n of level <level> (decoded by the page)
     GET /font/<slug>.ttf     the game's UI fonts, rebuilt as TrueType (gamefonts.py; 404 until extracted)
@@ -27,9 +28,9 @@ from .gameicons import icon_png
 
 WEB_DIR = Path(__file__).parent / "web"
 # Files served from WEB_DIR: lowercase names, folders allowed, no dots but the extension (no "..")
-STATIC = re.compile(r"/(?:[a-z0-9_-]+/)*[a-z0-9_-]+\.(js|css|png|svg)")
+STATIC = re.compile(r"/(?:[a-z0-9_-]+/)*[a-z0-9_-]+\.(js|css|png|svg|woff2)")
 TYPES = {"js": "text/javascript; charset=utf-8", "css": "text/css; charset=utf-8", "png": "image/png",
-         "svg": "image/svg+xml"}
+         "svg": "image/svg+xml", "woff2": "font/woff2"}
 FONT = re.compile(r"/font/([a-z0-9-]+)\.ttf")
 ICON = re.compile(r"/icon/((?:UI_[A-Za-z0-9]+_)?SharedSkillIcons_[A-Za-z0-9_]+\.[A-Za-z0-9_-]+)\.png", re.I)
 CARD_ICON = re.compile(r"/cardicon/(manufacturer|type|element)/([A-Za-z0-9_]+)\.png")

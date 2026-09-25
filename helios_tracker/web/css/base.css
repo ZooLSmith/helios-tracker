@@ -8,6 +8,21 @@
   unicode-range: U+0000-0023, U+0025-FFFF; }
 @font-face { font-family: "Compacta Bd BT"; src: url("/font/compacta-bd-bt.ttf") format("truetype"); font-display: swap; }
 @font-face { font-family: "Chintzy CPU BRK"; src: url("/font/chintzy-cpu-brk.ttf") format("truetype"); font-display: swap; }
+/* The title's "H": the logo, a font of one letter (ours: web/fonts/, built with the logo's sources), put in
+   front of WillowBody (panel.css .title .h) - drawn by the text renderer like the letters, so it sits exactly
+   on their baseline, at their cap height. Sized to WillowBody's bold: the title's bold is synthesized (the
+   font is Regular only) - ours is bold already (weight 700: not synthesized again). Its gradient and eye are
+   in the font (COLR v1: palette 0 the eye's inside, 1 the pupil, 2 / 3 the gradient's top / bottom - a theme
+   overrides them: --logo-palette); without COLR v1 (Safari) the one-colour H, under the title's gradient.
+   Firefox fakes bold sideways only (Chrome every way): its builds have no vertical growth (-gecko). */
+@font-face { font-family: "Helios H"; font-weight: 700; unicode-range: U+0048; font-display: swap;
+  src: url("/fonts/helios-h-gradient.woff2") format("woff2") tech(color-COLRv1),
+    url("/fonts/helios-h-mono.woff2") format("woff2"); }
+@supports (-moz-appearance: none) {
+  @font-face { font-family: "Helios H"; font-weight: 700; unicode-range: U+0048; font-display: swap;
+    src: url("/fonts/helios-h-gradient-gecko.woff2") format("woff2") tech(color-COLRv1),
+      url("/fonts/helios-h-mono-gecko.woff2") format("woff2"); }
+}
 :root {
   --font-body: "WillowBody", "Segoe UI", system-ui, sans-serif; /* the page's text */
   --font-head: "Compacta Bd BT", "Segoe UI", system-ui, sans-serif; /* (not used: too condensed for the small headings) */
@@ -78,16 +93,11 @@
   --side: color-mix(in srgb, var(--text) 77%, var(--bg));
   --scroll: var(--tint); /* scrollbars: a muted blue, close to the panel's colours; brighter on hover */
   --scroll-hover: color-mix(in srgb, var(--text) 21%, var(--muted));
-  /* the panel's title (a theme may put it on a band: themes.css) */
-  --title-text: var(--accent);
-  /* the title's "H" (img/logo.png, panel.css .title .logo) - a theme tunes it here: its size (the title's
-     letters' height = 1em), its baseline (negative: lower), the gap before "ELIOS", a horizontal nudge (optical
-     alignment), a filter (Hyperion: black) */
-  --logo-height: 1.05em;
-  --logo-baseline: -0.08em;
-  --logo-gap: calc(0.06em + 1px);
-  --logo-nudge: 0;
-  --logo-filter: none;
+  /* the panel's title: its letters a vertical gradient, cap top -> baseline (panel.css .title), its "H"'s
+     colours the "Helios H" font's palette (a theme: its own @font-palette-values, themes.css) */
+  --title-top: #fef900;
+  --title-bottom: #d69900;
+  --logo-palette: normal;
   /* rank dots not set yet */
   --pip-off: color-mix(in srgb, var(--tint) 62%, var(--bg)); /* (the ranks' list) */
   --pip-tile: color-mix(in srgb, var(--text) 24%, var(--bg)); /* (on a skill tile: tinted with its tree's colour) */
@@ -206,9 +216,10 @@ canvas.dragging { cursor: grabbing; }
 #status i { width: 10px; height: 10px; border-radius: 50%; background: var(--warn); display: inline-block; }
 #status.live { display: none; }
 #status.bad i { background: var(--bad); }
-/* the game paused (live, but nothing moves): the pause icon's two bars in the warning colour, not a dot */
-#status.paused i { width: 10px; height: 11px; border-radius: 0; background: linear-gradient(90deg, var(--warn) 0 35%,
-  transparent 35% 65%, var(--warn) 65%); }
+/* the game paused (live, but nothing moves): the pause icon's two bars in the theme's accent, not a dot (not a
+   warning: the connection's fine) */
+#status.paused i { width: 10px; height: 11px; border-radius: 0; background: linear-gradient(90deg, var(--accent) 0 35%,
+  transparent 35% 65%, var(--accent) 65%); }
 /* the world X / Y under the cursor: by it, above and right (the hover tooltip goes below: tooltip.js placeCoords) -
    never under the drawer; outlined like the map's labels, the map behind it */
 #coords { position: fixed; left: 0; top: 0; color: var(--dim); font-size: 11px; white-space: nowrap;

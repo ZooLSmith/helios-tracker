@@ -180,7 +180,7 @@ It draws nothing in game: everything it shows is on the page.
 - **Settings tab**: Who (host / a player, saved by name) + Follow / Rotate (map turns to their
   heading; only while following, greyed out otherwise); Refresh rate (was "Movement": the page's redraws - markers, bars, their patterns): game updates only (the mod sends its rate, `hz`), a fps cap (default 30), or smooth;
   See-through: Background / Map / Panels opacity (`look.js`; in OBS via its browser source's "Interact"); Interface size 70-200 %;
-  Map markers 50-200 % (every marker, its label and bars - times its layer's Size); Theme (ECHO-2 - the default, id "default" -, Hyperion, Vladof:
+  Map markers 50-200 % (every marker, its label and bars - times its layer's Size); Theme (ECHO-2 - the default, id "default" -, Hyperion, Vladof, Dahl, Eridian:
   `css/themes.css` sets base.css's tokens under `<html data-theme>`; the canvas' colours read again on a change).
 - **Storage**: one `helios.settings` localStorage object (`js/settings.js`): `layers.<id>` (each
   layer's settings), `view`, `ui` (incl. `drawer`: what the drawer shows); validated against the defaults on load (unknown / invalid values
@@ -229,8 +229,9 @@ It draws nothing in game: everything it shows is on the page.
   Slow tasks are logged every 30 s (`helios_tracker.log`), `state` with its parts (skills / pawns /
   pickups / json) and the counts.
 - `server.py`: stdlib `ThreadingHTTPServer`; `/` (page, read from disk per request),
-  `/<path>.js|css|png` (any module / stylesheet / image under `web/`: `img/logo.png` = the panel header's logo, 48 px tall; `img/favicon.png` = the tab icon, 64 x 64 - both
-  resized from the source logo, kept out of git in `_work/`), `/events` (SSE: `level`, `state`, `objects`, `players`, latest
+  `/<path>.js|css|png|svg|woff2` (any module / stylesheet / image / font under `web/`: `img/favicon.png` = the tab icon,
+  64 x 64, the logo; `fonts/helios-h-*.woff2` = the panel title's "H", the logo as a font of one letter - see base.css;
+  both built from the logo's sources, a local repo kept out of git in `_work/logo/`), `/events` (SSE: `level`, `state`, `objects`, `players`, latest
   payload each), `/image/<level>/<n>`. Server changes need a mod reload; page / i18n edits only a
   browser refresh. The Hub holds
   the payloads; server threads never touch UObjects. The running server is kept on

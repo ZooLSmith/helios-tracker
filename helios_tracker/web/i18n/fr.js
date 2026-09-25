@@ -100,6 +100,8 @@ export default {
   "theme.default": "ECHO-2",
   "theme.hyperion": "Hyperion",
   "theme.vladof": "Vladof",
+  "theme.dahl": "Dahl",
+  "theme.eridian": "Éridien",
   "view.hint": "Molette / pincer pour zoomer, glisser pour déplacer. Cliquez sur un joueur pour l'inspecter.",
 
   "tip.me": "Joueur",

@@ -1312,14 +1312,17 @@ def check_helios_tracker() -> None:  # noqa: PLR0915
         image = res.read()
         assert res.status == 200 and len(image) == 468 * 512, (res.status, len(image))
         web = ROOT / "helios_tracker" / "web"
-        web_files = sorted(p for p in web.rglob("*") if p.suffix in (".js", ".css", ".png", ".svg"))
-        assert web / "img" / "logo.png" in web_files, "the logo (favicon, panel header)"
+        web_files = sorted(p for p in web.rglob("*") if p.suffix in (".js", ".css", ".png", ".svg", ".woff2"))
+        assert web / "img" / "favicon.png" in web_files, "the logo (the tab's icon)"
+        assert {web / "fonts" / f"helios-h-{k}{b}.woff2" for k in ("gradient", "mono") for b in ("", "-gecko")} <= set(web_files), \
+            "the title's H (base.css: the logo as a font, its COLR v1 / one-colour builds, Firefox's)"
         assert {web / "img" / "patterns" / f"{n}.svg" for n in ("shield", "health", "vehicle", "scanlines")} <= set(web_files), "the bars' pattern tiles"
         for file in web_files:  # every module / stylesheet / image, at its path under web/
             conn.request("GET", "/" + file.relative_to(web).as_posix())
             res = conn.getresponse()
             body = res.read()
-            want_type = {".css": "text/css", ".png": "image/png", ".svg": "image/svg+xml"}.get(file.suffix, "text/javascript")
+            want_type = {".css": "text/css", ".png": "image/png", ".svg": "image/svg+xml",
+                         ".woff2": "font/woff2"}.get(file.suffix, "text/javascript")
             assert res.status == 200 and res.headers["Content-Type"].startswith(want_type), (file, res.status)
             assert body == file.read_bytes(), file
         for bad in ("/../server.py", "/js/../../server.py", "/web/js/main.js", "/JS/MAIN.JS", "/js/main.py"):
@@ -1360,7 +1363,7 @@ def check_helios_tracker() -> None:  # noqa: PLR0915
                     break  # (a stream: never ends)
                 cors_res.read()
             cors_conn.close()
-        print(f"  server: page {len(page)} bytes + {len(web_files)} js / css / png / svg files, image {len(image)} bytes,"
+        print(f"  server: page {len(page)} bytes + {len(web_files)} js / css / png / svg / woff2 files, image {len(image)} bytes,"
               f" SSE events {sorted(events)}, CORS for the site / local pages only")
     finally:
         server.stop()
