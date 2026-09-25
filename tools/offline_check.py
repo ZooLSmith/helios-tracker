@@ -1219,7 +1219,8 @@ def check_helios_tracker() -> None:  # noqa: PLR0915
                   Level=odds_data(1), Power=odds_data(1), Offset=odds_data(0)), ConditionalInitialization=ns(bEnabled=False),
                   RandomVariance=ns(bEnabled=False))
     odds_w = {n: odds_weight(m) for n, m in (("VeryCommon", 200), ("Common", 100), ("Uncommon", 10), ("Rare", 1), ("Legendary", 0.01))}
-    odds_modifier = ns(_get_address=lambda: 0x9a00, Class=ns(Name="DesignerAttributeDefinition"), BaseValue=odds_data(1))
+    odds_modifier = ns(_get_address=lambda: 0x9a00, Class=ns(Name="DesignerAttributeDefinition"), BaseValue=odds_data(1),
+                       _path_name=lambda: "GD_Balance.Weighting.GearDrops_CommonWeightModifier")
     odds_rare_mod = ns(_get_address=lambda: 0x9a01, ValueFormula=ns(bEnabled=True, Multiplier=odds_data(0, attr=odds_modifier),
                        Level=odds_data(0, init=odds_w["Common"]), Power=odds_data(1), Offset=odds_data(0)),
                        ConditionalInitialization=ns(bEnabled=False), RandomVariance=ns(bEnabled=False))
@@ -1256,8 +1257,19 @@ def check_helios_tracker() -> None:  # noqa: PLR0915
     assert round(odds_box[1]["p"], 1) == round(15 / 215 * 100, 1) and odds_box[1]["c"] == "health", odds_box[1]  # usual: 0.03 x 500
     assert [round(x, 1) for x in odds_box[1]["lo"]] == [round(50 / 250 * 100, 1), round(125 / 325 * 100, 1)], odds_box[1]  # low: 0.1-0.25
     assert "p" not in odds_box[2], ("an unknown weight given a chance", odds_box[2])
+    # the host's live designer attribute (tools/probe_loot_odds3.txt: the common modifier 0.625, its base 1): every odds
+    # worked out again with it - common gear 62.5, not 100
+    odds_version = lootodds.version
+    odds_world = ns(Game=ns(DesignerAttributes=[ns(DesignerAttributeDefinitionPathName="GD_Balance.Weighting.GearDrops_CommonWeightModifier",
+                                                   Value=0.625)]))
+    assert lootodds.refresh(odds_world) and lootodds.version == odds_version + 1 and not lootodds.POOLS, "a live value change kept stale odds"
+    assert not lootodds.refresh(odds_world), "unchanged live values: odds forgotten anyway"
+    lootodds.configs_odds([odds_cfg(odds_data(0, 1.5, odds_w["Common"]), odds_pistols)], lootodds.POOLS)
+    odds_live = {r["n"]: r for r in lootodds.POOLS["GD_Itempools.WeaponPools.Pool_Weapons_Pistols"]["e"]}
+    assert abs(odds_live["Pool_Weapons_Pistols_01_Common"]["p"] - 62.5 / 72.51 * 100) < 0.01, odds_live
+    assert lootodds.refresh(ns(Game=None)), "a client (no game info): back to the base values"
     print(f"  loot odds: the golden chest {[round(o['p']) for o in odds_chest]} %, health in a box ~{odds_box[1]['p']:.0f} % "
-          f"(low on health ~{odds_box[1]['lo'][0]:.0f}-{odds_box[1]['lo'][1]:.0f} %), a legendary pool from Lv 7")
+          f"(low on health ~{odds_box[1]['lo'][0]:.0f}-{odds_box[1]['lo'][1]:.0f} %), a legendary pool from Lv 7, the host's live common modifier")
     missions = json.loads(hub._channels["missions"][1])
     assert missions["tracked"] == {"n": "Ménage à Liar's Berg"}, missions
     obj_mk, giver = missions["markers"]  # the inactive objective is left out

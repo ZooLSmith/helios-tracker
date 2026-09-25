@@ -344,7 +344,7 @@ class Collector:
         self._state_n = 0
         self._info: dict[int, dict[str, Any]] = {}  # per-actor cached name/kind, by address
         self._objects_json = "[]"
-        self._pools_sent = -1  # lootodds.POOLS' size when last sent (-1: send it)
+        self._pools_sent: tuple[int, int] | None = None  # (lootodds.version, POOLS' size) when last sent (None: send it)
         # Interactive objects don't move or get renamed: each record is built once per level
         self._object_records: dict[tuple[int, str], dict[str, Any] | None] = {}
         self._objects: dict[tuple[int, str], dict[str, Any]] = {}  # what the objects payload shows
@@ -393,7 +393,7 @@ class Collector:
             self._next_scan = self._next_objects = self._next_players = self._next_missions = self._next_log = 0.0
             self._log.dirty = self._log.defs_dirty = True  # the new page needs the log
             self._objects_json = self._players_json = self._missions_json = self._areas_json = ""
-            self._pools_sent = -1
+            self._pools_sent = None
             self._shops.resend()
             self._next_shops = 0.0
         # At most one heavy task (scans / players) per tick: they'd add up into one hitch
@@ -739,6 +739,8 @@ class Collector:
         mission tracker."""
         objects = {}
         records = self._object_records
+        # the host's live designer attributes (common gear's weight modifier...): changed - the containers' odds again
+        odds_changed = try_(lambda: lootodds.refresh(ENGINE.GetCurrentWorldInfo()), False)
         for io in unrealsdk.find_all("WillowInteractiveObject", exact=False):
             try:
                 key = (io._get_address(), str(io.Name))
@@ -752,6 +754,9 @@ class Collector:
                     objects[key] = record
                     if record.get("lootable") and not record.get("looted"):
                         self._unlooted.setdefault(key, WeakPointer(io))
+                    if odds_changed and "odds" in record:  # (in place: cached per type, a few to work out)
+                        balance = try_(lambda io=io: io.BalanceDefinitionState.BalanceDefinition)
+                        record["odds"] = try_(lambda io=io, b=balance: lootodds.container_odds(io, b)) or record["odds"]
             except Exception as ex:  # noqa: BLE001
                 log_error("interactive object", ex)
         self._objects = objects
@@ -840,8 +845,8 @@ class Collector:
         objects = list(self._objects.values())
         # the pools the containers' odds reach (lootodds.POOLS: static, only ever grows) - before the objects, so the
         # page has them when it shows an object's odds; sent again only when new ones came
-        if len(lootodds.POOLS) != self._pools_sent:
-            self._pools_sent = len(lootodds.POOLS)
+        if (lootodds.version, len(lootodds.POOLS)) != self._pools_sent:
+            self._pools_sent = (lootodds.version, len(lootodds.POOLS))
             self.hub.publish("lootpools", json.dumps({"pools": lootodds.POOLS}, separators=(",", ":")))
         objects_json = json.dumps({"level": self.level_id, "objects": objects}, separators=(",", ":"))
         if objects_json != self._objects_json:

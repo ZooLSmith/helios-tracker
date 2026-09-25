@@ -355,11 +355,16 @@ What "Can contain" could turn into percentages - read as properties only:
     (health 0.1-0.25, most ammo 0.3-0.5), above it `AboveThresholdWeight` (health 0.03, ammo 0); how it goes from min to
     max: inferred - lower = higher); `ConditionalAttributeValueResolver` (DropODDS_GunsAndGear: conditions, not read).
   - a `DesignerAttributeDefinition` (GearDrops_CommonWeightModifier, GearDrops_RareWeightModifier): global, `BaseValue`
-    1; the live value an `InstancedDesignerAttribute.Value` in the host's `WorldInfo.Game.DesignerAttributes` (5 of
-    them in Sanctuary - which is which not read; a client has only the base value).
+    1; the live value an `InstancedDesignerAttribute.Value` in the host's `WorldInfo.Game.DesignerAttributes`, matched
+    by its `DesignerAttributeDefinitionPathName` (probe_loot_odds3.py, Sanctuary, level 10, solo host): **the common
+    modifier 0.625** (base 1, one AttributeModifier on its stack - what sets it not known: playthrough? player count?),
+    the rare one 1.05 (named "Reference only - HAS NO EFFECT"). lootodds.py uses the live values (refresh() at each
+    objects scan: changed - every odds worked out again); a co-op client has no game info: the base values there
+    (its common gear then over-weighted).
   - **Game stage gating**: a pool's `MinGameStageRequirement` / `MaxGameStageRequirement` (AttributeDefinitions:
-    `Pool_Weapons_Pistols_06_Legendary` needs `GD_Itempools.Scheduling.Gamestage_07` - its value not read, the name
-    says 7); a balance's `Manufacturers[].Grades[].GameStageRequirement {MinGameStage, MaxGameStage}` and
+    `Pool_Weapons_Pistols_06_Legendary` needs `GD_Itempools.Scheduling.Gamestage_07` = 7: every `Gamestage_NN` /
+    `GameStage_NN` a ConstantAttributeValueResolver of its number, probe_loot_odds3.py; class mods' own schedule:
+    `LootSchedule_ClassMod_*` common 8, uncommon 10, rare 13, very rare 16, legendary 20); a balance's `Manufacturers[].Grades[].GameStageRequirement {MinGameStage, MaxGameStage}` and
     Min/MaxSpawnProbabilityModifier (a common Bandit pistol: 1-10000, x1). A legendary balance's own fields read empty
     (its data on its archetype / base definition?).
 - **Open (the user, 2026-09-25): does it hold for the DLCs and the Pre-Sequel?** The DLCs use the same classes and

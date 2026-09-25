@@ -11,7 +11,9 @@ properties, nothing is called (tools/probe_loot_odds*.txt, .agent/notes.md "Loot
   Multiplier x Level^Power + Offset. An attribute: its value resolver - a ConstantAttributeValueResolver's
   ConstantValue; an AmmoDropWeightAttributeValueResolver's two cases (the player's health / ammo: above its
   ResourceThreshold AboveThresholdWeight, below between Min- and MaxBelowThresholdWeight - "if low on health");
-  a designer attribute: its BaseValue (the host's live value isn't matched yet: 1 seen, the base);
+  a designer attribute: the host's live value (WorldInfo.Game.DesignerAttributes: each InstancedDesignerAttribute's
+  Value, by its DesignerAttributeDefinitionPathName - GearDrops_CommonWeightModifier read 0.625, its base 1:
+  tools/probe_loot_odds3.txt), else (a co-op client) its BaseValue;
 - anything else (conditional resolvers, random variance, a runtime-built weight): unknown - its entry has no chance
   (None) and the others' percentages leave it out.
 These rules are inferred from the data, not checked against the game's own draws: the page marks them "~".
@@ -56,6 +58,30 @@ def _add(a: Val, b: Val) -> Val:
 
 
 _inits: dict[int, Val | None] = {}  # InitializationDefinition / attribute address -> its value (static data)
+_designer: dict[str, float] = {}  # the host's live designer attributes: definition path -> value (refresh())
+version = 0  # bumped when the live values changed: every odds worked out again (the collector sends them anew)
+
+
+def refresh(world_info: Any) -> bool:
+    """The host's live designer attributes read again (a co-op client has none: the base values); True if they
+    changed - then every cached value, container and pool is forgotten (worked out again with the new ones)."""
+    global version  # noqa: PLW0603
+    game = try_(lambda: world_info.Game)
+    live = {}
+    for inst in (try_(lambda: list(game.DesignerAttributes), []) or []) if game is not None else []:
+        path = str(try_(lambda i=inst: i.DesignerAttributeDefinitionPathName, "") or "")
+        value = try_(lambda i=inst: float(i.Value))
+        if path and value is not None:
+            live[path] = round(value, 6)
+    if live == _designer:
+        return False
+    _designer.clear()
+    _designer.update(live)
+    _inits.clear()
+    _containers.clear()
+    POOLS.clear()
+    version += 1
+    return True
 
 
 def data_value(data: Any, depth: int = 0) -> Val | None:
@@ -103,7 +129,8 @@ def attr_value(attr: Any, depth: int = 0) -> Val | None:
     _inits[key] = None
     value = None
     if str(attr.Class.Name) == "DesignerAttributeDefinition":
-        value = data_value(try_(lambda: attr.BaseValue), depth)  # (the host's live one: not matched yet - the base)
+        live = _designer.get(str(try_(attr._path_name, "") or ""))  # the host's live value, else its base
+        value = Val(live) if live is not None else data_value(try_(lambda: attr.BaseValue), depth)
     else:
         resolvers = try_(lambda: list(attr.ValueResolverChain), []) or []
         r = resolvers[0] if len(resolvers) == 1 else None

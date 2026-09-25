@@ -181,8 +181,9 @@ It draws nothing in game: everything it shows is on the page.
   pools' entries and chances in the `lootpools` payload (static, sent when it grows); "Can contain" lists them, the
   likeliest first, a pool opening on its entries (`ui/odds.js`), "~" on every chance (rules inferred, not checked
   against real drops), "if low on health / ammo" beside a weight that depends on it, "Lv 7+" on a pool gated by
-  game stage, "?" where the data gives no number (conditional / runtime-built weights). Common gear: the designer
-  modifier's base value (1) - the host's live one not matched yet (tools/probe_loot_odds3.py). The technical rows (loot lists,
+  game stage, "?" where the data gives no number (conditional / runtime-built weights). Designer attributes (common
+  gear's weight modifier: 0.625 live, base 1): the host's live values (`lootodds.refresh` at each objects scan -
+  changed: the odds again, in place, and the pools resent); a co-op client: the base values. The technical rows (loot lists,
   class, definition) in a "Details" fold at the bottom, closed until opened (remembered per object, as items').
   Hover / click pick the marker drawn on top (loot > pawns > quest markers > objects; inside the
   marker, last drawn; objects drawn by height). **Selection highlight** (`draw.js` drawSelection): what the drawer
