@@ -1207,6 +1207,57 @@ def check_helios_tracker() -> None:  # noqa: PLR0915
     else:
         vend_mod.unrealsdk.find_class = vend_find_class
     print(f"  shops: {vend_rec['n']!r}, stock + item of the day with the machine's prices, the timer sent on drift / restock")
+    # Loot odds (tools/probe_loot_odds*.txt): the golden chest's configurations (Weight_* x a scale: 300 / 150 / 90 / 80 x 3
+    # / 50), a pool's rarity sub-pools (common = the designer modifier x Weight_1_Common; a legendary one from stage 7),
+    # a box's health weight (an AmmoDropWeight resolver x 500: its "if low on health" range)
+    from helios_tracker import lootodds  # noqa: PLC0415
+    def odds_data(const=0.0, scale=1.0, init=None, attr=None):  # an AttributeInitializationData
+        return ns(BaseValueConstant=const, BaseValueScaleConstant=scale, InitializationDefinition=init, BaseValueAttribute=attr)
+    odds_addr = iter(range(0x9000, 0x9999))
+    def odds_weight(mult):  # a GD_Balance.Weighting.Weight_* (its formula: mult x 1^1 + 0)
+        return ns(_get_address=lambda a=next(odds_addr): a, ValueFormula=ns(bEnabled=True, Multiplier=odds_data(mult),
+                  Level=odds_data(1), Power=odds_data(1), Offset=odds_data(0)), ConditionalInitialization=ns(bEnabled=False),
+                  RandomVariance=ns(bEnabled=False))
+    odds_w = {n: odds_weight(m) for n, m in (("VeryCommon", 200), ("Common", 100), ("Uncommon", 10), ("Rare", 1), ("Legendary", 0.01))}
+    odds_modifier = ns(_get_address=lambda: 0x9a00, Class=ns(Name="DesignerAttributeDefinition"), BaseValue=odds_data(1))
+    odds_rare_mod = ns(_get_address=lambda: 0x9a01, ValueFormula=ns(bEnabled=True, Multiplier=odds_data(0, attr=odds_modifier),
+                       Level=odds_data(0, init=odds_w["Common"]), Power=odds_data(1), Offset=odds_data(0)),
+                       ConditionalInitialization=ns(bEnabled=False), RandomVariance=ns(bEnabled=False))
+    odds_stage7 = ns(_get_address=lambda: 0x9a02, Class=ns(Name="AttributeDefinition"),
+                     ValueResolverChain=[ns(Class=ns(Name="ConstantAttributeValueResolver"), ConstantValue=7.0)])
+    def odds_pool(name, entries, min_stage=None):
+        return ns(Name=name, _path_name=lambda n=name: "GD_Itempools.WeaponPools." + n, BalancedItems=entries, MinGameStageRequirement=min_stage)
+    odds_legendary = odds_pool("Pool_Weapons_Pistols_06_Legendary", [], odds_stage7)
+    odds_pistols = odds_pool("Pool_Weapons_Pistols", [
+        ns(ItmPoolDefinition=odds_pool("Pool_Weapons_Pistols_01_Common", []), InvBalanceDefinition=None, Probability=odds_data(1, init=odds_rare_mod)),
+        ns(ItmPoolDefinition=odds_pool("Pool_Weapons_Pistols_02_Uncommon", []), InvBalanceDefinition=None, Probability=odds_data(1, init=odds_w["Uncommon"])),
+        ns(ItmPoolDefinition=odds_legendary, InvBalanceDefinition=None, Probability=odds_data(1, init=odds_w["Legendary"]))])
+    def odds_cfg(weight, pool, n=1):
+        return ns(Weight=weight, ItemAttachments=[ns(ItemPool=pool)] * n)
+    odds_long = odds_pool("Pool_EpicChestGolden_Weapons_LongGuns", [])
+    odds_chest = lootodds.configs_odds([odds_cfg(odds_data(0, 1.5, odds_w["VeryCommon"]), odds_long, 2),
+                                        odds_cfg(odds_data(0, 1.5, odds_w["Common"]), odds_pistols, 2),
+                                        odds_cfg(odds_data(0, 0.9, odds_w["Common"]), odds_long),
+                                        *[odds_cfg(odds_data(0, 0.8, odds_w["Common"]), odds_long)] * 3,
+                                        odds_cfg(odds_data(0, 0.5, odds_w["Common"]), odds_long)], lootodds.POOLS)
+    assert [round(o["p"], 1) for o in odds_chest] == [36.1, 18.1, 10.8, 9.6, 9.6, 9.6, 6.0], odds_chest
+    assert odds_chest[0]["a"] == [["GD_Itempools.WeaponPools.Pool_EpicChestGolden_Weapons_LongGuns", 2]], odds_chest[0]
+    odds_rows = {r["n"]: r for r in lootodds.POOLS["GD_Itempools.WeaponPools.Pool_Weapons_Pistols"]["e"]}
+    assert round(odds_rows["Pool_Weapons_Pistols_01_Common"]["p"], 2) == round(100 / 110.01 * 100, 2), odds_rows  # (modifier 1 x 100)
+    assert odds_rows["Pool_Weapons_Pistols_06_Legendary"]["min"] == 7 and "min" not in odds_rows["Pool_Weapons_Pistols_02_Uncommon"], odds_rows
+    odds_health = ns(_get_address=lambda: 0x9a03, Class=ns(Name="AttributeDefinition"), ValueResolverChain=[ns(
+        Class=ns(Name="AmmoDropWeightAttributeValueResolver"), Resource=ns(Name="Health"), AboveThresholdWeight=odds_data(0.03),
+        MinBelowThresholdWeight=odds_data(0.1), MaxBelowThresholdWeight=odds_data(0.25))])
+    odds_box = lootodds.configs_odds([odds_cfg(odds_data(0, 1, odds_w["VeryCommon"]), odds_long),
+                                      odds_cfg(odds_data(1, 500, attr=odds_health), odds_long),
+                                      odds_cfg(ns(BaseValueConstant=0, BaseValueScaleConstant=1, BaseValueAttribute=None,
+                                                  InitializationDefinition=ns(_get_address=lambda: 0x9a04, ValueFormula=ns(bEnabled=False))), odds_long)],
+                                     lootodds.POOLS)
+    assert round(odds_box[1]["p"], 1) == round(15 / 215 * 100, 1) and odds_box[1]["c"] == "health", odds_box[1]  # usual: 0.03 x 500
+    assert [round(x, 1) for x in odds_box[1]["lo"]] == [round(50 / 250 * 100, 1), round(125 / 325 * 100, 1)], odds_box[1]  # low: 0.1-0.25
+    assert "p" not in odds_box[2], ("an unknown weight given a chance", odds_box[2])
+    print(f"  loot odds: the golden chest {[round(o['p']) for o in odds_chest]} %, health in a box ~{odds_box[1]['p']:.0f} % "
+          f"(low on health ~{odds_box[1]['lo'][0]:.0f}-{odds_box[1]['lo'][1]:.0f} %), a legendary pool from Lv 7")
     missions = json.loads(hub._channels["missions"][1])
     assert missions["tracked"] == {"n": "Ménage à Liar's Berg"}, missions
     obj_mk, giver = missions["markers"]  # the inactive objective is left out
@@ -1423,12 +1474,12 @@ def check_helios_tracker() -> None:  # noqa: PLR0915
         res = sse.getresponse()
         assert res.headers["Content-Type"] == "text/event-stream", res.headers
         events = set()
-        while len(events) < 10:
+        while len(events) < 11:
             line = res.fp.readline().decode()
             if line.startswith("event: "):
                 events.add(line[7:].strip())
         assert events == {"level", "state", "objects", "players", "missions", "missiondefs", "missionlog", "areas", "shops",
-                          "shoptimer"}, events
+                          "shoptimer", "lootpools"}, events
         # CORS: the project's site (its /live/ page) and local pages may read, any other site not - files and the stream
         for cors_origin, cors_ok in (("https://helios-tracker.zoolsmith.com", True), ("https://zoolsmith.github.io", True), ("http://127.0.0.1:8931", True),
                                      ("http://localhost", True), ("https://evil.example", False), ("", False)):

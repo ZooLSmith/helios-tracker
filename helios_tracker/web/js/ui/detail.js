@@ -9,6 +9,7 @@ import { saveDrawer } from "./drawer.js";
 import { bindItems, renderInspector } from "./inspector.js";
 import { rarityName } from "./items.js";
 import { renderPlayers } from "./players.js";
+import { oddsHtml } from "./odds.js";
 import { machineStockHtml } from "./shops.js";
 
 /** Opens an object's / marker's panel. From the vending machines' list: a back button to it (`back`: that machine
@@ -115,26 +116,33 @@ export function renderDetail(resetScroll) {
   }
   if (it.lootable) rows.push([t("detail.status"), t(it.looted ? "detail.looted" : "detail.unlooted")]);
   if (it.slots) rows.push([t("detail.slots"), num(it.slots)]);
-  if (it.lists && it.lists.length) rows.push([t("detail.lists"), null, it.lists.map((n) => nameHtml({ n, raw: 1 })).join(", ")]);
-  if (it.c && kind !== "loot") rows.push([t("item.class"), null, classHtml(it.c)]);
-  if (it.d) rows.push([t("detail.definition"), it.d]);
-  let html = `<div class="kv">` + rows.map(([k, v, h]) => `<span>${esc(k)}</span><span>${h ?? esc(v)}</span>`).join("") + `</div>`;
-  const pools = (it.loot || []).map((n) => `<div>${nameHtml({ n: String(n).replace(/^Pool_/, ""), raw: 1 })}</div>`).join("");
+  // the technical rows (the game's names for its loot lists, class, definition): folded away at the bottom ("Details",
+  // like an item's - the user's call: debug more than information)
+  const tech = [];
+  if (it.lists && it.lists.length) tech.push([t("detail.lists"), null, it.lists.map((n) => nameHtml({ n, raw: 1 })).join(", ")]);
+  if (it.c && kind !== "loot") tech.push([t("item.class"), null, classHtml(it.c)]);
+  if (it.d) tech.push([t("detail.definition"), it.d]);
+  const kvHtml = (list) => `<div class="kv">` + list.map(([k, v, h]) => `<span>${esc(k)}</span><span>${h ?? esc(v)}</span>`).join("") + `</div>`;
+  // a fold (its header: the title, a count), closed until opened - remembered per object (S.itemFolds, as items')
+  const fold = (key, title, count, inner) => `<div class="ifold${S.itemFolds.has(`${it.i}:${key}`) ? " open" : ""}" data-fold="${key}" ` +
+    `data-id="${esc(it.i)}"><div class="ifhead">${esc(title)}<span class="ifcount">${esc(num(count))}</span></div>${inner}</div>`;
+  let html = rows.length ? kvHtml(rows) : "";
+  // what it can hold: its chances when the collector worked them out (odds.js), else the pools' names
+  const pools = it.odds && it.odds.length ? oddsHtml(it)
+    : (it.loot || []).map((n) => `<div>${nameHtml({ n: String(n).replace(/^Pool_/, ""), raw: 1 })}</div>`).join("");
+  const poolCount = it.odds && it.odds.length ? it.odds.length : (it.loot || []).length;
   if (kind === "vendor") {
     // a vending machine: what it sells, right here (the shops payload has it) - as in the vending list; the pools it
-    // rolls from are technical next to that: folded away at the bottom, like an item's parts (S.itemFolds)
+    // rolls from are technical next to that: folded away at the bottom, like an item's parts
     html += machineStockHtml(it.i);
-    if (pools) {
-      const open = S.itemFolds.has(`${it.i}:pools`);
-      html += `<div class="ifold${open ? " open" : ""}" data-fold="pools" data-id="${esc(it.i)}"><div class="ifhead">` +
-        `${esc(t("detail.contents"))}<span class="ifcount">${esc(num(it.loot.length))}</span></div><div class="plist">${pools}</div></div>`;
-    }
+    if (pools) html += fold("pools", t("detail.contents"), poolCount, `<div class="plist">${pools}</div>`);
   } else if (pools) { // every pool its loot is rolled from, one per line (a container: the only hint of what it drops)
     html += `<div class="group">${esc(t("detail.contents"))}</div><div class="plist">${pools}</div>`;
   }
+  if (tech.length) html += fold("tech", t("item.details"), tech.length, kvHtml(tech));
   body.innerHTML = html;
   bindItems(body); // (its items' cards: open / close)
-  for (const fold of body.querySelectorAll(":scope > .ifold")) { // (its own folds: the pools)
+  for (const fold of body.querySelectorAll(":scope > .ifold")) { // (its own folds: the pools, the details)
     fold.querySelector(".ifhead").onclick = () => {
       const key = `${fold.dataset.id}:${fold.dataset.fold}`;
       if (S.itemFolds.has(key)) S.itemFolds.delete(key); else S.itemFolds.add(key);

@@ -45,6 +45,7 @@ export function connect() {
   on("missionlog", onMissionLog);
   on("shops", onShops);
   on("shoptimer", onShopTimer);
+  on("lootpools", onLootPools);
 }
 
 function reloadWhenBack() {
@@ -241,6 +242,12 @@ function onShops(msg) {
   if (S.shopView) renderShopsView();
   if (S.detail) renderDetail(); // (a machine's panel: its stock's count)
   restoreDrawer("shops");
+}
+
+/** The pools the containers' loot odds reach (static game data, not per level: only ever grows). */
+function onLootPools(msg) {
+  S.lootPools = msg.pools;
+  if (S.detail) renderDetail(); // (an open container's odds: its pools' entries)
 }
 
 /** The shops' restock timer: the game's count (sent again when the page's would drift from it). */

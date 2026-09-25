@@ -21,6 +21,7 @@ const KIND_ORDER = ["weapons", "items", "health", "other"]; // (no black market:
 // grenades green, shields / health blue
 const KIND_TREE = { weapons: "tree2", items: "tree0", health: "tree1" };
 const NEAR_COUNT = 2; // the Info tab's Shops section: the closest machines listed
+const SOON_S = 120; // the restock this close (s): its countdowns red - what's for sale is about to change
 
 /** Seconds until the shops restock: the game's last figure counted down since - held while the game is paused (its
  *  timer stands still) - or null: not known yet. */
@@ -43,9 +44,13 @@ function timerText() {
 /** The countdowns shown - "Restock in 12:34" (the drawer's) and the bare "12:34" (the Info heading's, by its timer
  *  icon) - their text again (the DOM only touched when it changed). */
 function tickTimers() {
-  const s = restockLeft();
+  const s = restockLeft(), soon = s != null && s < SOON_S;
   for (const [sel, text] of [["[data-shop-timer]", timerText()], ["[data-shop-clock]", s == null ? "" : clock(s)]]) {
-    for (const el of document.querySelectorAll(sel)) if (el.textContent !== text) el.textContent = text;
+    for (const el of document.querySelectorAll(sel)) {
+      if (el.textContent !== text) el.textContent = text;
+      const box = el.closest(".istimer, .shfeatt") || el; // (its icon red too)
+      if (box.classList.contains("soon") !== soon) box.classList.toggle("soon", soon);
+    }
   }
 }
 
@@ -111,7 +116,10 @@ function stockHtml(m, level) {
   const items = m.cur ? m.items.map((it) => ({ ...it, cur: m.cur })) : m.items; // (the price's currency: items.js)
   const feat = m.feat && (m.cur ? { ...m.feat, cur: m.cur } : m.feat);
   let html = "";
-  if (feat) html += `<div class="group shfeat">${icon("star")} ${esc(t("shops.featured"))}</div>` + itemHtml(feat, level);
+  // (the item of the day's heading: the restock countdown at its right, like the game's vending screen)
+  const left = restockLeft();
+  const until = left == null ? "" : `<span class="shfeatt${left < SOON_S ? " soon" : ""}">${icon("timer")}<span data-shop-clock>${esc(clock(left))}</span></span>`;
+  if (feat) html += `<div class="group shfeat">${icon("star")} ${esc(t("shops.featured"))}${until}</div>` + itemHtml(feat, level);
   if (items.length) html += `<div class="group">${esc(t("shops.stock"))} · ${num(items.length)}</div>` + items.map((it) => itemHtml(it, level)).join("");
   else if (!feat && !(m.basics && m.basics.length)) {
     html += `<div class="note">${esc(t(S.shops.client ? "shops.clientEmpty" : "shops.empty"))}</div>`;

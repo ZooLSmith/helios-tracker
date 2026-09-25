@@ -23,6 +23,7 @@ from mods_base import ENGINE, get_pc
 from unrealsdk.unreal import WeakPointer
 
 from .inspector import read_players
+from . import lootodds
 from .missions import MissionLog, mission_id
 from .missions import objective_index as _mission_index
 from .shops import ShopReader
@@ -343,6 +344,7 @@ class Collector:
         self._state_n = 0
         self._info: dict[int, dict[str, Any]] = {}  # per-actor cached name/kind, by address
         self._objects_json = "[]"
+        self._pools_sent = -1  # lootodds.POOLS' size when last sent (-1: send it)
         # Interactive objects don't move or get renamed: each record is built once per level
         self._object_records: dict[tuple[int, str], dict[str, Any] | None] = {}
         self._objects: dict[tuple[int, str], dict[str, Any]] = {}  # what the objects payload shows
@@ -391,6 +393,7 @@ class Collector:
             self._next_scan = self._next_objects = self._next_players = self._next_missions = self._next_log = 0.0
             self._log.dirty = self._log.defs_dirty = True  # the new page needs the log
             self._objects_json = self._players_json = self._missions_json = self._areas_json = ""
+            self._pools_sent = -1
             self._shops.resend()
             self._next_shops = 0.0
         # At most one heavy task (scans / players) per tick: they'd add up into one hitch
@@ -835,6 +838,11 @@ class Collector:
 
     def _publish_objects(self) -> None:
         objects = list(self._objects.values())
+        # the pools the containers' odds reach (lootodds.POOLS: static, only ever grows) - before the objects, so the
+        # page has them when it shows an object's odds; sent again only when new ones came
+        if len(lootodds.POOLS) != self._pools_sent:
+            self._pools_sent = len(lootodds.POOLS)
+            self.hub.publish("lootpools", json.dumps({"pools": lootodds.POOLS}, separators=(",", ":")))
         objects_json = json.dumps({"level": self.level_id, "objects": objects}, separators=(",", ":"))
         if objects_json != self._objects_json:
             self._objects_json = objects_json
@@ -962,6 +970,8 @@ class Collector:
             if try_(lambda: io.bCanBeUsed[0], 0):
                 record["usable"] = 1  # for the usability hook: usable, then not = opened
             pools, slots, lists = loot_info(io, balance)
+            if odds := try_(lambda: lootodds.container_odds(io, balance)):
+                record["odds"] = odds  # each configuration's chance, its pools (their entries: the lootpools payload)
             if pools:
                 record["loot"] = pools
             if lists:

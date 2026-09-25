@@ -61,7 +61,7 @@
 .item.expanded .idetail { display: block; }
 .kv { display: grid; grid-template-columns: auto 1fr; gap: 1px 10px; }
 .kv > span:nth-child(odd) { color: var(--dim); }
-.plist { font-size: 12px; } .plist div { padding: 1px 0; border-bottom: 1px solid var(--divider); }
+.plist { font-size: 12px; } .plist > div:not(.odds) { padding: 1px 0; border-bottom: 1px solid var(--divider); }
 .kv > span:nth-child(even) { overflow-wrap: anywhere; }
 .mlink { color: var(--objective); cursor: pointer; } /* a mission, from a mission item's details */
 .mlink:hover { text-decoration: underline; }
@@ -215,6 +215,17 @@
 .ifold.open > .kv { display: grid; }
 .ifold > .plist { display: none; padding: 2px 0 4px; } /* (a vending machine's pools: detail.js) */
 .ifold.open > .plist { display: block; }
+/* a container's loot odds (ui/odds.js): a row per choice - its chance, what it is (a pool opens on its own rows) */
+.odds, .odrows { display: flex; flex-direction: column; gap: 1px; }
+.odrows { margin: 2px 0 4px 6px; padding-left: 6px; border-left: 1px solid var(--divider); }
+.odrow { display: flex; gap: 8px; align-items: baseline; }
+.odrow .odp { flex: none; width: 52px; text-align: right; color: var(--text); font-variant-numeric: tabular-nums; }
+.odrow .odwhat { flex: 1; min-width: 0; color: var(--dim); }
+.odpool > summary { cursor: pointer; list-style-position: inside; }
+.odpool > summary:hover { color: var(--text); }
+.odn { color: var(--text); margin-right: 4px; }
+.odmin { font-size: 11px; color: var(--dim); border: 1px solid var(--divider); border-radius: 3px; padding: 0 3px; }
+.odlow { font-size: 11px; color: var(--health, var(--dim)); }
 .icard .sval { color: var(--text); font-weight: 700; font-synthesis-weight: auto; }
 .icard .icline.red { color: var(--bad); }
 .scell .slock { position: absolute; top: 3px; right: 3px; display: flex; font-size: 10px; color: var(--dim); }
@@ -369,7 +380,11 @@
 .shmachine { margin-bottom: 14px; }
 .shhead { display: flex; align-items: baseline; gap: 8px; font-size: 14px; margin: 4px 0 2px; }
 .shdist { color: var(--dim); font-size: 12px; margin-left: auto; }
-.shfeat { color: var(--accent); }
+.shfeat { color: var(--accent); display: flex; align-items: center; gap: 4px; }
+.shfeatt { margin-left: auto; display: flex; align-items: center; gap: 3px; color: var(--dim); letter-spacing: 0;
+  font-variant-numeric: tabular-nums; } /* its restock countdown, at the right like the game's */
+/* a restock countdown under 2 min (shops.js SOON_S): red - here, the drawer's heading, the Info tab's (.istimer) */
+.shfeatt.soon, [data-shop-timer].soon, .istimer.soon { color: var(--bad); }
 .shfeat .icon { vertical-align: -1px; }
 .stabs .shtc { color: var(--dim); font-size: 11px; }
 /* what a kind of machine always sells (ammo, health vials): a compact price list, two columns */

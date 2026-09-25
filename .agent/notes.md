@@ -321,6 +321,77 @@ In game (probe_vending.py, Sanctuary_P, solo listen server, 2026-09-25): **confi
 - Not seen yet: the reset itself (every machine at once? the timer back to 1200?), a level reload, a co-op client
   (is `ShopInventory` replicated? the machines are `bAlwaysRelevant`).
 
+## Loot odds (probe_loot_odds.py, in game, Sanctuary_P, 2026-09-25)
+
+What "Can contain" could turn into percentages - read as properties only:
+- A container picks **one loot configuration by weight** (`Loot[]` / its balance's `DefaultLoot` /
+  `DefaultIncludedLootLists[].LootData`: each `Weight` an AttributeInitializationData = its value x
+  `BaseValueScaleConstant`), then rolls each of its `ItemAttachments[].ItemPool` (`PoolProbability` 1 seen everywhere).
+- A pool picks **one `BalancedItems[]` entry by weight** (`Probability`, the same struct): an item balance
+  (`InvBalanceDefinition`) or a sub-pool (`ItmPoolDefinition`: e.g. `Pool_Weapons_Pistols` -> one pool per rarity).
+  Pools also have `Quantity`, `bSupportsGameStageVariance`.
+- The weights point to shared **`GD_Balance.Weighting.Weight_*`** (AttributeInitializationDefinition,
+  `BASEVALUE_InitializationDefSetsBaseValue`): a `ValueFormula` Multiplier x Level^Power + Offset with Level 1, Power 1,
+  Offset 0 - i.e. constants: VeryCommon 200, Common 100, Uncommon 10, Uncommoner 5, Rare 1, VeryRare 0.1,
+  Legendary 0.01. The golden chest: configurations 300 / 150 / 90 / 80 / 80 / 80 / 50 (2 long guns 36 %, 2 pistols
+  18 %, a launcher 11 %, shields / grenade mods / class mods 10 % each, relics 6 %). A pool's rarity sub-pools:
+  Uncommon 10, Rare 1, VeryRare 0.1 (+ E-tech 0.1), Legendary 0.01.
+- **Not constants** (only the game knows): `Weight_1_Common_RareMod` (common gear: its Multiplier is the designer
+  attribute `GD_Balance.Weighting.GearDrops_CommonWeightModifier`, global scope - resolver chain not read yet);
+  `GD_Itempools.DropWeights.DropODDS_Health` (an `AmmoDropWeightAttributeValueResolver`: most likely the player's
+  current health - live); the vending pools' `Transient.AttributeInitializationDefinition_*` (built at runtime) and
+  the item of the day's `Att_IOTD_Weighting_*` (a `ConstantAttributeValueResolver`: its value inside, not read yet).
+- **The follow-up** (probe_loot_odds2.py, same day) - how each kind of value resolves, all as properties:
+  - an AttributeInitializationData (`Weight`, `Probability`...): its InitializationDefinition's value, else its
+    BaseValueAttribute's, else BaseValueConstant - times BaseValueScaleConstant (seen: 0 + Weight_* x 1.5; 1 +
+    DropODDS_Health x 500). An InitializationDefinition: its `ValueFormula` Multiplier x Level^Power + Offset, each
+    term the same struct (so `Weight_1_Common_RareMod` = GearDrops_CommonWeightModifier x Weight_1_Common (100)).
+    These evaluation rules are inferred from the data (Gearbox's), not checked against the game's own result yet.
+  - an AttributeDefinition's value: its `ValueResolverChain` - `ConstantAttributeValueResolver.ConstantValue` (item of
+    the day weights: Uncommon 4, Rare 1.2, VeryRare 0.2, Legendary 0.0055; DropODDS_Money 0.25, BuffDrinks 0.05,
+    EridiumStick 0.008, EridiumBar 0.0015, BossUniques 0.1, BossUniqueRares 0.33, RareDropSkin 0.002, VehicleSkins
+    0.05); `AmmoDropWeightAttributeValueResolver` (live: the player's `Resource` - D_Resources.Health, an ammo pool -
+    below `ResourceThreshold` (health 0.4, ammo 0.15, protean grenades 0.1) between Min/MaxBelowThresholdWeight
+    (health 0.1-0.25, most ammo 0.3-0.5), above it `AboveThresholdWeight` (health 0.03, ammo 0); how it goes from min to
+    max: inferred - lower = higher); `ConditionalAttributeValueResolver` (DropODDS_GunsAndGear: conditions, not read).
+  - a `DesignerAttributeDefinition` (GearDrops_CommonWeightModifier, GearDrops_RareWeightModifier): global, `BaseValue`
+    1; the live value an `InstancedDesignerAttribute.Value` in the host's `WorldInfo.Game.DesignerAttributes` (5 of
+    them in Sanctuary - which is which not read; a client has only the base value).
+  - **Game stage gating**: a pool's `MinGameStageRequirement` / `MaxGameStageRequirement` (AttributeDefinitions:
+    `Pool_Weapons_Pistols_06_Legendary` needs `GD_Itempools.Scheduling.Gamestage_07` - its value not read, the name
+    says 7); a balance's `Manufacturers[].Grades[].GameStageRequirement {MinGameStage, MaxGameStage}` and
+    Min/MaxSpawnProbabilityModifier (a common Bandit pistol: 1-10000, x1). A legendary balance's own fields read empty
+    (its data on its archetype / base definition?).
+- **Open (the user, 2026-09-25): does it hold for the DLCs and the Pre-Sequel?** The DLCs use the same classes and
+  structures (their own `GD_<DLC>_Itempools` / pools / weights - the probe reads whatever a chest points to, but their
+  weights may be other objects than `GD_Balance.Weighting.*`, and seasonal / Pearl pools may be gated): to check with
+  a DLC chest (a Pirate's Booty / Dragon Keep area). The Pre-Sequel is another game on the same engine (the SDK's
+  willow2 side covers it) - the mod as a whole isn't known to run there; a question for the whole mod, not just this.
+
+## Level geometry for a 3D map (offline, the level's packages, 2026-09-25)
+
+What a level's `<Map>_*.upk` packages hold (the persistent one + every sublevel: `_Dynamic`, `_Freighter`, `_Light`...;
+Southern Shelf's `_P` alone: 404 `StaticMesh`, 4131 `StaticMeshComponent`, 11 `Terrain`, 355 `RB_BodySetup`, 135
+`BlockingMeshActor`, 1 `GBXNavMesh`). All the StaticMeshes used are cooked into the level's packages (no imports).
+
+- **`GBXNavMesh`** (Gearbox's nav mesh, an actor: tagged properties from offset 26, `BuildVersion` 4, `MeshID`,
+  `ConnectedMeshes` = the other sublevels' meshes) - the walkable surface: floors and slopes, stacked levels included.
+  Native tail after the properties: `int32 nverts`, `nverts x (f32 X, Y, Z)` in world units, `int32 ntris`,
+  `ntris x 7 u16` = 3 vertex indices, 3 neighbour triangles (65535 = a boundary edge), 1 unknown (65535 or a small
+  number). Checked on Southern Shelf and Sanctuary: every index in range, neighbours point back at each other, the
+  top-down render matches the level (Sanctuary's fountain ring, streets). Then ~265 KB more (Southern Shelf `_P`) not
+  decoded (connections / jump links?). One mesh per sublevel that has AI: merge them all (Southern Shelf: 6 meshes,
+  59k vertices / 65k triangles, ~1.4 MB raw; Sanctuary: 27k / 30k). 82% of the triangles face up within 30°.
+  Stacking (2 m cells, floors > 2.5 m apart): Sanctuary 4015 cells with 1 floor, 203 with 2, 38 with 3; Southern
+  Shelf 11672 / 800 / 70.
+- Limits: it's where the AI walks, not the player - spots only reachable by jumping may be missing. Some big fan
+  triangles at the edges. Not checked yet: DLC levels, a level whose sublevels load per mission, alignment with the 2D
+  map in game (same world coordinates, should match), the unknown u16 and the rest.
+- The other geometry, if ever needed: `Terrain` (heightmap in its native tail, `NumPatchesX/Y`, `Location`), the
+  StaticMeshes' vertex buffers (native, bigger work), `RB_BodySetup.AggGeom` (collision hulls), `BlockingMeshActor`s.
+- Scripts: the session's scratch `navall.py` (reads every sublevel with `tacmap.Package`, renders PNGs) - not kept;
+  the format above is enough to rebuild it.
+
 ## Backlog
 
 - **Mission log cost** (user, 2026-09-23: 20-40 ms often) - (1) and (3) DONE, to measure in game; (2) if still needed:

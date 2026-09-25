@@ -97,7 +97,8 @@ It draws nothing in game: everything it shows is on the page.
   its item of the day then its stock (the item cards), then the kind's "Always for sale" price list (the closest
   machine's); a machine's name opens its panel, which then has a back button to the list (on that machine), and whose
   "For sale" row links back to its tab. A machine's panel (clicked on the map too) shows its stock itself, as in the
-  list (`machineStockHtml`), its loot pools ("Can contain": technical there) folded at the bottom like an item's
+  list (`machineStockHtml`; the item of the day's heading has the restock countdown at its right, like the game's
+  vending screen), its loot pools ("Can contain": technical there) folded at the bottom like an item's
   parts. Names: the vending menu's localized titles (`VendingMachineExGFxMovie` defaults:
   `WeaponsShopTitle`... by `ShopType` - the pairing inferred from the names; not read: "Vending Machine ?"). Crazy Earl left out (no stock until opened, built per player: only his marker).
 - **Info tab sections** (Mission, Shops, Players - meant to hold more of these panes): a heading row (fold chevron, title,
@@ -175,7 +176,14 @@ It draws nothing in game: everything it shows is on the page.
   by default, same sizes. Contents = the item pools their loot rolls from (items only exist once
   opened), in the click panel.
 - **Click panel**: clicking any marker opens a detail drawer (players: the inspector) - containers
-  (status, slots, loot lists, every pool), loot, pawns (level, shield, health), quest markers.
+  (status, slots, every pool), loot, pawns (level, shield, health), quest markers. **Loot odds** (`lootodds.py`,
+  notes "Loot odds"): a container's `odds` - each loot configuration's chance and its pools ([key, how many]); the
+  pools' entries and chances in the `lootpools` payload (static, sent when it grows); "Can contain" lists them, the
+  likeliest first, a pool opening on its entries (`ui/odds.js`), "~" on every chance (rules inferred, not checked
+  against real drops), "if low on health / ammo" beside a weight that depends on it, "Lv 7+" on a pool gated by
+  game stage, "?" where the data gives no number (conditional / runtime-built weights). Common gear: the designer
+  modifier's base value (1) - the host's live one not matched yet (tools/probe_loot_odds3.py). The technical rows (loot lists,
+  class, definition) in a "Details" fold at the bottom, closed until opened (remembered per object, as items').
   Hover / click pick the marker drawn on top (loot > pawns > quest markers > objects; inside the
   marker, last drawn; objects drawn by height). **Selection highlight** (`draw.js` drawSelection): what the drawer
   shows (an object, a marker, an inspected player - not the tracked one) gets corner brackets sized to its marker and
