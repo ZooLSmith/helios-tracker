@@ -247,7 +247,7 @@ function onShops(msg) {
 function onShopTimer(msg) {
   if (!S.level || msg.level !== S.level.id) return;
   const first = !S.shopTimer;
-  S.shopTimer = { left: msg.left, rate: msg.rate, at: performance.now() };
+  S.shopTimer = { left: msg.left, rate: msg.rate, at: performance.now(), paused: !!msg.paused }; // (paused: held)
   if (first) renderShops(); // (its countdown line; then only its text, every second)
 }
 

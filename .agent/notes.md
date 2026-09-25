@@ -314,7 +314,9 @@ In game (probe_vending.py, Sanctuary_P, solo listen server, 2026-09-25): **confi
 - Timer: `GRI.SecondsUntilShopsReset` 1169 at `TimeSeconds` 139, the machines' `CreationTime` 108.85: it started at
   1200 (20 min) when the level loaded. `Game.LastShopResetTime` and every `LastInventoryResetTime` read 0 (no reset
   yet). `ShopTimerRate` 1, empty modifier stack. When it expires: "Shops have new inventory!" (`NewShopInventory`, 5 s).
-- Price: `GetSellingPriceForInventory(InventoryForSale, WPC, Quantity) -> int` (not called yet); markup from
+- The timer stands still while the game is paused (`WorldInfo.Pauser`: the page's count went on, then jumped back
+  at each resend - the user, 2026-09-25): the `shoptimer` payload says `paused`, the page holds it.
+- Price: `GetSellingPriceForInventory(InventoryForSale, WPC, Quantity) -> int` (called since: the menu's prices); markup from
   `CommerceMarkup` (`GD_Economy.VendingMachine.Init_MarkupCalc_P1`).
 - Not seen yet: the reset itself (every machine at once? the timer back to 1200?), a level reload, a co-op client
   (is `ShopInventory` replicated? the machines are `bAlwaysRelevant`).

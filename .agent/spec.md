@@ -85,17 +85,21 @@ It draws nothing in game: everything it shows is on the page.
 - **Shops** (`shops.py`, see notes "Vending machines": each machine has its own stock, the timer is the game's):
   the `shops` payload (the level's machines: name = the vending menu's title, the game's; kind; position; stock
   and item of the day as inspector item records, "v" = the machine's price, `GetSellingPriceForInventory`) when it
-  changes, `shoptimer` ({left, rate}: `WorldInfo.Game`, else the replicated GRI) when the page's countdown would be
-  off by more than 1 s (a restock sends both). Read every 2 s; new item records built a few ms per pass (a level's
+  changes, `shoptimer` ({left, rate, paused?}: `WorldInfo.Game`, else the replicated GRI) when the page's countdown
+  would be off by more than 1 s, or the game pauses / resumes (`Pauser`: its timer stands still, the page's holds; a
+  restock sends both). Read every 2 s; new item records built a few ms per pass (a level's
   ~70: never one hitch). Ammo and health vials (`pickup_kind`: every machine always sells them) go apart as
   `basics` (name, price: no card). Info tab: a Shops section - its heading: the restock countdown by a timer icon
   (always, open or folded) and "All"; its body: the 2 closest machines (name, distance, their item of the day in its
   rarity's colour; a click: the list on it), kept current from the frames (the Refresh rate rule). The drawer: a tab
   per kind of machine (named by the vending menu's title, the remembered tab `ui.shopTab`; in the skill trees'
-  colours: weapons red, ammo / grenades green, shields / health blue), in it the kind's "Always for sale" price list
-  (the closest machine's), then its machines, the closest first, each its item of the day then its stock (the item
-  cards); a machine's name opens its panel, which then has a back button to the list (on that machine), and whose
-  "For sale" row links back to its tab. Crazy Earl left out (no stock until opened, built per player: only his marker).
+  colours: weapons red, ammo / grenades green, shields / health blue), in it its machines, the closest first, each
+  its item of the day then its stock (the item cards), then the kind's "Always for sale" price list (the closest
+  machine's); a machine's name opens its panel, which then has a back button to the list (on that machine), and whose
+  "For sale" row links back to its tab. A machine's panel (clicked on the map too) shows its stock itself, as in the
+  list (`machineStockHtml`), its loot pools ("Can contain": technical there) folded at the bottom like an item's
+  parts. Names: the vending menu's localized titles (`VendingMachineExGFxMovie` defaults:
+  `WeaponsShopTitle`... by `ShopType` - the pairing inferred from the names; not read: "Vending Machine ?"). Crazy Earl left out (no stock until opened, built per player: only his marker).
 - **Info tab sections** (Mission, Shops, Players - meant to hold more of these panes): a heading row (fold chevron, title,
   what fits beside it - Shops' countdown; Players' count, folded only -, a small "All" link opening its drawer)
   whose click folds the section (`ui.closedInfo`,

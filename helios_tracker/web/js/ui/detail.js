@@ -6,9 +6,10 @@ import { icon } from "../icons.js";
 import { isGear, nameText } from "../model.js";
 import { S, findDetail, pawnPos, trackedPawn } from "../state.js";
 import { saveDrawer } from "./drawer.js";
-import { renderInspector } from "./inspector.js";
+import { bindItems, renderInspector } from "./inspector.js";
 import { rarityName } from "./items.js";
 import { renderPlayers } from "./players.js";
+import { machineStockHtml } from "./shops.js";
 
 /** Opens an object's / marker's panel. From the vending machines' list: a back button to it (`back`: that machine
  *  first on return - shops.js). */
@@ -118,10 +119,27 @@ export function renderDetail(resetScroll) {
   if (it.c && kind !== "loot") rows.push([t("item.class"), null, classHtml(it.c)]);
   if (it.d) rows.push([t("detail.definition"), it.d]);
   let html = `<div class="kv">` + rows.map(([k, v, h]) => `<span>${esc(k)}</span><span>${h ?? esc(v)}</span>`).join("") + `</div>`;
-  if (it.loot && it.loot.length) { // every pool its loot is rolled from, one per line
-    html += `<div class="group">${esc(t("detail.contents"))}</div><div class="plist">` +
-      it.loot.map((n) => `<div>${nameHtml({ n: String(n).replace(/^Pool_/, ""), raw: 1 })}</div>`).join("") + `</div>`;
+  const pools = (it.loot || []).map((n) => `<div>${nameHtml({ n: String(n).replace(/^Pool_/, ""), raw: 1 })}</div>`).join("");
+  if (kind === "vendor") {
+    // a vending machine: what it sells, right here (the shops payload has it) - as in the vending list; the pools it
+    // rolls from are technical next to that: folded away at the bottom, like an item's parts (S.itemFolds)
+    html += machineStockHtml(it.i);
+    if (pools) {
+      const open = S.itemFolds.has(`${it.i}:pools`);
+      html += `<div class="ifold${open ? " open" : ""}" data-fold="pools" data-id="${esc(it.i)}"><div class="ifhead">` +
+        `${esc(t("detail.contents"))}<span class="ifcount">${esc(num(it.loot.length))}</span></div><div class="plist">${pools}</div></div>`;
+    }
+  } else if (pools) { // every pool its loot is rolled from, one per line (a container: the only hint of what it drops)
+    html += `<div class="group">${esc(t("detail.contents"))}</div><div class="plist">${pools}</div>`;
   }
   body.innerHTML = html;
+  bindItems(body); // (its items' cards: open / close)
+  for (const fold of body.querySelectorAll(":scope > .ifold")) { // (its own folds: the pools)
+    fold.querySelector(".ifhead").onclick = () => {
+      const key = `${fold.dataset.id}:${fold.dataset.fold}`;
+      if (S.itemFolds.has(key)) S.itemFolds.delete(key); else S.itemFolds.add(key);
+      fold.classList.toggle("open");
+    };
+  }
   body.scrollTop = resetScroll ? 0 : scroll;
 }

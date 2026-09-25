@@ -1,8 +1,8 @@
 // The Shops pane: the Info tab's section (its heading: the restock countdown with a timer icon, "All"; its body: the
 // NEAR_COUNT closest machines, their item of the day) and the drawer -
 // the level's vending machines, a tab per kind (named by the vending menu's own titles: "Marcus Munitions"...), each
-// tab: what every machine of that kind always sells (ammo, health vials: a price list) then each machine, the closest
-// to the tracked player first, with its item of the day and its stock at the machine's prices (shops.py; the items'
+// tab: each machine, the closest to the tracked player first, with its item of the day and its stock at the machine's
+// prices, then what every machine of that kind always sells (ammo, health vials: a price list) (shops.py; the items'
 // cards: items.js).
 import { $, esc, nameHtml } from "../dom.js";
 import { UU_PER_METER } from "../geo.js";
@@ -22,10 +22,12 @@ const KIND_ORDER = ["weapons", "items", "health", "other"]; // (no black market:
 const KIND_TREE = { weapons: "tree2", items: "tree0", health: "tree1" };
 const NEAR_COUNT = 2; // the Info tab's Shops section: the closest machines listed
 
-/** Seconds until the shops restock: the game's last figure counted down since (null: not known yet). */
+/** Seconds until the shops restock: the game's last figure counted down since - held while the game is paused (its
+ *  timer stands still) - or null: not known yet. */
 export function restockLeft() {
   const tm = S.shopTimer;
-  return tm ? Math.max(0, tm.left - ((performance.now() - tm.at) / 1000) * tm.rate) : null;
+  if (!tm) return null;
+  return tm.paused ? tm.left : Math.max(0, tm.left - ((performance.now() - tm.at) / 1000) * tm.rate);
 }
 
 function clock(s) {
@@ -104,18 +106,33 @@ function basicsHtml(list) {
     .join("") + `</div>`;
 }
 
-function machineHtml(m, me, level) {
+/** A machine's item of the day then its stock (the item cards: bindItems after), or a note when it has none. */
+function stockHtml(m, level) {
   const items = m.cur ? m.items.map((it) => ({ ...it, cur: m.cur })) : m.items; // (the price's currency: items.js)
   const feat = m.feat && (m.cur ? { ...m.feat, cur: m.cur } : m.feat);
-  const dist = me ? `<span class="shdist">${esc(t("unit.meters", { n: num(distance(m, me) / UU_PER_METER, 0) }))}</span>` : "";
-  let html = `<div class="shmachine" data-machine="${esc(m.i)}"><div class="shhead">` +
-    `<a class="mlink" data-open-detail="${esc(m.i)}" data-kind="vendor" title="${esc(t("shops.onMap"))}">${nameHtml(m)}</a>${dist}</div>`;
+  let html = "";
   if (feat) html += `<div class="group shfeat">${icon("star")} ${esc(t("shops.featured"))}</div>` + itemHtml(feat, level);
   if (items.length) html += `<div class="group">${esc(t("shops.stock"))} · ${num(items.length)}</div>` + items.map((it) => itemHtml(it, level)).join("");
   else if (!feat && !(m.basics && m.basics.length)) {
     html += `<div class="note">${esc(t(S.shops.client ? "shops.clientEmpty" : "shops.empty"))}</div>`;
   }
-  return html + `</div>`;
+  return html;
+}
+
+const playerLevel = () => (S.players.find(isTrackedPlayer) || {}).lvl || 0; // (items above it: marked, like a backpack's)
+
+/** A machine's panel (detail.js: a vending machine clicked on the map) - what it sells, as in the list: its item of
+ *  the day, its stock, then its price list; "" if it isn't one of the listed machines. Its items' cards: bindItems. */
+export function machineStockHtml(id) {
+  const m = machines().find((x) => x.i === id);
+  return m ? stockHtml(m, playerLevel()) + basicsHtml([m]) : "";
+}
+
+function machineHtml(m, me, level) {
+  const dist = me ? `<span class="shdist">${esc(t("unit.meters", { n: num(distance(m, me) / UU_PER_METER, 0) }))}</span>` : "";
+  return `<div class="shmachine" data-machine="${esc(m.i)}"><div class="shhead">` +
+    `<a class="mlink" data-open-detail="${esc(m.i)}" data-kind="vendor" title="${esc(t("shops.onMap"))}">${nameHtml(m)}</a>${dist}</div>` +
+    stockHtml(m, level) + `</div>`;
 }
 
 /** The drawer's list: a tab per kind of machine, the chosen kind's machines. */
@@ -143,8 +160,9 @@ export function renderShopsView(resetScroll) {
       (list.length > 1 ? `<span class="shtc">${num(list.length)}</span>` : "") + `</button>`;
   }).join("") + `</div>`;
   const list = byKind(tab);
-  const level = (S.players.find(isTrackedPlayer) || {}).lvl || 0; // (items above it: marked, like a backpack's)
-  body.innerHTML = tabs + basicsHtml(list) + list.map((m) => machineHtml(m, me, level)).join("");
+  const level = playerLevel();
+  // (what they always sell after the machines: the stock is what changes - the user's call)
+  body.innerHTML = tabs + list.map((m) => machineHtml(m, me, level)).join("") + basicsHtml(list);
   bindItems(body);
   const first = resetScroll && S.shopView.id ? body.querySelector(`[data-machine="${CSS.escape(S.shopView.id)}"]`) : null;
   if (first) first.scrollIntoView({ block: "start" });

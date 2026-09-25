@@ -24,7 +24,7 @@ import unrealsdk
 from unrealsdk.unreal import WeakPointer
 
 from .inspector import _item
-from .util import addr, item_name, log_error, named, pickup_kind, try_
+from .util import addr, field, item_name, log_error, named, pickup_kind, try_
 
 KINDS = {"SType_Weapons": "weapons", "SType_Items": "items", "SType_Health": "health", "SType_BlackMarket": "blackmarket"}
 TITLES = {"weapons": "WeaponsShopTitle", "items": "ItemsShopTitle", "health": "HealthShopTitle"}
@@ -57,7 +57,8 @@ class ShopReader:
         # item records by (address, name): an item never changes while it's for sale (sold / restocked: a new object)
         self._items: dict[tuple[int, str], dict[str, Any]] = {}
         self._titles: dict[str, str] | None = None
-        self._sent: tuple[str, float, float, float] | None = None  # (stock json, seconds left, rate, when: the collector's clock)
+        # (stock json, seconds left, rate, when: the collector's clock, the game paused)
+        self._sent: tuple[str, float, float, float, bool] | None = None
         self.pending = False  # item records left to build: read again soon
 
     def note(self, io: Any) -> None:
@@ -162,14 +163,20 @@ class ShopReader:
         source = game if game is not None else try_(lambda: world_info.GRI)
         left = try_(lambda: float(source.SecondsUntilShopsReset))
         rate = try_(lambda: float(source.ShopTimerRate), 1.0)
+        # the game paused (WorldInfo.Pauser, as the state's "paused"): its timer stands still - the page's count too
+        # (it went on, then jumped back at each resend: the user saw it)
+        paused = try_(lambda: field(world_info, "Pauser") is not None, False)
         sent = self._sent
         stock_out = stock if sent is None or stock != sent[0] else None
         timer_out = None
-        # (a restock: new stock and the timer back up - both sent together)
-        if left is not None and (stock_out is not None or sent is None or rate != sent[2]
-                                 or abs(sent[1] - (now - sent[3]) * sent[2] - left) > TIMER_DRIFT):
-            timer_out = json.dumps({"level": level_id, "left": round(left, 1), "rate": rate}, separators=(",", ":"))
-            self._sent = (stock, left, rate, now)
+        # where the page's count is now: what was sent, counted down since unless paused then
+        expected = None if sent is None else sent[1] if sent[4] else sent[1] - (now - sent[3]) * sent[2]
+        # (a restock: new stock and the timer back up - both sent together; a pause / its end: sent at once)
+        if left is not None and (stock_out is not None or sent is None or rate != sent[2] or paused != sent[4]
+                                 or abs(expected - left) > TIMER_DRIFT):
+            timer_out = json.dumps({"level": level_id, "left": round(left, 1), "rate": rate, **({"paused": 1} if paused else {})},
+                                   separators=(",", ":"))
+            self._sent = (stock, left, rate, now, paused)
         elif stock_out is not None:
-            self._sent = (stock, *sent[1:]) if sent is not None else (stock, 0.0, 1.0, now)
+            self._sent = (stock, *sent[1:]) if sent is not None else (stock, 0.0, 1.0, now, False)
         return stock_out, timer_out

@@ -136,12 +136,14 @@ export function elementIconLoaded(img) {
 /** `it.cur`: its price's currency when not cash (a vending machine's: "eridium"...). */
 export function itemHtml(it, ownerLevel) {
   const [tier, color] = rarity(it.q || 0);
-  // (no equip slot: obvious; no maker when its logo's there - the footer's, its name the logo's tooltip; its level
-  // and price in the card's top right)
-  const logo = it.mf && /^[A-Za-z0-9_]+$/.test(it.mf);
-  const meta = [it.type || t("kind." + it.k, null, it.k), logo ? "" : it.maker].filter(Boolean).join(" · ");
+  // (no equip slot: obvious; no maker when its logo's there, no type when its icon is - the footer's, their names
+  // the icons' tooltips (and their text if an icon fails to load); its level right after its name, its price at the
+  // right of that line)
+  const okKey = (key) => !!key && /^[A-Za-z0-9_]+$/.test(key);
+  const logo = okKey(it.mf), typeName = it.type || t("kind." + it.k, null, it.k);
+  const meta = [okKey(it.wt) ? "" : typeName, logo ? "" : it.maker].filter(Boolean).join(" · ");
   const price = it.v ? `<span class="iprice">${esc(it.cur ? t("currency." + it.cur, { n: num(it.v) }) : money(it.v))}</span>` : "";
-  // its level, top right - red above its owner's (the game's rule: not equippable yet)
+  // its level, after its name - red above its owner's (the game's rule: not equippable yet)
   const tooHigh = it.l && ownerLevel && it.l > ownerLevel;
   const level = it.l ? `<span class="ilvl${tooHigh ? " toohigh" : ""}"${tooHigh ? tipAttrs("", t("item.levelTooHigh", { n: ownerLevel })) : ""}>` +
     `${esc(t("item.level", { n: it.l }))}</span>` : "";
@@ -154,7 +156,7 @@ export function itemHtml(it, ownerLevel) {
   // its item card icons (the game's: gamecards.py), along the card's bottom like the game's (smaller while folded):
   // the manufacturer's logo, the element's, the type's - each dropped if the game has none (or the key's odd); the
   // logo missing: the maker's name instead
-  const icon = (kind, key, text = "") => (key && /^[A-Za-z0-9_]+$/.test(key)
+  const icon = (kind, key, text = "") => (okKey(key)
     ? `<img class="ii-${kind}" src="/cardicon/${kind}/${key}.png" crossorigin="anonymous" alt="${esc(text)}"${text ? ` title="${esc(text)}"` : ""} ` +
       `loading="lazy" draggable="false" onerror="${text
         ? "this.replaceWith(Object.assign(document.createElement('span'), {className: 'ii-text', textContent: this.alt}))"
@@ -166,7 +168,7 @@ export function itemHtml(it, ownerLevel) {
     ? `<span class="iitint ${kind}" style="--src:url('/cardicon/${kind}/${key}.png')">${html}</span>` : html);
   // the element's colour (--etint: the type icon): the game's (elementColour), else its icon's art's once seen
   const tint = it.el ? elementColour(it) || elementTints.get(`/cardicon/element/${it.el}.png`) || "" : "";
-  const kind = tinted(icon("element", it.el), "element", it.el) + tinted(icon("type", it.wt), "type", it.wt);
+  const kind = tinted(icon("element", it.el), "element", it.el) + tinted(icon("type", it.wt, typeName), "type", it.wt);
   // the manufacturer's logo: its white fill a little in the rarity's colour (--c; css: .iitint.brand)
   const brand = icon("manufacturer", it.mf, it.maker || "");
   const icons = (brand ? `<span class="iitint brand" style="--src:url('/cardicon/manufacturer/${it.mf}.png')">${brand}</span>` : "") +
@@ -174,8 +176,8 @@ export function itemHtml(it, ownerLevel) {
   // (effervescent - the game's RARITY_Rainbow: its name's colour cycling like the game's; css: .item.rainbow)
   return `<div class="item${S.expanded.has(it.i) ? " expanded" : ""}${tier === "effervescent" ? " rainbow" : ""}" data-id="${esc(it.i)}" ` +
     `style="--c:${color}${tint ? `;--etint:${esc(tint)}` : ""}">` +
-    `<div class="ihd"><div class="itext"><div class="iname">${nameHtml(it)}</div><div class="imeta">${esc(meta)}</div></div>` +
-    `${level || price ? `<div class="iside">${level}${price}</div>` : ""}</div>` +
+    `<div class="ihd"><div class="itext"><div class="iname">${nameHtml(it)}${level ? " " + level : ""}</div>${meta ? `<div class="imeta">${esc(meta)}</div>` : ""}</div>` +
+    `${price ? `<div class="iside">${price}</div>` : ""}</div>` +
     `<div class="idetail">${card ? `<div class="icard">${card}</div>` : ""}` +
     `${stats ? `<div class="istats">${stats}</div>` : ""}${parts}${details}</div>` +
     `${icons ? `<div class="iicons">${icons}</div>` : ""}</div>`;

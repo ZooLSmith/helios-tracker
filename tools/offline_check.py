@@ -1180,6 +1180,16 @@ def check_helios_tracker() -> None:  # noqa: PLR0915
     c._publish_shops(2011.1)
     assert (hub._channels["shops"][0], hub._channels["shoptimer"][1]) == (vend_versions[0], json.dumps(
         {"level": c.level_id, "left": 1100.0, "rate": 1.0}, separators=(",", ":"))), "a drifted timer not sent"
+    # the game paused (WorldInfo.Pauser): its timer stands still - sent once, flagged; no resend while it holds
+    vend_world.Pauser = ns(Name="PlayerReplicationInfo_0")
+    c._publish_shops(2011.5)
+    assert json.loads(hub._channels["shoptimer"][1]) == {"level": c.level_id, "left": 1100.0, "rate": 1.0, "paused": 1}
+    vend_paused_version = hub._channels["shoptimer"][0]
+    c._publish_shops(2030.0)  # 18.5 s later, the game's count unchanged: the page's held too - nothing to send
+    assert hub._channels["shoptimer"][0] == vend_paused_version, "a paused timer resent (the page's count went on)"
+    vend_world.Pauser = None
+    c._publish_shops(2031.0)  # unpaused: sent again, counting
+    assert "paused" not in json.loads(hub._channels["shoptimer"][1]) and hub._channels["shoptimer"][0] == vend_paused_version + 1
     vend_new = ns(**{**vars(vend_gun), "Name": "WillowWeapon_31", "_get_address": lambda: 0x522})
     vend_machine.ShopInventory = [vend_new, None]  # restocked: a new item, the timer back up
     vend_game.SecondsUntilShopsReset = 1200.0
