@@ -399,6 +399,15 @@
 .shbn { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--dim); } /* (dim like
    a part's label: only the price bright) */
 .shbv { color: var(--text); font-variant-numeric: tabular-nums; }
-@media (max-width: 520px) {
-  #inspector { left: 12px; right: 12px; width: auto; top: auto; height: 60%; }
+@media (max-width: 520px) { /* a phone: the drawer is a page of its own, over everything (its close button: the map back) */
+  /* (solid: the panels' colour at full opacity - --panel is it at the Panels opacity setting: nothing to see through) */
+  #inspector { inset: 0; width: auto; height: auto; border: 0; border-radius: 0; backdrop-filter: none; background: var(--panel-base);
+    padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left); }
+  /* the status (the game paused, the connection lost: bottom centre, over the page) showing: room under the page's content
+     for it - its height at the interface size, and its gap */
+  body:has(#status:not(.live)) #inspector { padding-bottom: calc(env(safe-area-inset-bottom) + 48px * var(--ui-zoom, 1)); }
+  /* the mission list's filters always unfolded on a page this size: its chevron (#ifold) gone - a fold saved on a wider
+     screen doesn't hide them here (settings.ui.missionFiltersClosed kept for there) */
+  #ifold { display: none; }
+  .mfilters.closed { display: block; }
 }

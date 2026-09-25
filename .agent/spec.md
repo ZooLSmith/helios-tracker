@@ -217,17 +217,25 @@ It draws nothing in game: everything it shows is on the page.
   (objectives). Counts = what passes the layer's filters, on or not.
   No global names / floors / rarity settings any
   more - the loot filter will come back as a Loot setting (to design).
+- **Turning the map**: right-drag / Shift+drag turns it (`view.spin`, degrees on top of its own turn - the level's north
+  offset -, in 2D and tilted; vertically, tilted, it tilts). While Follow + Rotate turn it to the heading, the heading
+  owns the turn (the drag only tilts, the spin is set aside). On a touch screen: a two-finger twist (past 10 deg, so a
+  pinch doesn't turn it by accident) turns it around the point between the fingers (view.js spinAt). Once turned, a
+  compass shows in the map's free corner (view.js refreshNorth: the largest area no panel covers, its needle pointing
+  north; bigger on a touch screen; hidden while the drawer is open); a click or N turns it back.
+- **Phones** (up to 520 px wide): the drawer (the right pane) is a solid page of its own over everything - the whole window,
+  clear of the notch / home bar, its close button back to the map; room under its content while the status shows (the
+  game paused, the connection lost); the mission list's filters always unfolded (their chevron gone); the left panel
+  keeps the top 45 %.
 - **Settings tab**, grouped by what it changes: **Who** (host / a player, saved by name) + Follow (F) / Rotate (R: map
   turns to their heading; only while following, greyed out otherwise) + Fit map (0); **Map**: Colours (the theme's tint,
   or the game's blue whatever the theme: `view.mapColors`), Background / Map opacity (`look.js`; 0 % background: in OBS
   via its browser source's "Interact"), Markers 50-200 % (every marker, its label and bars - times its layer's Size),
-  3D view (3: `view.threeD` - the map tilted by an orthographic camera, `view.tilt3d` 0-80 deg, turned by `view.spin3d`
-  on top of the level's north offset; right-drag / Shift+drag orbits (horizontal: turn, vertical: tilt), never
-  stopping Follow. While Follow + Rotate turn the map to the heading, the heading owns the turn: the drag only tilts,
-  the spin is set aside (back when Rotate / Follow is off); markers lifted by their height above the map's
-  plane - the level's typical ground, the median height of its objects - with a stem down to it; quest areas as
-  ellipses on the plane; toScreen(mx, my, h), toMap on the plane: pan / zoom / clicks / coordinates / the fog
-  unchanged. The first step towards the 3D map: design.md), Show coordinates (C); **Panels**: Theme (ECHO-2 - the
+  Tilt (3: `view.threeD` - was "3D view"; the map tilted by an orthographic camera, `view.tilt3d` 0-80 deg, markers
+  lifted by their height above the map's plane - the level's typical ground, the median height of its objects - with a
+  stem down to it; quest areas as ellipses on the plane; toScreen(mx, my, h), toMap on the plane: pan / zoom / clicks
+  / coordinates / the fog unchanged. The floors / walls from the level's collision were tried and parked on the
+  `experimental/map_3d` branch: design.md), Coordinates (C: was "Show coordinates"); **Panels**: Theme (ECHO-2 - the
   default, id "default" -, Hyperion, Vladof, Dahl, Eridian:
   `css/themes.css` sets base.css's tokens under `<html data-theme>`; the canvas' colours read again on a change), their
   opacity, their size 70-200 %; **Refresh rate** (was "Movement": the page's redraws - markers, bars, their patterns):

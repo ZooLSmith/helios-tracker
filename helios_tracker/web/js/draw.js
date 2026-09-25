@@ -13,7 +13,7 @@ import { tooltip } from "./tooltip.js";
 import { refreshPlayerInfo } from "./ui/inspector.js";
 import { updatePlayerVitals } from "./ui/players.js";
 import { refreshShops } from "./ui/shops.js";
-import { H, W, centerOnTarget, ctx, dpr, fit, toScreen } from "./view.js";
+import { H, W, centerOnTarget, ctx, dpr, fit, refreshNorth, toScreen } from "./view.js";
 
 /** The mission log by mission id (mission items check their mission): rebuilt only when the log changes. */
 let byIdFor = null, byIdMap = null;
@@ -153,8 +153,8 @@ export function draw() {
   const tracked = trackedPawn();
   // Rotate: only while following - the map turns so their heading points up; else as the game's map screen shows it
   const target = settings.view.rotate && settings.view.follow ? tracked : null;
-  // (the 3D view's own turn only when the heading doesn't own it: Rotate means their heading points up)
-  S.view.rot = target ? yawToAngle(f, pawnPos(target, now).r) : mapTurn(f) + (threeD ? settings.view.spin3d * Math.PI / 180 : 0);
+  // (the user's own turn only when the heading doesn't own it: Rotate means their heading points up)
+  S.view.rot = target ? yawToAngle(f, pawnPos(target, now).r) : mapTurn(f) + settings.view.spin * Math.PI / 180;
   if (settings.view.follow) centerOnTarget(); // (after the rotation: the player's offset is on screen)
 
   // map images (and the grid), in movie px - on the map's plane (the 3D view: tilted, squashed by cos(tilt))
@@ -369,4 +369,5 @@ export function draw() {
   updatePlayerVitals(now); // with the frames: follows the Refresh rate setting
   refreshPlayerInfo(now);
   refreshShops(now); // (the restock countdowns, the closest machines: the same)
+  refreshNorth(); // (the compass: shown once the user turned the map, pointing north)
 }

@@ -22,9 +22,10 @@ export function defaults() {
     view: {
       zoom: 0, // 0: never zoomed, fit the map
       follow: false, rotate: false,
-      // The 3D view (a checkbox): the map tilted (an orthographic camera), markers at their height; right-drag /
-      // Shift+drag turns (spin, degrees, on top of the map's own turn) and tilts it (0 = from above)
-      threeD: false, tilt3d: 50, spin3d: 0,
+      // Tilt (a checkbox, "threeD"): the map tilted (an orthographic camera), markers at their height (tilt3d, 0 = from
+      // above). Right-drag / Shift+drag turns the map (spin, degrees, on top of its own turn - 2D or tilted: the compass
+      // button / N turns it back) and, tilted, tilts it
+      threeD: false, tilt3d: 50, spin: 0,
       coords: false, // the world X / Y by the cursor (tooltip.js)
       target: "me", // "Who": "me" (the host) or a player's name
       // Movement: 0 = only redraw on a change (markers jump), a number = interpolated at most that

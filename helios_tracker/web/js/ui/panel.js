@@ -9,7 +9,7 @@ import { icon } from "../icons.js";
 import { invalidate } from "../scheduler.js";
 import { saveSettings, settings } from "../settings.js";
 import { S } from "../state.js";
-import { centerOnTarget, fit } from "../view.js";
+import { centerOnTarget, fit, resetSpin } from "../view.js";
 import { renderInspector } from "./inspector.js";
 import { renderLayers } from "./layers.js";
 import { renderMission } from "./mission.js";
@@ -82,6 +82,7 @@ export function initPanel() {
     };
   };
   bindBox("follow", "follow"); bindBox("rotate", "rotate"); bindBox("threeD", "threeD"); bindBox("coords-on", "coords");
+  $("north").onclick = resetSpin; // (the compass on the map: shown once it's turned)
   syncRotate();
   $("follow").addEventListener("change", syncRotate);
   renderMotion();

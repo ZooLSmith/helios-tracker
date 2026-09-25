@@ -111,6 +111,14 @@ day's markup vs a normal item. To go with the look rework.
 
 ## A 3D map (an optional view)
 
+**Parked** (2026-09-26, the user: "looks grim"): the floors and walls built from the level's collision - extractor,
+worker, WebGL, see-through circle - are on the `experimental/map_3d` branch (its design.md has what was built and
+learnt). Collision isn't the level the player sees (invisible blockers, visible walls with no collision of their own,
+clutter): each fix was another heuristic. The way on, if ever: the walls from the **visible** meshes' own geometry,
+collision kept for the walkable floors and reachability. On master stays the Tilt checkbox (the flat map tilted,
+markers at their height) and free turning (right-drag, a compass to turn back). The branch also holds a 1.55x faster
+LZO decompressor (tacmap.py, byte-identical) worth bringing over on its own.
+
 **The wish** (the user, 2026-09-25): a simplified 3D map in the style of Doom Eternal's - floors and slopes only,
 several levels stacked - as an **optional alternative** to the 2D map, never a replacement. Built on **what blocks
 the player** only (the user: "only base this on the player's collisions").

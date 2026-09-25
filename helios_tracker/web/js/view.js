@@ -14,6 +14,7 @@ export let W = 0, H = 0, dpr = 1; // CSS px, device pixel ratio
 // are measured when they change size (a ResizeObserver: opening / closing / collapsing), not per frame.
 const OCCLUDERS = ["panel", "inspector"];
 let freeCenter = null; // screen px, null = the window's centre
+let freeRect = null; // the largest part of the screen no panel covers (the compass sits in its bottom-right corner)
 const followOffset = { x: 0, y: 0 }; // the player's screen offset from the centre, eased towards freeCenter's
 const GLIDE_S = 0.15; // the ease's time constant (s): ~0.5 s to settle, whatever the frame rate
 let lastGlide = 0;
@@ -47,6 +48,7 @@ function measureFree() {
   }
   const free = largestFreeRect(W, H, rects);
   freeCenter = { x: free.x + free.w / 2, y: free.y + free.h / 2 };
+  freeRect = free;
 }
 
 // map px <-> screen px: screen = R(-rot) * (map - centre) * zoom + screen centre (canvas y-down:
@@ -82,7 +84,7 @@ export function fit(keepZoom = false) { // keepZoom: only re-centre (a level cha
   S.view.cx = (x0 + x1) / 2; S.view.cy = (y0 + y1) / 2;
   // the map's box as the view turns it (a level with a north offset: its map screen's turn, see mapTurn; the 3D view's
   // spin) and tilts it (squashed by cos(tilt))
-  const v = settings.view, a = (f ? mapTurn(f) : 0) + (v.threeD && !(v.rotate && v.follow) ? v.spin3d * Math.PI / 180 : 0);
+  const v = settings.view, a = (f ? mapTurn(f) : 0) + (!(v.rotate && v.follow) ? v.spin * Math.PI / 180 : 0);
   const c = Math.abs(Math.cos(a)), s = Math.abs(Math.sin(a));
   const w = (x1 - x0) * c + (y1 - y0) * s, h = ((x1 - x0) * s + (y1 - y0) * c) * Math.cos(S.view.tilt);
   if (!keepZoom || !S.zoomed) { S.view.zoom = Math.min(W / w, H / h) * 0.92; saveZoom(); }
@@ -123,6 +125,55 @@ export function zoomAt(sx, sy, factor) {
   const [dx, dy] = screenToMapDelta(sx - W / 2, sy - H / 2); // keep the point under the cursor
   S.view.cx = mx - dx;
   S.view.cy = my - dy;
+}
+
+// The compass (#north): shown while the user has turned the map (and the heading doesn't own the turn, and the drawer
+// isn't open - on a phone it's a page over the map; beside it, pointless), its needle
+// pointing north on screen, in the free area's bottom-right corner; a click / N turns the map back (resetSpin). Written
+// only when something changed (it's called every frame).
+let northShown = null;
+export function refreshNorth() {
+  const el = $("north");
+  if (!el) return;
+  const v = settings.view;
+  const drawer = $("inspector");
+  const show = !(v.rotate && v.follow) && Math.abs(((v.spin % 360) + 540) % 360 - 180) > 0.5 &&
+    !(drawer && drawer.classList.contains("open"));
+  if (!show) {
+    if (northShown !== "") { el.hidden = true; northShown = ""; }
+    return;
+  }
+  const r = freeRect || { x: 0, y: 0, w: W, h: H };
+  const state = `${Math.round(r.x + r.w)},${Math.round(r.y + r.h)},${(-S.view.rot * 180 / Math.PI).toFixed(1)}`;
+  if (state === northShown) return;
+  northShown = state;
+  el.hidden = false;
+  el.style.left = `${Math.round(r.x + r.w - el.offsetWidth - 16)}px`;
+  el.style.top = `${Math.round(r.y + r.h - el.offsetHeight - 16)}px`;
+  el.firstElementChild.style.transform = `rotate(${(-S.view.rot * 180 / Math.PI).toFixed(1)}deg)`; // (map up = north: turned by -rot)
+}
+
+/** Turns the map by `deg` (the user's turn: settings.view.spin) around the screen point (sx, sy) - it stays under it (a
+ *  two-finger twist). Not while the heading owns the turn (Follow + Rotate). */
+export function spinAt(sx, sy, deg) {
+  const v = settings.view;
+  if (v.rotate && v.follow) return;
+  const [mx, my] = toMap(sx, sy);
+  v.spin = (v.spin + deg) % 360;
+  S.view.rot += deg * Math.PI / 180; // (now: the frame sets it from the spin again)
+  if (!v.follow) { // the point under the fingers stays there
+    const [nx, ny] = toMap(sx, sy);
+    S.view.cx += mx - nx; S.view.cy += my - ny;
+  }
+  saveSettings();
+  invalidateNow();
+}
+
+/** The map back to its usual orientation (the game's map screen's): the user's turn dropped. */
+export function resetSpin() {
+  settings.view.spin = 0;
+  saveSettings();
+  invalidateNow();
 }
 
 export function stopFollow() {

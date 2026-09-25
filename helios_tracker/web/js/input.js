@@ -6,7 +6,9 @@ import { saveSettings, settings } from "./settings.js";
 import { S } from "./state.js";
 import { openDetail } from "./ui/detail.js";
 import { closeInspector, openInspector } from "./ui/inspector.js";
-import { H, W, canvas, fit, screenToMapDelta, stopFollow, zoomAt } from "./view.js";
+import { H, W, canvas, fit, resetSpin, screenToMapDelta, spinAt, stopFollow, zoomAt } from "./view.js";
+
+const TWIST_START = 10; // degrees two fingers must turn before the map turns with them
 
 // The marker under the cursor. First what the pointer is ON (inside a marker): among those, by layer - an item lying on
 // its container, a player by a chest: loot > quest points / givers > pawns > area objectives > objects - then the last
@@ -47,17 +49,17 @@ export function initInput() {
   const pointers = new Map();
   let pinch = null;
   let downAt = null;
-  let orbit = false; // the 3D view: a right-drag / Shift+drag turns (horizontal) and tilts (vertical) the map
+  let orbit = false; // a right-drag / Shift+drag turns the map (horizontal) and, tilted, tilts it (vertical)
   canvas.addEventListener("contextmenu", (e) => e.preventDefault()); // (the right button orbits)
   canvas.addEventListener("pointerdown", (e) => {
     canvas.setPointerCapture(e.pointerId);
-    if (!pointers.size) orbit = settings.view.threeD && (e.button === 2 || e.shiftKey);
+    if (!pointers.size) orbit = e.button === 2 || e.shiftKey;
     downAt = pointers.size || e.button === 2 ? null : { x: e.clientX, y: e.clientY, t: performance.now() };
     pointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
     canvas.classList.add("dragging");
-    if (pointers.size === 2) {
+    if (pointers.size === 2) { // two fingers: pinch zooms, a twist turns the map (past TWIST_START: not by accident)
       const [a, b] = [...pointers.values()];
-      pinch = { d: Math.hypot(a.x - b.x, a.y - b.y), zoom: S.view.zoom };
+      pinch = { d: Math.hypot(a.x - b.x, a.y - b.y), zoom: S.view.zoom, angle: Math.atan2(b.y - a.y, b.x - a.x), twisting: false };
     }
   });
   canvas.addEventListener("pointermove", (e) => {
@@ -70,14 +72,18 @@ export function initInput() {
     pointers.set(e.pointerId, cur);
     if (pointers.size === 2 && pinch) {
       const [a, b] = [...pointers.values()];
-      const d = Math.hypot(a.x - b.x, a.y - b.y);
-      zoomAt((a.x + b.x) / 2, (a.y + b.y) / 2, (pinch.zoom * d / pinch.d) / S.view.zoom);
+      const d = Math.hypot(a.x - b.x, a.y - b.y), mx = (a.x + b.x) / 2, my = (a.y + b.y) / 2;
+      zoomAt(mx, my, (pinch.zoom * d / pinch.d) / S.view.zoom);
+      const angle = Math.atan2(b.y - a.y, b.x - a.x);
+      const turn = (((angle - pinch.angle) * 180 / Math.PI) + 540) % 360 - 180; // degrees since the last step (or the start)
+      if (!pinch.twisting && Math.abs(turn) > TWIST_START) { pinch.twisting = true; pinch.angle = angle; }
+      else if (pinch.twisting) { spinAt(mx, my, -turn); pinch.angle = angle; } // (the map turns with the fingers: a larger spin turns it the other way)
       return;
     }
     if (pointers.size === 1 && orbit && (cur.x !== prev.x || cur.y !== prev.y)) {
       const v = settings.view;
-      if (!(v.rotate && v.follow)) v.spin3d = (v.spin3d + (cur.x - prev.x) * 0.4) % 360; // (Rotate: the heading turns it)
-      v.tilt3d = Math.min(80, Math.max(0, v.tilt3d - (cur.y - prev.y) * 0.3));
+      if (!(v.rotate && v.follow)) v.spin = (v.spin + (cur.x - prev.x) * 0.4) % 360; // (Rotate: the heading turns it)
+      if (v.threeD) v.tilt3d = Math.min(80, Math.max(0, v.tilt3d - (cur.y - prev.y) * 0.3)); // (tilted only)
       saveSettings();
       invalidateNow(); // (the user orbiting: not capped by the Refresh rate)
       return;
@@ -112,7 +118,8 @@ export function initInput() {
     if (k === "escape") { closeInspector(); return; }
     if (k === "f") { $("follow").click(); }
     else if (k === "r") { $("rotate").click(); } // (only while following: greyed out otherwise)
-    else if (k === "3") { $("threeD").click(); } // the 3D view
+    else if (k === "3") { $("threeD").click(); } // Tilt
+    else if (k === "n") { resetSpin(); } // the map turned back (the compass)
     else if (k === "c") { $("coords-on").click(); } // Show coordinates
     else if (k === "0") { stopFollow(); fit(); }
     else if (k === "+" || k === "=") zoomAt(W / 2, H / 2, 1.25);

@@ -26,6 +26,7 @@ const ICONS = {
   chevronDown: `<path d="M3.2 4.6 6 7.4l2.8-2.8" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>`,
   chevronUp: `<path d="M3.2 7.4 6 4.6l2.8 2.8" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>`,
   chevronRight: `<path d="M4.6 3.2 7.4 6 4.6 8.8" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>`,
+  compass: `<path d="M6 1.2 8.2 6H3.8Z" fill="currentColor"/><path d="M3.8 6H8.2L6 10.8Z" fill="currentColor" opacity=".35"/>`, // north up
   tune: `<path d="M1.8 3.6h8.4M1.8 8.4h8.4" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/>` + // settings: two sliders
     `<circle cx="4.4" cy="3.6" r="1.5" fill="currentColor"/><circle cx="7.6" cy="8.4" r="1.5" fill="currentColor"/>`,
 };

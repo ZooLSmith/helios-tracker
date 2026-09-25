@@ -231,6 +231,13 @@ canvas.dragging { cursor: grabbing; }
 #coords { position: fixed; left: 0; top: 0; color: var(--dim); font-size: 11px; white-space: nowrap;
   font-variant-numeric: tabular-nums; pointer-events: none; text-shadow: 0 0 2px #000, 0 0 2px #000; }
 #coords:empty { display: none; }
+/* the compass (view.js refreshNorth): placed by script in the map's free corner, its needle turned with the map */
+#north { position: fixed; z-index: 5; width: 34px; height: 34px; padding: 0; border-radius: 50%; display: flex;
+  align-items: center; justify-content: center; background: var(--panel); border: 1px solid var(--panel-edge);
+  color: var(--accent); font-size: 22px; cursor: pointer; zoom: var(--ui-zoom, 1); }
+#north[hidden] { display: none; }
+@media (pointer: coarse) { #north { width: 44px; height: 44px; font-size: 26px; } } /* (a finger's target) */
+#north:hover { border-color: var(--accent); }
 #msg { position: fixed; left: 50%; top: 50%; transform: translate(-50%, -50%); color: var(--dim);
   font-size: 15px; text-align: center; pointer-events: none; }
 .muted { color: var(--dim); font-size: 12px; }
