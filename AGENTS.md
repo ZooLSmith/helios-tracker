@@ -84,9 +84,10 @@ bl2-helios-tracker/
 ## Repositories
 
 - `origin` = `ZooLSmith/helios-tracker-private` (private): the code, `master`.
-- `public` = `ZooLSmith/helios-tracker` (public): the site only, the `documentation` branch - **never the code**.
-  Locally `remote.public.push` sends only `documentation`, and `.git/hooks/pre-push` refuses anything else to it (a
-  fresh clone has neither: set them up again).
+- `public` = `ZooLSmith/helios-tracker` (public): the site, the `documentation` branch - **never the code** - and a
+  `master` holding only a "not published yet" README (the local orphan branch `public-master`, no shared history).
+  Locally `remote.public.push` sends only `documentation`, and `.git/hooks/pre-push` refuses anything else to it but
+  `public-master` -> `master` (a fresh clone has neither: set them up again).
 
 ## Website (GitHub Pages)
 
