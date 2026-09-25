@@ -10,6 +10,7 @@ import { cleanGameText } from "../model.js";
 import { saveSettings, settings } from "../settings.js";
 import { S, isTrackedPlayer } from "../state.js";
 import { openDetail } from "./detail.js";
+import { openInspector } from "./inspector.js";
 import { saveDrawer } from "./drawer.js";
 import { renderPlayers } from "./players.js";
 
@@ -389,8 +390,13 @@ export function initMissionLog() {
   $("inspector").addEventListener("click", (e) => {
     const open = e.target.closest("[data-open-mission]"); // from another view (a mission item's details)
     if (open) { openMissionLog(open.dataset.openMission); return; }
-    const detail = e.target.closest("[data-open-detail]"); // a quest giver's NPC / object, from its "!"'s panel
-    if (detail) { openDetail(detail.dataset.kind, detail.dataset.openDetail); return; }
+    // a quest giver's NPC / object, from its "!"'s panel; a thing in a panel's Nearby list (a player: their inspector)
+    const detail = e.target.closest("[data-open-detail]");
+    if (detail) {
+      if (detail.dataset.kind === "me" || detail.dataset.kind === "player") openInspector(detail.dataset.openDetail);
+      else openDetail(detail.dataset.kind, detail.dataset.openDetail);
+      return;
+    }
     if (!S.missionView) return;
     if (e.target.closest("#mBack")) { goBack(); return; }
     if (e.target.closest("#ifold")) { // the filters folded / unfolded (the list keeps its scroll)

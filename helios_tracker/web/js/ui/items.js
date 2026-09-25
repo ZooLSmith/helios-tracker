@@ -1,5 +1,5 @@
 // Items in the inspector (gear, backpack): one expandable card each, grouped by kind.
-import { classHtml, esc, nameHtml } from "../dom.js";
+import { esc, nameHtml } from "../dom.js";
 import { money, num, numUpTo, t } from "../i18n.js";
 import { rarity } from "../model.js";
 import { S } from "../state.js";
@@ -152,7 +152,7 @@ export function itemHtml(it, ownerLevel) {
   const parts = foldHtml(it, "parts", t("item.parts"), (it.parts || []).map(partRow));
   const details = foldHtml(it, "details", t("item.details"), [
     [t("item.rarityLevel"), t("item.rarityGuess", { n: String(it.q), name: rarityName(it.q) })],
-    [t("item.class"), null, it.c, classHtml(it.c)]]);
+    [t("item.class"), String(it.c || "")]]); // (exact: WillowWeapon - the technical details)
   // its item card icons (the game's: gamecards.py), along the card's bottom like the game's (smaller while folded):
   // the manufacturer's logo, the element's, the type's - each dropped if the game has none (or the key's odd); the
   // logo missing: the maker's name instead

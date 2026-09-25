@@ -184,9 +184,15 @@ It draws nothing in game: everything it shows is on the page.
   game stage, "?" where the data gives no number (conditional / runtime-built weights). Designer attributes (common
   gear's weight modifier: 0.625 live, base 1): the host's live values (`lootodds.refresh` at each objects scan -
   changed: the odds again, in place, and the pools resent); a co-op client: the base values. The technical rows (loot lists,
-  class, definition) in a "Details" fold at the bottom, closed until opened (remembered per object, as items').
-  Hover / click pick the marker drawn on top (loot > pawns > quest markers > objects; inside the
-  marker, last drawn; objects drawn by height). **Selection highlight** (`draw.js` drawSelection): what the drawer
+  class, definition) in a "Details" fold at the bottom, closed until opened (remembered per object, as items'), their
+  names exact (`WillowInteractiveObject`, the definition's full path `dp`; an item card's Details too). **Nearby**
+  (right under the panel's rows): everything within 1.5 m of it on the map (and 3 m in height: a quest marker floats
+  above its NPC - in 3D, Marcus under his "!" was out) (objects, loot, pawns, point objectives / givers), the
+  closest first, each a link to its panel (a player: the inspector) - the markers stacked there one click away.
+  Hover / click (`input.js` hitAt) pick what the pointer is ON first - among those by layer (loot > quest points /
+  givers > pawns > area objectives > objects), then the last drawn; on none: the nearest centre within reach. (The
+  layer used to come first: a pickup nearby beat the chest under the pointer - clicks landed off target; the page
+  test checks it.) **Selection highlight** (`draw.js` drawSelection): what the drawer
   shows (an object, a marker, an inspected player - not the tracked one) gets corner brackets sized to its marker and
   a dashed line from the tracked player, both in the tracked colour, over every marker; the brackets breathe when
   the page animates (still with "Updates only"). Opening / closing the drawer redraws at once (`saveDrawer`).

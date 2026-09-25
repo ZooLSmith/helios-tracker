@@ -215,8 +215,8 @@ canvas.dragging { cursor: grabbing; }
 #tip .tli { display: block; }
 #tip .tli::before { content: "· "; color: var(--dim); }
 /* the connection status: bottom centre of the page (clear of the panel, top left, and the drawer, right), only
-   while connecting / disconnected / the game paused */
-#status { position: fixed; left: 50%; bottom: 8px; transform: translateX(-50%); white-space: nowrap; display: flex; align-items: center; gap: 8px; z-index: 2;
+   while connecting / disconnected / the game paused - over the panels (the drawer: 3), under the tooltips (10) */
+#status { position: fixed; left: 50%; bottom: 8px; transform: translateX(-50%); white-space: nowrap; display: flex; align-items: center; gap: 8px; z-index: 6;
   color: var(--text); font-size: 14px; font-weight: 600; background: var(--panel); border: 1px solid var(--panel-edge);
   border-radius: 5px; padding: 6px 12px; pointer-events: none; }
 #status i { width: 10px; height: 10px; border-radius: 50%; background: var(--warn); display: inline-block; }

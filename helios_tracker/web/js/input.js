@@ -7,22 +7,23 @@ import { openDetail } from "./ui/detail.js";
 import { closeInspector, openInspector } from "./ui/inspector.js";
 import { H, W, canvas, fit, screenToMapDelta, stopFollow, zoomAt } from "./view.js";
 
-// The marker under the cursor: the one drawn on top wins (an item lying on its container, a player
-// next to a chest...), the nearest among those. Drawn bottom to top: objects, quest markers,
-// loot, pawns - pawns are small, loot is what you look for: loot first. A quest giver's "!" and a point
-// objective (drawn over the NPC they're on) before the pawns: their panel links the NPC; an area
-// objective (a big circle) after them.
+// The marker under the cursor. First what the pointer is ON (inside a marker): among those, by layer - an item lying on
+// its container, a player by a chest: loot > quest points / givers > pawns > area objectives > objects - then the last
+// drawn (the visible one). Only when it's on none: the nearest centre within `radius` (the layer a tie-break). (The
+// layer used to come first: a pickup 10 px away beat the chest right under the pointer - the user saw clicks land
+// "below" what they aimed at.) A quest giver's "!" and a point objective (drawn over the NPC they're on) before the
+// pawns: their panel links the NPC; an area objective (a big circle) after them. The panel's Nearby list (detail.js)
+// reaches the others stacked there.
 const HIT_LAYER = { loot: 4, directive: 3.5, point: 3.5, me: 3, player: 3, enemy: 3, npc: 3, vehicle: 3, objective: 2 };
 export function hitAt(x, y, radius) {
-  // Rank: the layer (loot > pawns > quest markers > objects), then being inside the marker - the
-  // last drawn of those, i.e. the visible one - then the nearest centre
   let best = null, bestKey = null;
   S.hits.forEach((h, order) => {
     const d = Math.hypot(h.sx - x, h.sy - y);
     if (d >= radius) return;
     const inside = d <= (h.r || 4) + 1.5;
     const kind = h.kind === "objective" && !h.item.rad ? "point" : h.kind;
-    const key = [HIT_LAYER[kind] || 1, inside ? 1 : 0, inside ? order : -d];
+    const layer = HIT_LAYER[kind] || 1;
+    const key = inside ? [1, layer, order] : [0, -d, layer];
     if (!bestKey || key[0] > bestKey[0] || (key[0] === bestKey[0] &&
         (key[1] > bestKey[1] || (key[1] === bestKey[1] && key[2] > bestKey[2])))) { best = h; bestKey = key; }
   });

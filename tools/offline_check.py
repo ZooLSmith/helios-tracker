@@ -273,6 +273,21 @@ const lookOut = { lookDefault, lookClamped, rgba: withAlpha("#0b1116", 0.4) };
 const { objectCategory } = await load("js/model.js");
 const vaultCat = objectCategory({ d: "IO_VaultRoy", n: "Vault Roy", c: "WillowInteractiveObject" })
   + "," + objectCategory({ d: "CatchARideTerminal", n: "Catch-A-Ride", c: "WillowVehicleSpawnStationTerminal" });
+// The map's click / hover pick (input.js hitAt): what the pointer is ON wins over a nearer-layer marker merely close by
+// (a chest under the pointer, a pickup 10 px off: the chest); both under it: the layer (an item on its chest: the item);
+// on none: the nearest centre
+const { S: hitState } = await load("js/state.js");
+const { hitAt } = await load("js/input.js");
+const hitChest = { sx: 100, sy: 100, r: 6, kind: "chest", item: { i: "chest" } };
+const hitLoot = { sx: 110, sy: 100, r: 5, kind: "loot", item: { i: "loot" } };
+const hitOnLoot = { sx: 101, sy: 101, r: 5, kind: "loot", item: { i: "onChest" } };
+hitState.hits = [hitChest, hitLoot];
+const hitPicks = [hitAt(100, 100, 14)?.item.i];
+hitState.hits = [hitChest, hitOnLoot];
+hitPicks.push(hitAt(100, 100, 14)?.item.i);
+hitState.hits = [hitChest, hitLoot];
+hitPicks.push(hitAt(108, 112, 14)?.item.i); // (on neither: the loot's centre is the nearest)
+hitState.hits = [];
 const { skillStatText } = await load("js/ui/skills.js");
 const shotCostOut = skillStatText({ d: "", v: 1, cur: 2, np: 1, pre: "Consumes [skill]", suf: "ammo[-skill] per shot." });
 const statsOut = [
@@ -289,7 +304,7 @@ const bonusOut = bonusLines([
   { tiers: [{ cells: [{ g: 2, m: 5, fx: [gun(0.12)] }, { g: 0, m: 5, fxn: [gun(0.05)] }] }] },
   { skills: [{ g: 1, m: 5, fx: [gun(0.07), { d: "Melee Damage: $NUMBER$", v: 0.06, pct: 1, fl: 1, fp: 1 }] }] },
 ]);
-const missionsOut = { shotCostOut, bonusOut, statsOut, lookOut, vaultCat, items, fallback, where, tooHigh, finish, difficulty, best, search, infoHtml, areas, gameText, story: flat(tree.story), other: flat(tree.other), counts: missionCounts(log),
+const missionsOut = { shotCostOut, bonusOut, statsOut, lookOut, vaultCat, hitPicks, items, fallback, where, tooHigh, finish, difficulty, best, search, infoHtml, areas, gameText, story: flat(tree.story), other: flat(tree.other), counts: missionCounts(log),
   objectives: objectiveStates(log[1]).map((s) => s.state) };
 console.log(JSON.stringify({ sha: crypto.createHash("sha256").update(rgba).digest("hex"), err, back, right, raw, modules, missions: missionsOut,
   migrated, checked: { enemy: checked.layers.enemy, view: checked.view, openLayers: checked.ui.openLayers, drawer: checked.ui.drawer, badDrawer }, i18nKeys, unknownSettings, lootLayers, gameRarity, freeRects }));
@@ -1621,6 +1636,7 @@ def check_helios_tracker() -> None:  # noqa: PLR0915
     assert (lk["lookDefault"], lk["lookClamped"], lk["rgba"]) == ({"bg": 100, "map": 100, "panel": 90, "ui": 100, "marker": 100},
                                                                    {"bg": 100, "map": 0, "panel": 20, "ui": 200, "marker": 50}, "rgba(11, 17, 22, 0.4)"), lk
     assert mis["vaultCat"] == "vaultsymbol,station", ("a vault symbol: its own layer; Catch-A-Ride: a station", mis["vaultCat"])
+    assert mis["hitPicks"] == ["chest", "onChest", "loot"], ("the click picks what's under the pointer first", mis["hitPicks"])
     fb = mis["fallback"]  # a reward not known for the player's level: the local player's level's, else any
     assert fb["own"] == {"xp": 900} and fb["toLocal"] == {"xp": 1100, "from": 15} and fb["toAny"] == {"xp": 900, "from": 12} and fb["none"] is None, fb
     w = mis["where"]  # where to go: the step's station (active), the turn-in one (ready), else its own

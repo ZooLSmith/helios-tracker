@@ -1,9 +1,9 @@
 // The detail panel: a clicked object (not a player), in the inspector's drawer.
-import { $, classHtml, esc, nameHtml } from "../dom.js";
+import { $, esc, nameHtml } from "../dom.js";
 import { UU_PER_METER } from "../geo.js";
 import { num, t } from "../i18n.js";
 import { icon } from "../icons.js";
-import { isGear, nameText } from "../model.js";
+import { isGear, nameText, rarity } from "../model.js";
 import { S, findDetail, pawnPos, trackedPawn } from "../state.js";
 import { saveDrawer } from "./drawer.js";
 import { bindItems, renderInspector } from "./inspector.js";
@@ -57,6 +57,47 @@ function objectiveAt(mk) {
 /** A link opening an NPC's / object's panel (the drawer's delegated click: missionlog.js). */
 const detailLink = (at) => `<a class="mlink" data-open-detail="${esc(at.item.i)}" data-kind="${esc(at.kind)}">${nameHtml(at.item)}</a>`;
 
+/** What a map thing is, as its panel's header says it: a pickup's rarity and class, else its kind ("Big chest"). */
+function kindText(kind, it) {
+  if (kind !== "loot") return t("tip." + kind, null, kind);
+  return (isGear(it.c) ? rarityName(it.q) + " · " : "") + nameText({ n: String(it.c || "Pickup"), raw: 1 });
+}
+
+// The Nearby list: what's this close to the shown thing - across (on the map: the user's "1 m or so") and in height
+// (apart: a quest marker floats above its NPC's head, a pawn's position is its middle - measured in 3D, Marcus under
+// his "!" was out; the user saw it). Another floor stays out.
+const NEAR_UU = 1.5 * UU_PER_METER, NEAR_HEIGHT_UU = 3 * UU_PER_METER;
+
+/** Everything on the map within NEAR_UU across (and NEAR_HEIGHT_UU in height) of `it` (objects, loot, pawns, point
+ *  objectives / quest givers; not itself), the closest first: [{ item, kind, d }] - the markers stacked there, one
+ *  click away (the map's click picks one). */
+function nearby(it) {
+  const at = it.fx !== undefined ? pawnPos(it, performance.now()) : it, out = [];
+  const consider = (item, kind) => {
+    if (item === it || item.x == null) return;
+    const pos = item.fx !== undefined ? pawnPos(item, performance.now()) : item;
+    const d = Math.hypot(pos.x - at.x, pos.y - at.y);
+    if (d <= NEAR_UU && Math.abs(pos.z - at.z) <= NEAR_HEIGHT_UU) out.push({ item, kind, d });
+  };
+  for (const o of S.objects) consider(o, o.cat);
+  for (const p of S.pickups) consider(p, "loot");
+  for (const p of S.pawns.values()) if (p.rs !== 2) consider(p, p.k); // (respawning: its position means nothing)
+  for (const mk of S.missions.markers) if (!mk.rad) consider(mk, mk.k);
+  return out.sort((a, b) => a.d - b.d);
+}
+
+/** The Nearby list: each one's name (a link to its panel), its kind, how far. */
+function nearbyHtml(it) {
+  const list = nearby(it);
+  if (!list.length) return "";
+  return `<div class="group">${esc(t("detail.nearby"))} · ${num(list.length)}</div><div class="nblist">` + list.map(({ item, kind, d }) => {
+    const name = kind === "objective" || kind === "directive" ? nameHtml(item.objective || item.mission) : nameHtml(item);
+    const color = kind === "loot" && isGear(item.c) ? ` style="color:${rarity(item.q || 0)[1]}"` : "";
+    return `<div class="nbrow"><a class="mlink" data-open-detail="${esc(item.i)}" data-kind="${esc(kind)}"${color}>${name}</a>` +
+      `<span class="nbkind">${esc(kindText(kind, item))} · ${esc(t("unit.meters", { n: num(d / UU_PER_METER, 1) }))}</span></div>`;
+  }).join("") + `</div>`;
+}
+
 export function renderDetail(resetScroll) {
   const body = $("ibody"), scroll = body.scrollTop;
   $("itabs").style.display = "none";
@@ -71,9 +112,7 @@ export function renderDetail(resetScroll) {
   const back = S.detail.back ? `<button class="mback" data-detail-back title="${esc(t("shops.back"))}">${icon("back")}</button>` : "";
   $("iwho").innerHTML = back + (mission ? nameHtml(it.objective || it.mission) : nameHtml(it));
   const gear = kind === "loot" && isGear(it.c);
-  const kindText = kind === "loot" ? (gear ? rarityName(it.q) + " · " : "") + nameText({ n: String(it.c || "Pickup"), raw: 1 })
-    : t("tip." + kind, null, kind);
-  $("isub").textContent = [kindText, it.l && (kind !== "loot" || gear) ? t("insp.level", { n: it.l }) : ""]
+  $("isub").textContent = [kindText(kind, it), it.l && (kind !== "loot" || gear) ? t("insp.level", { n: it.l }) : ""]
     .filter(Boolean).join(" · ");
   const rows = [];
   const me = trackedPawn(); // the tracked player
@@ -116,17 +155,19 @@ export function renderDetail(resetScroll) {
   }
   if (it.lootable) rows.push([t("detail.status"), t(it.looted ? "detail.looted" : "detail.unlooted")]);
   if (it.slots) rows.push([t("detail.slots"), num(it.slots)]);
-  // the technical rows (the game's names for its loot lists, class, definition): folded away at the bottom ("Details",
-  // like an item's - the user's call: debug more than information)
+  // the technical rows (its loot lists, class, definition): folded away at the bottom ("Details", like an item's - the
+  // user's call: debug more than information), as the game names them - exact, not prettified (WillowInteractiveObject,
+  // the definition's full path)
   const tech = [];
-  if (it.lists && it.lists.length) tech.push([t("detail.lists"), null, it.lists.map((n) => nameHtml({ n, raw: 1 })).join(", ")]);
-  if (it.c && kind !== "loot") tech.push([t("item.class"), null, classHtml(it.c)]);
-  if (it.d) tech.push([t("detail.definition"), it.d]);
+  if (it.lists && it.lists.length) tech.push([t("detail.lists"), it.lists.join(", ")]);
+  if (it.c) tech.push([t("item.class"), String(it.c)]);
+  if (it.d) tech.push([t("detail.definition"), it.dp || it.d]);
   const kvHtml = (list) => `<div class="kv">` + list.map(([k, v, h]) => `<span>${esc(k)}</span><span>${h ?? esc(v)}</span>`).join("") + `</div>`;
   // a fold (its header: the title, a count), closed until opened - remembered per object (S.itemFolds, as items')
   const fold = (key, title, count, inner) => `<div class="ifold${S.itemFolds.has(`${it.i}:${key}`) ? " open" : ""}" data-fold="${key}" ` +
     `data-id="${esc(it.i)}"><div class="ifhead">${esc(title)}<span class="ifcount">${esc(num(count))}</span></div>${inner}</div>`;
-  let html = rows.length ? kvHtml(rows) : "";
+  // (right under its rows: what's stacked with it - the map's click may have picked a neighbour)
+  let html = (rows.length ? kvHtml(rows) : "") + nearbyHtml(it);
   // what it can hold: its chances when the collector worked them out (odds.js), else the pools' names
   const pools = it.odds && it.odds.length ? oddsHtml(it)
     : (it.loot || []).map((n) => `<div>${nameHtml({ n: String(n).replace(/^Pool_/, ""), raw: 1 })}</div>`).join("");

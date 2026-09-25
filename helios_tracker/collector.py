@@ -965,6 +965,7 @@ class Collector:
             "i": addr(io),
             **named(display, def_name(definition), call_str(io.GetHumanReadableName), str(io.Class.Name)),
             "d": str(definition.Name) if definition is not None else "",
+            "dp": try_(lambda: str(definition._path_name()), "") if definition is not None else "",  # (its panel's Details: in full)
             "c": io.Class.Name,
             "x": round(loc.X),
             "y": round(loc.Y),

@@ -212,8 +212,14 @@
 .ifold .ifhead:hover { color: var(--text); }
 .ifold .ifcount { margin-left: auto; font-variant-numeric: tabular-nums; }
 .ifold > .kv { display: none; padding: 2px 0 4px; }
+.ifold > .kv > span:nth-child(even) { overflow-wrap: anywhere; } /* (the exact names: long paths wrap anywhere) */
 .ifold.open > .kv { display: grid; }
 .ifold > .plist { display: none; padding: 2px 0 4px; } /* (a vending machine's pools: detail.js) */
+/* a panel's Nearby list (detail.js): what's within 1 m - its name (a link), its kind and distance */
+.nblist { display: flex; flex-direction: column; gap: 2px; font-size: 12px; }
+.nbrow { display: flex; gap: 8px; align-items: baseline; }
+.nbrow .mlink { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.nbkind { flex: none; color: var(--dim); font-size: 11px; font-variant-numeric: tabular-nums; }
 .ifold.open > .plist { display: block; }
 /* a container's loot odds (ui/odds.js): a row per choice - its chance, what it is (a pool opens on its own rows) */
 .odds, .odrows { display: flex; flex-direction: column; gap: 1px; }
