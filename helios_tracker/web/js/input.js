@@ -2,6 +2,7 @@
 import { $ } from "./dom.js";
 import { invalidate, invalidateNow } from "./scheduler.js";
 import { refreshTooltip } from "./tooltip.js";
+import { saveSettings, settings } from "./settings.js";
 import { S } from "./state.js";
 import { openDetail } from "./ui/detail.js";
 import { closeInspector, openInspector } from "./ui/inspector.js";
@@ -46,9 +47,12 @@ export function initInput() {
   const pointers = new Map();
   let pinch = null;
   let downAt = null;
+  let orbit = false; // the 3D view: a right-drag / Shift+drag turns (horizontal) and tilts (vertical) the map
+  canvas.addEventListener("contextmenu", (e) => e.preventDefault()); // (the right button orbits)
   canvas.addEventListener("pointerdown", (e) => {
     canvas.setPointerCapture(e.pointerId);
-    downAt = pointers.size ? null : { x: e.clientX, y: e.clientY, t: performance.now() };
+    if (!pointers.size) orbit = settings.view.threeD && (e.button === 2 || e.shiftKey);
+    downAt = pointers.size || e.button === 2 ? null : { x: e.clientX, y: e.clientY, t: performance.now() };
     pointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
     canvas.classList.add("dragging");
     if (pointers.size === 2) {
@@ -68,6 +72,14 @@ export function initInput() {
       const [a, b] = [...pointers.values()];
       const d = Math.hypot(a.x - b.x, a.y - b.y);
       zoomAt((a.x + b.x) / 2, (a.y + b.y) / 2, (pinch.zoom * d / pinch.d) / S.view.zoom);
+      return;
+    }
+    if (pointers.size === 1 && orbit && (cur.x !== prev.x || cur.y !== prev.y)) {
+      const v = settings.view;
+      if (!(v.rotate && v.follow)) v.spin3d = (v.spin3d + (cur.x - prev.x) * 0.4) % 360; // (Rotate: the heading turns it)
+      v.tilt3d = Math.min(80, Math.max(0, v.tilt3d - (cur.y - prev.y) * 0.3));
+      saveSettings();
+      invalidateNow(); // (the user orbiting: not capped by the Refresh rate)
       return;
     }
     if (pointers.size === 1 && (cur.x !== prev.x || cur.y !== prev.y)) {
@@ -100,6 +112,7 @@ export function initInput() {
     if (k === "escape") { closeInspector(); return; }
     if (k === "f") { $("follow").click(); }
     else if (k === "r") { $("rotate").click(); } // (only while following: greyed out otherwise)
+    else if (k === "3") { $("threeD").click(); } // the 3D view
     else if (k === "c") { $("coords-on").click(); } // Show coordinates
     else if (k === "0") { stopFollow(); fit(); }
     else if (k === "+" || k === "=") zoomAt(W / 2, H / 2, 1.25);

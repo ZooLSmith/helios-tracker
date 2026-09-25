@@ -50,13 +50,15 @@ function measureFree() {
 }
 
 // map px <-> screen px: screen = R(-rot) * (map - centre) * zoom + screen centre (canvas y-down:
-// a positive angle turns clockwise); rot = the target's heading, so it points up
+// a positive angle turns clockwise); rot = the target's heading, so it points up. The 3D view tilts that plane
+// (S.view.tilt, an orthographic camera): screen y squashed by cos(tilt), a height h (map px above the map's plane)
+// lifting a point by h sin(tilt). toMap / screenToMapDelta stay on the plane (h = 0).
 const rotate = (x, y, a) => { const c = Math.cos(a), s = Math.sin(a); return [x * c - y * s, x * s + y * c]; };
-export const toScreen = (mx, my) => {
+export const toScreen = (mx, my, h = 0) => {
   const [x, y] = rotate(mx - S.view.cx, my - S.view.cy, -S.view.rot);
-  return [x * S.view.zoom + W / 2, y * S.view.zoom + H / 2];
+  return [x * S.view.zoom + W / 2, (y * Math.cos(S.view.tilt) - h * Math.sin(S.view.tilt)) * S.view.zoom + H / 2];
 };
-export const screenToMapDelta = (dx, dy) => rotate(dx / S.view.zoom, dy / S.view.zoom, S.view.rot);
+export const screenToMapDelta = (dx, dy) => rotate(dx / S.view.zoom, dy / (S.view.zoom * Math.cos(S.view.tilt)), S.view.rot);
 export const toMap = (sx, sy) => {
   const [x, y] = screenToMapDelta(sx - W / 2, sy - H / 2);
   return [x + S.view.cx, y + S.view.cy];
@@ -78,9 +80,11 @@ export function fit(keepZoom = false) { // keepZoom: only re-centre (a level cha
     x0 = mx - 60; x1 = mx + 60; y0 = my - 60; y1 = my + 60;
   }
   S.view.cx = (x0 + x1) / 2; S.view.cy = (y0 + y1) / 2;
-  // the map's box as the view turns it (a level with a north offset: its map screen's turn, see mapTurn)
-  const a = f ? mapTurn(f) : 0, c = Math.abs(Math.cos(a)), s = Math.abs(Math.sin(a));
-  const w = (x1 - x0) * c + (y1 - y0) * s, h = (x1 - x0) * s + (y1 - y0) * c;
+  // the map's box as the view turns it (a level with a north offset: its map screen's turn, see mapTurn; the 3D view's
+  // spin) and tilts it (squashed by cos(tilt))
+  const v = settings.view, a = (f ? mapTurn(f) : 0) + (v.threeD && !(v.rotate && v.follow) ? v.spin3d * Math.PI / 180 : 0);
+  const c = Math.abs(Math.cos(a)), s = Math.abs(Math.sin(a));
+  const w = (x1 - x0) * c + (y1 - y0) * s, h = ((x1 - x0) * s + (y1 - y0) * c) * Math.cos(S.view.tilt);
   if (!keepZoom || !S.zoomed) { S.view.zoom = Math.min(W / w, H / h) * 0.92; saveZoom(); }
   S.fitted = S.zoomed = true;
   invalidate();
@@ -102,9 +106,11 @@ export function centerOnTarget() {
   if (Math.abs(goal.x - followOffset.x) < 0.5 && Math.abs(goal.y - followOffset.y) < 0.5) {
     followOffset.x = goal.x; followOffset.y = goal.y;
   }
-  // The player at that screen offset: the view centre is that far from them (on the map, turned)
+  // The player at that screen offset: the view centre is that far from them (on the map, turned; in the 3D view their
+  // marker is lifted by their height above the map's plane - the plane point under them sits that much lower)
   const [mx, my] = worldToMap(f, p.x, p.y);
-  const [dx, dy] = screenToMapDelta(followOffset.x, followOffset.y);
+  const lift = (p.z - S.view.ground) / f.upp * Math.sin(S.view.tilt) * S.view.zoom;
+  const [dx, dy] = screenToMapDelta(followOffset.x, followOffset.y + lift);
   S.view.cx = mx - dx; S.view.cy = my - dy;
 }
 

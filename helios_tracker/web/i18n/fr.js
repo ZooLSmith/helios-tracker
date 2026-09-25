@@ -77,6 +77,8 @@ export default {
   "who.player": "Joueur",
   "who.host": "{name} (hôte)",
   "view.rotate": "Pivoter",
+  "view.threeD": "Vue 3D",
+  "view.threeDTip": "Incline la carte, les marqueurs à leur hauteur (3). Clic droit glissé ou Maj+glisser : la tourner et l'incliner",
   "view.coords": "Afficher les coordonnées",
   "view.motion": "FRÉQUENCE D'AFFICHAGE",
   "view.motionTip": "À quelle fréquence la page est redessinée - la carte, ses marqueurs, les barres et leurs motifs. Aux mises à jour : tout saute à chaque mise à jour du jeu, la page ne se redessine que si quelque chose change (le plus léger, pour un GPU faible / intégré). Un nombre : lissé, au plus ce nombre d'images par seconde. Fluide : à chaque image. À chaque image de la page, le compositeur de Windows (DWM) recompose l'écran : le jeu lancé, une fréquence plus basse le ménage - et le GPU aussi (moins de saccades en jeu). Déplacer et zoomer la carte vont toujours à pleine vitesse.",

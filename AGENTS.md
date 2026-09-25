@@ -79,6 +79,10 @@ bl2-helios-tracker/
   isn't in its short allowlist (the frame scheduler, the settings save, the reconnect retry, the cutscene clock: the
   one exception - no game updates reach the page while a video plays, so frames would freeze it); a new one needs a
   reason there.
+- **Settings go in the group of what they change** (the Settings tab's headings): **Who** = about the tracked player
+  (Follow, Rotate to their heading), **Map** = how the map is drawn (colours, opacity, markers, 3D view, coordinates),
+  **Panels** = the interface. A new option next to the last one added is the trap (the 3D view first landed under Who,
+  by Rotate - the user caught it, and not the first time).
 - **offline_check: unique names**: `check_helios_tracker()` is one very long function; a new test
   block's variables share its scope - reusing a name (`later`, `gun`) broke asserts far below twice.
   Use specific names (`card_gun`, `later_shot`) and grep before introducing one.

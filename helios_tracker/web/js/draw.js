@@ -40,21 +40,37 @@ function drawSelection(f, now, tracked, mePos, hits, place) {
   const sel = selectedOnMap(now, tracked);
   if (!sel) return;
   const G = look().marker / 100;
-  const [sx, sy] = place(sel.pos.x, sel.pos.y);
+  const [sx, sy] = place(sel.pos.x, sel.pos.y, sel.pos.z);
   const hit = hits.find((h) => h.item === sel.item); // (drawn: its marker's size; else - hidden layer, off screen - a default)
   const r = hit ? hit.r : 6 * G;
   const breathe = settings.view.motion ? Math.sin(now / 320) * 1.2 * G : 0;
   if (mePos) {
-    const [mx, my] = place(mePos.x, mePos.y);
+    const [mx, my] = place(mePos.x, mePos.y, mePos.z);
     leader(mx, my, sx, sy, 12 * G, r + 9 * G, COLORS.tracked, G);
   }
   brackets(sx, sy, r + 5 * G + breathe, COLORS.tracked, G);
 }
 
+// The 3D view's map plane (S.view.ground, world uu): the level's typical ground - the median height of its objects
+// (chests, crates: mostly on the ground). Stable: the map doesn't bob as the player jumps. No objects yet: the tracked
+// player's height.
+let groundFor = null, groundAt = null;
+function groundZ() {
+  if (groundFor !== S.objects) {
+    groundFor = S.objects;
+    const zmin = S.level && S.level.zmin != null ? S.level.zmin : -Infinity; // (fallen off the map: not the ground)
+    const zs = S.objects.map((o) => o.z).filter((z) => z != null && z >= zmin).sort((a, b) => a - b);
+    groundAt = zs.length ? zs[zs.length >> 1] : null;
+  }
+  if (groundAt != null) return groundAt;
+  const me = trackedPawn();
+  return me && me.z != null ? me.z : 0;
+}
+
 function drawGrid(f) { // areas without a map: a 10 m grid so movement still reads (map transform set)
   const step = 10 * UU_PER_METER / f.upp; // map px
   if (step * S.view.zoom < 6) return;
-  const r = Math.hypot(W, H) / 2 / S.view.zoom; // covers the screen whatever the rotation
+  const r = Math.hypot(W, H) / 2 / S.view.zoom / Math.cos(S.view.tilt); // covers the screen whatever the rotation / tilt
   const x0 = Math.floor((S.view.cx - r) / step) * step, y0 = Math.floor((S.view.cy - r) / step) * step;
   ctx.strokeStyle = COLORS.grid;
   ctx.lineWidth = 1 / S.view.zoom;
@@ -130,16 +146,20 @@ export function draw() {
   if (lk.bg > 0) { ctx.fillStyle = withAlpha(COLORS.bg, lk.bg / 100); ctx.fillRect(0, 0, W, H); }
   const f = frame();
   if (!f) return;
+  const threeD = settings.view.threeD; // the 3D view: tilted, turned by the user's spin, markers at their height
+  S.view.tilt = threeD ? settings.view.tilt3d * Math.PI / 180 : 0;
+  S.view.ground = groundZ();
   if (!S.fitted && (S.images.length || S.meId)) fit(true); // first time: fits; after a level change: keeps the zoom
   const tracked = trackedPawn();
   // Rotate: only while following - the map turns so their heading points up; else as the game's map screen shows it
   const target = settings.view.rotate && settings.view.follow ? tracked : null;
-  S.view.rot = target ? yawToAngle(f, pawnPos(target, now).r) : mapTurn(f);
+  // (the 3D view's own turn only when the heading doesn't own it: Rotate means their heading points up)
+  S.view.rot = target ? yawToAngle(f, pawnPos(target, now).r) : mapTurn(f) + (threeD ? settings.view.spin3d * Math.PI / 180 : 0);
   if (settings.view.follow) centerOnTarget(); // (after the rotation: the player's offset is on screen)
 
-  // map images (and the grid), in movie px
+  // map images (and the grid), in movie px - on the map's plane (the 3D view: tilted, squashed by cos(tilt))
   ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-  ctx.translate(W / 2, H / 2); ctx.rotate(-S.view.rot); ctx.scale(S.view.zoom, S.view.zoom);
+  ctx.translate(W / 2, H / 2); ctx.scale(1, Math.cos(S.view.tilt)); ctx.rotate(-S.view.rot); ctx.scale(S.view.zoom, S.view.zoom);
   ctx.translate(-S.view.cx, -S.view.cy);
   ctx.imageSmoothingEnabled = S.view.zoom < 4;
   ctx.globalAlpha = lk.map / 100; // the map image itself (cut out: transparent outside the level)
@@ -172,16 +192,31 @@ export function draw() {
   };
   const questShown = (mk) => mk.tracked || !L.objective.trackedOnly;
   const objColor = LAYER_COLOR.objective;
-  // quest areas ("somewhere in this circle"): under every marker
+  // Where a thing shows on screen: its map point, lifted by its height above the map's plane in the 3D view
+  const place = (x, y, z) => toScreen(...worldToMap(f, x, y), threeD && z != null ? (z - S.view.ground) / f.upp : 0);
+  // The 3D view: a thin stem from the map's plane up (or down) to a marker, a dot where it meets the plane - its height
+  // reads at a glance (drawn under the marker)
+  const stem = (x, y, sx, sy, color) => {
+    if (!threeD) return;
+    const [gx, gy] = place(x, y);
+    if (Math.abs(gy - sy) < 3) return;
+    const a = ctx.globalAlpha;
+    ctx.globalAlpha = a * 0.55;
+    ctx.beginPath(); ctx.moveTo(gx, gy); ctx.lineTo(sx, sy);
+    ctx.lineWidth = 1; ctx.strokeStyle = color; ctx.stroke();
+    ctx.beginPath(); ctx.ellipse(gx, gy, 2, 2 * Math.cos(S.view.tilt), 0, 0, Math.PI * 2); ctx.fillStyle = color; ctx.fill();
+    ctx.globalAlpha = a;
+  };
+  // quest areas ("somewhere in this circle"): under every marker - on the plane at their height (3D: an ellipse)
   for (const mk of S.missions.markers) {
     if (!mk.rad || !questShown(mk)) continue;
     const st = style("objective", mk, false);
     if (!st) continue;
-    const [sx, sy] = toScreen(...worldToMap(f, mk.x, mk.y));
+    const [sx, sy] = place(mk.x, mk.y, mk.z);
     const r = mk.rad / f.upp * S.view.zoom;
     if (sx + r < 0 || sy + r < 0 || sx - r > W || sy - r > H) continue;
     ctx.globalAlpha = (mk.tracked ? 1 : 0.5) * st.alpha;
-    ctx.beginPath(); ctx.arc(sx, sy, Math.max(r, 3), 0, Math.PI * 2);
+    ctx.beginPath(); ctx.ellipse(sx, sy, Math.max(r, 3), Math.max(r, 3) * Math.cos(S.view.tilt), 0, 0, Math.PI * 2);
     ctx.fillStyle = objColor; ctx.globalAlpha *= 0.13; ctx.fill(); ctx.globalAlpha /= 0.13;
     ctx.setLineDash([6, 4]); ctx.lineWidth = 1.5; ctx.strokeStyle = objColor; ctx.stroke(); ctx.setLineDash([]);
   }
@@ -199,7 +234,6 @@ export function draw() {
   counts.fog = fogLeft;
   ctx.globalAlpha = 1;
   const hits = [];
-  const place = (x, y) => toScreen(...worldToMap(f, x, y));
   const visible = (sx, sy) => sx > -20 && sy > -20 && sx < W + 20 && sy < H + 20;
 
   // interactive objects
@@ -209,9 +243,10 @@ export function draw() {
     if (offMap(o.z)) continue;
     const st = style(o.cat, o);
     if (!st) continue;
-    const [sx, sy] = place(o.x, o.y);
+    const [sx, sy] = place(o.x, o.y, o.z);
     if (!visible(sx, sy)) continue;
     ctx.globalAlpha = st.alpha * (o.cat === "looted" ? 0.55 : 1);
+    stem(o.x, o.y, sx, sy, LAYER_COLOR[o.cat]);
     // Containers (looted ones too, just dimmed): chests biggest, others by how many items they spawn
     const tier = chestTier(o);
     const size = st.k * (o.cat === "other" ? 2.5 : tier === 2 ? 7 : tier === 1 ? 5.5 : o.slots ? 2.5 + Math.min(o.slots, 4) * 0.6 : 3.5);
@@ -237,9 +272,10 @@ export function draw() {
     if (!giver && !questShown(mk)) continue; // (Objectives' "tracked only": a giver's mission is never the tracked one)
     const st = style(giver ? "giver" : "objective", mk);
     if (!st) continue;
-    const [sx, sy] = place(mk.x, mk.y);
+    const [sx, sy] = place(mk.x, mk.y, mk.z);
     if (!visible(sx, sy)) continue;
     const alpha = (mk.tracked || giver ? 1 : 0.55) * st.alpha;
+    if (!mk.rad) { ctx.globalAlpha = alpha; stem(mk.x, mk.y, sx, sy, giver ? LAYER_COLOR.giver : objColor); }
     if (giver) {
       overNpcs.push(() => {
         ctx.globalAlpha = alpha; bang(sx, sy, LAYER_COLOR.giver, st.k);
@@ -265,13 +301,14 @@ export function draw() {
     if (offMap(p.z)) continue;
     const layer = lootLayer(p), st = style(layer, p);
     if (!st) continue;
-    const [sx, sy] = place(p.x, p.y);
+    const [sx, sy] = place(p.x, p.y, p.z);
     if (!visible(sx, sy)) continue;
     const tier = p.q || 0;
     const [tierName, tierColor] = rarity(tier);
     // effervescent: the game's rainbow, its hue from the clock (moves as frames are drawn, at the Refresh rate)
     const color = tierName === "effervescent" ? rainbowAt(now) : tierColor;
     ctx.globalAlpha = st.alpha;
+    stem(p.x, p.y, sx, sy, isGear(p.c) ? color : LAYER_COLOR[layer]);
     if (isGear(p.c)) triangle(sx, sy, (tier >= 5 ? 6.5 : 5) * st.k, color);
     // a mission item: a "!" (like quest givers), as big as a legendary's triangle (6.5 px: 7 x 0.93)
     else if (layer === "pickup.mission") bang(sx, sy, LAYER_COLOR[layer], 0.93 * st.k);
@@ -290,10 +327,13 @@ export function draw() {
     const isPlayer = p.k === "me" || p.k === "player", layer = isPlayer ? "player" : p.k; // the host is one of the players
     const st = style(layer, pos);
     if (!st) continue;
-    const [sx, sy] = place(pos.x, pos.y);
+    const [sx, sy] = place(pos.x, pos.y, pos.z);
     if (!visible(sx, sy) && p !== tracked) continue;
     ctx.globalAlpha = st.alpha * (p.rs || p.dd ? 0.5 : 1); // respawning (at their New-U) / dead (their body): faded
-    const angle = yawToAngle(f, pos.r) - S.view.rot;
+    stem(pos.x, pos.y, sx, sy, p === tracked ? COLORS.tracked : LAYER_COLOR[layer]);
+    // the heading on the (tilted) plane: its direction squashed like the plane's
+    const turn = yawToAngle(f, pos.r) - S.view.rot;
+    const angle = Math.atan2(Math.sin(turn), Math.cos(turn) * Math.cos(S.view.tilt));
     const hurt = (p.m > 0 && p.h < p.m) || (p.sm > 0 && p.s < p.sm);
     if (isPlayer) { // the tracked player: the yellow arrow; the others white
       if (p === tracked) arrow(sx, sy, angle, 9 * st.k, COLORS.tracked, COLORS.ink);

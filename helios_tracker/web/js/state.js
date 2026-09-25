@@ -12,8 +12,9 @@ export const S = {
   fogSeen: null, // the fog pieces discovered (a Set of names; null: not known yet)
   meId: null, fallback: null, // map frame for areas without a tactical map
   interval: 100, lastState: 0, hz: 0, // hz: the game's updates per second (sent with each state)
-  // rot: map rotation (rad, the target's heading); the zoom is kept across reloads
-  view: { cx: 0, cy: 0, zoom: settings.view.zoom || 1, rot: 0 }, fitted: false, zoomed: settings.view.zoom > 0,
+  // rot: map rotation (rad, the target's heading); tilt: the 3D view's (rad, 0 = from above; view.js); ground: the map
+  // plane's height in the 3D view (world uu, draw.js); the zoom is kept across reloads
+  view: { cx: 0, cy: 0, zoom: settings.view.zoom || 1, rot: 0, tilt: 0, ground: 0 }, fitted: false, zoomed: settings.view.zoom > 0,
   lastDraw: 0,
   pending: false, // a frame is requested
   hits: [], mouse: null,

@@ -81,7 +81,7 @@ export function initPanel() {
       if (key === "follow" && el.checked) centerOnTarget();
     };
   };
-  bindBox("follow", "follow"); bindBox("rotate", "rotate"); bindBox("coords-on", "coords");
+  bindBox("follow", "follow"); bindBox("rotate", "rotate"); bindBox("threeD", "threeD"); bindBox("coords-on", "coords");
   syncRotate();
   $("follow").addEventListener("change", syncRotate);
   renderMotion();

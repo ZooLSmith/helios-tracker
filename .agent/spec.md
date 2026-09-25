@@ -221,7 +221,14 @@ It draws nothing in game: everything it shows is on the page.
   turns to their heading; only while following, greyed out otherwise) + Fit map (0); **Map**: Colours (the theme's tint,
   or the game's blue whatever the theme: `view.mapColors`), Background / Map opacity (`look.js`; 0 % background: in OBS
   via its browser source's "Interact"), Markers 50-200 % (every marker, its label and bars - times its layer's Size),
-  Show coordinates (C); **Panels**: Theme (ECHO-2 - the default, id "default" -, Hyperion, Vladof, Dahl, Eridian:
+  3D view (3: `view.threeD` - the map tilted by an orthographic camera, `view.tilt3d` 0-80 deg, turned by `view.spin3d`
+  on top of the level's north offset; right-drag / Shift+drag orbits (horizontal: turn, vertical: tilt), never
+  stopping Follow. While Follow + Rotate turn the map to the heading, the heading owns the turn: the drag only tilts,
+  the spin is set aside (back when Rotate / Follow is off); markers lifted by their height above the map's
+  plane - the level's typical ground, the median height of its objects - with a stem down to it; quest areas as
+  ellipses on the plane; toScreen(mx, my, h), toMap on the plane: pan / zoom / clicks / coordinates / the fog
+  unchanged. The first step towards the 3D map: design.md), Show coordinates (C); **Panels**: Theme (ECHO-2 - the
+  default, id "default" -, Hyperion, Vladof, Dahl, Eridian:
   `css/themes.css` sets base.css's tokens under `<html data-theme>`; the canvas' colours read again on a change), their
   opacity, their size 70-200 %; **Refresh rate** (was "Movement": the page's redraws - markers, bars, their patterns):
   game updates only (the mod sends its rate, `hz`), a fps cap (default 30), or smooth; **Language**.

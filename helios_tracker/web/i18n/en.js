@@ -78,6 +78,8 @@ export default {
   "who.player": "Player",
   "who.host": "{name} (host)",
   "view.rotate": "Rotate",
+  "view.threeD": "3D view",
+  "view.threeDTip": "Tilt the map, markers at their height (3). Right-drag or Shift+drag: turn and tilt it",
   "view.coords": "Show coordinates",
   "view.motion": "REFRESH RATE",
   "view.motionTip": "How often the page is redrawn - the map, its markers, the bars and their patterns. Updates only: everything jumps to each game update, the page only redraws when something changes (lightest, for a weak / integrated GPU). A number: smoothed, at most that many frames per second. Smooth: every frame. Every frame the page draws, Windows' compositor (DWM) composes the screen again: with the game running, a lower rate keeps it - and the GPU - quieter (less stutter in game). Dragging and zooming always run at full speed.",
