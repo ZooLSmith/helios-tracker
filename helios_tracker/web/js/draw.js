@@ -71,12 +71,16 @@ function drawGrid(f) { // areas without a map: a 10 m grid so movement still rea
 // then over the map. -> how many pieces are still fogged.
 let fogCanvas = null;
 
-// A map image in the theme's tint (--map-filter): a copy drawn through the filter once per image and filter, not
-// a filter every frame; none: the image itself (a browser without canvas filters: the game's blue, untinted)
+// A map image (or the fog's blob) in the theme's tint (--map-filter): a copy drawn through the filter once per image
+// and filter, not a filter every frame; none: the image itself (a browser without canvas filters: the game's blue).
+// `align`: a filter first, putting the image's own blue onto the map's (the fog's blob: ~227, the maps ~200) - the
+// theme's tint then lands both on the same colour
+const FOG_ALIGN = "hue-rotate(-27deg) ";
 const tinted = new WeakMap(); // image canvas -> { filter, canvas }
-function mapCanvas(src) {
-  const filter = settings.view.mapColors === "game" ? "none" : COLORS.mapFilter || "none"; // (Settings: Map colours)
-  if (filter === "none") return src;
+function mapCanvas(src, align = "") {
+  const tint = settings.view.mapColors === "game" ? "none" : COLORS.mapFilter || "none"; // (Settings: Map colours)
+  if (tint === "none") return src;
+  const filter = align + tint;
   const hit = tinted.get(src);
   if (hit && hit.filter === filter) return hit.canvas;
   const c = document.createElement("canvas");
@@ -101,7 +105,7 @@ function drawFog(lk, opacity) {
   fc.imageSmoothingEnabled = true;
   for (const [, [a, b, c, d, e, g]] of todo) { // the pieces
     fc.setTransform(m.multiply(new DOMMatrix([a, b, c, d, e, g])));
-    fc.drawImage(blob.canvas, x0, y0, x1 - x0, y1 - y0);
+    fc.drawImage(mapCanvas(blob.canvas, FOG_ALIGN), x0, y0, x1 - x0, y1 - y0); // (in the map's tint, like the map)
   }
   fc.globalCompositeOperation = "destination-in"; // kept only where the map is
   fc.setTransform(m);

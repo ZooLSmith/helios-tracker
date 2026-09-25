@@ -220,7 +220,8 @@ It draws nothing in game: everything it shows is on the page.
   opacity, their size 70-200 %; **Refresh rate** (was "Movement": the page's redraws - markers, bars, their patterns):
   game updates only (the mod sends its rate, `hz`), a fps cap (default 30), or smooth; **Language**.
   A theme also sets the map images' tint (`--map-filter`: a CSS filter, the game's maps always the same blue - drawn
-  through a tinted copy per image, `draw.js` mapCanvas), the title's gradient and its "H"'s palette; story missions and
+  through a tinted copy per image, `draw.js` mapCanvas; the fog of war's blob too, its bluer blue first turned onto the
+  map's), the title's gradient and its "H"'s palette; story missions and
   the tracked player stay the game's yellow (`--story`, `--map-tracked`) whatever the accent.
 - **Storage**: one `helios.settings` localStorage object (`js/settings.js`): `layers.<id>` (each
   layer's settings), `view`, `ui` (incl. `drawer`: what the drawer shows); validated against the defaults on load (unknown / invalid values
