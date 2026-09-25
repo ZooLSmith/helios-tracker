@@ -166,7 +166,7 @@
         <ul>
           <li>The address changes at every start, and Cloudflare offers quick tunnels for testing, with no guarantee.</li>
           <li>For the first half-minute after the page opens (and after each refresh), movement comes in bursts; then it's smooth.</li>
-          <li>The page remembers its settings per address: with a new one each time, everyone starts from the defaults. To keep them, <a href="#r-funnel">Tailscale Funnel</a> gives a fixed address, for signing in once.</li>
+          <li>The address changes each time: share it through the site (below), and everyone keeps their settings anyway.</li>
         </ul>
         <details class="extra" id="quick-autoexec">
           <summary>Optional: start it automatically with the map</summary>
@@ -181,7 +181,7 @@
           <summary>Or, with nothing to install: an SSH tunnel</summary>
           <p>Windows already has <code>ssh</code>. Free services run these tunnels, for example localhost.run. Run this in a terminal while the map runs, answer <code>yes</code> the first time, and share the <code>https://</code> address it prints:</p>
           <div class="code"><pre><code>ssh -R 80:127.0.0.1:8777 nokey@localhost.run</code></pre></div>
-          <p>These are third-party services, not part of Helios Tracker: their free plans have time limits and can change, and a service can close. Like a quick tunnel, the address changes every time, and the page's settings with it. If it stops working, another SSH tunnel service works the same way: check that its address doesn't contain your IP (some free ones do). Details: <a href="https://localhost.run/">localhost.run</a>.</p>
+          <p>These are third-party services, not part of Helios Tracker: their free plans have time limits and can change, and a service can close. Like a quick tunnel, the address changes every time: share it through the site too. If it stops working, another SSH tunnel service works the same way: check that its address doesn't contain your IP (some free ones do). Details: <a href="https://localhost.run/">localhost.run</a>.</p>
         </details>
       </section>
       <section class="step result" id="r-more" data-step="r:more">
@@ -191,6 +191,12 @@
       </section>
       <section class="before" id="before-sharing">
         <h3>Before you share</h3>
+        <div class="live-maker" data-live-maker>
+          <p><strong>Share it through this site:</strong> paste the address your tunnel printed, and send the link below. Everyone keeps their own settings with it, even when the tunnel's address changes.</p>
+          <p class="nojs">Or build it by hand: <code>https://helios-tracker.zoolsmith.com/live/?at=</code> followed by the tunnel's address, without <code>https://</code>.</p>
+          <label class="live-in">Your tunnel's address <input type="url" placeholder="https://example.trycloudflare.com" autocomplete="off" spellcheck="false"></label>
+          <div class="code live-out" hidden><pre><code></code></pre></div>
+        </div>
         <ul>
           <li>Anyone with the link sees the map, the players' names and their gear.</li>
           <li>Stop the tunnel when you're done.</li>

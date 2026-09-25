@@ -492,6 +492,22 @@ function initQuiz() {
   render(false);
 }
 
+// ---- the link maker (share.html): a tunnel's address -> this site's /live/ link (the map opened from here: its
+// settings kept whatever the tunnel's address) ----
+
+function initLiveMaker() {
+  for (const box of document.querySelectorAll("[data-live-maker]")) {
+    const input = box.querySelector("input"), out = box.querySelector(".live-out"), code = out.querySelector("code");
+    box.querySelector(".nojs").hidden = true;
+    input.addEventListener("input", () => {
+      const host = input.value.trim().replace(/^[a-z]+:\/\//i, "").replace(/[/?#].*$/, "");
+      const ok = /^[a-z0-9.-]+\.[a-z]{2,}(:\d{1,5})?$/i.test(host);
+      out.hidden = !ok;
+      if (ok) code.textContent = `${location.origin}/live/?at=${host}`;
+    });
+  }
+}
+
 // ---- small screens: the page menu (.side) as a drawer, opened by a button at the left of the top bar (CSS shows
 // the button and makes .side a drawer only on small screens, only with JS: html.js) ----
 
@@ -536,6 +552,7 @@ function initScroller() {
 initScroller();
 initNav();
 initQuiz();
+initLiveMaker();
 initSearch();
 initLanguage();
 initTheme();

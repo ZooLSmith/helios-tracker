@@ -166,7 +166,7 @@
         <ul>
           <li>L'adresse change à chaque démarrage, et Cloudflare propose les tunnels rapides pour des essais, sans garantie.</li>
           <li>Pendant la première demi-minute après l'ouverture de la page (et après chaque actualisation), les mouvements arrivent par à-coups ; ensuite, c'est fluide.</li>
-          <li>La page retient ses réglages par adresse : avec une nouvelle à chaque fois, tout le monde repart des réglages par défaut. Pour les garder, <a href="#r-funnel">Tailscale Funnel</a> donne une adresse fixe, contre une connexion une fois.</li>
+          <li>L'adresse change à chaque fois : partagez-la via le site (ci-dessous), et chacun garde ses réglages quand même.</li>
         </ul>
         <details class="extra" id="quick-autoexec">
           <summary>Optionnel : le lancer automatiquement avec la carte</summary>
@@ -181,7 +181,7 @@
           <summary>Ou, sans rien installer : un tunnel SSH</summary>
           <p>Windows a déjà <code>ssh</code>. Des services gratuits font tourner ces tunnels, par exemple localhost.run. Lancez ceci dans un terminal pendant que la carte tourne, répondez <code>yes</code> la première fois, et partagez l'adresse <code>https://</code> affichée :</p>
           <div class="code"><pre><code>ssh -R 80:127.0.0.1:8777 nokey@localhost.run</code></pre></div>
-          <p>Ce sont des services tiers, sans lien avec Helios Tracker : leurs offres gratuites sont limitées dans le temps et peuvent changer, et un service peut fermer. Comme pour un tunnel rapide, l'adresse change à chaque fois, et les réglages de la page avec. S'il ne marche plus, un autre service de tunnel SSH fonctionne de la même façon : vérifiez que son adresse ne contient pas votre IP (certains gratuits le font). Détails : <a href="https://localhost.run/">localhost.run</a>.</p>
+          <p>Ce sont des services tiers, sans lien avec Helios Tracker : leurs offres gratuites sont limitées dans le temps et peuvent changer, et un service peut fermer. Comme pour un tunnel rapide, l'adresse change à chaque fois : partagez-la aussi via le site. S'il ne marche plus, un autre service de tunnel SSH fonctionne de la même façon : vérifiez que son adresse ne contient pas votre IP (certains gratuits le font). Détails : <a href="https://localhost.run/">localhost.run</a>.</p>
         </details>
       </section>
       <section class="step result" id="r-more" data-step="r:more">
@@ -191,6 +191,12 @@
       </section>
       <section class="before" id="before-sharing">
         <h3>Avant de partager</h3>
+        <div class="live-maker" data-live-maker>
+          <p><strong>Partagez-la via ce site :</strong> collez l'adresse affichée par votre tunnel, et envoyez le lien ci-dessous. Chacun garde ses propres réglages avec, même quand l'adresse du tunnel change.</p>
+          <p class="nojs">Ou construisez-le à la main : <code>https://helios-tracker.zoolsmith.com/live/?at=</code> suivi de l'adresse du tunnel, sans <code>https://</code>.</p>
+          <label class="live-in">L'adresse de votre tunnel <input type="url" placeholder="https://exemple.trycloudflare.com" autocomplete="off" spellcheck="false"></label>
+          <div class="code live-out" hidden><pre><code></code></pre></div>
+        </div>
         <ul>
           <li>Quiconque a le lien voit la carte, le nom des joueurs et leur équipement.</li>
           <li>Arrêtez le tunnel quand vous avez fini.</li>
