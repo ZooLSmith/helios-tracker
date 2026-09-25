@@ -70,6 +70,23 @@ function drawGrid(f) { // areas without a map: a 10 m grid so movement still rea
 // canvas of its own masked by the map images (the pieces reach past the map: only where it has pixels),
 // then over the map. -> how many pieces are still fogged.
 let fogCanvas = null;
+
+// A map image in the theme's tint (--map-filter): a copy drawn through the filter once per image and filter, not
+// a filter every frame; none: the image itself (a browser without canvas filters: the game's blue, untinted)
+const tinted = new WeakMap(); // image canvas -> { filter, canvas }
+function mapCanvas(src) {
+  const filter = settings.view.mapColors === "game" ? "none" : COLORS.mapFilter || "none"; // (Settings: Map colours)
+  if (filter === "none") return src;
+  const hit = tinted.get(src);
+  if (hit && hit.filter === filter) return hit.canvas;
+  const c = document.createElement("canvas");
+  c.width = src.width; c.height = src.height;
+  const g = c.getContext("2d");
+  g.filter = filter;
+  g.drawImage(src, 0, 0);
+  tinted.set(src, { filter, canvas: c });
+  return c;
+}
 function drawFog(lk, opacity) {
   const blob = S.fogBlob, pieces = S.level && S.level.fog ? S.level.fog.pieces : [];
   if (!blob || !pieces.length || S.explored || !S.fogSeen) return 0;
@@ -124,7 +141,7 @@ export function draw() {
   ctx.globalAlpha = lk.map / 100; // the map image itself (cut out: transparent outside the level)
   for (const img of S.images) {
     const [x0, x1, y0, y1] = img.bounds;
-    ctx.drawImage(img.canvas, x0, y0, x1 - x0, y1 - y0);
+    ctx.drawImage(mapCanvas(img.canvas), x0, y0, x1 - x0, y1 - y0);
   }
   ctx.globalAlpha = 1;
   if (!S.images.length) drawGrid(f);

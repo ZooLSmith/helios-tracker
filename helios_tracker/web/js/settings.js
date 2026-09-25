@@ -33,6 +33,7 @@ export function defaults() {
       uiScale: 100, // the interface size, % (70-200: look.js)
       markerScale: 100, // every map marker's size (and its label, bars), % (50-200: look.js)
       theme: "default", // the page's colours (look.js THEMES; themes.css)
+      mapColors: "theme", // the map images: "theme" (its tint, --map-filter) or "game" (the game's blue: draw.js)
     },
     ui: { lang: "auto", panelTab: "info", inspectorTab: "info", openLayers: [], closedGroups: [], showLockedMissions: false,
       missionGroup: "chain", missionGoal: "xp",

@@ -17,7 +17,7 @@ It draws nothing in game: everything it shows is on the page.
   hollow rings (not dots: cash pickups are green dots), vehicles purple, loot = triangles in rarity colour, objects = squares by category). Follow me (F), fit (0),
   **Smooth movement** (on: interpolates between updates, redraws every frame; off: markers jump,
   frames are only requested on a change - data, view, input - for weak / integrated GPUs), tooltip
-  (name, kind, health, distance, height difference), world X/Y by the cursor (above it; Settings Show coordinates, off by default). Wheel / pinch zoom,
+  (name, kind, health, distance, height difference), world X/Y by the cursor (above it; Settings Show coordinates or C, off by default). Wheel / pinch zoom,
   drag pan. Settings remembered in localStorage. Areas without a map: a 10 m grid around the player.
 - **Player inspector**: "Players" list in the panel (or click a player's marker) opens a drawer with
   Gear / Backpack / Skills tabs; items show the game's localized weapon type / item name and
@@ -202,11 +202,17 @@ It draws nothing in game: everything it shows is on the page.
   (objectives). Counts = what passes the layer's filters, on or not.
   No global names / floors / rarity settings any
   more - the loot filter will come back as a Loot setting (to design).
-- **Settings tab**: Who (host / a player, saved by name) + Follow / Rotate (map turns to their
-  heading; only while following, greyed out otherwise); Refresh rate (was "Movement": the page's redraws - markers, bars, their patterns): game updates only (the mod sends its rate, `hz`), a fps cap (default 30), or smooth;
-  See-through: Background / Map / Panels opacity (`look.js`; in OBS via its browser source's "Interact"); Interface size 70-200 %;
-  Map markers 50-200 % (every marker, its label and bars - times its layer's Size); Theme (ECHO-2 - the default, id "default" -, Hyperion, Vladof, Dahl, Eridian:
-  `css/themes.css` sets base.css's tokens under `<html data-theme>`; the canvas' colours read again on a change).
+- **Settings tab**, grouped by what it changes: **Who** (host / a player, saved by name) + Follow (F) / Rotate (R: map
+  turns to their heading; only while following, greyed out otherwise) + Fit map (0); **Map**: Colours (the theme's tint,
+  or the game's blue whatever the theme: `view.mapColors`), Background / Map opacity (`look.js`; 0 % background: in OBS
+  via its browser source's "Interact"), Markers 50-200 % (every marker, its label and bars - times its layer's Size),
+  Show coordinates (C); **Panels**: Theme (ECHO-2 - the default, id "default" -, Hyperion, Vladof, Dahl, Eridian:
+  `css/themes.css` sets base.css's tokens under `<html data-theme>`; the canvas' colours read again on a change), their
+  opacity, their size 70-200 %; **Refresh rate** (was "Movement": the page's redraws - markers, bars, their patterns):
+  game updates only (the mod sends its rate, `hz`), a fps cap (default 30), or smooth; **Language**.
+  A theme also sets the map images' tint (`--map-filter`: a CSS filter, the game's maps always the same blue - drawn
+  through a tinted copy per image, `draw.js` mapCanvas), the title's gradient and its "H"'s palette; story missions and
+  the tracked player stay the game's yellow (`--story`, `--map-tracked`) whatever the accent.
 - **Storage**: one `helios.settings` localStorage object (`js/settings.js`): `layers.<id>` (each
   layer's settings), `view`, `ui` (incl. `drawer`: what the drawer shows); validated against the defaults on load (unknown / invalid values
   dropped), the old one-key-per-setting storage migrated once.

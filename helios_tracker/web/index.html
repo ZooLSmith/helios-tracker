@@ -56,22 +56,22 @@
       <label class="row"><input type="checkbox" id="follow"> <span data-i18n="view.follow"></span> <span class="count">F</span></label>
       <label class="row"><input type="checkbox" id="rotate"> <span data-i18n="view.rotate"></span> <span class="count">R</span></label>
     </div>
-    <h3 data-i18n="view.motion" data-i18n-title="view.motionTip"></h3>
-    <select id="motion" data-i18n-title="view.motionTip"></select>
     <button class="act" id="fit"><span data-i18n="view.fit"></span> <span style="color:var(--dim)">(0)</span></button>
-    <h3 data-i18n="view.look" data-i18n-title="view.lookTip"></h3>
+    <h3 data-i18n="h.map" data-i18n-title="h.mapTip"></h3>
+    <div class="cset" data-i18n-title="view.mapColorsTip"><span class="clabel" data-i18n="view.mapColors"></span><select id="mapColors"></select></div>
     <div class="cset"><span class="clabel" data-i18n="view.bgOpacity"></span><input type="range" id="bgOpacity" min="0" max="100" step="5"><span class="cval" id="bgOpacityVal"></span></div>
     <div class="cset"><span class="clabel" data-i18n="view.mapOpacity"></span><input type="range" id="mapOpacity" min="0" max="100" step="5"><span class="cval" id="mapOpacityVal"></span></div>
-    <div class="cset"><span class="clabel" data-i18n="view.panelOpacity"></span><input type="range" id="panelOpacity" min="20" max="100" step="5"><span class="cval" id="panelOpacityVal"></span></div>
-    <div class="checkrow">
-      <label class="row"><input type="checkbox" id="coords-on"> <span data-i18n="view.coords"></span></label>
-    </div>
-    <h3 data-i18n="view.uiScale" data-i18n-title="view.uiScaleTip"></h3>
-    <div class="cset"><span class="clabel" data-i18n="view.uiScaleLabel"></span><input type="range" id="uiScale" min="70" max="200" step="10"><span class="cval" id="uiScaleVal"></span></div>
     <div class="cset" data-i18n-title="view.markerScaleTip"><span class="clabel" data-i18n="view.markerScale"></span><input type="range" id="markerScale" min="50" max="200" step="10"><span class="cval" id="markerScaleVal"></span></div>
-    <h3 data-i18n="view.theme"></h3>
-    <select id="theme"></select>
-    <h3 data-i18n="view.language"></h3>
+    <div class="checkrow">
+      <label class="row"><input type="checkbox" id="coords-on"> <span data-i18n="view.coords"></span> <span class="count">C</span></label>
+    </div>
+    <h3 data-i18n="h.panels" data-i18n-title="h.panelsTip"></h3>
+    <div class="cset"><span class="clabel" data-i18n="view.theme"></span><select id="theme"></select></div>
+    <div class="cset"><span class="clabel" data-i18n="view.panelOpacity"></span><input type="range" id="panelOpacity" min="20" max="100" step="5"><span class="cval" id="panelOpacityVal"></span></div>
+    <div class="cset" data-i18n-title="view.uiScaleTip"><span class="clabel" data-i18n="view.uiScaleLabel"></span><input type="range" id="uiScale" min="70" max="200" step="10"><span class="cval" id="uiScaleVal"></span></div>
+    <h3 data-i18n="view.motion" data-i18n-title="view.motionTip"></h3>
+    <select id="motion" data-i18n-title="view.motionTip"></select>
+    <h3 data-i18n="h.language"></h3>
     <select id="lang"></select>
     <div class="hint" data-i18n="view.hint"></div>
     </div></section>

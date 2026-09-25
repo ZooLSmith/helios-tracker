@@ -89,7 +89,9 @@
   --skill-part: #d46a00; /* a skill with points, not maxed */
   --skill-bonus: #4aa8ff; /* bonus ranks from gear (a class mod's): blue, like the game's */
   --objective: #7cf58a; /* light green, like the game's objective markers */
-  --story: var(--accent); /* story (main) missions: yellow; side missions: grey */
+  /* the game's yellow, whatever the accent (a theme may set its own yellow): story (main) missions - side
+     missions grey -, the tracked player (its arrow on the map, its name in the Players list) */
+  --story: #ffcc33;
   --side: color-mix(in srgb, var(--text) 77%, var(--bg));
   --scroll: var(--tint); /* scrollbars: a muted blue, close to the panel's colours; brighter on hover */
   --scroll-hover: color-mix(in srgb, var(--text) 21%, var(--muted));
@@ -117,7 +119,10 @@
   --diff-trivial: var(--dim);
   /* the map (canvas: shapes.js initColors) - the tracked player, marker outlines, the dark glyph on a light
      marker ("!", the objective's dot), label halos, the bars' backing */
-  --map-tracked: var(--accent);
+  --map-tracked: #ffcc33; /* (the game's yellow: see --story) */
+  /* the map images' tint: a CSS filter (canvas ctx.filter, draw.js mapCanvas) - the game's maps are always the
+     same blue (hue ~200), a theme turns it to its own (a hue-rotate, a saturate / brightness); none: the blue */
+  --map-filter: none;
   --map-player-edge: color-mix(in srgb, var(--tint) 23%, #000);
   --map-outline: rgba(0, 0, 0, .8);
   --map-outline-soft: rgba(0, 0, 0, .6);
@@ -209,8 +214,9 @@ canvas.dragging { cursor: grabbing; }
 #tip .tlist { display: block; margin: 1px 0 2px 8px; font-size: 11px; } /* e.g. a container's contents */
 #tip .tli { display: block; }
 #tip .tli::before { content: "· "; color: var(--dim); }
-/* the connection status: bottom left of the page, only while connecting / disconnected */
-#status { position: fixed; left: 10px; bottom: 8px; display: flex; align-items: center; gap: 8px; z-index: 2;
+/* the connection status: bottom centre of the page (clear of the panel, top left, and the drawer, right), only
+   while connecting / disconnected / the game paused */
+#status { position: fixed; left: 50%; bottom: 8px; transform: translateX(-50%); white-space: nowrap; display: flex; align-items: center; gap: 8px; z-index: 2;
   color: var(--text); font-size: 14px; font-weight: 600; background: var(--panel); border: 1px solid var(--panel-edge);
   border-radius: 5px; padding: 6px 12px; pointer-events: none; }
 #status i { width: 10px; height: 10px; border-radius: 50%; background: var(--warn); display: inline-block; }

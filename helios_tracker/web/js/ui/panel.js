@@ -111,17 +111,21 @@ export function initPanel() {
   }
   $("fit").onclick = () => fit();
 
-  // Theme: the page's colours (themes.css); the canvas' and the layer icons' read again
-  const themeBox = $("theme");
+  // Theme: the page's colours (themes.css); the canvas' and the layer icons' read again. Map colours: its tint
+  // (the theme's --map-filter) or the game's blue
+  const themeBox = $("theme"), mapColorsBox = $("mapColors");
   const renderThemes = () => {
     themeBox.innerHTML = THEMES.map((n) => `<option value="${n}">${esc(t("theme." + n))}</option>`).join("");
     themeBox.value = themeName(settings.view.theme);
+    mapColorsBox.innerHTML = ["theme", "game"].map((n) => `<option value="${n}">${esc(t("mapColors." + n))}</option>`).join("");
+    mapColorsBox.value = settings.view.mapColors === "game" ? "game" : "theme";
   };
   renderThemes();
   themeBox.onchange = () => {
     settings.view.theme = themeName(themeBox.value); saveSettings();
     setThemeAttr(settings.view.theme); initColors(); applyLook(COLORS.bg); renderLayers(); invalidate();
   };
+  mapColorsBox.onchange = () => { settings.view.mapColors = mapColorsBox.value; saveSettings(); invalidate(); };
 
   const langBox = $("lang");
   langBox.innerHTML = `<option value="auto" data-i18n="lang.auto"></option>` +

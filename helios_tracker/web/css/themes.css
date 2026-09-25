@@ -12,9 +12,12 @@
   --text: #e6dec4;
   --accent: #d9c23a;
   --panel-edge: #7a6608;
+  --story: var(--accent); /* its yellow the game's: the mustard for the story missions, the tracked player */
+  --map-tracked: var(--accent);
   --title-top: #f2dc4a; /* the title: the mustard's gradient, the H too */
   --title-bottom: #b39616;
   --logo-palette: --helios-hyperion;
+  --map-filter: hue-rotate(-147deg) saturate(.9); /* the map: the blue to the mustard */
 }
 @font-palette-values --helios-hyperion { font-family: "Helios H"; override-colors: 2 #f2dc4a, 3 #b39616; }
 
@@ -28,9 +31,13 @@
   --text: #e8ddd3;
   --accent: #d9b44a;
   --panel-edge: #7a2023;
+  --story: var(--accent); /* (the gold: the story missions, the tracked player) */
+  --map-tracked: var(--accent);
   --title-top: #f0c85a; /* the title: gold down to red (the flag's star on its red), its "H" too, a blue eye */
   --title-bottom: #b3261e;
   --logo-palette: --helios-vladof;
+  --map-filter: hue-rotate(165deg) saturate(.7) brightness(.72); /* the map: a dark brick red (the red enemies
+     must still read on it) */
 }
 @font-palette-values --helios-vladof { font-family: "Helios H"; override-colors: 0 #0d3a4a, 1 #5cd3f2, 2 #f0c85a, 3 #b3261e; }
 
@@ -47,6 +54,7 @@
   --title-top: #b8d468;
   --title-bottom: #5f7d2c;
   --logo-palette: --helios-dahl;
+  --map-filter: hue-rotate(-120deg) saturate(.75); /* the map: the blue to an olive green */
 }
 /* (its "H" bolder than the letters - it's a few pixels wide: a saturated green, a night-vision eye) */
 @font-palette-values --helios-dahl { font-family: "Helios H"; override-colors: 0 #14200a, 1 #9dff5a, 2 #c6ec5c, 3 #3f7a1a; }
@@ -65,5 +73,6 @@
   --title-top: #e98cb4;
   --title-bottom: #79a7eb;
   --logo-palette: --helios-eridian;
+  --map-filter: hue-rotate(77deg) saturate(1.05); /* the map: the blue to a violet */
 }
 @font-palette-values --helios-eridian { font-family: "Helios H"; override-colors: 0 #2f114b, 1 #e04ee8, 2 #e98cb4, 3 #79a7eb; }

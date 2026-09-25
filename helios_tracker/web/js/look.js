@@ -54,6 +54,9 @@ export function tokenColor(name) {
     : `rgba(${r}, ${g}, ${b}, ${+(a / 255).toFixed(3)})`;
 }
 
+/** A token as written (not a colour: e.g. --map-filter's CSS filter); "" for an unknown one. */
+export const tokenRaw = (name) => getComputedStyle(document.documentElement).getPropertyValue(name).trim();
+
 /** "#0b1116" + 0.4 -> "rgba(11, 17, 22, 0.4)". */
 export function withAlpha(hex, alpha) {
   const n = parseInt(String(hex).trim().replace("#", ""), 16);

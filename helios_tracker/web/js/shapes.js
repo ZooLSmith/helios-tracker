@@ -1,5 +1,5 @@
 // Marker shapes and labels, in screen px on the canvas (view.js's ctx).
-import { tokenColor } from "./look.js";
+import { tokenColor, tokenRaw } from "./look.js";
 import { setLayerColors } from "./model.js";
 import { ctx } from "./view.js";
 
@@ -10,6 +10,7 @@ const TOKENS = { bg: "bg", grid: "grid", shield: "shield", health: "health", dea
   ink: "map-ink", halo: "map-halo", barBack: "map-bar-back" };
 export function initColors() {
   for (const [k, token] of Object.entries(TOKENS)) COLORS[k] = tokenColor("--" + token);
+  COLORS.mapFilter = tokenRaw("--map-filter") || "none"; // (the theme's map tint: draw.js mapCanvas)
   setLayerColors(tokenColor);
 }
 

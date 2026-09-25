@@ -99,6 +99,7 @@ export function initInput() {
     if (k === "escape") { closeInspector(); return; }
     if (k === "f") { $("follow").click(); }
     else if (k === "r") { $("rotate").click(); } // (only while following: greyed out otherwise)
+    else if (k === "c") { $("coords-on").click(); } // Show coordinates
     else if (k === "0") { stopFollow(); fit(); }
     else if (k === "+" || k === "=") zoomAt(W / 2, H / 2, 1.25);
     else if (k === "-") zoomAt(W / 2, H / 2, 0.8);
