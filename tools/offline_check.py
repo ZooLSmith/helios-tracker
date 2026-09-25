@@ -304,7 +304,11 @@ const bonusOut = bonusLines([
   { tiers: [{ cells: [{ g: 2, m: 5, fx: [gun(0.12)] }, { g: 0, m: 5, fxn: [gun(0.05)] }] }] },
   { skills: [{ g: 1, m: 5, fx: [gun(0.07), { d: "Melee Damage: $NUMBER$", v: 0.06, pct: 1, fl: 1, fp: 1 }] }] },
 ]);
-const missionsOut = { shotCostOut, bonusOut, statsOut, lookOut, vaultCat, hitPicks, items, fallback, where, tooHigh, finish, difficulty, best, search, infoHtml, areas, gameText, story: flat(tree.story), other: flat(tree.other), counts: missionCounts(log),
+// A state's compact pawn rows (data.js movingOf): full health / shield left out - the max from the description
+const { movingOf } = await load("js/data.js");
+const rowsOut = [movingOf(["a", 1, 2, 3], { m: 100, sm: 50 }), movingOf(["b", 1, 2, 3, 40.5, { s: 10, r: 5 }], { m: 100, sm: 50 }),
+  movingOf(["c", 1, 2, 3, { rs: 2 }], {})];
+const missionsOut = { rowsOut, shotCostOut, bonusOut, statsOut, lookOut, vaultCat, hitPicks, items, fallback, where, tooHigh, finish, difficulty, best, search, infoHtml, areas, gameText, story: flat(tree.story), other: flat(tree.other), counts: missionCounts(log),
   objectives: objectiveStates(log[1]).map((s) => s.state) };
 console.log(JSON.stringify({ sha: crypto.createHash("sha256").update(rgba).digest("hex"), err, back, right, raw, modules, missions: missionsOut,
   migrated, checked: { enemy: checked.layers.enemy, view: checked.view, openLayers: checked.ui.openLayers, drawer: checked.ui.drawer, badDrawer }, i18nKeys, unknownSettings, lootLayers, gameRarity, freeRects }));
@@ -892,9 +896,21 @@ def check_helios_tracker() -> None:  # noqa: PLR0915
     state = json.loads(hub._channels["state"][1])
     # the pawns: their descriptions apart ("pawninfo", on change), the state what moves - merged as the page does
     pawn_infos = json.loads(hub._channels["pawninfo"][1])["pawns"]
-    assert all(set(p) <= {"i", "x", "y", "z", "r", "h", "m", "s", "sm", "rs", "dn", "dd", "mn", "ct", "bo", "dv", "ak", "ps", "mk"}
-               for p in state["pawns"]), ("the state: only what moves", state["pawns"])
-    state_pawns = [{**pawn_infos[p["i"]], **p} for p in state["pawns"]]
+    # rows, compact: [id, x, y, z, health if not full, {the rest} if any] (data.js movingOf), the max in the description
+    def state_row(row: list, info: dict) -> dict:
+        row_id, row_x, row_y, row_z, *row_more = row
+        row_h = row_more.pop(0) if row_more and isinstance(row_more[0], (int, float)) else None
+        row_extra = row_more[0] if row_more else {}
+        assert len(row_more) <= 1 and isinstance(row_extra, dict), ("a state row", row)
+        assert set(row_extra) <= {"r", "s", "rs", "dn", "dd", "mn", "ct", "bo", "dv", "ak", "ps", "mk"}, ("only what moves", row)
+        assert row_h != info.get("m") and row_extra.get("s", -1) != info.get("sm"), ("full: left out", row, info)
+        return {**info, **row_extra, "i": row_id, "x": row_x, "y": row_y, "z": row_z,
+                **({"h": info["m"] if row_h is None else row_h} if info.get("m") else {}),
+                **({"s": row_extra.get("s", info["sm"])} if info.get("sm") else {})}
+
+    state_pawns = [state_row(row, pawn_infos[row[0]]) for row in state["pawns"]]
+    assert state["pawns"][0][:4] == ["100", 10635, 5702, 3690], ("[id, x, y, z]", state["pawns"][0])
+    assert json.dumps(state["pawns"]).count("100.0") == 0, ("health: no .0", state["pawns"])
     kinds = {p["n"]: p["k"] for p in state_pawns}
     assert all(("r" in p) == (p["k"] in ("me", "player")) for p in state_pawns), ("a heading: the players' only", state_pawns)
     assert not any(p.get("raw") for p in state_pawns), state_pawns  # both have game names
@@ -1649,6 +1665,9 @@ def check_helios_tracker() -> None:  # noqa: PLR0915
     assert (lk["lookDefault"], lk["lookClamped"], lk["rgba"]) == ({"bg": 100, "map": 100, "panel": 90, "ui": 100, "marker": 100},
                                                                    {"bg": 100, "map": 0, "panel": 20, "ui": 200, "marker": 50}, "rgba(11, 17, 22, 0.4)"), lk
     assert mis["vaultCat"] == "vaultsymbol,station", ("a vault symbol: its own layer; Catch-A-Ride: a station", mis["vaultCat"])
+    assert mis["rowsOut"] == [{"i": "a", "x": 1, "y": 2, "z": 3, "h": 100, "hf": 1, "s": 50, "sf": 1},
+                              {"i": "b", "x": 1, "y": 2, "z": 3, "h": 40.5, "s": 10, "r": 5},
+                              {"i": "c", "x": 1, "y": 2, "z": 3, "rs": 2}], ("the state's compact rows", mis["rowsOut"])
     assert mis["hitPicks"] == ["chest", "onChest", "loot"], ("the click picks what's under the pointer first", mis["hitPicks"])
     fb = mis["fallback"]  # a reward not known for the player's level: the local player's level's, else any
     assert fb["own"] == {"xp": 900} and fb["toLocal"] == {"xp": 1100, "from": 15} and fb["toAny"] == {"xp": 900, "from": 12} and fb["none"] is None, fb

@@ -163,12 +163,12 @@ function onState(st) {
   S.lastState = now;
   const seen = new Set();
   S.meId = null;
-  for (const moving of st.pawns) {
-    // its description (kind, name, level: the "pawninfo" channel, sent on change) with what moves - one not described
-    // yet waits for it (drawn half-known, it has no layer)
-    const info = S.pawnInfo[moving.i];
+  for (const row of st.pawns) {
+    // its description (kind, name, level, max health / shield: the "pawninfo" channel, sent on change) with what moves -
+    // one not described yet waits for it (drawn half-known, it has no layer)
+    const info = S.pawnInfo[row[0]];
     if (!info) continue;
-    const p = { ...info, ...moving };
+    const p = { ...info, ...movingOf(row, info) };
     seen.add(p.i);
     if (p.k === "me") S.meId = p.i;
     // Rebuilt from each state (not merged into the old one): a field the game stopped sending,
@@ -187,6 +187,18 @@ function onState(st) {
   restoreDrawer("state");
 }
 
+/** A state's pawn row, compact (collector.py: the stream's bulk): [id, x, y, z, health if not full, {the rest} if
+ *  any] - the shield in the rest, when not full. Full: the max from its description (hf / sf: to follow a new max). */
+export function movingOf(row, info) {
+  const [i, x, y, z, ...more] = row;
+  const h = typeof more[0] === "number" ? more.shift() : undefined;
+  const extra = more[0] || {};
+  const p = { ...extra, i, x, y, z };
+  if (info.m > 0) { p.h = h ?? info.m; if (h === undefined) p.hf = 1; }
+  if (info.sm > 0) { p.s = extra.s ?? info.sm; if (extra.s === undefined) p.sf = 1; }
+  return p;
+}
+
 /** The drawer shows a map object (loot, a pawn, a marker) that isn't there any more (picked up,
  *  killed, done): close it. */
 function closeIfGone() {
@@ -201,7 +213,7 @@ function onPickups(msg) {
   invalidate();
 }
 
-/** The pawns' descriptions (kind, name, level - sent when they change); the pawns on the map get them at once (a
+/** The pawns' descriptions (kind, name, level, max health / shield - sent when they change); the pawns on the map get them at once (a
  *  real name that came in, a level up), without waiting for their next move. */
 function onPawnInfo(msg) {
   if (!S.level || msg.level !== S.level.id) return;
@@ -210,7 +222,9 @@ function onPawnInfo(msg) {
     const info = S.pawnInfo[id];
     if (!info) continue;
     const { raw, ...rest } = p; // (the made-up-name flag: only if the description still has it)
-    S.pawns.set(id, { ...rest, ...info });
+    const full = { // full health / shield: the new max (a level up - no state follows if nothing moved)
+      ...(p.hf && info.m > 0 ? { h: info.m, fh: info.m } : {}), ...(p.sf && info.sm > 0 ? { s: info.sm, fs: info.sm } : {}) };
+    S.pawns.set(id, { ...rest, ...info, ...full });
   }
   invalidate();
 }

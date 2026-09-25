@@ -94,6 +94,12 @@ class _Timings:
             self._sizes.clear()
 
 
+def _vital(value: float) -> float:
+    """A health / shield value for the page: a tenth is enough (it shows them rounded), and 100 not "100.0"."""
+    value = round(float(value or 0), 1)
+    return int(value) if value.is_integer() else value
+
+
 def cooked_dir() -> Path | None:
     """WillowGame/CookedPCConsole of this install (the mod folder may be a junction elsewhere)."""
     candidates = [Path(sys.executable).parent.parent.parent]  # Binaries/Win32/Borderlands2.exe
@@ -1114,29 +1120,32 @@ class Collector:
                     skills = self._skills.player(pawn, now) if is_player else {}
                     if spot is not None:
                         loc = spot
-                    infos[info["i"]] = {k: v for k, v in info.items() if k != "i"}  # (its description: "pawninfo")
-                    pawns.append(
-                        {
-                            "i": info["i"],
-                            "x": round(loc.X),
-                            "y": round(loc.Y),
-                            "z": round(loc.Z),
-                            # the heading: the players' only (their arrows; the others are dots)
-                            **({"r": view_yaw if info["k"] == "me" else get("Rotation").Yaw} if is_player else {}),
-                            "h": hp[0],
-                            "m": hp[1],
-                            **({"s": hp[2], "sm": hp[3]} if hp[3] else {}),
-                            **({"rs": 1 if spot is not None else 2} if respawning else {}),
-                            **({"dn": 1} if down == "crippled" else {"dd": 1} if down == "dead" else {}),
-                            **({"mn": 1} if is_player and self._in_menu(pawn) else {}),
-                            **({"ct": 1} if is_player and (all_cinematic or self._in_cutscene(pawn)) else {}),
-                            # a vehicle's boost [left, max, seconds to full?] (its AfterburnerPool), when it has one
-                            **({"bo": bo} if info["k"] == "vehicle" and (bo := self._boost(pawn, world_now)) else {}),
-                            # driving: the vehicle's pawn id (a marker of its own, with its health)
-                            **({"dv": dv} if driving and (dv := try_(lambda v=vehicle: f"{v._get_address():x}")) else {}),
-                            **skills,
-                        },
-                    )
+                    # Its description ("pawninfo": sent on change) with its max health / shield (they rarely change)
+                    hp_max, sh_max = _vital(hp[1]), _vital(hp[3])
+                    infos[info["i"]] = {**{k: v for k, v in info.items() if k != "i"},
+                                        **({"m": hp_max} if hp_max else {}), **({"sm": sh_max} if sh_max else {})}
+                    extra = {
+                        # the heading: the players' only (their arrows; the others are dots)
+                        **({"r": view_yaw if info["k"] == "me" else get("Rotation").Yaw} if is_player else {}),
+                        **({"s": sh} if sh_max and (sh := _vital(hp[2])) != sh_max else {}),  # the shield: when not full
+                        **({"rs": 1 if spot is not None else 2} if respawning else {}),
+                        **({"dn": 1} if down == "crippled" else {"dd": 1} if down == "dead" else {}),
+                        **({"mn": 1} if is_player and self._in_menu(pawn) else {}),
+                        **({"ct": 1} if is_player and (all_cinematic or self._in_cutscene(pawn)) else {}),
+                        # a vehicle's boost [left, max, seconds to full?] (its AfterburnerPool), when it has one
+                        **({"bo": bo} if info["k"] == "vehicle" and (bo := self._boost(pawn, world_now)) else {}),
+                        # driving: the vehicle's pawn id (a marker of its own, with its health)
+                        **({"dv": dv} if driving and (dv := try_(lambda v=vehicle: f"{v._get_address():x}")) else {}),
+                        **skills,
+                    }
+                    # What moves, compact (50 NPCs walking around Sanctuary: the stream's bulk): [id, x, y, z], then
+                    # the health when not full, then the rest when there's any - data.js onState reads it back
+                    row: list[Any] = [info["i"], round(loc.X), round(loc.Y), round(loc.Z)]
+                    if hp_max and (h := _vital(hp[0])) != hp_max:
+                        row.append(h)
+                    if extra:
+                        row.append(extra)
+                    pawns.append(row)
             except Exception as ex:  # noqa: BLE001
                 log_error("pawn", ex)
             pawn = try_(lambda p=pawn: field(p, "NextPawn"))

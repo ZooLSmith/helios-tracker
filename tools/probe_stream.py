@@ -27,9 +27,10 @@ def _size(v) -> int:  # noqa: ANN001
     return len(json.dumps(v, separators=(",", ":")))
 
 
-DIFFED = {"objects": "objects", "missionlog": "missions", "players": "players", "shops": "machines"}  # channel -> its list
+DIFFED = {"objects": "objects", "missionlog": "missions", "players": "players", "shops": "machines", "pickups": "pickups"}  # channel -> its list
 st["last"] = {}
 st["diffs"] = []
+st["pickups"] = {"msgs": 0, "added": 0, "gone": 0, "fields": {}, "who": {}, "delta": {}, "names": {}}  # its changes, summed
 
 
 def _records(msg: dict, key: str) -> dict:
@@ -51,8 +52,29 @@ def _diff(channel: str, old: dict, new: dict, now: float) -> None:
             if a[i].get(f) != b[i].get(f):
                 fields[f] = fields.get(f, 0) + 1
     other = sorted(k for k in set(old) | set(new) if k != key and old.get(k) != new.get(k))
+    if channel == "pickups":  # (every update at times: summed up at the end, not a line each)
+        agg = st["pickups"]
+        agg["msgs"] += 1
+        agg["added"] += added
+        agg["gone"] += gone
+        for i in a.keys() & b.keys():
+            for f in set(a[i]) | set(b[i]):
+                if a[i].get(f) != b[i].get(f):
+                    agg["fields"][f] = agg["fields"].get(f, 0) + 1
+                    agg["who"][i] = agg["who"].get(i, 0) + 1
+                    if f in ("x", "y", "z") and isinstance(a[i].get(f), (int, float)) and isinstance(b[i].get(f), (int, float)):
+                        agg["delta"][f] = max(agg["delta"].get(f, 0), abs(b[i][f] - a[i][f]))
+                        agg["names"][i] = b[i].get("n") or b[i].get("k") or "?"
+        return
     st["diffs"].append(f"  {now:5.1f} s {channel}: {len(b)} records, {changed} changed (fields {dict(sorted(fields.items(), key=lambda kv: -kv[1]))}), "
                        f"+{added} -{gone}{f', other keys changed {other}' if other else ''}")
+
+
+def _extra(p) -> dict:  # noqa: ANN001
+    """A state pawn's fields past its position / health: rows [id, x, y, z, health?, {the rest}?], or older dicts."""
+    if isinstance(p, list):
+        return p[-1] if isinstance(p[-1], dict) else {}
+    return p
 
 
 def _tick(*_args) -> None:  # noqa: ANN002
@@ -76,7 +98,8 @@ def _tick(*_args) -> None:  # noqa: ANN002
         if channel == "state":
             s = json.loads(payload)
             pawns, pickups = s.get("pawns", []), s.get("pickups", [])
-            skills = sum(_size({k: p[k] for k in ("ak", "ps", "mk") if k in p}) for p in pawns)
+            extras = [_extra(p) for p in pawns]
+            skills = sum(_size({k: e[k] for k in ("ak", "ps", "mk") if k in e}) for e in extras)
             st["states"].append((len(payload), _size(pawns), _size(pickups), skills, len(pawns), len(pickups)))
             prev = st["prev"]
             if prev is not None:
@@ -85,8 +108,9 @@ def _tick(*_args) -> None:  # noqa: ANN002
                     st["same"] += 1
                 else:  # only positions / yaw moved?
                     def static(d):  # noqa: ANN001, ANN202
-                        return [{k: v for k, v in p.items() if k not in ("x", "y", "z", "r", "h", "s")} for p in d.get("pawns", [])], \
-                            d.get("pickups", [])
+                        return [[p[0] if isinstance(p, list) else p.get("i"),
+                                 {k: v for k, v in _extra(p).items() if k not in ("i", "x", "y", "z", "r", "h", "s")}]
+                                for p in d.get("pawns", [])], d.get("pickups", [])
                     if static(s) == static(prev):
                         st["posonly"] += 1
             st["prev"] = s
@@ -109,6 +133,12 @@ def _finish() -> None:
                   f"{avg[3] / 1024:.2f} KB) + pickups {avg[2] / 1024:.1f} KB ({avg[5]:.0f} of them) + the rest",
                   f"consecutive states: identical but the time {st['same']}, only positions / yaw / health changed "
                   f"{st['posonly']}, of {n - 1}"]
+    pk = st["pickups"]
+    if pk["msgs"]:
+        top = sorted(pk["who"].items(), key=lambda kv: -kv[1])[:8]
+        lines += [f"pickups: {pk['msgs']} changes, +{pk['added']} -{pk['gone']}, fields changed {pk['fields']}, "
+                  f"largest move per update {pk['delta']}",
+                  "  most changed: " + ", ".join(f"{pk['names'].get(i, i)} ({i}) {n}x" for i, n in top)]
     if st["diffs"]:
         lines += ["what changed from one message to the next (objects, mission log, players, shops):", *st["diffs"]]
     OUT.write_text("\n".join(lines) + "\n", encoding="utf-8")
