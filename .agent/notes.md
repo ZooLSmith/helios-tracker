@@ -41,8 +41,13 @@ Least squares against world X/Y:
 => `movie x = (Y - c.Y) / 128`, `movie y = -(X - c.X) / 128`; 128 = volume UnrealUnitsPerPixel (32)
 x 4 (matches the movie's Mult4 rescale). The formula never reads the minimap.
 
-Not yet seen: a level with a non-zero `NorthOffsetInDegreesClockwise` (the page rotates clockwise
-by it - unverified), or several map images (`_I2`...; handled, unverified).
+**Non-zero `NorthOffsetInDegreesClockwise` - the page's rotation is probably wrong** (offline, 2026-09-25: the nav
+mesh fitted onto the map image at every angle, see "Level geometry for a 3D map"): 5 base game levels set one -
+Grass_Cliffs_P 180, HyperionCity_P 325, Luckys_P -90, PandoraPark_P 170, Interlude_P 90. On the first four the image
+fits the world **unrotated** (97-98 % of the nav mesh on drawn pixels; every other angle <= 72 %), while geo.js rotates
+positions by it. Interlude_P fits best at 270-285 (92 % vs 73 % unrotated) - unclear. To confirm in game before
+changing geo.js: tools/probe_navwalk.py + check_navwalk.py compare both with the runtime centre (the page rotates
+clockwise by it - unverified), or several map images (`_I2`...; handled, unverified).
 
 ## Script API found in the packages (names only, verify in game)
 
@@ -389,10 +394,113 @@ Southern Shelf's `_P` alone: 404 `StaticMesh`, 4131 `StaticMeshComponent`, 11 `T
   59k vertices / 65k triangles, ~1.4 MB raw; Sanctuary: 27k / 30k). 82% of the triangles face up within 30°.
   Stacking (2 m cells, floors > 2.5 m apart): Sanctuary 4015 cells with 1 floor, 203 with 2, 38 with 3; Southern
   Shelf 11672 / 800 / 70.
-- Limits: it's where the AI walks, not the player - spots only reachable by jumping may be missing. Some big fan
-  triangles at the edges. Not checked yet: DLC levels, a level whose sublevels load per mission, alignment with the 2D
-  map in game (same world coordinates, should match), the unknown u16 and the rest.
-- The other geometry, if ever needed: `Terrain` (heightmap in its native tail, `NumPatchesX/Y`, `Location`), the
+- **Checked on every level** (82 persistent maps, base game + DLC, sublevels from the persistent level's
+  `LevelStreaming*` exports' `PackageName` - never a name prefix: `Sanctuary_*` also matches `Sanctuary_Hole_*`):
+  all parse, BuildVersion 4 everywhere, every vertex index in range, no NaN, <= 132k triangles a level (Caverns_P;
+  all < 65535 per mesh), ~0.1-8 s a level in plain Python + numpy (a background thread's job, cached). Hunger_P
+  lists 3 sublevels not installed.
+- **The neighbours**: column 3 + e = the triangle across edge e (vertex e -> e + 1). Stored links are real
+  adjacency, better than shared indices: Sanctuary_P 26269 share both vertices, 3404 overlap collinearly (tile seams /
+  T-junctions: no shared vertex), 1255 touch within 35 cm; 4 one-way (drops?). So 65535 = the true outline (the
+  walls to extrude). The 7th u16: set on few triangles (Sanctuary_P: 205, all distinct, <= 204) - an index into the
+  undecoded rest, presumably special links.
+- **Alignment with the 2D map**: with the runtime centre (Sanctuary), 100 % of the nav mesh inside the image, 98 % on
+  drawn pixels - the street outlines sit on the map's edges. A fitted centre lands within ~1 m of the measured ones.
+- **Coverage - the real limit**: it's where the AI walks. Share of each map image's drawn pixels under nav mesh:
+  12-81 %, mostly 50-70 % (Sanctuary_P 29 %: the big lower area has none; Southern Shelf 51 %). Part is borders /
+  decoration; whether the player walks in the rest isn't knowable offline: tools/probe_navwalk.py records the
+  player's positions in game, tools/check_navwalk.py scores them (nav under the feet, holes grouped). A 3D view is
+  an optional alternative to the 2D map (the user, 2026-09-25): where it's thin, the page stays 2D.
+- Not checked yet: the undecoded rest, spots only reachable by jumping, sublevels that load per mission (merged
+  anyway). Most DLC levels' map movie isn't in their `_P` package (the runtime `TacticalMapMovie` gives it).
+- **`Terrain` - decoded** (2026-09-25): an actor (properties from offset 26). Native tail: `int32 n` = (NumPatchesX + 1)
+  x (NumPatchesY + 1), n u16 heights (row by row, X fastest), `int32 n` + n u8 info flags (bit 0 = a hole, not drawn;
+  bit 1 seen - orientation flip in UE3), then the rest (alpha maps...). Vertex (i, j): X = Location.X + i x
+  DrawScale3D.X x DrawScale, Y likewise, Z = Location.Z + (h - 32768) / 128 x DrawScale3D.Z x DrawScale.
+  DrawScale3D not stored = the class default **256** (Southern Shelf: median nav-to-terrain gap 0-2 uu with it).
+  Checked: where nav mesh lies over a terrain, 63-100 % of its vertices within 64 uu of the surface (the rest: on
+  buildings / rocks above). Some terrains carry `Rotation` (patches 768 uu, Z up to 12000+: background scenery) - not
+  handled; the huge far ones (Sanctuary `Terrain_0`, 1.3 km) have to be clipped to the map's drawn pixels.
+- **Coverage, nav + terrain** (runtime centres, share of the map image's drawn pixels): Sanctuary_P nav 27 % ->
+  78 % (terrain fills the lower area, the part without NPCs); Southern Shelf 50 % -> 66 % - its big central area has
+  neither (static meshes? not walkable?), left for the in-game walk (probe_navwalk) to tell. What's still missing is
+  meshes: rocks, buildings, bridges, ice - the static meshes' own geometry (not decoded).
+- **In game, rooftops** (probe_navwalk, Sanctuary_P, 2026-09-25, ~2 min running over roofs): 84 positions on foot
+  (+110 in the air): nav mesh under the feet 49, terrain 3, **neither 32 (38 %)** - 1.4-9 m above the terrain, or over
+  none: roofs are static meshes. The probe's runtime centre / north matched the notes (-3072, -10240, 0). A 3D map
+  with roofs / ledges needs the static meshes; nav + terrain only gives the AI's streets and the ground.
+- **Static mesh placement - decoded** (2026-09-25): `StaticMeshCollectionActor` (properties from offset 4:
+  `StaticMeshComponents`, n refs) + native tail of 84 bytes a component: FMatrix (16 f32, rows = axes then translation,
+  unit axes: rotation + translation only), then Scale3D (3 f32), Scale (f32), an int (1). World = (local x scale) .
+  matrix (row vectors). Components' properties from offset 8 (`StaticMesh`, `Scale3D`, collision flags
+  `CollideActors` / `BlockActors` / `BlockNonZeroExtent`: stored only where they differ from the archetype - see
+  "Player collision only"). `StaticMeshActor` /
+  `BlockingMeshActor` / `InterpActor`: the actor's Location / Rotation (UE3 rotator, 65536 = 360) / DrawScale(3D) and
+  its component's Scale3D / Translation / Rotation. A StaticMesh's native tail starts with its bounds (origin,
+  extent, radius: 7 f32). Sanctuary_P + sublevels: 3542 placed meshes with a mesh in the same package, 363 whose
+  mesh is in another package (imports, not followed yet), 1758 components not blocking pawns.
+- **Simplified collision** (`RB_BodySetup.AggGeom`, tagged: `ConvexElems[]` = `VertexData` raw FVectors +
+  `FaceTriData` int triangles; `BoxElems[]` = `TM` FMatrix + full X / Y / Z; also Sphere / Sphyl elems) - read and
+  placed, walkable faces kept (normal Z >= 0.7, UE3's WalkableFloorZ default ~45.6 deg). Only 264 of Sanctuary_P's
+  363 StaticMeshes have one; on 3542 placements: 1880 with simple collision, 448 per-poly.
+- **Roofs are per-poly collision** (the rooftop walk): simple collision faces lie 63-142 uu *under* the feet there
+  (slabs / blockers inside), while for 46 of 84 positions a placed mesh's bounds top is within 40 uu of the feet -
+  per-poly meshes for 32 of them (+14 mixed). The feet themselves are right: 6 uu above nav mesh and terrain (the
+  pawn's floor distance). So the walkable-top-faces idea needs the meshes' own triangles (the kDOP collision tree +
+  the LOD's position vertex buffer, native - not decoded; UE Viewer / umodel reads BL2 static meshes: a reference).
+- **Per-poly collision - decoded** (2026-09-25): a StaticMesh's native tail (after its tagged properties, which may be
+  empty: then only "None" at offset 4): bounds (7 f32), BodySetup ref (i32), kDOP tree = root bound (6 f32), nodes
+  (i32 element size 6, i32 count, data), triangles (i32 element size 8, i32 count, u16 v0 v1 v2 material), i32 version
+  (18), 4 i32 (0, 0, 0, LOD count), then LOD 0: raw-triangles bulk header (16 bytes, empty when cooked), i32 section
+  count, per section 9 i32 (material, bEnableCollision, old, shadow, first index, triangles, min / max vertex,
+  material index) + i32 fragment count + 8 bytes each + **1 byte**, then the position buffer: i32 stride 12, i32 count,
+  i32 element size 12, i32 count, count x 3 f32. All 363 of Sanctuary_P's StaticMeshes parse (vertices inside their
+  bounds, kDOP indices in range); 278 have kDOP triangles. **Winding: the kDOP triangles are the other way round**
+  (clockwise seen from their front): flip them before taking normals. Imports: an import's outer can be an export
+  (e.g. `Prop_SancBuildings.Meshes` exported in the level) - the path continues there; the meshes are cooked into
+  the level's packages. Not found: `EngineMeshes.Cube` (14 in Sanctuary_Px), an FX decal plane.
+- **Collision top faces vs the rooftop walk** (kDOP where a mesh has it, else simple collision; blocking components
+  only; normal Z >= 0.7): 643k collision triangles, 129k walkable (Sanctuary_P + sublevels, 4.4 s). Testing the pawn's
+  footprint (radius 42 - it stands on anything under its cylinder: step edges): 79 of 84 positions on foot have a
+  surface within 30 uu (collision median 4 uu); collision + terrain alone 78. 77 % of nav mesh vertices lie on a
+  walkable collision face (simple collision alone: 10 %).
+- **Not everything walkable-looking is a floor**: Sanctuary's dome (`FX_ENV_Sanctuary.Meshes.SantuaryDome_Smesh`, an
+  InterpActor, Z 1824-14922: in the files the actor stores bCollideActors / bBlockActors 1 and its component no flags
+  (template defaults: blocking) - but it's a mover driven by the level's script, and the user knows it as a dynamic,
+  non-solid object: the files don't tell a mover's runtime state - a probe reading it live would settle it) and a
+  safety floor (`Common_Meshes.CollisionCube` with `Mat_Collision`, ~670 m wide at Z
+  ~2580 under the town). Invisible collision can't be dropped blindly (ramps over stairs use it), InterpActors are
+  also lifts. **Reachability works as the filter**: 64 uu cells of walkable surface (collision + terrain), flood fill
+  from the nav mesh's cells - walk (neighbour cell, <= 40 up), jump (<= 150 up within 320), drop (<= 6 m). All 74
+  recorded positions that sit on a surface cell were reached (roofs from the streets, the positions weren't seeds);
+  the dome drops to 0 %. The render reads as Sanctuary (fountain rings, roofs, streets, the lower area).
+  Costs to fix before building: the flood fill took 430 s in plain Python (vectorise: scipy.sparse.csgraph over
+  pairs), 100k triangles kept (42 % tiny) - simplify before sending. Not tested yet: other levels / DLC, the safety
+  floor's removal (cropped out in the test), BSP brushes (`Model`), SkeletalMesh / other actor classes as floors.
+- **Player collision only** (the user, 2026-09-25: base the 3D map on what blocks the player, nothing else). A mesh
+  counts when its actor has `bCollideActors` + `bBlockActors`, its component `CollideActors` + `BlockActors` +
+  `BlockNonZeroExtent` (pawns are non-zero extent), and Gearbox's `bBlockPlayers` isn't off (BlockingMesh classes
+  also carry bBlockEnemyPawns / bBlockFriendlyPawns / bBlockPlayerVehicles / bBlockTossedItems...). Values not stored
+  come from the object's **archetype** (the export table's 6th int, e.g. `Engine.Default__InterpActor.
+  StaticMeshComponent0`), then the class default object (`<package>.Default__<Class>`, in Engine / GearboxFramework /
+  WillowGame.upk, each with its own chain); stored nowhere = off (UnrealScript's default). A value inherited from
+  another package (e.g. the template's `StaticMesh`) is an index into *that* package. `InterpActor`'s class default
+  doesn't collide (71 of Sanctuary's 117 don't; 41 block the player - the rooftop walk stood on two of them, so movers
+  can't be left out: they're taken at their position in the file). Sanctuary: 2592 placements block the player, 1728
+  don't. Coverage unchanged (78 / 84 with terrain, 60 from collision); 77 % of nav vertices on a player-collision face.
+- **Southern Shelf, climbing the structure** (probe_navwalk, 2026-09-25, saved as tools/probe_navwalk_southernshelf.txt;
+  Sanctuary's as probe_navwalk_sanctuary_roofs.txt): 251 positions on foot, **all** with a surface under the footprint,
+  collision + terrain alone 249 (collision median 6.5 uu). Player-blocking collision: 1.22 M triangles, 251k walkable.
+- **What's loaded** (tools/probe_streaming.py, Southern Shelf, two places ~50 m apart): no distance / volume
+  streaming in BL2 - every map's sublevels are `LevelStreamingAlwaysLoaded` (237 over all maps) or
+  `LevelStreamingKismet` (378, loaded by the level's script); all 9 Kismet ones loaded + visible both times.
+  **`SouthernShelf_Px` - "AlwaysLoaded" - is NOT loaded**: `_Px` = PhysX extras, loaded by the PhysX setting (the user's is Low; not re-checked on High - the rule
+  below doesn't depend on it) (34
+  player-blocking meshes there, 1 in Sanctuary_Px; no recorded position stands on them). Rule: extract only the
+  sublevels the game has loaded (`WorldInfo.StreamingLevels[i].LoadedLevel` not None, read live - cheap), rebuild
+  when that list changes: covers the PhysX setting and any script-switched (story state) sublevel. Not seen yet: a
+  Kismet sublevel switching during play.
+- The other geometry, if ever needed: the
   StaticMeshes' vertex buffers (native, bigger work), `RB_BodySetup.AggGeom` (collision hulls), `BlockingMeshActor`s.
 - Scripts: the session's scratch `navall.py` (reads every sublevel with `tacmap.Package`, renders PNGs) - not kept;
   the format above is enough to rebuild it.

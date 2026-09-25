@@ -108,3 +108,52 @@ currency; `pc.PlayerReplicationInfo` / the inventory manager's currency to probe
 others'); then prices out of reach dimmed / red, a "you have $x" line in the drawer's heading, maybe a filter
 (affordable only). Also: the price per ammo unit / per full refill (the game sells ammo by the pack), the item of the
 day's markup vs a normal item. To go with the look rework.
+
+## A 3D map (an optional view)
+
+**The wish** (the user, 2026-09-25): a simplified 3D map in the style of Doom Eternal's - floors and slopes only,
+several levels stacked - as an **optional alternative** to the 2D map, never a replacement. Built on **what blocks
+the player** only (the user: "only base this on the player's collisions").
+
+**Feasible - checked, not built.** The findings (formats, numbers, the in-game walks) are in notes.md, "Level geometry
+for a 3D map". In short: every placed static mesh whose flags block the player (actor + component + Gearbox's
+`bBlockPlayers`, resolved through archetypes / class defaults), its per-poly (kDOP) collision triangles, or its simple
+collision where it has none; the faces up to UE3's `WalkableFloorZ` (0.7, ~45.6 deg); plus the terrain heightmaps.
+Recorded walks: Sanctuary's rooftops 78 of 84 positions on such a surface (the pawn's footprint, within 30 uu),
+Southern Shelf's structure 249 of 251 (all 251 with the nav mesh). Unreachable surfaces (Sanctuary's dome, an
+invisible safety floor) go through a **reachability** filter: flood fill from the nav mesh - walk, step (<= 40 uu),
+jump (<= 150 up), drop (<= 6 m).
+
+**Where the work runs - proposed** (2026-09-25):
+- **The mod, in gamework's subinterpreter** (pure Python, its own GIL, results cached in `.cache/`): parsing only - the
+  loaded sublevels (live: `WorldInfo.StreamingLevels[i].LoadedLevel`, so the PhysX setting's `_Px` and any
+  script-switched sublevel follow the game), placements (matrix / scale per component), each used mesh's collision
+  triangles **once per mesh** (a roof mesh placed 43 times is sent once), terrain heights + hole flags, the nav mesh.
+  Sent to the page as compact binary on request (like the map images): a few MB a level. Rebuilt when the loaded
+  sublevel list changes.
+- **The page, in a Web Worker**: placing the meshes, the walkable-face filter, reachability, simplification
+  (Sanctuary keeps ~100k triangles, 42 % tiny; Southern Shelf 251k walkable before the filter) - then the WebGL view.
+  Result cached per level in IndexedDB (keyed by the level + the loaded sublevels + the mod version).
+- **Why not all in the mod**: the game's Python is an embedded 32-bit 3.14 without numpy / scipy. The study's numbers
+  (collision extraction ~5 s, reachability 430 s as a naive loop - seconds vectorised) were numpy on a desktop
+  Python; in pure Python the geometry would be 10-50x slower, and a million triangles as Python objects is hundreds of
+  MB inside the 32-bit game process. A browser's JIT has neither limit, and a Worker keeps the page responsive.
+- Nothing extracted is published: the data goes from the user's game files to the user's own browser, like the map
+  images.
+
+**The view (to design)**: floors coloured by height relative to "Who", the walkable area's outline edges raised as
+low walls (the nav mesh's stored boundary edges - 65535 neighbours - or the filtered surface's own boundary), the
+floors far above / below faded (the Floors setting: show / dim / hide > 6 m), markers at their real height. Refreshed
+by the frames like the rest (the Refresh rate setting), redrawn only when something moves.
+
+**Still open before building:**
+- Other levels: Opportunity (vertical, north offset 325), a rotated map, a DLC level (DLC maps keep their tactical map
+  movie elsewhere) - `tools/probe_navwalk.py` + `probe_streaming.py` there, scored like the first two.
+- Gaps: brush geometry (`Model` / BSP, BlockingVolumes), `EngineMeshes.Cube` (the engine's own package), the last 5
+  rooftop misses; movers are taken at their position in the file (the dome: blocking by its flags - whether it really
+  is in game isn't known; reachability drops it anyway).
+- The Worker's reachability and simplification, and the transfer format; the WebGL renderer (hand-written or a copy of
+  a small library bundled with the page).
+- Side finding for the 2D map: on 4 of the 5 levels with a `NorthOffsetInDegreesClockwise` the map image fits the
+  world unrotated, while geo.js rotates by it (notes.md, the transform section) - to confirm in game (the rotated
+  maps' probe_navwalk run does it) before changing geo.js.
