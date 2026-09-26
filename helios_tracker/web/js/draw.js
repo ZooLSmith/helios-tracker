@@ -6,7 +6,7 @@ import { FLOOR_UU, LAYERS, LAYER_COLOR, chestTier, isGear, lootLayer, nameText, 
 import { look, withAlpha } from "./look.js";
 import { missionItemWanted } from "./missions.js";
 import { settings } from "./settings.js";
-import { COLORS, areaName, arrow, bang, brackets, coin, diamond, dot, label, leader, menuBadge, respawnRing, ring, setMarkerScale, square, triangle, typeIcon,
+import { COLORS, areaName, arrow, bang, brackets, coin, diamond, dot, label, leader, menuBadge, oxygenMark, respawnRing, ring, setMarkerScale, square, triangle, typeIcon,
   vitalBars } from "./shapes.js";
 import { S, findDetail, findPlayer, frame, pawnPos, trackedPawn } from "./state.js";
 import { tooltip } from "./tooltip.js";
@@ -241,18 +241,36 @@ export function draw() {
   // interactive objects
   // Below the level's mapped volume: fallen off the map (still a real actor): not shown
   const offMap = (z) => S.level && S.level.zmin != null && z < S.level.zmin;
+  // the air domes' areas (the Pre-Sequel's): on the plane at their height (3D: an ellipse), under every marker - on:
+  // filled, off (their generator's button not pushed yet): a dashed outline
+  for (const o of S.objects) {
+    if (!o.dome || offMap(o.z)) continue;
+    const st = style("oxygen", o);
+    if (!st) continue;
+    const [sx, sy] = place(o.x, o.y, o.z);
+    const r = Math.max(o.dome[0] / f.upp * S.view.zoom, 3);
+    if (sx + r < 0 || sy + r < 0 || sx - r > W || sy - r > H) continue;
+    const on = o.dome[1] === 1;
+    ctx.globalAlpha = st.alpha;
+    ctx.beginPath(); ctx.ellipse(sx, sy, r, r * Math.cos(S.view.tilt), 0, 0, Math.PI * 2);
+    if (on) { ctx.fillStyle = LAYER_COLOR.oxygen; ctx.globalAlpha = st.alpha * 0.22; ctx.fill(); ctx.globalAlpha = st.alpha; }
+    ctx.setLineDash(on ? [] : [6, 4]); ctx.lineWidth = 1.5; ctx.strokeStyle = LAYER_COLOR.oxygen; ctx.stroke(); ctx.setLineDash([]);
+  }
+  ctx.globalAlpha = 1;
   for (const o of S.objects) {
     if (offMap(o.z)) continue;
     const st = style(o.cat, o);
     if (!st) continue;
     const [sx, sy] = place(o.x, o.y, o.z);
     if (!visible(sx, sy)) continue;
+    if (o.dome) { hits.push({ sx, sy, r: 6 * st.k, kind: o.cat, item: o }); continue; } // (a dome: its area, drawn above)
     ctx.globalAlpha = st.alpha * (o.cat === "looted" ? 0.55 : 1);
     stem(o.x, o.y, sx, sy, LAYER_COLOR[o.cat]);
     // Containers (looted ones too, just dimmed): chests biggest, others by how many items they spawn
     const tier = chestTier(o);
-    const size = st.k * (o.cat === "other" ? 2.5 : tier === 2 ? 7 : tier === 1 ? 5.5 : o.slots ? 2.5 + Math.min(o.slots, 4) * 0.6 : 3.5);
-    if (o.cat === "vaultsymbol") { // a ring and a dot: not a container (squares)
+    const size = st.k * (o.cat === "other" ? 2.5 : o.cat === "oxygen" ? 9 : tier === 2 ? 7 : tier === 1 ? 5.5 : o.slots ? 2.5 + Math.min(o.slots, 4) * 0.6 : 3.5);
+    if (o.cat === "oxygen") oxygenMark(sx, sy, LAYER_COLOR[o.cat], st.k); // (a generator, a fissure: a diamond, "O2")
+    else if (o.cat === "vaultsymbol") { // a ring and a dot: not a container (squares)
       ctx.beginPath(); ctx.arc(sx, sy, 4.5 * st.k, 0, Math.PI * 2);
       ctx.lineWidth = 2.5 * st.k; ctx.strokeStyle = COLORS.outline; ctx.stroke();
       ctx.lineWidth = 1.6 * st.k; ctx.strokeStyle = LAYER_COLOR[o.cat]; ctx.stroke();

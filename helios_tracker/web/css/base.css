@@ -148,6 +148,7 @@
   --layer-pickup-cash: #ffe36e; /* a pale gold: apart from the givers' "!" yellow and the ammo's sand */
   --layer-pickup-eridium: #c77dff;
   --layer-pickup-health: #ff6f7d;
+  --layer-oxygen: #4e6a86; /* the Pre-Sequel's oxygen sources (air domes, fissures): a dark blue-grey (the user's) */
   --layer-pickup-oxygen: #0096c8; /* the Pre-Sequel's oxygen canisters: their definition's LootBeamColorOverride (its only two) */
   --layer-pickup-mission: var(--objective);
   --layer-pickup-other: #9aa7ad;

@@ -47,7 +47,8 @@ export function playerInfoHtml(p) {
   html += `<div class="group">${esc(t("pinfo.vitals"))}</div>`;
   if (live.sm > 0) html += barRow(t("detail.shield"), `${num(Math.round(live.s))} / ${num(Math.round(live.sm))}`, live.s / live.sm, "sh");
   if (live.m > 0) html += barRow(t("detail.health"), `${num(shownHealth(live.h))} / ${num(shownMaxHealth(live.m))}`, live.h / live.m, "hp");
-  if (live.om > 0) html += barRow(t("detail.oxygen"), `${num(Math.round(live.ox))} / ${num(Math.round(live.om))}`, live.ox / live.om, "ox");
+  if (live.om > 0) html += barRow(`${t("detail.oxygen")} · ${t(live.vac ? "oz.inVacuum" : "oz.inAir")}`,
+    `${num(Math.round(live.ox))} / ${num(Math.round(live.om))}`, live.ox / live.om, "ox");
   const veh = pawn.dv ? S.pawns.get(pawn.dv) : null; // driving: the vehicle's health
   if (veh && veh.m > 0) {
     const v = { ...veh, ...pawnPos(veh, performance.now()) };

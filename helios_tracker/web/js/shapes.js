@@ -62,6 +62,19 @@ export function coin(x, y, fill, k = 1) { // cash: a disc with a dark "$" (the "
   ctx.restore();
 }
 
+export function oxygenMark(x, y, fill, k = 1) { // an oxygen source (the Pre-Sequel's): a diamond with a white "O2"
+  const r = 9 * k;
+  ctx.save();
+  ctx.beginPath(); ctx.moveTo(x, y - r); ctx.lineTo(x + r, y); ctx.lineTo(x, y + r); ctx.lineTo(x - r, y); ctx.closePath();
+  ctx.fillStyle = fill; ctx.fill(); ctx.lineWidth = 1.2; ctx.strokeStyle = COLORS.ink; ctx.stroke();
+  ctx.fillStyle = "#fff"; ctx.textAlign = "center"; ctx.textBaseline = "middle";
+  ctx.font = `700 ${8.5 * k}px 'Segoe UI', system-ui, sans-serif`;
+  ctx.fillText("O", x - 1.4 * k, y + 0.4 * k);
+  ctx.font = `700 ${5.5 * k}px 'Segoe UI', system-ui, sans-serif`; // (the 2: a subscript)
+  ctx.fillText("2", x + 3.6 * k, y + 2.5 * k);
+  ctx.restore();
+}
+
 // The game's icons on the map, loaded once each (asked for only once the server can find them - its "assets" event:
 // the game's files indexed... before, a 404; then a missing one is missing: the caller's own marker)
 const images = new Map(); // url -> {img, ok: true loaded / false loading / null none}

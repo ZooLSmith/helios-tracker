@@ -236,7 +236,7 @@ export function movingOf(row, info) {
   const p = { ...extra, i, x, y, z };
   if (info.m > 0) { p.h = h ?? info.m; if (h === undefined) p.hf = 1; }
   if (info.sm > 0) { p.s = extra.s ?? info.sm; if (extra.s === undefined) p.sf = 1; }
-  if (info.om > 0) p.ox = extra.ox ?? info.om; // (a player's oxygen - the Pre-Sequel's Oz meter: when not full)
+  if (info.om > 0) { p.ox = extra.ox ?? info.om; p.vac = extra.vac ? 1 : 0; } // (a player's oxygen - the Pre-Sequel's Oz meter; vac: in a vacuum)
   return p;
 }
 

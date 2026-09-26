@@ -137,14 +137,18 @@ changes made for TPS ("patches"), so each finding says which build it was seen o
   generator has one ("Air Dome Generator"). The barrels do (GD_Explosives.Barrels.ExplodingBarrel*: "Cryo Barrel",
   "Incendiary Barrel"... on the page as in game) - their definitions carry no text, the name comes at run time (their
   balance / target name): a scan of definitions alone said otherwise, wrongly.
-- **Where oxygen is** (not built - tools/probe_oxygen.py, Deadsurface, 2026-09-26): an air dome's area is its bubble
+- **Where oxygen is** (built 2026-09-26: the "Oxygen sources" layer, the Pre-Sequel only - dark blue-grey; its domes on: filled, off:
+  dashed; their generators and the oxygen fissures (IO_OxygenCracks*) a diamond with "O2"; collector.py _dome /
+  _check_domes, re-read with the containers' check; the player's in air / in a vacuum
+  right of the Oz meter: collector.py _in_vacuum - tools/probe_oxygen.py, Deadsurface): an air dome's area is its bubble
   (IO_AirDome_Bubble_On, a WillowInteractiveObject): CollisionComponent a SphereComponent whose Bounds.BoxExtent is its
   radius, 1500 x the object's DrawScale (976 / 1687 / 2236 for 0.650 / 1.125 / 1.491; Bounds.SphereRadius is the box's
-  corner, x sqrt 3). On / off: not found yet - pushing the generator's button changed neither the bubble's definition
-  (_On before and after: the name isn't the state) nor its sphere; the generator's mesh bounds grew (its animation). To
-  read next: the bubble / generator's bHidden, collision flags, SimpleAnimState, bCanBeUsed; the pawn's
-  OzVacuumComponent.CanBreatheThroughOtherMeans (an inline array struct - not a list: read as a struct). The minimap's
-  Icons_OxygenFissure / Icons_OxygenSpots: pools of HUD clips (minimap positions only, no object) - no use to find them.
+  corner, x sqrt 3). **On / off** (tools/probe_dome_state.py, Moonsurface, a dome off -> its button pushed -> outside):
+  the bubble's CollisionComponent.bAttached, False while off, True once on (the button gives it a new sphere:
+  SphereComponent_3 -> _5); the definitions stay "_On" throughout (the name isn't the state), nothing else changes
+  (timers, ticking). The player's side: OzVacuumComponent.State VS_InVacuum (off, outside) / VS_InAir (on) - their
+  InOxygenTimer / InVacuumTimer count the time in each. The minimap's Icons_OxygenFissure / Icons_OxygenSpots: pools of
+  HUD clips (minimap positions only, no object) - no use to find them.
 - **Containers**: the page guessed an object's category from its name (chest, crate, box...): TPS's Hyperion ammo
   crate (`InteractiveObj_HyperionAmmo`, loot list AmmoCrateLoot_Hyp) came out "other". Anything with loot (the
   collector's `lootable`) is now a container, whatever its name (model.js objectCategory).

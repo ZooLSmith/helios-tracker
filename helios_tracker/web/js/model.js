@@ -84,6 +84,9 @@ export const LAYERS = [
   // the level's areas (the game's discovery areas, tools/probe_discovery.txt): their names, the ones not
   // discovered yet dimmed; the fog of war: the game's fog pieces over the areas not discovered (its count)
   { id: "area", group: "world", on: true, settings: ["size", "opacity"] },
+  // what gives oxygen (the Pre-Sequel's): air domes (their breathable area - on: filled; off, their generator's button
+  // not pushed: dashed), their generators, oxygen fissures
+  { id: "oxygen", group: "world", on: true, game: "tps", settings: COMMON },
   { id: "fog", group: "world", on: false, settings: ["opacity"] },
   { id: "other", group: "world", on: false, settings: COMMON },
 ];
@@ -150,6 +153,8 @@ export function chestTier(o) {
 
 /** Interactive objects -> category, from their definition / class name. */
 export function objectCategory(o) {
+  // what gives oxygen (the Pre-Sequel's): an air dome's bubble (its area: collector.py _dome), its generator, a fissure
+  if (o.dome || o.dg || o.o2) return "oxygen";
   if (o.looted) return "looted";
   // The game's loot lists are named by tier: an "Epic" one (EpicChestRedLoot...) = a chest
   const tier = chestTier(o);

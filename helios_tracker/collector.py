@@ -389,6 +389,7 @@ class Collector:
         self._incomplete: dict[tuple[int, str], WeakPointer] = {}  # records built before their definition: built again
         self._next_incomplete = 0.0
         self._unlooted: dict[tuple[int, str], WeakPointer] = {}  # lootable containers not opened yet
+        self._domes: dict[tuple[int, str], WeakPointer] = {}  # the Pre-Sequel's air dome bubbles: their on / off re-read
         self._next_looted = 0.0
         # The level's discovery areas (static records, found by the objects scan) and the areas payload
         self._areas: list[dict[str, Any]] = []
@@ -472,9 +473,12 @@ class Collector:
         if now >= self._next_shops and not heavy:
             self._next_shops = now + SHOPS_EVERY
             run("shops", self._publish_shops, now)
-        if now >= self._next_looted and self._unlooted:
+        if now >= self._next_looted and (self._unlooted or self._domes):
             self._next_looted = now + LOOTED_EVERY
-            run("looted", self._check_looted)
+            if self._unlooted:
+                run("looted", self._check_looted)
+            if self._domes:
+                run("domes", self._check_domes)
 
     def _check_level(self) -> None:
         wi = ENGINE.GetCurrentWorldInfo()
@@ -592,6 +596,13 @@ class Collector:
                 c = try_(lambda c=c: c.SuperField)
             self._seats[key] = seat
         return seat
+
+    @staticmethod
+    def _in_vacuum(pawn: Any) -> bool:
+        """A player in a vacuum (the Pre-Sequel): their pawn's VacuumComponent (an OzVacuumComponent) State VS_InVacuum -
+        VS_InAir inside an air dome that's on (tools/probe_dome_state.txt)."""
+        state = try_(lambda: field(pawn, "VacuumComponent").State)
+        return getattr(state, "name", state) == "VS_InVacuum"
 
     @staticmethod
     def _oxygen(pawn: Any) -> tuple[float, float] | None:
@@ -801,6 +812,8 @@ class Collector:
                     objects[key] = record
                     if record.get("lootable") and not record.get("looted"):
                         self._unlooted.setdefault(key, WeakPointer(io))
+                    if "dome" in record:
+                        self._domes.setdefault(key, WeakPointer(io))
                     if odds_changed and "odds" in record:  # (in place: cached per type, a few to work out)
                         balance = try_(lambda io=io: io.BalanceDefinitionState.BalanceDefinition)
                         record["odds"] = try_(lambda io=io, b=balance: lootodds.container_odds(io, b)) or record["odds"]
@@ -875,6 +888,8 @@ class Collector:
                     self._objects_dirty = True
                     if record.get("lootable") and not record.get("looted"):
                         self._unlooted.setdefault(key, WeakPointer(io))
+                    if "dome" in record:
+                        self._domes.setdefault(key, WeakPointer(io))
             except Exception as ex:  # noqa: BLE001
                 log_error("interactive object", ex)
 
@@ -915,6 +930,8 @@ class Collector:
             self._objects_dirty = True
             if record.get("lootable") and not record.get("looted"):
                 self._unlooted[key] = WeakPointer(io)
+            if "dome" in record:
+                self._domes[key] = WeakPointer(io)
 
     def _note_incomplete(self, key: tuple[int, str], io: Any) -> None:
         """A record built before the object had its definition (it arrives a moment after the object
@@ -980,6 +997,31 @@ class Collector:
         if changed:
             self._publish_objects()
 
+    def _check_domes(self) -> None:
+        """The air domes switched on / off since (their generator's button): their record's "dome" updated."""
+        changed = False
+        for key, pointer in list(self._domes.items()):
+            io, record = pointer(), self._object_records.get(key)
+            if io is None or record is None:
+                self._domes.pop(key, None)
+                continue
+            if (dome := self._dome(io)) is not None and dome != record.get("dome"):
+                record["dome"] = dome  # in place: the published list holds this dict
+                changed = True
+        if changed:
+            self._publish_objects()
+
+    @staticmethod
+    def _dome(io: Any) -> list[int] | None:
+        """An air dome bubble's (the Pre-Sequel's IO_AirDome_Bubble_*): [its radius (uu), 1 on / 0 off] - its
+        CollisionComponent, a SphereComponent: Bounds.BoxExtent its radius (1500 x the object's DrawScale), bAttached
+        whether it's on (False until its generator's button is pushed: tools/probe_dome_state.txt). None without it."""
+        comp = try_(lambda: io.CollisionComponent)
+        radius = try_(lambda: float(comp.Bounds.BoxExtent.X), 0.0) if comp is not None else 0.0
+        if radius <= 0:
+            return None
+        return [round(radius), 1 if try_(lambda: bool(comp.bAttached), False) else 0]
+
     @staticmethod
     def _is_looted(io: Any, client: bool = False) -> bool:
         """Opened (verified in game, tools/probe_containers.txt): an opened container's animation
@@ -1020,6 +1062,14 @@ class Collector:
             "y": round(loc.Y),
             "z": round(loc.Z),
         }
+        # an air dome's bubble (the Pre-Sequel's): its breathable area and whether it's on (its definition "_On" either
+        # way - the name isn't the state)
+        if definition is not None and "AirDome_Bubble" in str(definition.Name) and (dome := Collector._dome(io)):
+            record["dome"] = dome
+        elif definition is not None and "AirDome_Generator" in str(definition.Name):
+            record["dg"] = 1  # its generator (its button switches a dome on - its own state: none that changes)
+        elif definition is not None and "OxygenCracks" in str(definition.Name):
+            record["o2"] = 1  # an oxygen fissure (IO_OxygenCracks, _Large, _NoMesh: "Oxygen Source" - refills Oz kits)
         if Collector._lootable(io, balance):
             record["lootable"] = 1
             if try_(lambda: io.bCanBeUsed[0], 0):
@@ -1191,6 +1241,7 @@ class Collector:
                         **({"r": view_yaw if info["k"] == "me" else get("Rotation").Yaw} if is_player else {}),
                         **({"s": _vital(hp[2])} if sh_max and hp[2] < hp[3] else {}),  # the shield: when not full
                         **({"ox": _vital(oxygen[0])} if oxygen and oxygen[0] < oxygen[1] else {}),  # oxygen: when not full
+                        **({"vac": 1} if oxygen and self._in_vacuum(pawn) else {}),  # in a vacuum (else in air)
                         **({"rs": 1 if spot is not None else 2} if respawning else {}),
                         **({"dn": 1} if down == "crippled" else {"dd": 1} if down == "dead" else {}),
                         **({"mn": 1} if is_player and self._in_menu(pawn) else {}),

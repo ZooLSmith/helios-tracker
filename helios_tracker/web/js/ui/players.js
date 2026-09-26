@@ -29,7 +29,7 @@ export function renderPlayers() {
     // shield, health and XP (the level) together, under the state overlay (crippled / dead /
     // respawning / in a menu: the word over all of them); driving: shield + health on one row, the
     // vehicle's health under them
-    `<div class="vitals"><div class="shhp">${vital("sh")}${vital("hp")}</div>${vital("ox")}<div class="vhbo">${vital("vh")}${vital("bo")}</div>${vital("xp")}` +
+    `<div class="vitals"><div class="shhp">${vital("sh")}${vital("hp")}</div><div class="oxrow">${vital("ox")}<span class="oxstate"></span></div><div class="vhbo">${vital("vh")}${vital("bo")}</div>${vital("xp")}` +
     `<div class="ffyl">${esc(t("vital.ffyl"))}</div></div>` +
     `</div>`).join("");
   for (const row of box.querySelectorAll(".pentry")) row.onclick = () => openInspector(row.dataset.id);
@@ -111,6 +111,8 @@ export function updatePlayerVitals(now = performance.now()) {
     set("sh", p && p.s, p && p.sm, driving);
     set("hp", p && p.h, p && p.m, driving, shownHealth, shownMaxHealth);
     set("ox", p && p.ox, p && p.om); // (the Pre-Sequel's Oz meter: a player's oxygen)
+    const oxState = row.querySelector(".oxstate"), oxText = p && p.om > 0 ? t(p.vac ? "oz.inVacuum" : "oz.inAir") : "";
+    if (oxState.textContent !== oxText) { oxState.textContent = oxText; oxState.classList.toggle("vac", !!(p && p.vac)); }
     set("vh", vp && vp.h, vp && vp.m);
     // its boost (nitro): a quarter of the row, the action skill's look, no numbers (the % on hover)
     const bo = vp && vp.bo, boEl = row.querySelector(".vital.bo");

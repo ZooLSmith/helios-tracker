@@ -283,7 +283,10 @@ setGameVariant("");
 variantWords.push(tVariant("group.relic"));
 const vaultCat = objectCategory({ d: "IO_VaultRoy", n: "Vault Roy", c: "WillowInteractiveObject" })
   + "," + objectCategory({ d: "CatchARideTerminal", n: "Catch-A-Ride", c: "WillowVehicleSpawnStationTerminal" })
-  + "," + objectCategory({ d: "InteractiveObj_HyperionAmmo", n: "Ammo", c: "WillowInteractiveObject", lootable: 1, lists: ["AmmoCrateLoot_Hyp"] });
+  + "," + objectCategory({ d: "InteractiveObj_HyperionAmmo", n: "Ammo", c: "WillowInteractiveObject", lootable: 1, lists: ["AmmoCrateLoot_Hyp"] })
+  + "," + objectCategory({ d: "IO_AirDome_Bubble_On", n: "AirDome Bubble On", raw: 1, c: "WillowInteractiveObject", dome: [1687, 0] })
+  + "," + objectCategory({ d: "IO_AirDome_Generator_On", n: "Air Dome Generator", c: "WillowInteractiveObject", dg: 1 })
+  + "," + objectCategory({ d: "IO_OxygenCracks", n: "Oxygen Source", c: "WillowInteractiveObject", o2: 1 });
 // The map's click / hover pick (input.js hitAt): what the pointer is ON wins over a nearer-layer marker merely close by
 // (a chest under the pointer, a pickup 10 px off: the chest); both under it: the layer (an item on its chest: the item);
 // on none: the nearest centre
@@ -718,6 +721,16 @@ def check_helios_tracker() -> None:  # noqa: PLR0915
     assert col.Collector._oxygen(types.SimpleNamespace(OxygenPool=None, PlayerReplicationInfo=types.SimpleNamespace(OxygenPool=oxygen_pool))) \
         == (40.0, 100.0), "a co-op client's view: the replicated pool"
     assert col.Collector._oxygen(types.SimpleNamespace(PlayerReplicationInfo=None)) is None, "BL2: no oxygen"
+    # an air dome's bubble (tools/probe_dome_state.txt): its sphere's extent the radius, bAttached on / off
+    def dome_io(extent: float, attached: bool) -> types.SimpleNamespace:
+        return types.SimpleNamespace(CollisionComponent=types.SimpleNamespace(
+            Bounds=types.SimpleNamespace(BoxExtent=types.SimpleNamespace(X=extent)), bAttached=attached))
+    assert col.Collector._dome(dome_io(1687.2, True)) == [1687, 1] and col.Collector._dome(dome_io(976.0, False)) == [976, 0]
+    assert col.Collector._dome(types.SimpleNamespace(CollisionComponent=None)) is None, "no sphere: no dome"
+    vacuum_state = enum.IntEnum("EVacuumState", ["VS_InAir", "VS_InVacuum"], start=0)
+    assert col.Collector._in_vacuum(types.SimpleNamespace(VacuumComponent=types.SimpleNamespace(State=vacuum_state.VS_InVacuum)))
+    assert not col.Collector._in_vacuum(types.SimpleNamespace(VacuumComponent=types.SimpleNamespace(State=vacuum_state.VS_InAir)))
+    assert not col.Collector._in_vacuum(types.SimpleNamespace(VacuumComponent=None)), "BL2: never in a vacuum"
     # Skills (tools/probe_passives.txt): the manager's running timed skills by player; the action skill
     # running / cooling down (its pool) / ready; timed passive effects; melee cooldown
     from helios_tracker.skills import SkillReader  # noqa: PLC0415
@@ -1001,7 +1014,7 @@ def check_helios_tracker() -> None:  # noqa: PLR0915
         row_h = row_more.pop(0) if row_more and isinstance(row_more[0], (int, float)) else None
         row_extra = row_more[0] if row_more else {}
         assert len(row_more) <= 1 and isinstance(row_extra, dict), ("a state row", row)
-        assert set(row_extra) <= {"r", "s", "ox", "rs", "dn", "dd", "mn", "ct", "bo", "dv", "ak", "ps", "mk"}, ("only what moves", row)
+        assert set(row_extra) <= {"r", "s", "ox", "vac", "rs", "dn", "dd", "mn", "ct", "bo", "dv", "ak", "ps", "mk"}, ("only what moves", row)
         assert row_h != info.get("m") and row_extra.get("s", -1) != info.get("sm"), ("full: left out", row, info)
         return {**info, **row_extra, "i": row_id, "x": row_x, "y": row_y, "z": row_z,
                 **({"h": info["m"] if row_h is None else row_h} if info.get("m") else {}),
@@ -1927,7 +1940,7 @@ def check_helios_tracker() -> None:  # noqa: PLR0915
                                                                    {"bg": 100, "map": 0, "panel": 20, "ui": 200, "marker": 50}, "rgba(11, 17, 22, 0.4)"), lk
     assert mis["variantWords"] == ["OZ KITS", "3 moonstones", "WEAPONS", "RELICS"], ("the Pre-Sequel's words", mis["variantWords"])
     assert mis["healthShown"] == "107,107,100,100", ("health rounded down, as the game's HUD; the max the same", mis["healthShown"])
-    assert mis["vaultCat"] == "vaultsymbol,station,container", \
+    assert mis["vaultCat"] == "vaultsymbol,station,container,oxygen,oxygen,oxygen", \
         ("a vault symbol: its own layer; Catch-A-Ride: a station; anything with loot a container (the Pre-Sequel's"
          " Hyperion ammo crate: no container word in its name)", mis["vaultCat"])
     delta_want = json.loads(delta_hub.latest("objs"))

@@ -34,6 +34,10 @@ function layerIcon(l) {
     weaponchest: `<rect x="1.5" y="1.5" width="9" height="9" fill="${c}" ${o}/>`,
     other: `<rect x="3.5" y="3.5" width="5" height="5" fill="${c}" ${o}/>`,
     vaultsymbol: `<circle cx="6" cy="6" r="4" fill="none" stroke="${c}" stroke-width="2"/><circle cx="6" cy="6" r="1.4" fill="${c}"/>`,
+    // an oxygen source: the map's diamond with a white "O2"
+    oxygen: `<polygon points="6,0.2 11.8,6 6,11.8 0.2,6" fill="${c}" ${o}/><text x="5.2" y="6.4" text-anchor="middle" ` +
+      `dominant-baseline="middle" font-size="5.8" font-weight="700" font-family="'Segoe UI', system-ui, sans-serif" fill="#fff">O` +
+      `<tspan font-size="3.8" dy="1.3">2</tspan></text>`,
     looted: `<rect x="3.5" y="3.5" width="5" height="5" fill="${c}" opacity=".6" ${o}/>`,
   }[l.id] || `<rect x="2.5" y="2.5" width="7" height="7" fill="${c}" ${o}/>`; // containers, vendors, stations
   return `<svg width="12" height="12" viewBox="0 0 12 12" aria-hidden="true">${shape}</svg>`;
