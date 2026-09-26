@@ -565,6 +565,22 @@ Southern Shelf's `_P` alone: 404 `StaticMesh`, 4131 `StaticMeshComponent`, 11 `T
 - Health on the game's text: StatusMenuExGFxMovie.SetCondensedHealthWidget = `FFloor(GetHealth()) $ " / " $
   FCeil(GetMaxHealth())` - the only script rounding health (both games); the HUD's UpdateHealth / UpdateShield native.
 
+## Objects with health, explosives (offline packages + the page's data, the Pre-Sequel, 2026-09-26)
+
+- **Health**: WillowInteractiveObject.Health (float) / MaxHealth (an int attribute, MaxHealthBaseValue), bHasBeenKilled;
+  whether it takes damage: its InteractiveObjectDefinition's bCanTakeDirectDamage / bCanTakeRadiusDamage (bCanBeKilled,
+  bDestroyWhenKilled...) - both games. Aiming at one shows a health bar like an enemy's (IIDamageable / IITargetable).
+  An exploded barrel stays (its wreck, another model): bHasBeenKilled / health 0 - the page leaves it out ("kd").
+- **What explodes**: its definition's behaviours hold a Behavior_Explode (BehaviorProviderDefinition.BehaviorSequences[]
+  .BehaviorData2[].Behavior; the Pre-Sequel's barrels: bBarrelSource, DamageFormula / DamageRadiusFormula,
+  Definition an ExplosionDefinition - its DamageTypeDef the element). The air dome generator: health, no behaviours.
+- **The game's typo**: its DamageType enum spells DAMAGE_TYPE_Incindiary (both games), its text the key Incendiary
+  (WillowMenu.int [DamageTypes]) and its card frame "fire" - every other element's frame is its enum's name in lower
+  case. inspector.py _ENUM_TEXT_KEYS / _ENUM_FRAMES correct it (the user's call); a frame learned from a weapon's
+  ElementalFrame goes first (remembered: .cache/element_frames.json). The card's element sprite isn't in the enum's
+  order (ice, shock, fire, corrosive, explosive, amp, none): no index to go by. Before the fix fire weapons had no
+  element name on the page either.
+
 ## Backlog
 
 - **Mission log cost** (user, 2026-09-23: 20-40 ms often) - (1) and (3) DONE, to measure in game; (2) if still needed:
@@ -663,6 +679,13 @@ Southern Shelf's `_P` alone: 404 `StaticMesh`, 4131 `StaticMeshComponent`, 11 `T
   on both (not sent to clients): the host's test (7 + no longer usable) never fired. A client: the
   state alone (`_is_looted(io, client)`; `_client` from the NetMode at each objects scan). Seen
   working in game (user: containers and all their kinds right, as a client).
+- **A container's opened state is a bitmask** (tools/probe_prelooted.py, the Pre-Sequel's Moonsurface, 2026-09-26 - the
+  user: looted containers "Not looted yet" again after leaving and coming back, some spawned looted):
+  `SimpleAnimState` = one bit per entry of the object's `SimpleAnimInfo[]` ({Tree, AnimName, Nodes} - here Open,
+  Open_Vacuum, Opened(_Idle), Closed(_Idle)): closed 8 (Closed), just opened 14 (Open_Vacuum + Opened + Closed),
+  looted then the level reloaded 12 (Opened + Closed), spawned looted 4 (Opened alone); BL2's 7 opened / 4 closed fit it
+  if its lists are Open, Opened, Closed (not read - to check in BL2). Looted = the "Opened..." animation's bit set (+ not usable, the host) -
+  collector.py `_is_looted`; the state 7 alone only when there's no "Opened" animation.
 - **Objects shown as "Interactive Object ?"** (user, 2026-09-23): a record built before the object had
   its `InteractiveObjectDefinition` (it arrives after the object, on a client at least): made-up
   class name, "Other", not a container. Such records are built again every second until the

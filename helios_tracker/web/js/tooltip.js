@@ -69,7 +69,11 @@ function renderTooltip(mePos, f) {
   const card = gear ? itemById(it.it) : null;
   // (its maker at the bottom - its logo, else its name there; its element's icon beside it, else its name as a line)
   const cardIcon = (kind, key) => (card && S.assets.cards && /^[A-Za-z0-9_]+$/.test(key || "") && iconOk(`/cardicon/${kind}/${key}.png`) ? key : "");
-  const brandKey = cardIcon("manufacturer", card?.mf), elementKey = cardIcon("element", card?.el);
+  const brandKey = cardIcon("manufacturer", card?.mf);
+  // its element's icon: gear's (its card), or an object's that explodes (a barrel: its explosion's - collector.py)
+  const elementSrc = card || (it.el ? it : null);
+  const elementKey = elementSrc && S.assets.cards && /^[A-Za-z0-9_]+$/.test(elementSrc.el || "") &&
+    iconOk(`/cardicon/element/${elementSrc.el}.png`) ? elementSrc.el : "";
   const kindHtml = card ? esc([rarityName(it.q), card.type || t("kind." + card.k, null, card.k)].filter(Boolean).join(" · "))
     : best.kind === "loot" ? (gear ? esc(rarityName(it.q)) + " · " : "") + classHtml(it.c || "Pickup")
     : best.kind === "other" ? classHtml(it.c)
@@ -93,6 +97,7 @@ function renderTooltip(mePos, f) {
   if (best.kind === "loot" && !gear && it.am) lines.push(`<span class="tl">${esc(pickupAmount(it))}</span>`);
   if (it.sm > 0) lines.push(`<span class="tl">${esc(t("tip.shield", { s: Math.round(it.s), m: Math.round(it.sm) }))}</span>`);
   if (it.m > 0) lines.push(`<span class="tl">${esc(t("tip.health", { h: shownHealth(it.h), m: shownMaxHealth(it.m) }))}</span>`);
+  if (!card && it.xp && it.eln && !elementKey) lines.push(`<span class="tl">${esc(it.eln)}</span>`); // (an exploding object: its element's name - no icon)
   if (mePos && it !== trackedPawn()) { // not the tracked player itself
     const dist = Math.hypot(pos.x - mePos.x, pos.y - mePos.y, pos.z - mePos.z) / UU_PER_METER;
     const dz = (pos.z - mePos.z) / UU_PER_METER;

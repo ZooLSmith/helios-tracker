@@ -16,8 +16,10 @@ is reported (as a reason code the page translates), not guessed. Stats are sent 
   has every player's controller), never the others' on a client.
 """
 
+import json
 import math
 import re
+from pathlib import Path
 from typing import Any
 
 import unrealsdk
@@ -309,6 +311,8 @@ def _item(inv: Any, equipped: bool, ctrl: Any = None) -> dict[str, Any]:
         # (the hit markers' colour, never on a card: the fallback)
         damage_type = next(iter(try_(lambda: list(inv.InstantHitDamageTypeDefinitions), []) or []), None)
         colour = try_(lambda: damage_type.HUDDamageColor) if damage_type is not None else None
+        if damage_type is not None and (enum := _enum_name(try_(lambda: damage_type.DamageType, ""))):
+            learn_frame(enum, item["el"])  # (its card frame, the game's: for the barrels' element icons)
         if damage_type is not None and (name := _element_name(damage_type, ctrl or get_pc())):
             item["eln"] = name  # the game's name for it ("shock": its localization)
         if colour is not None:
@@ -521,6 +525,94 @@ _zippy: dict[tuple[str, int], str] = {}  # (item class, definition address) -> i
 _element_names: dict[str, str] = {}  # damage type key ("Shock") -> the game's name for it, in its language
 
 
+# A damage type's item card element frame (DamageType enum name -> "shock", "fire"...), learned from the weapons read
+# (their ElementalFrame next to their damage type): the frames are the enum's names in lower case but Incendiary's
+# ("fire" - notes.md; the card's sprite isn't in the enum's order: no index to go by) - not written down here, seen on
+# the game's own items, and remembered (.cache/element_frames.json: once a fire weapon's been seen, in any session).
+# Until one is seen: the enum's name.
+FRAMES_FILE = Path(__file__).with_name(".cache") / "element_frames.json"
+
+
+def _load_frames() -> dict[str, str]:
+    try:
+        data = json.loads(FRAMES_FILE.read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return {}
+    return {str(k): str(v) for k, v in data.items()} if isinstance(data, dict) else {}
+
+
+_element_frames: dict[str, str] = _load_frames()
+
+
+def learn_frame(enum: str, frame: str) -> None:
+    """A weapon's damage type next to its card frame: kept, and saved when it's new."""
+    if not enum or not frame or _element_frames.get(enum) == frame:
+        return
+    _element_frames[enum] = frame
+    try:
+        FRAMES_FILE.parent.mkdir(parents=True, exist_ok=True)
+        FRAMES_FILE.write_text(json.dumps(_element_frames, sort_keys=True), encoding="utf-8")
+    except OSError as ex:
+        log_error("element frames", ex)
+
+
+def element_frame(enum: str) -> str:
+    """A damage type's card frame: learned, else the enum's name in lower case ("" for none). The one place a damage
+    type becomes its icon's frame (element_of, the collector's update of an object's "el"): another source - another
+    enum, a mapping found in the game's data - replaces this function's body, nothing else."""
+    frame = _element_frames.get(enum) or _ENUM_FRAMES.get(enum) or enum.removeprefix("DAMAGE_TYPE_").lower()
+    return "" if frame in ("", "none", "normal", "unknown") else frame
+_explosions: dict[int, dict[str, Any]] = {}  # object definition address -> its explosion's element ({} none), static
+
+
+def element_of(damage_type: Any, ctrl: Any = None) -> dict[str, str]:
+    """A damage type's element for the page, as an item's: {"el": its card icon's frame, "eln": the game's name for it,
+    "ecol": its HUDDamageColor} - those it has (a plain damage type: none)."""
+    enum = _enum_name(try_(lambda: damage_type.DamageType, ""))
+    out: dict[str, str] = {}
+    if frame := element_frame(enum):
+        out["el"] = frame
+        out["et"] = enum  # (its damage type: the collector updates "el" once its frame's learned)
+    if name := _element_name(damage_type, ctrl or get_pc()):
+        out["eln"] = name
+    colour = try_(lambda: damage_type.HUDDamageColor)
+    rgb = tuple(try_(lambda c=c: int(getattr(colour, c)), 0) for c in ("R", "G", "B")) if colour is not None else ()
+    if any(rgb):
+        out["ecol"] = "#%02x%02x%02x" % rgb
+    return out
+
+
+def explosion_info(definition: Any, ctrl: Any = None) -> dict[str, Any]:
+    """An interactive object that explodes (a barrel): its definition's behaviours hold a Behavior_Explode
+    (BehaviorProviderDefinition.BehaviorSequences[].BehaviorData2[].Behavior - the Pre-Sequel's barrels: bBarrelSource;
+    the air dome generator, with health too: no behaviours) -> {"xp": 1, its explosion's element (element_of:
+    Behavior_Explode.Definition.DamageTypeDef)}, {} if it doesn't. Per definition, once (static data)."""
+    key = definition._get_address()
+    if key not in _explosions:
+        found: dict[str, Any] = {}
+        for seq in try_(lambda: list(definition.BehaviorProviderDefinition.BehaviorSequences), []) or []:
+            for data in try_(lambda s=seq: list(s.BehaviorData2), []) or []:
+                behavior = try_(lambda d=data: d.Behavior)
+                if behavior is not None and try_(lambda b=behavior: str(b.Class.Name), "") == "Behavior_Explode":
+                    damage_type = try_(lambda b=behavior: b.Definition.DamageTypeDef)
+                    found = {"xp": 1, **(element_of(damage_type, ctrl) if damage_type is not None else {})}
+                    break
+            if found:
+                break
+        _explosions[key] = found
+    return _explosions[key]
+
+
+# The game's own misspelling: its DamageType enum has DAMAGE_TYPE_Incindiary (both games' WillowGame.upk), its text
+# the key Incendiary (WillowMenu.int [DamageTypes]) - never matched, fire weapons and barrels had no element name. The
+# one correction, the user's call (not a name table: the text still comes from the game).
+_ENUM_TEXT_KEYS = {"Incindiary": "Incendiary"}
+# ...and its card frame: every element's is its enum's name in lower case (ice, shock, corrosive...) but that one's,
+# "fire" (seen on the game's fire weapons: their ElementalFrame) - the same correction, so a fire barrel has its icon
+# before a fire weapon's been read (the user's call). A frame learned from the game's items still goes first.
+_ENUM_FRAMES = {"DAMAGE_TYPE_Incindiary": "fire"}
+
+
 def _element_name(damage_type: Any, ctrl: Any) -> str:
     """An element's name as the game writes it, in its language: WillowMenu.int's [DamageTypes] section
     (Incendiary=incendiary, Shock=shock, Corrosive=corrosive, Explosive=explosive, Amp=slag - lower case: the game
@@ -528,6 +620,7 @@ def _element_name(damage_type: Any, ctrl: Any) -> str:
     DAMAGE_TYPE_ prefix (DAMAGE_TYPE_Shock -> Shock). Object.Localize(section, key, package): a lookup of the
     loaded localization, called once per element (cached). "" if it has none (UE3's "?INT?...?" = missing)."""
     key = _enum_name(try_(lambda: damage_type.DamageType, "")).removeprefix("DAMAGE_TYPE_")
+    key = _ENUM_TEXT_KEYS.get(key, key)
     if not key:
         return ""
     if key not in _element_names:

@@ -6,7 +6,7 @@ import { FLOOR_UU, LAYERS, LAYER_COLOR, chestTier, isGear, lootLayer, nameText, 
 import { look, withAlpha } from "./look.js";
 import { missionItemWanted } from "./missions.js";
 import { settings } from "./settings.js";
-import { COLORS, areaName, arrow, bang, brackets, coin, diamond, dot, label, leader, menuBadge, oxygenMark, respawnRing, ring, setMarkerScale, square, triangle, typeIcon,
+import { COLORS, areaName, arrow, bang, brackets, burst, coin, diamond, dot, label, leader, menuBadge, oxygenMark, respawnRing, ring, setMarkerScale, square, triangle, typeIcon,
   vitalBars } from "./shapes.js";
 import { S, findDetail, findPlayer, frame, pawnPos, trackedPawn } from "./state.js";
 import { tooltip } from "./tooltip.js";
@@ -258,7 +258,7 @@ export function draw() {
   }
   ctx.globalAlpha = 1;
   for (const o of S.objects) {
-    if (offMap(o.z)) continue;
+    if (offMap(o.z) || o.kd) continue; // (killed: an exploded barrel's wreck - collector.py _killed)
     const st = style(o.cat, o);
     if (!st) continue;
     const [sx, sy] = place(o.x, o.y, o.z);
@@ -268,15 +268,17 @@ export function draw() {
     stem(o.x, o.y, sx, sy, LAYER_COLOR[o.cat]);
     // Containers (looted ones too, just dimmed): chests biggest, others by how many items they spawn
     const tier = chestTier(o);
-    const size = st.k * (o.cat === "other" ? 2.5 : o.cat === "oxygen" ? 9 : tier === 2 ? 7 : tier === 1 ? 5.5 : o.slots ? 2.5 + Math.min(o.slots, 4) * 0.6 : 3.5);
+    const size = st.k * (o.cat === "other" ? 2.5 : o.cat === "oxygen" ? 9 : o.cat === "explosive" ? 7.5 : tier === 2 ? 7 : tier === 1 ? 5.5 : o.slots ? 2.5 + Math.min(o.slots, 4) * 0.6 : 3.5);
     if (o.cat === "oxygen") oxygenMark(sx, sy, LAYER_COLOR[o.cat], st.k); // (a generator, a fissure: a diamond, "O2")
+    else if (o.cat === "explosive") burst(sx, sy, o.ecol || LAYER_COLOR[o.cat], st.k); // (a burst in its element's colour: the game's)
     else if (o.cat === "vaultsymbol") { // a ring and a dot: not a container (squares)
       ctx.beginPath(); ctx.arc(sx, sy, 4.5 * st.k, 0, Math.PI * 2);
       ctx.lineWidth = 2.5 * st.k; ctx.strokeStyle = COLORS.outline; ctx.stroke();
       ctx.lineWidth = 1.6 * st.k; ctx.strokeStyle = LAYER_COLOR[o.cat]; ctx.stroke();
       dot(sx, sy, 1.6 * st.k, LAYER_COLOR[o.cat]);
     } else square(sx, sy, size, LAYER_COLOR[o.cat]);
-    if (st.names) label(sx, sy, nameText(o), LAYER_COLOR[o.cat], o.raw, st.ns);
+    if (o.m > 0 && o.h < o.m) vitalBars(sx, sy, o, st.k); // (an object with health, hurt: its bar, as a pawn's)
+    if (st.names) label(sx, sy, nameText(o), o.cat === "explosive" && o.ecol ? o.ecol : LAYER_COLOR[o.cat], o.raw, st.ns);
     hits.push({ sx, sy, r: size, kind: o.cat, item: o });
   }
   // quest markers: point objectives, quest givers; areas are hit-tested at their centre too. A quest

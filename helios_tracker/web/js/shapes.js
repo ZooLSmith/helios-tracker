@@ -62,6 +62,20 @@ export function coin(x, y, fill, k = 1) { // cash: a disc with a dark "$" (the "
   ctx.restore();
 }
 
+export function burst(x, y, fill, k = 1) { // what explodes (a barrel): a 6-spike burst in its element's colour
+  const outer = 7.5 * k, inner = 3.8 * k;
+  ctx.save();
+  ctx.beginPath();
+  for (let i = 0; i < 12; i++) {
+    const r = i % 2 ? inner : outer, a = -Math.PI / 2 + i * Math.PI / 6;
+    const px = x + r * Math.cos(a), py = y + r * Math.sin(a);
+    if (i) ctx.lineTo(px, py); else ctx.moveTo(px, py);
+  }
+  ctx.closePath();
+  ctx.fillStyle = fill; ctx.fill(); ctx.lineWidth = 1.2; ctx.lineJoin = "round"; ctx.strokeStyle = COLORS.ink; ctx.stroke();
+  ctx.restore();
+}
+
 export function oxygenMark(x, y, fill, k = 1) { // an oxygen source (the Pre-Sequel's): a diamond with a white "O2"
   const r = 9 * k;
   ctx.save();

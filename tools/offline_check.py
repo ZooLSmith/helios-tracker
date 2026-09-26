@@ -1696,6 +1696,48 @@ def check_helios_tracker() -> None:  # noqa: PLR0915
     accuracy_pres.bValueRemappingEnabled = False
     assert inspector._accuracy(None, 4.0, 4.0) is None, "no remapping: no accuracy"
     inspector._accuracy_pres.clear()
+    # What explodes (a barrel): its definition's behaviours hold a Behavior_Explode, its element its explosion's damage type
+    # (element_of); the frame: learned from a weapon's ElementalFrame ("fire" for Incendiary), else the enum's name
+    barrel_damage = enum.IntEnum("EDamageType", ["DAMAGE_TYPE_Normal", "DAMAGE_TYPE_Incindiary", "DAMAGE_TYPE_Ice"], start=0)  # (the game's spelling)
+    barrel_ctrl = ns(Localize=lambda section, key, package: {"Ice": "cryo", "Incendiary": "incendiary"}.get(key, "?INT?"))
+    def barrel_def(addr: int, damage) -> types.SimpleNamespace:  # noqa: ANN001
+        explode = ns(Class=ns(Name="Behavior_Explode"), Definition=ns(DamageTypeDef=ns(DamageType=damage,
+                     HUDDamageColor=ns(R=90, G=200, B=255))))
+        return ns(_get_address=lambda: addr, BehaviorProviderDefinition=ns(BehaviorSequences=[
+            ns(BehaviorData2=[ns(Behavior=ns(Class=ns(Name="Behavior_Destroy"))), ns(Behavior=explode)])]))
+    cryo_barrel = inspector.explosion_info(barrel_def(0xB01, barrel_damage.DAMAGE_TYPE_Ice), barrel_ctrl)
+    assert cryo_barrel == {"xp": 1, "el": "ice", "et": "DAMAGE_TYPE_Ice", "eln": "cryo", "ecol": "#5ac8ff"}, cryo_barrel
+    assert inspector.explosion_info(ns(_get_address=lambda: 0xB02, BehaviorProviderDefinition=None), barrel_ctrl) == {}, \
+        "no behaviours (the air dome generator): doesn't explode"
+    fire_element = inspector.element_of(ns(DamageType=barrel_damage.DAMAGE_TYPE_Incindiary), barrel_ctrl)
+    assert fire_element.get("eln") == "incendiary", ("the game's typo corrected: Incindiary -> its text's Incendiary", fire_element)
+    fire_before = fire_element.get("el")
+    frames_file = inspector.FRAMES_FILE
+    frames_tmp = tempfile.TemporaryDirectory()
+    inspector.FRAMES_FILE = Path(frames_tmp.name) / "element_frames.json"  # (not the repo's .cache)
+    inspector.learn_frame("DAMAGE_TYPE_Incindiary", "fire")  # (as _item learns it from a fire weapon)
+    assert json.loads(inspector.FRAMES_FILE.read_text(encoding="utf-8")) == {"DAMAGE_TYPE_Incindiary": "fire"}, "remembered"
+    inspector.FRAMES_FILE = frames_file
+    frames_tmp.cleanup()
+    fire_after = inspector.element_of(ns(DamageType=barrel_damage.DAMAGE_TYPE_Incindiary), barrel_ctrl).get("el")
+    assert (fire_before, fire_after) == ("fire", "fire"), ("the game's typo's frame, then the one learned from its items", fire_before, fire_after)
+    inspector._element_frames.clear()
+    # an object's health: when its definition can take damage and its max is above 0
+    hurt_barrel = ns(InteractiveObjectDefinition=ns(bCanTakeDirectDamage=True, bCanTakeRadiusDamage=True), MaxHealth=80.0, Health=35.5)
+    assert col.Collector._health(hurt_barrel) == (35.5, 80), col.Collector._health(hurt_barrel)
+    assert col.Collector._health(ns(InteractiveObjectDefinition=ns(bCanTakeDirectDamage=False, bCanTakeRadiusDamage=False),
+                                    MaxHealth=80.0, Health=80.0)) is None, "can't take damage: no health"
+    # killed (an exploded barrel stays, its wreck at 0 health): bHasBeenKilled, or the health down to 0
+    assert col.Collector._killed(ns(bHasBeenKilled=True), {"h": 40, "m": 80})
+    assert col.Collector._killed(ns(bHasBeenKilled=False), {"h": 0, "m": 80}), "0 health: killed"
+    assert not col.Collector._killed(ns(bHasBeenKilled=False), {"h": 35.5, "m": 80})
+    assert not col.Collector._killed(ns(bHasBeenKilled=False), {}), "no health: never killed"
+    # a container's opened state: a bitmask over its animations, the "Opened" one's bit (tools/probe_prelooted.txt)
+    locker_anims = [ns(AnimName=n) for n in ("Open", "Open_Vacuum", "Opened", "Closed")]
+    locker_looted = {state: col.Collector._is_looted(ns(SimpleAnimState=state, SimpleAnimInfo=locker_anims, bCanBeUsed=[0, 0]))
+                     for state in (8, 14, 12, 4)}
+    assert locker_looted == {8: False, 14: True, 12: True, 4: True}, ("closed / just opened / reloaded / spawned looted", locker_looted)
+    assert not col.Collector._is_looted(ns(SimpleAnimState=14, SimpleAnimInfo=locker_anims, bCanBeUsed=[1, 0])), "still usable"
     print(f"  inspector: {player['n']} Lv{player['lvl']} {player['cls']}, {len(player['equipped'])} equipped,"
           f" {len(player['backpack'])} in backpack, skills {[b['n'] for b in player['skills']]};"
           f" gun '{gun['type']}' by '{gun['maker']}'; object '{obj['n']}'")

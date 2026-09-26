@@ -34,6 +34,8 @@ function layerIcon(l) {
     weaponchest: `<rect x="1.5" y="1.5" width="9" height="9" fill="${c}" ${o}/>`,
     other: `<rect x="3.5" y="3.5" width="5" height="5" fill="${c}" ${o}/>`,
     vaultsymbol: `<circle cx="6" cy="6" r="4" fill="none" stroke="${c}" stroke-width="2"/><circle cx="6" cy="6" r="1.4" fill="${c}"/>`,
+    // what explodes: the map's burst
+    explosive: `<polygon points="6.00,0.40 7.40,3.58 10.85,3.20 8.80,6.00 10.85,8.80 7.40,8.42 6.00,11.60 4.60,8.42 1.15,8.80 3.20,6.00 1.15,3.20 4.60,3.58" fill="${c}" ${o} stroke-linejoin="round"/>`,
     // an oxygen source: the map's diamond with a white "O2"
     oxygen: `<polygon points="6,0.2 11.8,6 6,11.8 0.2,6" fill="${c}" ${o}/><text x="5.2" y="6.4" text-anchor="middle" ` +
       `dominant-baseline="middle" font-size="5.8" font-weight="700" font-family="'Segoe UI', system-ui, sans-serif" fill="#fff">O` +

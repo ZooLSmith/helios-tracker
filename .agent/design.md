@@ -109,12 +109,6 @@ others'); then prices out of reach dimmed / red, a "you have $x" line in the dra
 (affordable only). Also: the price per ammo unit / per full refill (the game sells ammo by the pack), the item of the
 day's markup vs a normal item. To go with the look rework.
 
-## Barrels (a layer, with their health)
-
-**The wish** (the user, 2026-09-26): exploding barrels on a layer of their own, showing their health (in game, aiming
-at one shows its name and a health bar, like an enemy's). They're named already ("Cryo Barrel"... the game's, at run
-time); their health: to find (an interactive object's - the generator's definition has a MaxHealth).
-
 ## A 3D map (an optional view)
 
 **Parked** (2026-09-26, the user: "looks grim"): the floors and walls built from the level's collision - extractor,

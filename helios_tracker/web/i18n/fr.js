@@ -54,6 +54,8 @@ export default {
   "layer.pickup.health": "Santé",
   "layer.pickup.oxygen": "Oxygène",
   "layer.oxygen": "Sources d'oxygène",
+  "layer.explosive": "Explosifs",
+  "detail.element": "Élément",
   "oz.inAir": "Atmosphère",
   "oz.inVacuum": "Dans le vide", // (the game's words: "dans le vide", "dans une atmosphère" - "Vide" alone read "empty")
   "layer.pickup.mission": "Objets de mission",
@@ -132,6 +134,8 @@ export default {
   "tip.vaultsymbol": "Symbole de la Crypte (Culte de la Crypte)",
   "tip.station": "Station",
   "tip.looted": "Pillé",
+  "tip.explosive": "Explosif",
+  "tip.oxygen": "Source d'oxygène",
   "tip.shield": "Bouclier {s} / {m}",
   "tip.contents": "Peut contenir :",
   "tip.slots": "Jusqu'à {n} objets à l'ouverture",

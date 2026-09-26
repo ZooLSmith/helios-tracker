@@ -25,7 +25,7 @@ from mods_base import ENGINE, get_pc
 from unrealsdk.unreal import WeakPointer
 
 from .amounts import pickup_amount
-from .inspector import ground_item, is_gear, read_players
+from .inspector import element_frame, explosion_info, ground_item, is_gear, read_players
 from . import lootodds
 from .missions import MissionLog, mission_id
 from .missions import objective_index as _mission_index
@@ -390,6 +390,7 @@ class Collector:
         self._next_incomplete = 0.0
         self._unlooted: dict[tuple[int, str], WeakPointer] = {}  # lootable containers not opened yet
         self._domes: dict[tuple[int, str], WeakPointer] = {}  # the Pre-Sequel's air dome bubbles: their on / off re-read
+        self._damageable: dict[tuple[int, str], WeakPointer] = {}  # objects with health (barrels...): re-read
         self._next_looted = 0.0
         # The level's discovery areas (static records, found by the objects scan) and the areas payload
         self._areas: list[dict[str, Any]] = []
@@ -473,12 +474,14 @@ class Collector:
         if now >= self._next_shops and not heavy:
             self._next_shops = now + SHOPS_EVERY
             run("shops", self._publish_shops, now)
-        if now >= self._next_looted and (self._unlooted or self._domes):
+        if now >= self._next_looted and (self._unlooted or self._domes or self._damageable):
             self._next_looted = now + LOOTED_EVERY
             if self._unlooted:
                 run("looted", self._check_looted)
             if self._domes:
                 run("domes", self._check_domes)
+            if self._damageable:
+                run("object health", self._check_health)
 
     def _check_level(self) -> None:
         wi = ENGINE.GetCurrentWorldInfo()
@@ -814,6 +817,8 @@ class Collector:
                         self._unlooted.setdefault(key, WeakPointer(io))
                     if "dome" in record:
                         self._domes.setdefault(key, WeakPointer(io))
+                    if "m" in record:
+                        self._damageable.setdefault(key, WeakPointer(io))
                     if odds_changed and "odds" in record:  # (in place: cached per type, a few to work out)
                         balance = try_(lambda io=io: io.BalanceDefinitionState.BalanceDefinition)
                         record["odds"] = try_(lambda io=io, b=balance: lootodds.container_odds(io, b)) or record["odds"]
@@ -890,6 +895,8 @@ class Collector:
                         self._unlooted.setdefault(key, WeakPointer(io))
                     if "dome" in record:
                         self._domes.setdefault(key, WeakPointer(io))
+                    if "m" in record:
+                        self._damageable.setdefault(key, WeakPointer(io))
             except Exception as ex:  # noqa: BLE001
                 log_error("interactive object", ex)
 
@@ -932,6 +939,8 @@ class Collector:
                 self._unlooted[key] = WeakPointer(io)
             if "dome" in record:
                 self._domes[key] = WeakPointer(io)
+            if "m" in record:
+                self._damageable[key] = WeakPointer(io)
 
     def _note_incomplete(self, key: tuple[int, str], io: Any) -> None:
         """A record built before the object had its definition (it arrives a moment after the object
@@ -1011,6 +1020,49 @@ class Collector:
         if changed:
             self._publish_objects()
 
+    def _check_health(self) -> None:
+        """Objects with health (barrels...): their health now ("h" - hurt, it goes down), and killed ("kd": an exploded
+        barrel stays, its wreck at 0 health - the page leaves it out)."""
+        changed = False
+        for key, pointer in list(self._damageable.items()):
+            io, record = pointer(), self._object_records.get(key)
+            if io is None or record is None:
+                self._damageable.pop(key, None)
+                continue
+            if (health := Collector._health(io)) is not None and health[0] != record.get("h"):
+                record["h"] = health[0]  # in place: the published list holds this dict
+                changed = True
+            # its element's icon: the frame learned since (a fire weapon seen: "fire" for Incindiary - inspector.py)
+            if (enum := record.get("et")) and (frame := element_frame(enum)) and frame != record.get("el"):
+                record["el"] = frame
+                changed = True
+            if not record.get("kd") and Collector._killed(io, record):
+                record["kd"] = 1
+                self._damageable.pop(key, None)  # (nothing more to follow)
+                changed = True
+        if changed:
+            self._publish_objects()
+
+    @staticmethod
+    def _killed(io: Any, record: dict[str, Any]) -> bool:
+        """An object with health killed: its bHasBeenKilled (WillowInteractiveObject's), or its health down to 0 (an
+        exploded barrel: its object stays - its wreck, another model - at 0)."""
+        return bool(try_(lambda: io.bHasBeenKilled, False)) or ("m" in record and record.get("h", 1) <= 0)
+
+    @staticmethod
+    def _health(io: Any) -> tuple[float, float] | None:
+        """An interactive object's (health, max) for the page (_vital / _vital_max) - its Health / MaxHealth (both
+        games: WillowInteractiveObject's), when its definition can take damage (bCanTakeDirectDamage /
+        bCanTakeRadiusDamage) and its max is above 0; else None."""
+        definition = try_(lambda: io.InteractiveObjectDefinition)
+        if definition is None or not (try_(lambda: bool(definition.bCanTakeDirectDamage), False)
+                                      or try_(lambda: bool(definition.bCanTakeRadiusDamage), False)):
+            return None
+        top = try_(lambda: float(io.MaxHealth), 0.0)
+        if top <= 0:
+            return None
+        return _vital(try_(lambda: float(io.Health), 0.0)), _vital_max(top)
+
     @staticmethod
     def _dome(io: Any) -> list[int] | None:
         """An air dome bubble's (the Pre-Sequel's IO_AirDome_Bubble_*): [its radius (uu), 1 on / 0 off] - its
@@ -1024,11 +1076,16 @@ class Collector:
 
     @staticmethod
     def _is_looted(io: Any, client: bool = False) -> bool:
-        """Opened (verified in game, tools/probe_containers.txt): an opened container's animation
-        state is 7 and it's no longer usable (bCanBeUsed[0] 1 -> 0); unopened ones are 4 / usable.
-        A co-op client (tools/probe_client_containers.txt): the state (replicated) is 7 but bCanBeUsed
-        stays 1 - it isn't sent: the state alone there."""
-        opened = try_(lambda: int(io.SimpleAnimState), 0) == 7
+        """Opened, and no longer usable (bCanBeUsed[0] 1 -> 0). Opened: its SimpleAnimState is a bitmask over its
+        animations (SimpleAnimInfo[].AnimName - tools/probe_prelooted.txt: Open, Open_Vacuum, Opened(_Idle),
+        Closed(_Idle)), the "Opened..." one's bit set: closed 8 (Closed), just opened 14, looted and the level
+        reloaded 12, spawned looted 4 (Opened alone), BL2's 7 - the state 7 alone (the first rule) missed all but the
+        last. Without an "Opened" animation: the state 7. A co-op client (tools/probe_client_containers.txt): the
+        state (replicated) but bCanBeUsed stays 1 - it isn't sent: the state alone there."""
+        state = try_(lambda: int(io.SimpleAnimState), 0)
+        anims = [try_(lambda a=a: str(a.AnimName), "") for a in try_(lambda: list(io.SimpleAnimInfo), []) or []]
+        opened_bits = [n for n, name in enumerate(anims) if name.lower().startswith("opened")]
+        opened = any(state >> n & 1 for n in opened_bits) if opened_bits else state == 7
         return opened and (client or not try_(lambda: io.bCanBeUsed[0], 1))
 
     @staticmethod
@@ -1070,6 +1127,14 @@ class Collector:
             record["dg"] = 1  # its generator (its button switches a dome on - its own state: none that changes)
         elif definition is not None and "OxygenCracks" in str(definition.Name):
             record["o2"] = 1  # an oxygen fissure (IO_OxygenCracks, _Large, _NoMesh: "Oxygen Source" - refills Oz kits)
+        # health (barrels, generators... - "h" / "m", the pawns' names: the page's health lines and bars as theirs), and
+        # whether it explodes (its behaviours: a Behavior_Explode - its element from the explosion's damage type)
+        if (health := Collector._health(io)) is not None:
+            record["h"], record["m"] = health
+            if Collector._killed(io, record):
+                record["kd"] = 1  # (killed already: an exploded barrel's wreck)
+        if definition is not None and (explosion := try_(lambda: explosion_info(definition), {})):
+            record.update(explosion)
         if Collector._lootable(io, balance):
             record["lootable"] = 1
             if try_(lambda: io.bCanBeUsed[0], 0):

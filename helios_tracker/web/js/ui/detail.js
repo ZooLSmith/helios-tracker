@@ -127,6 +127,12 @@ export function renderDetail(resetScroll) {
   if (kind === "loot" && !gear && it.am) rows.push([t("detail.amount"), pickupAmount(it)]); // money / ammo: how much
   if (it.sm > 0) rows.push([t("detail.shield"), `${num(Math.round(it.s))} / ${num(Math.round(it.sm))}`]);
   if (it.m > 0) rows.push([t("detail.health"), `${num(shownHealth(it.h))} / ${num(shownMaxHealth(it.m))}`]);
+  // an object that explodes (a barrel): its element - the item cards' icon, the game's name (collector.py: its explosion's)
+  if (it.xp && (it.el || it.eln)) {
+    const elIcon = it.el && /^[A-Za-z0-9_]+$/.test(it.el) ? `<img class="dpelement" src="/cardicon/element/${it.el}.png" ` +
+      `crossorigin="anonymous" alt="" draggable="false" onerror="this.remove()"> ` : "";
+    rows.push([t("detail.element"), it.eln || "", elIcon + esc(it.eln || "")]);
+  }
   if (mission) {
     // its mission(s): links to them in the mission log (a quest giver can have several: "list" - the ones
     // to hand in marked); a quest giver's: who gives them, a link to their panel
