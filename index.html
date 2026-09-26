@@ -32,6 +32,19 @@
       </div>
     </section>
 
+    <!-- The previews: screenshots of the mod running (assets/img/previews/, WebP), scrolling right to left (site.js
+         initPreviews moves them, a click shows one whole). One figure each: a link to the image around it (its own
+         width and height), its alt a catalog key (index.preview.<name>) - no captions; a tall panel's figure .tall
+         (the strip shows its top). -->
+    <section class="previews" data-i18n-label="index.previews">
+      <div class="reel">
+        <figure><a class="shot" href="assets/img/previews/skills.webp"><img src="assets/img/previews/skills.webp" width="1920" height="1080" loading="lazy" decoding="async" data-i18n-alt="index.preview.skills"></a></figure>
+        <figure class="tall"><a class="shot" href="assets/img/previews/missions.webp"><img src="assets/img/previews/missions.webp" width="404" height="1080" loading="lazy" decoding="async" data-i18n-alt="index.preview.missions"></a></figure>
+        <figure><a class="shot" href="assets/img/previews/vending.webp"><img src="assets/img/previews/vending.webp" width="1920" height="1080" loading="lazy" decoding="async" data-i18n-alt="index.preview.vending"></a></figure>
+        <figure class="tall"><a class="shot" href="assets/img/previews/layers.webp"><img src="assets/img/previews/layers.webp" width="280" height="1080" loading="lazy" decoding="async" data-i18n-alt="index.preview.layers"></a></figure>
+      </div>
+    </section>
+
     <div class="doc wide">
       <h2 id="map" data-i18n="index.map"></h2>
       <p data-i18n="index.mapText"></p>

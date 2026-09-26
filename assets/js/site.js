@@ -572,6 +572,119 @@ function initLiveMaker() {
   });
 }
 
+// ---- the overview's previews: the reel's screenshots twice in a row, the whole sliding left by one set and starting
+// over (site.css .reel) - a seamless loop; its speed by how many there are. The copies: for the eye only ----
+
+function initPreviews() {
+  const reel = document.querySelector(".previews .reel");
+  const shots = reel ? [...reel.querySelectorAll("figure")] : [];
+  if (!shots.length) return;
+  for (const f of shots) {
+    const copy = f.cloneNode(true);
+    copy.setAttribute("aria-hidden", "true");
+    copy.querySelector("img")?.removeAttribute("data-i18n-alt");
+    copy.querySelector("img")?.setAttribute("alt", "");
+    reel.append(copy);
+  }
+  for (const a of reel.querySelectorAll("[aria-hidden] a")) a.tabIndex = -1; // (the copies: not twice in Tab's way)
+  for (const el of reel.querySelectorAll("a, img")) el.draggable = false; // (the reel drags, not the link or image)
+  initReelMotion(reel);
+  // a click: the screenshot whole, in a dialog over the page (a click anywhere on it or around it, or Esc, closes it)
+  const view = document.createElement("dialog");
+  view.className = "shot-view";
+  const img = document.createElement("img");
+  view.append(img);
+  document.body.append(view);
+  view.addEventListener("click", () => view.close());
+  reel.addEventListener("click", (e) => {
+    const a = e.target.closest("a.shot");
+    if (!a) return;
+    e.preventDefault();
+    const shot = a.querySelector("img");
+    img.src = a.href;
+    img.alt = shot.alt;
+    view.classList.toggle("wide", shot.width > shot.height); // (a portrait phone turns a landscape one: site.css)
+    view.showModal();
+  });
+}
+
+// The reel's motion, every frame: a drift to the left (autoplay) and the pointer's drags, both eased - the reel's
+// position (x) follows where it should be (target) by a lerp, the drift's speed eases towards what it should be
+// (none under the pointer, while dragging or with reduced motion; AUTO otherwise), a flick's momentum fades out. One
+// set's width wraps x (the copies after the set: the same picture). A drag past a few pixels is no click.
+const REEL = { AUTO: 38, FOLLOW: 9, SPEED_EASE: 2.2, MOMENTUM_FADE: 3.2, FLICK_MAX: 2600, CLICK_SLOP: 6 }; // (px/s; per s)
+
+function initReelMotion(reel) {
+  const box = reel.parentElement;
+  const still = matchMedia("(prefers-reduced-motion: reduce)");
+  let x = 0, target = 0, speed = 0, momentum = 0, period = 0;
+  let over = false, drag = null, dragged = false, last = 0, frame = 0, visible = true;
+  const measure = () => { period = (reel.scrollWidth + parseFloat(getComputedStyle(reel).columnGap || 0)) / 2; };
+  measure();
+  new ResizeObserver(measure).observe(reel);
+
+  function tick(now) {
+    const dt = Math.min(0.05, last ? (now - last) / 1000 : 0); // (a frame skipped: no jump)
+    last = now;
+    const want = over || drag || still.matches ? 0 : REEL.AUTO;
+    speed += (want - speed) * (1 - Math.exp(-REEL.SPEED_EASE * dt));
+    if (!drag) {
+      target -= (speed + momentum) * dt;
+      momentum *= Math.exp(-REEL.MOMENTUM_FADE * dt);
+    }
+    x += (target - x) * (1 - Math.exp(-REEL.FOLLOW * dt));
+    if (period > 0) { // the loop: one set's width, both moved together (nothing seen jumps)
+      const shift = x < -period ? period : x > 0 ? -period : 0;
+      x += shift; target += shift;
+      if (drag) drag.from += shift;
+    }
+    reel.style.transform = `translate3d(${x.toFixed(2)}px, 0, 0)`;
+    frame = visible ? requestAnimationFrame(tick) : 0;
+  }
+  const run = () => { if (!frame) { last = 0; frame = requestAnimationFrame(tick); } };
+  // off screen: no frames (back when it's seen again)
+  new IntersectionObserver(([e]) => { visible = e.isIntersecting; if (visible) run(); }).observe(box);
+
+  box.addEventListener("pointerenter", (e) => { if (e.pointerType === "mouse") over = true; });
+  box.addEventListener("pointerleave", () => { over = false; });
+  box.addEventListener("focusin", (e) => { if (e.target.matches(":focus-visible")) over = true; }); // (the keyboard's)
+  box.addEventListener("focusout", () => { over = false; });
+  box.addEventListener("pointerdown", (e) => {
+    if (e.button !== 0) return;
+    drag = { id: e.pointerId, start: e.clientX, from: target, lastX: e.clientX, lastT: e.timeStamp, v: 0 };
+    dragged = false;
+    momentum = 0;
+  });
+  box.addEventListener("pointermove", (e) => {
+    if (!drag || e.pointerId !== drag.id) return;
+    const dx = e.clientX - drag.start;
+    if (!dragged && Math.abs(dx) > REEL.CLICK_SLOP) {
+      dragged = true;
+      box.setPointerCapture(e.pointerId);
+      box.classList.add("dragging");
+    }
+    if (!dragged) return;
+    target = drag.from + dx;
+    const dt = (e.timeStamp - drag.lastT) / 1000;
+    if (dt > 0) drag.v = drag.v * 0.6 + ((e.clientX - drag.lastX) / dt) * 0.4; // (the pointer's speed, smoothed)
+    drag.lastX = e.clientX;
+    drag.lastT = e.timeStamp;
+  });
+  const release = (e) => {
+    if (!drag || e.pointerId !== drag.id) return;
+    if (dragged && e.timeStamp - drag.lastT < 80) { // (a flick: thrown; held still first: not)
+      momentum = Math.max(-REEL.FLICK_MAX, Math.min(REEL.FLICK_MAX, -drag.v));
+    }
+    drag = null;
+    box.classList.remove("dragging");
+  };
+  box.addEventListener("pointerup", release);
+  box.addEventListener("pointercancel", release);
+  // a drag's own click (on release): not a click on the screenshot
+  reel.addEventListener("click", (e) => { if (dragged) { e.preventDefault(); e.stopPropagation(); dragged = false; } }, true);
+  run();
+}
+
 // ---- small screens: the page menu (.side) as a drawer, opened by a button at the left of the top bar (CSS shows
 // the button and makes .side a drawer only on small screens, only with JS: html.js) ----
 
@@ -613,6 +726,7 @@ function initScroller() {
 }
 
 initPages();
+initPreviews();
 initScroller();
 initNav();
 initQuiz();

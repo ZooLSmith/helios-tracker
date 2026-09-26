@@ -2,7 +2,7 @@
 // fallback. The pages hold no text: their elements name a key and applyI18n fills them -
 //   data-i18n             the element's content (HTML: the catalogs are ours, with links and <strong> in them);
 //                         an empty string hides it (.i18n-empty: a note only one language needs)
-//   data-i18n-title / -label / -placeholder / -content   the title / aria-label / placeholder / content attribute
+//   data-i18n-title / -label / -placeholder / -content / -alt   the title / aria-label / placeholder / content / alt
 // The language: the visitor's pick (localStorage), "auto" = the first of the browser's that the site has.
 import CATALOG from "../i18n/index.js";
 
@@ -40,7 +40,7 @@ export function t(key, vars) {
   return text;
 }
 
-const ATTRS = [["i18nTitle", "title"], ["i18nLabel", "aria-label"], ["i18nPlaceholder", "placeholder"], ["i18nContent", "content"]];
+const ATTRS = [["i18nTitle", "title"], ["i18nLabel", "aria-label"], ["i18nPlaceholder", "placeholder"], ["i18nContent", "content"], ["i18nAlt", "alt"]];
 
 /** Translates a document (this page, or one the search fetched). */
 export function applyI18n(doc = document) {

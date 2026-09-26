@@ -32,6 +32,11 @@ export default {
   "index.install": "Install it",
   "index.source": "Source on GitHub",
 
+  "index.previews": "Screenshots",
+  "index.preview.skills": "A player's skill tree, and an explosive barrel's health on hover",
+  "index.preview.missions": "Best now: the missions worth doing next",
+  "index.preview.vending": "A vending machine's stock, its item of the day",
+  "index.preview.layers": "The Layers tab: each layer with its own settings",
   "index.map": "What's on the map",
   "index.mapText": "Every kind of marker is a layer you can show, hide or resize.",
   "index.players": "Players",
@@ -76,7 +81,7 @@ export default {
   "index.more.coop": "Co-op",
   "index.more.coopText": "Only one player needs it (<a href=\"install.html#coop\">best on the host</a>).",
   "index.more.language": "Your language",
-  "index.more.languageText": "English or French; game names in the game's language.",
+  "index.more.languageText": "The page in nine languages; game names in the game's language.",
 
   "index.where": "Where to open it",
   "index.where.screen": "A second screen",
@@ -111,7 +116,7 @@ export default {
   "install.h": "Install",
   "install.lead": "You need <span class=\"game\">Borderlands 2</span> or <span class=\"game\">Borderlands: The Pre-Sequel</span> on PC, with the Python SDK. Then it's one file.",
   "install.sdk": "Install the Python SDK",
-  "install.sdkText": "The SDK is the mod manager <span class=\"game\">Borderlands 2</span> and <span class=\"game\">The Pre-Sequel</span> mods run on. Download it from its <a href=\"https://github.com/bl-sdk/willow2-mod-manager/releases\">releases page</a>, which also links to the install instructions. Helios Tracker needs the current SDK (version 3, with the Mods menu in game). Older mods built for the legacy SDK are a different thing.",
+  "install.sdkText": "The SDK is the games' mod manager. Download it from its <a href=\"https://github.com/bl-sdk/willow2-mod-manager/releases\">releases page</a>, which also links to the install instructions. Helios Tracker needs the current one (version 3, with the Mods menu in game).",
   "install.download": "Download the mod",
   "install.downloadText": "Get <code>helios_tracker.sdkmod</code> from the <a href=\"https://github.com/ZooLSmith/helios-tracker/releases\">releases page</a>.",
   "install.copy": "Put it in <code>sdk_mods</code>",
@@ -180,7 +185,7 @@ export default {
 
   "share.overlay": "The Steam overlay",
   "share.overlayText": "Press <kbd>Shift</kbd>+<kbd>Tab</kbd> in game, open the <strong>Web browser</strong> and go to <code>http://localhost:8777/</code>.",
-  "share.overlayZoom": "The overlay's browser has no zoom: use the <strong>Interface</strong> size in the page's Settings instead.",
+  "share.overlayZoom": "The overlay's browser has no zoom: use the <strong>Size</strong> under <strong>Panels</strong> in the page's <strong>Settings</strong> instead.",
 
   "share.obs": "An OBS overlay",
   "share.obsText": "The map in a scene, over your game, with its background see-through. Viewers see it in the stream: nothing to share.",
@@ -189,7 +194,7 @@ export default {
   "share.obs.interact": "Reach the page",
   "share.obs.interactText": "Right-click the source and choose <strong>Interact</strong>.",
   "share.obs.seeThrough": "Make it see-through",
-  "share.obs.seeThroughText": "In the page's <strong>Settings</strong> tab, under <strong>See-through</strong>, lower <strong>Background</strong> to 0 %. The scene now shows through, with only the level's shape and the markers left. <strong>Map</strong> and <strong>Panels</strong> fade the rest.",
+  "share.obs.seeThroughText": "In the page's <strong>Settings</strong> tab, under <strong>Map</strong>, lower <strong>Background</strong> to 0 %. The scene now shows through, with only the level's shape and the markers left. The <strong>Map</strong> slider and the <strong>Opacity</strong> under <strong>Panels</strong> fade the rest.",
   "share.obs.settings": "The page remembers its settings per browser, so the OBS source keeps its own look apart from your normal browser.",
 
   "share.funnel": "Tailscale Funnel",
@@ -258,6 +263,8 @@ export default {
   "trouble.portText": "The map uses port 8777. If another program already has it, the server can't start: change <strong>Port</strong> in the mod's options, and the server restarts at once on the new one. Update your bookmarks and OBS sources to match.",
   "trouble.device": "From another device?",
   "trouble.deviceText": "Check that <strong>Allow LAN Access</strong> is on, the device is on the same network, and the firewall lets the game through: see <a href=\"share.html?path=home\">your local network</a>.",
+  "trouble.translation": "A translation is wrong?",
+  "trouble.translationText": "Wrong, clumsy or missing words, on this site or on the map's page: <a href=\"https://github.com/ZooLSmith/helios-tracker/issues/new\">open an issue</a> with the language, the page and what it should say. Names from the game (items, skills, places) come from the game itself, and the mod's options are in English on purpose.",
   "trouble.help": "Still stuck?",
   "trouble.helpText": "Everything the mod prints also goes to <code>Binaries\\Win32\\Plugins\\unrealsdk.log</code> in the game's folder: its last lines usually say what went wrong.",
 
