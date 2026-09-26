@@ -6,8 +6,9 @@ import { saveSettings, settings } from "./settings.js";
 import { S } from "./state.js";
 import { openDetail } from "./ui/detail.js";
 import { closeInspector, openInspector } from "./ui/inspector.js";
-import { H, W, canvas, fit, resetSpin, screenToMapDelta, spinAt, stopFollow, zoomAt } from "./view.js";
+import { H, W, canvas, cancelSpinBack, fit, resetSpin, screenToMapDelta, spinAt, stopFollow, toMap, zoomAt } from "./view.js";
 
+const FOLLOW_LET_GO = 40; // px a drag goes before it stops following the player (the user: not at the first pixel)
 const TWIST_START = 10; // degrees two fingers must turn before the map turns with them
 
 // The marker under the cursor. First what the pointer is ON (inside a marker): among those, by layer - an item lying on
@@ -50,12 +51,15 @@ export function initInput() {
   let pinch = null;
   let downAt = null;
   let orbit = false; // a right-drag / Shift+drag turns the map (horizontal) and, tilted, tilts it (vertical)
+  let dragFrom = null; // where a one-pointer drag started (Follow on: it lets go of the player only past FOLLOW_LET_GO;
+  // a right-drag: the point it turns / tilts around)
   canvas.addEventListener("contextmenu", (e) => e.preventDefault()); // (the right button orbits)
   canvas.addEventListener("pointerdown", (e) => {
     canvas.setPointerCapture(e.pointerId);
     if (!pointers.size) orbit = e.button === 2 || e.shiftKey;
     downAt = pointers.size || e.button === 2 ? null : { x: e.clientX, y: e.clientY, t: performance.now() };
     pointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
+    dragFrom = pointers.size === 1 ? { x: e.clientX, y: e.clientY } : null;
     canvas.classList.add("dragging");
     if (pointers.size === 2) { // two fingers: pinch zooms, a twist turns the map (past TWIST_START: not by accident)
       const [a, b] = [...pointers.values()];
@@ -81,15 +85,35 @@ export function initInput() {
       return;
     }
     if (pointers.size === 1 && orbit && (cur.x !== prev.x || cur.y !== prev.y)) {
-      const v = settings.view;
-      if (!(v.rotate && v.follow)) v.spin = (v.spin + (cur.x - prev.x) * 0.4) % 360; // (Rotate: the heading turns it)
-      if (v.threeD) v.tilt3d = Math.min(80, Math.max(0, v.tilt3d - (cur.y - prev.y) * 0.3)); // (tilted only)
+      // turned / tilted around where the drag started (that spot stays under the cursor - as a twist's fingers, the
+      // wheel's zoom); following: around the player (Follow places them)
+      const v = settings.view, pivot = dragFrom || cur;
+      const [px, py] = toMap(pivot.x, pivot.y);
+      if (!(v.rotate && v.follow)) { // (Rotate: the heading turns it)
+        cancelSpinBack();
+        const deg = (cur.x - prev.x) * 0.4;
+        v.spin = (v.spin + deg) % 360;
+        S.view.rot += deg * Math.PI / 180; // (now: the frame sets it from the spin again)
+      }
+      if (v.threeD) { // (tilted only)
+        v.tilt3d = Math.min(80, Math.max(0, v.tilt3d - (cur.y - prev.y) * 0.3));
+        S.view.tilt = v.tilt3d * Math.PI / 180;
+      }
+      if (!v.follow) {
+        const [nx, ny] = toMap(pivot.x, pivot.y);
+        S.view.cx += px - nx; S.view.cy += py - ny;
+      }
       saveSettings();
       invalidateNow(); // (the user orbiting: not capped by the Refresh rate)
       return;
     }
     if (pointers.size === 1 && (cur.x !== prev.x || cur.y !== prev.y)) {
-      stopFollow();
+      // following: a small drag (a nudge, a shaky click) keeps following - it lets go past FOLLOW_LET_GO px from where it
+      // started, the map moving from there (no catch-up jump); not following: it pans at once
+      if (settings.view.follow) {
+        if (!dragFrom || Math.hypot(cur.x - dragFrom.x, cur.y - dragFrom.y) < FOLLOW_LET_GO) return;
+        stopFollow();
+      }
       const [dx, dy] = screenToMapDelta(cur.x - prev.x, cur.y - prev.y);
       S.view.cx -= dx;
       S.view.cy -= dy;

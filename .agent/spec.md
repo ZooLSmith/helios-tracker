@@ -22,7 +22,10 @@ It draws nothing in game: everything it shows is on the page.
   **Smooth movement** (on: interpolates between updates, redraws every frame; off: markers jump,
   frames are only requested on a change - data, view, input - for weak / integrated GPUs), tooltip
   (name, kind, health, distance, height difference), world X/Y by the cursor (above it; Settings Show coordinates or C, off by default). Wheel / pinch zoom,
-  drag pan. Settings remembered in localStorage. Areas without a map: a 10 m grid around the player.
+  drag pan (following: a drag lets go of the player only past 40 px - input.js FOLLOW_LET_GO; not following: at once;
+  leaving Follow + Rotate - a drag, the box, F - turns the map back north around the player, eased from the frames:
+  they stay where they are on screen, no jump - view.js easeSpinBack).
+  Settings remembered in localStorage. Areas without a map: a 10 m grid around the player.
 - **Player inspector**: "Players" list in the panel (or click a player's marker) opens a drawer with
   Gear / Backpack / Skills tabs; items show the game's localized weapon type / item name and
   manufacturer, and expand to stats, rarity (name + `RarityLevel`; names confirmed in game, colours
@@ -222,7 +225,8 @@ It draws nothing in game: everything it shows is on the page.
   No global names / floors / rarity settings any
   more - the loot filter will come back as a Loot setting (to design).
 - **Turning the map**: right-drag / Shift+drag turns it (`view.spin`, degrees on top of its own turn - the level's north
-  offset -, in 2D and tilted; vertically, tilted, it tilts). While Follow + Rotate turn it to the heading, the heading
+  offset -, in 2D and tilted; vertically, tilted, it tilts) - around where the drag started, that spot staying under the
+  cursor (following: around the player). While Follow + Rotate turn it to the heading, the heading
   owns the turn (the drag only tilts, the spin is set aside). On a touch screen: a two-finger twist (past 10 deg, so a
   pinch doesn't turn it by accident) turns it around the point between the fingers (view.js spinAt). Once turned, a
   compass shows in the map's free corner (view.js refreshNorth: the largest area no panel covers, its needle pointing

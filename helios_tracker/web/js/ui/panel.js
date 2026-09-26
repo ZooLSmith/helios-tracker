@@ -9,7 +9,7 @@ import { icon } from "../icons.js";
 import { invalidate } from "../scheduler.js";
 import { saveSettings, settings } from "../settings.js";
 import { S } from "../state.js";
-import { centerOnTarget, fit, resetSpin } from "../view.js";
+import { centerOnTarget, fit, resetSpin, stopFollow } from "../view.js";
 import { renderInspector } from "./inspector.js";
 import { renderLayers } from "./layers.js";
 import { renderMission } from "./mission.js";
@@ -77,6 +77,8 @@ export function initPanel() {
     const el = $(id);
     el.checked = settings.view[key];
     el.onchange = () => {
+      // (Follow off: through stopFollow - Rotate's turn kept, no jump; a drag / the fit key go the same way)
+      if (key === "follow" && !el.checked) { stopFollow(); invalidate(); return; }
       settings.view[key] = el.checked; saveSettings(); invalidate();
       if (key === "follow" && el.checked) centerOnTarget();
     };
