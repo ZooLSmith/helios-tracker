@@ -137,7 +137,7 @@
   --layer-gear: #ffb52e;
   --layer-pickups: #d8c07a;
   --layer-pickup-ammo: #d8c07a;
-  --layer-pickup-cash: #6fd46f;
+  --layer-pickup-cash: #ffe36e; /* a pale gold: apart from the givers' "!" yellow and the ammo's sand */
   --layer-pickup-eridium: #c77dff;
   --layer-pickup-health: #ff6f7d;
   --layer-pickup-mission: var(--objective);

@@ -50,6 +50,16 @@ export function bang(x, y, fill, k = 1) { // quest giver / turn-in: a "!" badge 
   ctx.fillText("!", x, y + 4 * k); ctx.textAlign = "left";
 }
 
+export function coin(x, y, fill, k = 1) { // cash: a disc with a dark "$" (the "!" badge's look, smaller)
+  ctx.save();
+  ctx.beginPath(); ctx.arc(x, y, 5.5 * k, 0, Math.PI * 2);
+  ctx.fillStyle = fill; ctx.fill(); ctx.lineWidth = 1.2; ctx.strokeStyle = COLORS.ink; ctx.stroke();
+  ctx.fillStyle = COLORS.ink; ctx.font = `700 ${9 * k}px 'Segoe UI', system-ui, sans-serif`;
+  ctx.textAlign = "center"; ctx.textBaseline = "middle";
+  ctx.fillText("$", x, y + 0.5 * k);
+  ctx.restore();
+}
+
 export function triangle(x, y, r, fill) { // loot
   ctx.beginPath(); ctx.moveTo(x, y - r); ctx.lineTo(x + r * 0.9, y + r * 0.7); ctx.lineTo(x - r * 0.9, y + r * 0.7); ctx.closePath();
   ctx.fillStyle = fill; ctx.fill();

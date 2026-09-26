@@ -18,7 +18,11 @@ function layerIcon(l) {
   // mission items, quest givers: the map's small "!" badge (a disc with a dark "!")
   const bang = `<circle cx="6" cy="6" r="5" fill="${c}" ${o}/><rect x="5.25" y="2.6" width="1.5" height="4.4" rx=".5" style="fill: var(--map-ink)"/>` +
     `<circle cx="6" cy="8.8" r=".85" style="fill: var(--map-ink)"/>`;
-  const shape = l.rarity ? triangle : l.id === "pickup.mission" || l.id === "giver" ? bang : l.id.startsWith("pickup") ? dot : {
+  // money: the map's "$" disc
+  const coin = `<circle cx="6" cy="6" r="5" fill="${c}" ${o}/><text x="6" y="6.4" text-anchor="middle" dominant-baseline="middle" ` +
+    `font-size="8" font-weight="700" font-family="'Segoe UI', system-ui, sans-serif" style="fill: var(--map-ink)">$</text>`;
+  const shape = l.rarity ? triangle : l.id === "pickup.mission" || l.id === "giver" ? bang : l.id === "pickup.cash" ? coin
+    : l.id.startsWith("pickup") ? dot : {
     player: `<polygon points="6,1 10.3,10.8 6,8.3 1.7,10.8" fill="${c}" ${o}/>`,
     enemy: `<polygon points="6,1 11,6 6,11 1,6" fill="${c}" ${o}/>`,
     npc: `<circle cx="6" cy="6" r="3.9" fill="none" style="stroke: var(--map-outline-soft)" stroke-width="2.3"/><circle cx="6" cy="6" r="3.9" fill="none" stroke="${c}" stroke-width="1.3"/>`,

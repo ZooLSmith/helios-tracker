@@ -14,7 +14,7 @@ It draws nothing in game: everything it shows is on the page.
   Second** (1-30, default 10). Port / LAN changes restart the server immediately.
 - Page: full-window canvas, the level's map image(s), markers (the tracked player - "Who", else the host -
   = yellow arrow, drawn on top; other players = white arrows + names, enemies = red diamonds (like the game's minimap) + health bar when hurt, NPCs green
-  hollow rings (not dots: cash pickups are green dots), vehicles purple, loot = triangles in rarity colour, objects = squares by category). Follow me (F), fit (0),
+  hollow rings (not dots: the other pickups are dots of their kind's colour, cash a yellow "$" disc), vehicles purple, loot = triangles in rarity colour, objects = squares by category). Follow me (F), fit (0),
   **Smooth movement** (on: interpolates between updates, redraws every frame; off: markers jump,
   frames are only requested on a change - data, view, input - for weak / integrated GPUs), tooltip
   (name, kind, health, distance, height difference), world X/Y by the cursor (above it; Settings Show coordinates or C, off by default). Wheel / pinch zoom,
