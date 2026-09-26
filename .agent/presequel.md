@@ -105,6 +105,46 @@ changes made for TPS ("patches"), so each finding says which build it was seen o
     54 / 54: to the nearest (Math.round) - inferred from those, not read in the game's code.
   - The page gets the current values truncated to a tenth (rounding one first changed the result: 57.96 -> 58.0),
     the max ones precise (collector.py _vital / _vital_max).
+- **Vending machine names**: the page used the vending menu's titles - the Pre-Sequel's HealthShopTitle still says
+  BL2's "Dr. Zed's Meds" (WillowGame.int), its map shows "Nina's Nursing". What the game's map shows on hover: the
+  machine's InteractiveObjectDefinition.StatusMenuMapInfoBoxHeader (GD_Balance_Shopping.VendingMachines.*, cooked
+  into the levels - the Pre-Sequel: "Bullets Etc.", "Nina's Nursing", "The Black Market", "SHiFT Vending Machine";
+  BL2: "Ammo Dump Vending Machine", "Zed's Meds Machine"). shops.py names machines by it, else the menu title.
+- **Oxygen objects' names** (a map object "Oxygen Cracks ?", "Air Dome Generator Off ?": no balance name, no target
+  name): their definition's StatusMenuMapInfoBoxHeader, what the game's map shows on hover - "Oxygen Source" (IO_Oxygen
+  Cracks, _Large, _NoMesh: "Replenishes Oz Kits."), "Air Dome Generator" (IO_AirDome_Generator_On / _Off). The
+  collector names objects by it after the balance's DefaultDisplayName, before the target name.
+- **Oz kits, Moonstones** (the page said "RELICS", "eridium"): Oz kits are BL2's relics' class (WillowArtifact - no
+  other class), Moonstones its eridium. The game's words (WillowGame.int): [CategoryLabels] Artifact="OZ KITS" (BL2
+  "RELICS"; FRA "KITS D'OXYGÈNE" / "RELIQUES"), [Training] EridiumTitle=Moonstones (BL2 Eridium; FRA "Pierres lunaires"
+  / "Éridium"). Localize(Section, Key, "WillowGame") on Object's default object returns them in game
+  (tools/probe_tps2.txt) - but the page's labels stay ours, static (the user's call): each label that differs gets a
+  ".tps" twin in i18n (group.relic.tps "OZ KITS", currency.eridium.tps, layer.pickup.eridium.tps...), taken when the
+  level message says "game": "tps" (mods_base Game.get_current(); i18n.js setVariant).
+- **The Oz meter** (the player's oxygen): `WillowPawn.OxygenPool` / `WillowPlayerReplicationInfo.OxygenPool` (the same
+  pool: an OzOxygenResourcePool, CurrentValue / MaxValue 100 / 100, OnIdleRegenerationRate 50, delay 0.5 s -
+  probe_tps2.txt). The collector sends "om" (its max, pawninfo) and "ox" (when not full, the state); the page: a white
+  bar with a circle pattern scrolling left (img/patterns/oxygen.svg; grey, lighter at the top), under health, above XP (the user's design) -
+  the Players list and the Info tab. The HUD's O2 rounding: not known (rounded to the nearest meanwhile).
+- **Oxygen Canister** (a pickup, "other" on the page): GD_BuffDrinks.A_Item.BuffDrink_OxygenInstant (Startup.upk) -
+  presentation GD_InventoryPresentations.Definitions.Oxygen (util.py PRESENTATION_KINDS "Oxygen": the page's pickup
+  layer "oxygen"), icon fx_shared_items.Textures.OxygenCannister_Particle (grey: the game tints it). Its colour: the
+  definition's LootBeamColorOverride #0096c8 (B G R A in the package: c8 96 00 00; alpha 0 - set on this one and
+  Moxxi's oxygen Slammer only, no BL2 usable item has one) - the layer's colour. Any usable item's own icon (fi) is
+  now sent, of a known kind or not.
+- **No game name** (their object name as a guess, "?" - right by the rule): the air dome's bubble (IO_AirDome_Bubble_On
+  / _Off: a mesh and behaviours, no text), the jump pads / geysers (GD_Co_JumpPads.Interactive.*: none). The
+  generator has one ("Air Dome Generator"). The barrels do (GD_Explosives.Barrels.ExplodingBarrel*: "Cryo Barrel",
+  "Incendiary Barrel"... on the page as in game) - their definitions carry no text, the name comes at run time (their
+  balance / target name): a scan of definitions alone said otherwise, wrongly.
+- **Where oxygen is** (not built - tools/probe_oxygen.py, Deadsurface, 2026-09-26): an air dome's area is its bubble
+  (IO_AirDome_Bubble_On, a WillowInteractiveObject): CollisionComponent a SphereComponent whose Bounds.BoxExtent is its
+  radius, 1500 x the object's DrawScale (976 / 1687 / 2236 for 0.650 / 1.125 / 1.491; Bounds.SphereRadius is the box's
+  corner, x sqrt 3). On / off: not found yet - pushing the generator's button changed neither the bubble's definition
+  (_On before and after: the name isn't the state) nor its sphere; the generator's mesh bounds grew (its animation). To
+  read next: the bubble / generator's bHidden, collision flags, SimpleAnimState, bCanBeUsed; the pawn's
+  OzVacuumComponent.CanBreatheThroughOtherMeans (an inline array struct - not a list: read as a struct). The minimap's
+  Icons_OxygenFissure / Icons_OxygenSpots: pools of HUD clips (minimap positions only, no object) - no use to find them.
 - **Containers**: the page guessed an object's category from its name (chest, crate, box...): TPS's Hyperion ammo
   crate (`InteractiveObj_HyperionAmmo`, loot list AmmoCrateLoot_Hyp) came out "other". Anything with loot (the
   collector's `lootable`) is now a container, whatever its name (model.js objectCategory).

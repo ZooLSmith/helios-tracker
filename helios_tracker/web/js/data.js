@@ -1,7 +1,7 @@
 // The game's data: the SSE stream (/events) and what each event does to the state.
 import { $ } from "./dom.js";
 import { decodeTexture } from "./dxt.js";
-import { t } from "./i18n.js";
+import { setVariant, t } from "./i18n.js";
 import { objectCategory, setRarityTable } from "./model.js";
 import { invalidate } from "./scheduler.js";
 import { settings } from "./settings.js";
@@ -15,6 +15,7 @@ import { renderMissionLog } from "./ui/missionlog.js";
 import { renderMotion } from "./ui/panel.js";
 import { renderShops, renderShopsView } from "./ui/shops.js";
 import { patternTiming, renderPlayers } from "./ui/players.js";
+import { renderLayers } from "./ui/layers.js";
 import { isLive, setMessage, setPaused, setStatus } from "./ui/status.js";
 
 const RETRY_MS = 2000; // lost the game: how often to check whether it's back
@@ -97,6 +98,7 @@ function reloadWhenBack() {
 }
 
 function onLevel(level) {
+  setVariant(level.game); // (the Pre-Sequel's words for its labels: i18n.js)
   invalidate();
   const changed = !S.level || S.level.id !== level.id;
   if (changed) {
@@ -106,7 +108,9 @@ function onLevel(level) {
     S.shops = null; S.shopTimer = null; renderShops();
   }
   const wasReady = S.level && S.level.id === level.id && S.level.status === "ready";
+  const gameChanged = (S.level?.game || "") !== (level.game || "");
   S.level = level;
+  if (gameChanged) renderLayers(); // (a game's own layers: the Pre-Sequel's oxygen - model.js layerInGame)
   if (level.rarity) setRarityTable(level.rarity);
   renderLevel();
   renderMessage();
@@ -232,6 +236,7 @@ export function movingOf(row, info) {
   const p = { ...extra, i, x, y, z };
   if (info.m > 0) { p.h = h ?? info.m; if (h === undefined) p.hf = 1; }
   if (info.sm > 0) { p.s = extra.s ?? info.sm; if (extra.s === undefined) p.sf = 1; }
+  if (info.om > 0) p.ox = extra.ox ?? info.om; // (a player's oxygen - the Pre-Sequel's Oz meter: when not full)
   return p;
 }
 

@@ -1,0 +1,5 @@
+<!-- Oxygen bar pattern (the Pre-Sequel's Oz meter): plain circles in staggered rows (O O / O O shifted by half), like
+ the health bar's columns - white (28 %: the bar is light grey - 10 % like the health's hardly showed). Repeats every 12 x 12 px (r 2.9: the largest inside the tile - past it, cut flat). -->
+<svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 12 12">
+  <g fill="#fff" fill-opacity=".28"><circle cx="3" cy="3" r="2.9"/><circle cx="9" cy="9" r="2.9"/></g>
+</svg>

@@ -56,8 +56,15 @@
   --warn: #ffb03b;
   --bad: #ff5b4f;
   --grid: color-mix(in srgb, var(--dim) 8%, transparent);
-  --shield: #3fa3f0;
+  --shield: #12c0c4; /* cyan-teal: the game's HUD shield bar's middle */
   --health: #d9372f; /* red, like the game's health bars */
+  /* The bars' fills: the game's own HUD bars' (UI_HUD.HUD, the Pre-Sequel's Startup.upk - its player vitals sprite:
+     shield / health / oxygen, each an atlas bitmap; sampled down its middle, top to bottom): lighter at the top,
+     darker at the bottom; BL2's HUD builds its bars otherwise (a plain image), not sampled. Their patterns over them:
+     web/img/patterns/*.svg (the oxygen's: plain staggered circles). */
+  --shield-bar: linear-gradient(to bottom, #08e6e6, #12c0c4 25%, #20bec5 42%, #2e96a1 60%, #417283 80%, #527d94);
+  --health-bar: linear-gradient(to bottom, #a12c31, #a41c31 30%, #9b1a36 50%, #8b1831 70%, #7d1120);
+  --oxygen: linear-gradient(to bottom, #cdcac5, #a1a1a1 30%, #8e918e 50%, #6a6d6a 75%, #444444);
   --dead: #8a9aa3; /* a dead player (before the respawn) */
   --menu: var(--text); /* a player in a menu: neutral, like the text */
   --xp: #3fae49; /* green, like the game's experience bar */
@@ -75,6 +82,7 @@
   --bar-sheen: linear-gradient(to bottom, rgba(255, 255, 255, .18), rgba(255, 255, 255, 0) 45%, rgba(0, 0, 0, .18));
   /* (their scrolling: @keyframes below, timing from players.js patternTiming) */
   --pat-health: url("/img/patterns/health.svg");
+  --pat-oxygen: url("/img/patterns/oxygen.svg");
   --pat-vehicle: url("/img/patterns/vehicle.svg");
   --pat-scan: url("/img/patterns/scanlines.svg") 0 0 / 3px 3px repeat; /* the action skill's (still) */
   /* a bar's empty part (its track): dark, the static scanlines like the game's */
@@ -140,6 +148,7 @@
   --layer-pickup-cash: #ffe36e; /* a pale gold: apart from the givers' "!" yellow and the ammo's sand */
   --layer-pickup-eridium: #c77dff;
   --layer-pickup-health: #ff6f7d;
+  --layer-pickup-oxygen: #0096c8; /* the Pre-Sequel's oxygen canisters: their definition's LootBeamColorOverride (its only two) */
   --layer-pickup-mission: var(--objective);
   --layer-pickup-other: #9aa7ad;
   --layer-containers: #e2c170;
@@ -161,6 +170,7 @@
 /* the bars' patterns sliding left one tile per cycle (the sheen and the colour stay) */
 @keyframes pat-sh { from { background-position: 0 0, 0 50%, 0 0; } to { background-position: 0 0, -18px 50%, 0 0; } }
 @keyframes pat-hp { from { background-position: 0 0, 0 0, 0 0; } to { background-position: 0 0, -12px 0, 0 0; } }
+@keyframes pat-ox { from { background-position: 0 0, 0 0, 0 0; } to { background-position: 0 0, -12px 0, 0 0; } } /* (to the left, like the game's) */
 @keyframes pat-hp-fwd { from { background-position: 0 0, 0 0, 0 0; } to { background-position: 0 0, 12px 0, 0 0; } } /* (forward: the cutscene's) */
 @keyframes pat-sc { from { background-position: 0 0; } to { background-position: 0 -5px; } } /* scanlines going up (a skill tree's: 5 px) */
 @keyframes pat-vh { from { background-position: 0 0, 0 0, 0 0; } to { background-position: 0 0, -10px 0, 0 0; } }

@@ -29,7 +29,7 @@ export function renderPlayers() {
     // shield, health and XP (the level) together, under the state overlay (crippled / dead /
     // respawning / in a menu: the word over all of them); driving: shield + health on one row, the
     // vehicle's health under them
-    `<div class="vitals"><div class="shhp">${vital("sh")}${vital("hp")}</div><div class="vhbo">${vital("vh")}${vital("bo")}</div>${vital("xp")}` +
+    `<div class="vitals"><div class="shhp">${vital("sh")}${vital("hp")}</div>${vital("ox")}<div class="vhbo">${vital("vh")}${vital("bo")}</div>${vital("xp")}` +
     `<div class="ffyl">${esc(t("vital.ffyl"))}</div></div>` +
     `</div>`).join("");
   for (const row of box.querySelectorAll(".pentry")) row.onclick = () => openInspector(row.dataset.id);
@@ -58,7 +58,7 @@ export function renderPlayers() {
 // each: [its repeat width (px), its speed (px per second): health faster than shields]
 // [tile px, px/s]: shield, health, vehicle; sc: the skill tiles' scanlines going up (the game's)
 // rb: the effervescent rarity's colour cycling (drawer.css .item.rainbow: one cycle = 3 s, model.js RAINBOW_CYCLE)
-const PATTERNS = { sh: [18, 8], hp: [12, 11], vh: [10, 8], sc: [5, 8], rb: [30, 10] }; // (the tiles: web/img/patterns/*.svg; sc: drawer.css)
+const PATTERNS = { sh: [18, 8], hp: [12, 11], ox: [12, 6], vh: [10, 8], sc: [5, 8], rb: [30, 10] }; // (the tiles: web/img/patterns/*.svg; sc: drawer.css)
 /** The patterns' animations in `root` on the page's clock: a rebuilt bar (the list re-rendered on a
  *  click, the Info tab refreshed) would start its pattern over - with the same start time (the page's
  *  time zero) every bar's position depends on the time only, so a new one carries on where the old one
@@ -85,7 +85,7 @@ export function updatePlayerVitals(now = performance.now()) {
     const pawn = S.pawns.get(row.dataset.id);
     const p = pawn && { ...pawn, ...pawnPos(pawn, now) };
     // short: the numbers compacted ("1.7M / 1.7M": half-width bars while driving), the full ones on hover
-    // (shownCur / shownMax: how the game rounds it - health: the current down, the max up, model.js shownHealth)
+    // (shownCur / shownMax: how the game rounds it - health: down, model.js shownHealth)
     const set = (cls, cur, max, short = false, shownCur = Math.round, shownMax = Math.round) => {
       const el = row.querySelector(".vital." + cls);
       const on = !!p && max > 0;
@@ -110,6 +110,7 @@ export function updatePlayerVitals(now = performance.now()) {
     const driving = !!(vp && vp.m > 0);
     set("sh", p && p.s, p && p.sm, driving);
     set("hp", p && p.h, p && p.m, driving, shownHealth, shownMaxHealth);
+    set("ox", p && p.ox, p && p.om); // (the Pre-Sequel's Oz meter: a player's oxygen)
     set("vh", vp && vp.h, vp && vp.m);
     // its boost (nitro): a quarter of the row, the action skill's look, no numbers (the % on hover)
     const bo = vp && vp.bo, boEl = row.querySelector(".vital.bo");

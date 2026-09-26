@@ -20,6 +20,7 @@ from pathlib import Path
 from typing import Any
 
 import unrealsdk
+import mods_base
 from mods_base import ENGINE, get_pc
 from unrealsdk.unreal import WeakPointer
 
@@ -95,6 +96,14 @@ class _Timings:
             log(f"slow game-thread tasks (> {SLOW_MS:.0f} ms) in the last {SLOW_REPORT_EVERY:.0f} s: {', '.join(parts)}{sizes}")
             self._slow.clear()
             self._sizes.clear()
+
+
+def _game_name() -> str:
+    """The game the mod runs in, for the page ("bl2", "tps": its labels' Pre-Sequel variants - i18n.js), "" unknown."""
+    return try_(lambda: mods_base.Game.get_current().name.lower(), "") or ""
+
+
+GAME = _game_name()
 
 
 def _vital(value: float) -> float:
@@ -520,7 +529,7 @@ class Collector:
             if keep_lv and "lv" not in level and self._level and self._level.get("id") == level["id"] and "lv" in self._level:
                 level = {**level, "lv": self._level["lv"]}  # (the map thread's copy predates the area's level)
             self._level = level
-            self.hub.publish("level", json.dumps(level))
+            self.hub.publish("level", json.dumps({**level, **({"game": GAME} if GAME else {})}))
 
     def _extract(self, level: dict[str, Any], map_name: str, movie: str) -> None:
         """Background thread: files only, no UObjects."""
@@ -583,6 +592,19 @@ class Collector:
                 c = try_(lambda c=c: c.SuperField)
             self._seats[key] = seat
         return seat
+
+    @staticmethod
+    def _oxygen(pawn: Any) -> tuple[float, float] | None:
+        """A player's oxygen (the Pre-Sequel's Oz meter): (current, max) from the pawn's OxygenPool, else their
+        replicated one (PlayerReplicationInfo.OxygenPool: a co-op client's view of the others) - a pool reference
+        whose Data (OzOxygenResourcePool) has CurrentValue / MaxValue (tools/probe_tps2.txt: 100 / 100). None without
+        one (BL2) or a max of 0."""
+        for ref in (try_(lambda: field(pawn, "OxygenPool")), try_(lambda: field(pawn, "PlayerReplicationInfo").OxygenPool)):
+            data = try_(lambda r=ref: r.Data) if ref is not None else None
+            top = try_(lambda d=data: float(d.MaxValue), 0.0) if data is not None else 0.0
+            if top > 0:
+                return try_(lambda d=data: float(d.CurrentValue), 0.0), top
+        return None
 
     @staticmethod
     def _boost(vehicle: Any, world_now: float) -> list[float] | None:
@@ -981,9 +1003,13 @@ class Collector:
         loc = io.Location
         definition = try_(lambda: io.InteractiveObjectDefinition)
         # The game's name for it, in the game's language (e.g. "Incendiary Barrel"): the balance's
-        # DefaultDisplayName, else what targeting it shows
+        # DefaultDisplayName, else its definition's StatusMenuMapInfoBoxHeader (what the game's map shows on hover: the
+        # Pre-Sequel's "Oxygen Source", "Air Dome Generator" - no balance name, no target name), else what targeting
+        # it shows
         balance = try_(lambda: io.BalanceDefinitionState.BalanceDefinition)
-        display = try_(lambda: str(balance.DefaultDisplayName), "") or call_str(io.GetTargetName)
+        display = (try_(lambda: str(balance.DefaultDisplayName), "")
+                   or (try_(lambda: str(definition.StatusMenuMapInfoBoxHeader), "") if definition is not None else "")
+                   or call_str(io.GetTargetName))
         record = {
             "i": addr(io),
             **named(display, def_name(definition), call_str(io.GetHumanReadableName), str(io.Class.Name)),
@@ -1065,13 +1091,15 @@ class Collector:
         }
         if inv is not None and (level := exp_level(inv)):
             info["l"] = level
-        if kind := pickup_kind(inv):  # ammo / cash / eridium / health (the page's pickup layers)
-            info["pk"] = kind
-            # its own icon (the game's: its definition's PickupFlagIcon - fx_shared_items...Credits, Ammo_SMG...: the
-            # map marker, served by /texture/<path>.png)
+        kind = pickup_kind(inv)
+        # its own icon (the game's: its definition's PickupFlagIcon - fx_shared_items...Credits, Ammo_SMG...: the
+        # tooltip / panel, served by /texture/<path>.png) - any usable item's, of a known kind or not ("other")
+        if kind or (inv is not None and inv.Class.Name == "WillowUsableItem"):
             if (icon := try_(lambda: inv.DefinitionData.ItemDefinition.PickupFlagIcon)) is not None:
                 if path := try_(lambda: str(icon._path_name()), ""):
                     info["fi"] = path
+        if kind:  # ammo / cash / eridium / health / oxygen / mission (the page's pickup layers)
+            info["pk"] = kind
             # how much it gives (the tooltip: "$ 22", "18 rounds") - worked out from its definition (amounts.py)
             if kind in ("cash", "eridium", "ammo"):
                 if amount := try_(lambda: pickup_amount(inv, current_playthrough() + 1)):
@@ -1155,11 +1183,14 @@ class Collector:
                         loc = spot
                     # Its description ("pawninfo": sent on change) with its max health / shield (they rarely change)
                     hp_max, sh_max = _vital_max(hp[1]), _vital_max(hp[3])
-                    infos.append({**info, **({"m": hp_max} if hp_max else {}), **({"sm": sh_max} if sh_max else {})})
+                    oxygen = self._oxygen(pawn) if is_player else None  # (the Pre-Sequel's Oz meter; BL2: none)
+                    infos.append({**info, **({"m": hp_max} if hp_max else {}), **({"sm": sh_max} if sh_max else {}),
+                                  **({"om": _vital_max(oxygen[1])} if oxygen else {})})
                     extra = {
                         # the heading: the players' only (their arrows; the others are dots)
                         **({"r": view_yaw if info["k"] == "me" else get("Rotation").Yaw} if is_player else {}),
                         **({"s": _vital(hp[2])} if sh_max and hp[2] < hp[3] else {}),  # the shield: when not full
+                        **({"ox": _vital(oxygen[0])} if oxygen and oxygen[0] < oxygen[1] else {}),  # oxygen: when not full
                         **({"rs": 1 if spot is not None else 2} if respawning else {}),
                         **({"dn": 1} if down == "crippled" else {"dd": 1} if down == "dead" else {}),
                         **({"mn": 1} if is_player and self._in_menu(pawn) else {}),

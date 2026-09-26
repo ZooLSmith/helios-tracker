@@ -347,12 +347,14 @@
 .ibar span { position: relative; text-shadow: var(--bar-text-outline); }
 .ibar .ibl { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .ibar .ibv { flex: none; font-variant-numeric: tabular-nums; font-weight: 600; }
-.ibar.sh i { background: var(--bar-sheen), var(--pat-shield) 0 50% / 18px 10.392px repeat, var(--shield);
+.ibar.sh i { background: var(--bar-sheen), var(--pat-shield) 0 50% / 18px 10.392px repeat, var(--shield-bar) 0 0 / 100% 100%;
   animation: pat-sh var(--pat-dur-sh, 2.25s) var(--pat-timing-sh, linear) infinite; }
-.ibar.hp i { background: var(--bar-sheen), var(--pat-health) 0 0 / 12px 12px repeat, var(--health);
+.ibar.hp i { background: var(--bar-sheen), var(--pat-health) 0 0 / 12px 12px repeat, var(--health-bar) 0 0 / 100% 100%;
   animation: pat-hp var(--pat-dur-hp, 1.09s) var(--pat-timing-hp, linear) infinite; }
 .ibar.vh i { background: var(--bar-sheen), var(--pat-vehicle) 0 0 / 10px 10px repeat, var(--vehicle);
   animation: pat-vh var(--pat-dur-vh, 1.25s) var(--pat-timing-vh, linear) infinite; }
+.ibar.ox i { background: var(--bar-sheen), var(--pat-oxygen) 0 0 / 12px 12px repeat, var(--oxygen) 0 0 / 100% 100%;
+  animation: pat-ox var(--pat-dur-ox, 2s) var(--pat-timing-ox, linear) infinite; }
 .ibar.xp i { background: var(--bar-sheen), var(--xp); }
 /* the action skill (and the melee cooldown): the Players list chip's look - ready: dark green, a lighter
    green outline, white text; running: dark yellow, a red outline; cooling down: grey-blue. The

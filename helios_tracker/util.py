@@ -190,7 +190,9 @@ def exp_level(obj: Any) -> int:
 
 # A usable item's kind, by its definition's inventory card (Presentation): the game's own grouping
 # (probe_pickups.py: GD_InventoryPresentations.Definitions.Credits / Health / WeaponAmmo_* / GrenadeAmmo)
-PRESENTATION_KINDS = {"Credits": "cash", "Health": "health", "GrenadeAmmo": "ammo"}
+PRESENTATION_KINDS = {"Credits": "cash", "Health": "health", "GrenadeAmmo": "ammo", "Oxygen": "oxygen"}
+# ("Oxygen": the Pre-Sequel's Oxygen Canister - GD_BuffDrinks.A_Item.BuffDrink_OxygenInstant, presentation
+# GD_InventoryPresentations.Definitions.Oxygen, icon fx_shared_items.Textures.OxygenCannister_Particle - Startup.upk)
 # The "Credits" presentation is shared by every currency: the definition's FormOfCurrency tells them
 # apart (seen in game, tools/probe_eridium.py: GD_Currency.A_Item.EridiumStick = CURRENCY_Eridium).
 # Other currencies (not seen yet: Seraph crystals, Torgue tokens...) stay "other".
@@ -201,7 +203,7 @@ _pickup_kinds: dict[int, str] = {}
 
 
 def pickup_kind(inv: Any) -> str:
-    """ "ammo" / "cash" / "eridium" / "health" for a usable item (a non-gear pickup), "mission" for a
+    """ "ammo" / "cash" / "eridium" / "health" / "oxygen" for a usable item (a non-gear pickup), "mission" for a
     mission item (WillowMissionItem: ECHO logs, Princess Fluffybutt... - tools/probe_pickups.txt), ""
     for anything else. Weapons / gear aren't looked at; each definition is resolved once."""
     if inv is None:

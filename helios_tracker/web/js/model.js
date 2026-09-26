@@ -50,7 +50,7 @@ const LOOT_RARITIES = ["common", "uncommon", "rare", "epic", "legendary", "etech
 // Other pickups: a layer per kind (the collector's "pk", from the game's inventory card; "mission": a
 // mission item - ECHO logs, objects an objective asks for - in the objectives' green), in the Pickups
 // folder; anything else (other currencies...) is "other"
-const PICKUP_KINDS = ["ammo", "cash", "eridium", "health", "mission", "other"];
+const PICKUP_KINDS = ["ammo", "cash", "eridium", "health", "oxygen", "mission", "other"]; // (oxygen: the Pre-Sequel's)
 
 // Map layers, in panel order within their category. "on": shown by default; toggle: false = can't
 // be hidden (players), only configured. folder: a row holding the layers whose parent it is (no
@@ -66,7 +66,7 @@ export const LAYERS = [
   // not gear: no real rarity (made-up levels, for their colour in game)
   { id: "pickups", group: "loot", folder: true, settings: [] },
   ...PICKUP_KINDS.map((k) => ({ id: "pickup." + k, group: "loot", parent: "pickups", legacy: "loot", on: true, settings: COMMON,
-    ...(k === "other" ? { tip: "layer.pickup.otherTip" } : {}) })),
+    ...(k === "other" ? { tip: "layer.pickup.otherTip" } : {}), ...(k === "oxygen" ? { game: "tps" } : {}) })),
   { id: "containers", group: "loot", folder: true, settings: [] },
   { id: "chest", group: "loot", parent: "containers", on: true, settings: COMMON },
   { id: "weaponchest", group: "loot", parent: "containers", on: true, settings: COMMON },
@@ -88,6 +88,10 @@ export const LAYERS = [
   { id: "other", group: "world", on: false, settings: COMMON },
 ];
 export const LAYER_COLOR = Object.fromEntries(LAYERS.map((l) => [l.id, l.color]));
+
+/** Whether a layer is listed in `game` (the level message's "game": "bl2", "tps"): a layer with a "game" only in that
+ *  one (the Pre-Sequel's oxygen canisters); the game not known yet: not those. */
+export function layerInGame(l, game) { return !l.game || l.game === game; }
 
 /** The layers' colours, from the page's tokens (base.css --layer-<id>, "." as "-"): read(name) -> the value
  *  (shapes.js initColors). The rarity layers keep the game's. */

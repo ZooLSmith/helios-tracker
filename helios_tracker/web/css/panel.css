@@ -84,10 +84,12 @@ button.act:hover { border-color: var(--accent); }
 .vbar { position: relative; display: block; height: 20px; background: var(--bar-track); border-radius: 2px; overflow: hidden; }
 .vbar i { display: block; height: 100%; width: 0; }
 /* (the patterns slide: base.css @keyframes, timing by players.js patternTiming) */
-.vital.sh .vbar i { background: var(--bar-sheen), var(--pat-shield) 0 50% / 18px 10.392px repeat, var(--shield);
+.vital.sh .vbar i { background: var(--bar-sheen), var(--pat-shield) 0 50% / 18px 10.392px repeat, var(--shield-bar) 0 0 / 100% 100%;
   animation: pat-sh var(--pat-dur-sh, 2.25s) var(--pat-timing-sh, linear) infinite; }
-.vital.hp .vbar i { background: var(--bar-sheen), var(--pat-health) 0 0 / 12px 12px repeat, var(--health);
+.vital.hp .vbar i { background: var(--bar-sheen), var(--pat-health) 0 0 / 12px 12px repeat, var(--health-bar) 0 0 / 100% 100%;
   animation: pat-hp var(--pat-dur-hp, 1.09s) var(--pat-timing-hp, linear) infinite; }
+.vital.ox .vbar i { background: var(--bar-sheen), var(--pat-oxygen) 0 0 / 12px 12px repeat, var(--oxygen) 0 0 / 100% 100%;
+  animation: pat-ox var(--pat-dur-ox, 2s) var(--pat-timing-ox, linear) infinite; }
 .vital.xp .vbar i { background: var(--bar-sheen), var(--xp); }
 .vital.vh .vbar i { background: var(--bar-sheen), var(--pat-vehicle) 0 0 / 10px 10px repeat, var(--vehicle); /* the driven vehicle's health */
   animation: pat-vh var(--pat-dur-vh, 1.25s) var(--pat-timing-vh, linear) infinite; }
@@ -116,6 +118,8 @@ button.act:hover { border-color: var(--accent); }
 .vitals.menu .vital { opacity: .35; }
 .vital.xp.on { margin-top: 3px; } /* a little apart from shield / health */
 .vital.xp .vbar { height: 16px; } /* thinner than shield / health */
+.vital.ox .vbar { height: 16px; } /* the Oz meter: as thin as the XP bar */
+.vital.ox .vnum { font-size: 11px; }
 .vital.xp .vnum { font-size: 11px; }
 /* the numbers inside the bar, left, vertically centred; a dark outline to read on any fill */
 .vnum { position: absolute; left: 5px; top: 50%; transform: translateY(-50%); font-size: 12.5px; line-height: 1;

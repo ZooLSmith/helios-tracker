@@ -12,8 +12,11 @@ Game thread only (the collector calls read() every SHOPS_EVERY). Seen in game (t
   `ShopTimerRate` from GlobalsDefinition.MinutesBetweenShopResets (20 min) since the level loaded;
 - Crazy Earl (WillowVendingMachineBlackMarket) has no stock until a player opens him (built per player): left out
   (the user's call - only his map marker, the objects layer's).
-The machines' names are the vending menu's titles (VendingMachineExGFxMovie's localized WeaponsShopTitle...:
-"Marcus Munitions"), the game's text.
+The machines' names: what the game's map shows on hover - the machine's InteractiveObjectDefinition's
+StatusMenuMapInfoBoxHeader (the Pre-Sequel's "Bullets Etc.", "Nina's Nursing"; BL2's "Ammo Dump Vending Machine",
+"Zed's Meds Machine" - GD_Balance_Shopping.VendingMachines.*, cooked into the levels), else the vending menu's
+titles (VendingMachineExGFxMovie's localized WeaponsShopTitle...: "Marcus Munitions" - the Pre-Sequel's
+HealthShopTitle still says BL2's "Dr. Zed's Meds"). The game's text either way.
 """
 
 import json
@@ -78,6 +81,10 @@ class ShopReader:
             self._titles = {k: str(try_(lambda f=f: getattr(cdo, f), "") or "") for k, f in TITLES.items()} if cdo is not None else {}
         return self._titles.get(kind, "")
 
+    def _name(self, io: Any, kind: str) -> str:
+        """A machine's name: its map hover's (its definition's StatusMenuMapInfoBoxHeader), else its menu's title."""
+        return try_(lambda: str(io.InteractiveObjectDefinition.StatusMenuMapInfoBoxHeader), "") or self._title(kind)
+
     def _record(self, inv: Any, machine: Any, pc: Any, deadline: float) -> dict[str, Any] | None:
         """An item's record (inspector.py's, as in a backpack) with the machine's price as its value ("v"), or None
         if it isn't built yet and this pass has no time left."""
@@ -119,7 +126,7 @@ class ShopReader:
                 if kind in LEFT_OUT:
                     continue
                 loc = io.Location
-                machine: dict[str, Any] = {"i": addr(io), **named(self._title(kind), str(io.Class.Name)), "k": kind,
+                machine: dict[str, Any] = {"i": addr(io), **named(self._name(io, kind), str(io.Class.Name)), "k": kind,
                                            "x": round(loc.X), "y": round(loc.Y), "z": round(loc.Z)}
                 currency = CURRENCIES.get(_enum_name(try_(lambda io=io: io.FormOfCurrency)), "other")
                 if currency != "cash":

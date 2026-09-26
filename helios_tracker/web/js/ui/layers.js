@@ -5,9 +5,10 @@
 import { $, esc } from "../dom.js";
 import { t } from "../i18n.js";
 import { icon } from "../icons.js";
-import { LAYERS, LAYER_GROUPS, LAYER_SETTINGS, layerNameKey } from "../model.js";
+import { LAYERS, LAYER_GROUPS, LAYER_SETTINGS, layerInGame, layerNameKey } from "../model.js";
 import { invalidate } from "../scheduler.js";
 import { layerCfg, saveSettings, settings } from "../settings.js";
+import { S } from "../state.js";
 import { tipAttrs } from "./hovertip.js";
 
 // The layer's marker as drawn on the map (12 px SVG)
@@ -72,7 +73,7 @@ function settingHtml(l, key) {
 
 function folderHtml(l) {
   const closed = settings.ui.closedGroups.includes(foldKey(l.id));
-  const children = LAYERS.filter((c) => c.parent === l.id);
+  const children = LAYERS.filter((c) => c.parent === l.id && layerInGame(c, S.level?.game));
   return `<div class="lrow lfolder"><label class="row"><input type="checkbox" class="lbox" data-folder="${l.id}">` +
     `<span class="sw">${layerIcon(l)}</span><span class="lname">${layerName(l)}</span><span class="count" data-count="${l.id}"></span></label>` +
     `<button class="lcfg" data-fold="${foldKey(l.id)}">${icon(closed ? "chevronRight" : "chevronDown")}</button></div>` +
@@ -97,7 +98,7 @@ export function renderLayers() {
     const closed = settings.ui.closedGroups.includes(g);
     return `<div class="lgroup${closed ? " closed" : ""}"><div class="lghead" data-fold="${g}">` +
       `<span class="lgname">${esc(t("lgroup." + g))}</span><span class="lgfold">${icon(closed ? "chevronRight" : "chevronDown")}</span></div>` +
-      `<div class="lgbody">${LAYERS.filter((l) => l.group === g && !l.parent).map(rowHtml).join("")}</div></div>`;
+      `<div class="lgbody">${LAYERS.filter((l) => l.group === g && !l.parent && layerInGame(l, S.level?.game)).map(rowHtml).join("")}</div></div>`;
   }).join("");
   syncBoxes();
   invalidate(); // the counts are filled by the next frame

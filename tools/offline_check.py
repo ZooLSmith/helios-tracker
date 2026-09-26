@@ -274,6 +274,13 @@ const { objectCategory } = await load("js/model.js");
 const { shownHealth, shownMaxHealth } = await load("js/model.js");
 // health as the game's HUD shows it: rounded down (107.89: 107), the page's max the same (full reads full: "107 / 107")
 const healthShown = [shownHealth(107.8), shownMaxHealth(107.8907), shownHealth(100), shownMaxHealth(100)].join(",");
+// a label's Pre-Sequel twin (i18n.js setVariant: the level message's "game"): "group.relic.tps" - its Oz kits are BL2's
+// relics' class; a label without one unchanged; no game: BL2's
+const { setVariant: setGameVariant, t: tVariant } = await load("js/i18n.js");
+setGameVariant("tps");
+const variantWords = [tVariant("group.relic"), tVariant("currency.eridium", { n: 3 }), tVariant("group.weapon")];
+setGameVariant("");
+variantWords.push(tVariant("group.relic"));
 const vaultCat = objectCategory({ d: "IO_VaultRoy", n: "Vault Roy", c: "WillowInteractiveObject" })
   + "," + objectCategory({ d: "CatchARideTerminal", n: "Catch-A-Ride", c: "WillowVehicleSpawnStationTerminal" })
   + "," + objectCategory({ d: "InteractiveObj_HyperionAmmo", n: "Ammo", c: "WillowInteractiveObject", lootable: 1, lists: ["AmmoCrateLoot_Hyp"] });
@@ -320,7 +327,7 @@ const deltaOut = JSON.parse(fs.readFileSync(recordsFile, "utf-8")).map((sc, n) =
   for (const msg of sc.messages) whole = keyed(`scenario${n}`, sc.list, msg);
   return whole;
 });
-const missionsOut = { deltaOut, rowsOut, shotCostOut, bonusOut, statsOut, lookOut, vaultCat, healthShown, hitPicks, items, fallback, where, tooHigh, finish, difficulty, best, search, infoHtml, areas, gameText, story: flat(tree.story), other: flat(tree.other), counts: missionCounts(log),
+const missionsOut = { deltaOut, rowsOut, shotCostOut, bonusOut, statsOut, lookOut, vaultCat, healthShown, variantWords, hitPicks, items, fallback, where, tooHigh, finish, difficulty, best, search, infoHtml, areas, gameText, story: flat(tree.story), other: flat(tree.other), counts: missionCounts(log),
   objectives: objectiveStates(log[1]).map((s) => s.state) };
 console.log(JSON.stringify({ sha: crypto.createHash("sha256").update(rgba).digest("hex"), err, back, right, raw, modules, missions: missionsOut,
   migrated, checked: { enemy: checked.layers.enemy, view: checked.view, openLayers: checked.ui.openLayers, drawer: checked.ui.drawer, badDrawer }, i18nKeys, unknownSettings, lootLayers, gameRarity, freeRects }));
@@ -705,6 +712,12 @@ def check_helios_tracker() -> None:  # noqa: PLR0915
     # 57), the max precise (sent on change)
     assert (col._vital(57.96), col._vital(107.89068603515625), col._vital(100.0)) == (57.9, 107.8, 100)
     assert (col._vital_max(107.89068603515625), col._vital_max(57.695556640625), col._vital_max(100.0)) == (107.8907, 57.6956, 100)
+    # a player's oxygen (the Pre-Sequel's Oz meter - tools/probe_tps2.txt): the pawn's OxygenPool, else their replicated one
+    oxygen_pool = types.SimpleNamespace(Data=types.SimpleNamespace(CurrentValue=40.0, MaxValue=100.0))
+    assert col.Collector._oxygen(types.SimpleNamespace(OxygenPool=oxygen_pool)) == (40.0, 100.0)
+    assert col.Collector._oxygen(types.SimpleNamespace(OxygenPool=None, PlayerReplicationInfo=types.SimpleNamespace(OxygenPool=oxygen_pool))) \
+        == (40.0, 100.0), "a co-op client's view: the replicated pool"
+    assert col.Collector._oxygen(types.SimpleNamespace(PlayerReplicationInfo=None)) is None, "BL2: no oxygen"
     # Skills (tools/probe_passives.txt): the manager's running timed skills by player; the action skill
     # running / cooling down (its pool) / ready; timed passive effects; melee cooldown
     from helios_tracker.skills import SkillReader  # noqa: PLC0415
@@ -988,7 +1001,7 @@ def check_helios_tracker() -> None:  # noqa: PLR0915
         row_h = row_more.pop(0) if row_more and isinstance(row_more[0], (int, float)) else None
         row_extra = row_more[0] if row_more else {}
         assert len(row_more) <= 1 and isinstance(row_extra, dict), ("a state row", row)
-        assert set(row_extra) <= {"r", "s", "rs", "dn", "dd", "mn", "ct", "bo", "dv", "ak", "ps", "mk"}, ("only what moves", row)
+        assert set(row_extra) <= {"r", "s", "ox", "rs", "dn", "dd", "mn", "ct", "bo", "dv", "ak", "ps", "mk"}, ("only what moves", row)
         assert row_h != info.get("m") and row_extra.get("s", -1) != info.get("sm"), ("full: left out", row, info)
         return {**info, **row_extra, "i": row_id, "x": row_x, "y": row_y, "z": row_z,
                 **({"h": info["m"] if row_h is None else row_h} if info.get("m") else {}),
@@ -1028,6 +1041,13 @@ def check_helios_tracker() -> None:  # noqa: PLR0915
     assert parts["Barrel"] == ("SMG_Barrel_Hyperion", "Barrel", "") and parts["Title"][2] == "Bitch", parts
     (obj,) = json.loads(hub.latest("objects"))["objects"]
     assert obj["n"] == "Incendiary Barrel" and "raw" not in obj and obj["d"] == "IO_FireBarrel", obj
+    # no balance name, no target name: its definition's map hover header (the Pre-Sequel's oxygen source - it came out
+    # "Oxygen Cracks ?", its definition's name)
+    oxygen_io = ns(**{**vars(barrel), "_get_address": lambda: 0x5F0, "BalanceDefinitionState": None,
+                      "InteractiveObjectDefinition": ns(Name="IO_OxygenCracks", StatusMenuMapInfoBoxHeader="Oxygen Source",
+                                                        _path_name=lambda: "GD_Co_AirDome.InteractiveObjects.IO_OxygenCracks")})
+    oxygen_rec = col.Collector._object_record(oxygen_io)
+    assert oxygen_rec["n"] == "Oxygen Source" and "raw" not in oxygen_rec, oxygen_rec
     # the areas: the game's names (none for a fog of war only one), the ones uncovered (pc.DiscoveredWorldAreas)
     areas = json.loads(hub.latest("areas"))["areas"]
     assert areas == [{"k": "southernshelf_pwda_4", "x": 100, "y": -200, "z": 30, "r": 4644, "n": "Wreck Of The Ice Sickle"},
@@ -1367,6 +1387,11 @@ def check_helios_tracker() -> None:  # noqa: PLR0915
     c._publish_shops(2000.1)
     (vend_rec,) = json.loads(hub.latest("shops"))["machines"]
     assert (vend_rec["n"], vend_rec["k"], "raw" in vend_rec, "cur" in vend_rec) == ("Marcus Munitions", "weapons", False, False), vend_rec
+    # a machine's name: its map hover's first - its definition's StatusMenuMapInfoBoxHeader (the Pre-Sequel's ammo machine:
+    # "Bullets Etc.", its menu title still BL2's "The Ammo Dump"); none: the menu's title (above)
+    vend_hover = ns(InteractiveObjectDefinition=ns(StatusMenuMapInfoBoxHeader="Bullets Etc."))
+    assert c._shops._name(vend_hover, "items") == "Bullets Etc.", "the map hover's name"
+    assert c._shops._name(ns(InteractiveObjectDefinition=ns(StatusMenuMapInfoBoxHeader="")), "weapons") == "Marcus Munitions"
     assert [(it["n"], it["v"]) for it in vend_rec["items"]] == [("Unkempt Harold", 669)], vend_rec["items"]  # (the machine's price)
     assert vend_rec["basics"] == [{"n": "SMG Ammo", "k": "ammo", "v": 10}], vend_rec.get("basics")
     assert (vend_rec["feat"]["n"], vend_rec["feat"]["v"], vend_rec["feat"]["k"]) == ("Adaptive Shield", 766, "shield"), vend_rec["feat"]
@@ -1900,6 +1925,7 @@ def check_helios_tracker() -> None:  # noqa: PLR0915
     lk = mis["lookOut"]  # the see-through settings: 100 % by default, clamped to 0-100, the colour with its alpha
     assert (lk["lookDefault"], lk["lookClamped"], lk["rgba"]) == ({"bg": 100, "map": 100, "panel": 90, "ui": 100, "marker": 100},
                                                                    {"bg": 100, "map": 0, "panel": 20, "ui": 200, "marker": 50}, "rgba(11, 17, 22, 0.4)"), lk
+    assert mis["variantWords"] == ["OZ KITS", "3 moonstones", "WEAPONS", "RELICS"], ("the Pre-Sequel's words", mis["variantWords"])
     assert mis["healthShown"] == "107,107,100,100", ("health rounded down, as the game's HUD; the max the same", mis["healthShown"])
     assert mis["vaultCat"] == "vaultsymbol,station,container", \
         ("a vault symbol: its own layer; Catch-A-Ride: a station; anything with loot a container (the Pre-Sequel's"
