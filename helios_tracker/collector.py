@@ -25,7 +25,7 @@ from mods_base import ENGINE, get_pc
 from unrealsdk.unreal import WeakPointer
 
 from .amounts import pickup_amount
-from .inspector import buff_info, element_frame, explosion_info, ground_item, is_gear, read_players
+from .inspector import buff_info, element_frame, explosion_info, ground_item, is_gear, plant_info, read_players
 from . import lootodds
 from .missions import MissionLog, mission_id
 from .missions import objective_index as _mission_index
@@ -1043,6 +1043,8 @@ class Collector:
             if (enum := record.get("et")) and (frame := element_frame(enum)) and frame != record.get("el"):
                 record["el"] = frame
                 changed = True
+            if record.get("plant"):
+                continue  # (an elemental plant shot empty recharges: followed on, never "kd" - the page dims it at 0)
             if not record.get("kd") and Collector._killed(io, record):
                 record["kd"] = 1
                 self._damageable.pop(key, None)  # (nothing more to follow)
@@ -1138,9 +1140,13 @@ class Collector:
         # whether it explodes (its behaviours: a Behavior_Explode - its element from the explosion's damage type)
         if (health := Collector._health(io)) is not None:
             record["h"], record["m"] = health
-            if Collector._killed(io, record):
+            if not record.get("plant") and Collector._killed(io, record):
                 record["kd"] = 1  # (killed already: an exploded barrel's wreck)
-        if definition is not None and (explosion := try_(lambda: explosion_info(definition), {})):
+        # an elemental plant (the game's allegiance for them: inspector.plant_info) - the explosives' layer, but it
+        # recharges: not killed at 0 health (_check_health)
+        if definition is not None and (plant := try_(lambda: plant_info(definition), {})):
+            record.update(plant)
+        elif definition is not None and (explosion := try_(lambda: explosion_info(definition), {})):
             record.update(explosion)
         # a buff you use (the Pre-Sequel's Moxxtails, BL2's shrines: inspector.buff_info) - not a container, whatever loot
         # list its balance has (the Moxxtails': EpicChestRedLoot, never handed out). The other objects activating a skill

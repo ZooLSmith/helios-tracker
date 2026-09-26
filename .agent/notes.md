@@ -610,6 +610,13 @@ Southern Shelf's `_P` alone: 404 `StaticMesh`, 4131 `StaticMeshComponent`, 11 `T
   (moonstones), CostsToPickUpAmount 10 (the only pickups that cost: tools/probe_moxxtail_pickup.txt). Tied to its
   Moxxtail both ways: the pickup's Base = the Moxxtail's WillowInteractiveObject, the Moxxtail's Attached = [the pickup]
   (tools/probe_moxxtail_link.txt, all 8). The page shows the Moxxtail with the drink's price, not the drink.
+- **Elemental plants** (BL2's Firemelon, Acidolus, Shock Cactus; the Pre-Sequel's Cryo Vine _Normal / _Medium / _Large -
+  GD_ElementalPlants): the game groups them - their definition's Allegiance GD_AI_Allegiance.Allegiance_ElementalPlant,
+  no other object's (both games' packages). Like barrels, but shot empty they recharge (bDestroyWhenKilled False). Their
+  element, each its own way: the Firemelon's Behavior_Explode (Explosion_Firemelon), the Shock Cactus's Behavior_FireBeam
+  .DamageTypeDefinition (DmgType_Shock_Impact), the Acidolus's Behavior_SpawnProjectile -> AcidolusSack's own
+  Behavior_Explode (Explosion_CorrosiveMaster), the Cryo Vine's WillowDamageArea objects inside its definition
+  (DmgType_Ice_Impact - its behaviours, in the shared GD_ElementalPlants.Behaviors.Be_Cryovine_Shared, do no damage).
 - **What explodes**: its definition's behaviours hold a Behavior_Explode (BehaviorProviderDefinition.BehaviorSequences[]
   .BehaviorData2[].Behavior; the Pre-Sequel's barrels: bBarrelSource, DamageFormula / DamageRadiusFormula,
   Definition an ExplosionDefinition - its DamageTypeDef the element). The air dome generator: health, no behaviours.

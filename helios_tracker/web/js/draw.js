@@ -287,7 +287,8 @@ export function draw() {
     const [sx, sy] = place(o.x, o.y, o.z);
     if (!visible(sx, sy)) continue;
     if (o.dome) { hits.push({ sx, sy, r: 6 * st.k, kind: o.cat, item: o }); continue; } // (a dome: its area, drawn above)
-    fadeTo(st.alpha * (o.cat === "looted" ? 0.55 : 1));
+    // (looted: dimmed; an elemental plant shot empty - health 0 - dimmed too, until it has recharged)
+    fadeTo(st.alpha * (o.cat === "looted" ? 0.55 : o.plant && o.m > 0 && o.h <= 0 ? 0.45 : 1));
     // its colour: its layer's - an explosive its element's, the golden chest gold (a big chest, opened with a key)
     const oColor = o.cat === "explosive" && o.ecol ? o.ecol : o.cat === "chest" && isGoldenChest(o) ? COLORS.golden : LAYER_COLOR[o.cat];
     stem(o.x, o.y, sx, sy, oColor);

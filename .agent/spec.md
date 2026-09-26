@@ -188,6 +188,10 @@ It draws nothing in game: everything it shows is on the page.
 - **The game files' scan** (`gamescan.py`): the fonts, card icons and skill icons found in **one** pass over the packages
   (a gamework job), started when a page first connects (once per session), cached in `.cache/scan.json` (per package,
   by size + date: later sessions scan nothing). Font / icon requests wait for it (`SCAN_WAIT`).
+- **Explosives** (Places, `explosive`): what explodes (a Behavior_Explode: barrels...) - a burst in its element's colour,
+  its health bar when hurt, an exploded one's wreck left out (`kd`) - and the elemental plants (the game's
+  Allegiance_ElementalPlant: Firemelon, Acidolus, Shock Cactus, Cryo Vine), which recharge: never left out, dimmed at 0
+  health until they have.
 - **Slot machines** (World, `slots`): what costs something to use (its bCostsToUse[0], CostsToUseAmount[0]: the
   collector's `cost`) and has no loot of its own - a tall box, its reels' window. Costing isn't "not a container": golden
   chests cost golden keys (lootable: still chests), bought Moxxtails too (buffs first).

@@ -688,6 +688,51 @@ def explosion_info(definition: Any, ctrl: Any = None) -> dict[str, Any]:
     return _explosions[key]
 
 
+_plants: dict[int, dict[str, Any]] = {}  # object definition address -> plant_info's ({} not a plant), static
+
+
+def _plant_damage_type(definition: Any) -> Any:
+    """An elemental plant's damage type, where the game has it (each plant its own way - offline, both games' packages):
+    a behaviour's - Behavior_Explode.Definition.DamageTypeDef (BL2's Firemelon), Behavior_FireBeam.DamageTypeDefinition
+    (the Shock Cactus), the Behavior_SpawnProjectile's projectile's own Behavior_Explode (the Acidolus: its sack) - else
+    its damage areas' (WillowDamageArea objects inside the definition, DamageTypeDefinition: the Pre-Sequel's Cryo Vine -
+    no damage behaviour). None if none."""
+    def from_behaviors(provider: Any, depth: int = 0) -> Any:
+        for seq in try_(lambda: list(provider.BehaviorSequences), []) or []:
+            for data in try_(lambda s=seq: list(s.BehaviorData2), []) or []:
+                b = try_(lambda d=data: d.Behavior)
+                kind = try_(lambda b=b: str(b.Class.Name), "") if b is not None else ""
+                found = (try_(lambda b=b: b.Definition.DamageTypeDef) if kind == "Behavior_Explode"
+                         else try_(lambda b=b: b.DamageTypeDefinition) if kind == "Behavior_FireBeam"
+                         else from_behaviors(try_(lambda b=b: b.ProjectileDefinition.BehaviorProviderDefinition), depth + 1)
+                         if kind == "Behavior_SpawnProjectile" and depth < 2 else None)
+                if found is not None:
+                    return found
+        return None
+    if (found := from_behaviors(try_(lambda: definition.BehaviorProviderDefinition))) is not None:
+        return found
+    key = definition._get_address()
+    for area in try_(lambda: list(unrealsdk.find_all("WillowDamageArea", exact=False)), []) or []:
+        if try_(lambda a=area: a.Outer._get_address() == key, False) and (dt := try_(lambda a=area: a.DamageTypeDefinition)) is not None:
+            return dt
+    return None
+
+
+def plant_info(definition: Any, ctrl: Any = None) -> dict[str, Any]:
+    """An elemental plant (the game's own group: its definition's Allegiance Allegiance_ElementalPlant - BL2's Firemelon,
+    Acidolus, Shock Cactus, the Pre-Sequel's Cryo Vines; nothing else has it): like a barrel, but shot empty it
+    recharges instead of being destroyed - {"xp": 1, "plant": 1, its element (element_of: _plant_damage_type)}, {} if
+    it isn't one. Per definition, once."""
+    key = definition._get_address()
+    if key not in _plants:
+        found: dict[str, Any] = {}
+        if try_(lambda: str(definition.Allegiance.Name), "") == "Allegiance_ElementalPlant":
+            damage_type = try_(lambda: _plant_damage_type(definition))
+            found = {"xp": 1, "plant": 1, **(element_of(damage_type, ctrl) if damage_type is not None else {})}
+        _plants[key] = found
+    return _plants[key]
+
+
 # The game's own misspelling: its DamageType enum has DAMAGE_TYPE_Incindiary (both games' WillowGame.upk), its text
 # the key Incendiary (WillowMenu.int [DamageTypes]) - never matched, fire weapons and barrels had no element name. The
 # one correction, the user's call (not a name table: the text still comes from the game).

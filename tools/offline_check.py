@@ -1813,6 +1813,20 @@ def check_helios_tracker() -> None:  # noqa: PLR0915
                   inspector.buff_info(behaviours_def(0xB15, "Behavior_ActivateSkill"))]
     assert buff_kinds == [True, False, False, True, False], \
         ("a Moxxtail (no loot list: the Ammo one), Isaiah's strongbox, a chest, a shrine, a switch console", buff_kinds)
+    # An elemental plant (its Allegiance the game's Allegiance_ElementalPlant): the explosives' layer, its element from a
+    # beam (the Shock Cactus), else its damage areas (the Cryo Vine: WillowDamageArea objects inside its definition)
+    plant_beam = ns(Class=ns(Name="Behavior_FireBeam"), DamageTypeDefinition=ns(DamageType=barrel_damage.DAMAGE_TYPE_Ice,
+                    HUDDamageColor=ns(R=90, G=200, B=255)))
+    cactus_def = ns(_get_address=lambda: 0xB21, Allegiance=ns(Name="Allegiance_ElementalPlant"),
+                    BehaviorProviderDefinition=ns(BehaviorSequences=[ns(BehaviorData2=[ns(Behavior=plant_beam)])]))
+    vine_def = ns(_get_address=lambda: 0xB22, Allegiance=ns(Name="Allegiance_ElementalPlant"), BehaviorProviderDefinition=None)
+    vine_area = ns(Outer=vine_def, DamageTypeDefinition=ns(DamageType=barrel_damage.DAMAGE_TYPE_Ice, HUDDamageColor=ns(R=90, G=200, B=255)))
+    real_find_all_plants = inspector.unrealsdk.find_all
+    inspector.unrealsdk.find_all = lambda cls, exact=True: [vine_area] if cls == "WillowDamageArea" else []
+    plant_kinds = [inspector.plant_info(cactus_def, barrel_ctrl).get("el"), inspector.plant_info(vine_def, barrel_ctrl).get("el"),
+                   inspector.plant_info(ns(_get_address=lambda: 0xB23, Allegiance=ns(Name="Allegiance_ExplosiveBarrel")), barrel_ctrl)]
+    inspector.unrealsdk.find_all = real_find_all_plants
+    assert plant_kinds == ["ice", "ice", {}], ("a beam's element, a damage area's, a barrel isn't a plant", plant_kinds)
     assert inspector.explosion_info(ns(_get_address=lambda: 0xB02, BehaviorProviderDefinition=None), barrel_ctrl) == {}, \
         "no behaviours (the air dome generator): doesn't explode"
     fire_element = inspector.element_of(ns(DamageType=barrel_damage.DAMAGE_TYPE_Incindiary), barrel_ctrl)
