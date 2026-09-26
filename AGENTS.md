@@ -129,6 +129,9 @@ bl2-helios-tracker/
   only one language needs). Old `/en/...`, `/fr/...` links: `404.html` redirects them.
 - Every page needs JavaScript (no text without it): what the site builds (menu, search, copy buttons) carries keys
   too, so a language switch re-translates it; anything built from the text listens to the `i18n` event.
+- Link previews (Discord, X...): each page's head has Open Graph tags and its `<title>` / description in English,
+  written out (the bots run no JavaScript; the script still swaps them for the visitor's language) - a page's title
+  or description changed in `en.js`: change them there too. The image: `assets/img/og.jpg` (1200 x 630).
 - Preview: `python -m http.server` in the worktree (search needs http, not `file://`).
 - Wording follows the page's own labels (`helios_tracker/web/i18n/<code>.js`, the same language's); the mod's
   in-game options stay English in every language.
