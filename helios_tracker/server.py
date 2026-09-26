@@ -9,7 +9,7 @@ the Hub, the server threads only read them.
     GET /<path>.js|css|png|svg|woff2   its modules / stylesheets / images / fonts under web/ (js/, js/ui/, i18n/,
                              css/, img/, fonts/: the title's "H", ours)
     GET /events       SSE stream: "level", "state" (what moves), "pawninfo", "pickups", "objects", "players"... events,
-                      each the latest JSON
+                      each the latest JSON - record channels only what changed since the page's version (Hub)
     GET /image/<level>/<n>   raw texture data of map image n of level <level> (decoded by the page)
     GET /font/<slug>.ttf     the game's UI fonts, rebuilt as TrueType (gamefonts.py; 404 until extracted)
     GET /icon/<path>.png     a skill icon ("SharedSkillIcons_Soldier.SkillIcon-Able": gameicons.py, files only)
@@ -17,11 +17,14 @@ the Hub, the server threads only read them.
                              "pistol", "shock")
 """
 
+import json
 import re
 import threading
+from collections import deque
 from http import HTTPStatus
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
+from typing import Any
 
 from . import gamescan
 from .gamecards import card_png
@@ -44,12 +47,114 @@ LOCAL_ORIGIN = re.compile(r"http://(?:localhost|127\.0\.0\.1)(?::\d+)?")
 KEEPALIVE = 10.0  # s between SSE comments when nothing changes (detects closed tabs)
 
 
+_SEP = (",", ":")
+_MISSING = object()
+HISTORY = 64  # versions of a record channel whose changes are kept (~6 s of states): a page further behind gets it whole
+
+
+class _Records:
+    """A record channel (objects, pickups, the pawns...): its records by id (a dict's "i", a row's first item), and what
+    changed at each version - a page gets only the changes since the version it has (the stream re-sent every list
+    whole for one record changing: 140 objects for a chest opened, the pickups 10 times a second while one rolled).
+
+    A message: {"v": version, "b": the version it applies to, "m": the channel's own fields (level...), "set": records
+    added / changed, "del": ids gone, "o": every id in order (only when the order changed - not just appended)}. From the
+    version before: a changed dict record carries only its changed fields, "-": the ones it lost; from further back
+    ("rep": 1) the records whole; a page too far behind (or new): "full": 1, everything. data.js keyed() merges them."""
+
+    def __init__(self, list_key: str) -> None:
+        self.list_key = list_key  # the page's list of them in the message ("objects", "pawns"...)
+        self.version = 0
+        # id -> the record as last published, in order: a shallow copy (the collector changes some in place - a
+        # container's "looted": the same dict would compare equal to itself); nested parts come from caches, not edited
+        self.recs: dict[str, Any] = {}
+        self._json: dict[str, str] = {}  # id -> its JSON, made when a message needs it whole (a new page, one behind)
+        self.meta: dict[str, Any] | None = None  # its own fields but the stamp: what counts as a change
+        self.meta_json = "{}"
+        self.history: deque[tuple[int, frozenset[str], bool]] = deque(maxlen=HISTORY)  # (version, ids touched, reordered)
+        self.step = ""  # the last version's message from the one before (what an up-to-date page gets)
+
+    def update(self, records: list[Any], meta: dict[str, Any], stamp: dict[str, Any]) -> bool:
+        """The records now; False (no new version) if nothing changed. The stamp (the state's time) goes out with a
+        change, never makes one. Compared as objects, not JSON: a json.dumps per record, 10 times a second for the
+        state's 50 pawns, made the game stutter again (8x the cost)."""
+        new: dict[str, Any] = {}
+        for r in records:
+            if isinstance(r, list):
+                new[str(r[0])] = list(r)
+            else:
+                new[str(r["i"])] = dict(r)
+        old = self.recs
+        changed = [rid for rid, r in new.items() if old.get(rid, _MISSING) != r]  # (in the new order)
+        gone = sorted(rid for rid in old if rid not in new) if len(new) - len(changed) < len(old) else []
+        # the order: kept, the new ones at the end - what a page merging them gets without "o"
+        reordered = [rid for rid in old if rid in new] + [rid for rid in new if rid not in old] != list(new)
+        if self.version and not changed and not gone and not reordered and meta == self.meta:
+            return False
+        parts = []
+        for rid in changed:
+            r = new[rid]
+            self._json.pop(rid, None)
+            was = old.get(rid)
+            if isinstance(r, dict) and isinstance(was, dict):  # its changed fields only (a player: 40 KB, "equipped" changed)
+                part = {"i": r["i"], **{k: v for k, v in r.items() if k != "i" and was.get(k, _MISSING) != v}}
+                if lost := [k for k in was if k not in r]:
+                    part["-"] = lost
+                parts.append(json.dumps(part, separators=_SEP))
+            else:
+                parts.append(self._rec_json(rid, r))
+        for rid in gone:
+            self._json.pop(rid, None)
+        self.version += 1
+        self.recs, self.meta = new, dict(meta)
+        self.meta_json = json.dumps({**meta, **stamp}, separators=_SEP)
+        self.history.append((self.version, frozenset(changed) | frozenset(gone), reordered))
+        self.step = self._message(self.version - 1, parts, gone, reordered)
+        return True
+
+    def _rec_json(self, rid: str, r: Any) -> str:
+        j = self._json.get(rid)
+        if j is None:
+            j = self._json[rid] = json.dumps(r, separators=_SEP)
+        return j
+
+    def _message(self, base: int, parts: list[str], gone: list[str], reordered: bool, whole: bool = False) -> str:
+        out = f'{{"v":{self.version},"b":{base},"m":{self.meta_json},"set":[{",".join(parts)}]'
+        if gone:
+            out += ',"del":' + json.dumps(gone, separators=_SEP)
+        if reordered:
+            out += ',"o":' + json.dumps(list(self.recs), separators=_SEP)
+        return out + (',"rep":1}' if whole else "}")
+
+    def since(self, seen: int | None) -> str:
+        """The message for a page that has version `seen` (None: nothing yet)."""
+        if seen == self.version - 1:
+            return self.step
+        if seen is not None and self.history and self.history[0][0] - 1 <= seen < self.version:
+            touched: set[str] = set()
+            reordered = False
+            for version, ids, moved in self.history:
+                if version > seen:
+                    touched |= ids
+                    reordered |= moved
+            parts = [self._rec_json(rid, r) for rid, r in self.recs.items() if rid in touched]
+            gone = sorted(rid for rid in touched if rid not in self.recs)  # (gone since - or came and went: the page ignores those)
+            return self._message(seen, parts, gone, reordered, whole=True)
+        return f'{{"v":{self.version},"full":1,"m":{self.meta_json},"set":[{",".join(self._rec_json(rid, r) for rid, r in self.recs.items())}]}}'
+
+    def snapshot(self) -> dict[str, Any]:
+        """Everything, as one message of the old kind: its own fields + the list (tools, the offline check)."""
+        return {**json.loads(self.meta_json), self.list_key: list(self.recs.values())}
+
+
 class Hub:
-    """Latest payload per channel, with versions; SSE handlers wait for changes."""
+    """Latest payload per channel, with versions; SSE handlers wait for changes. Record channels (publish_records):
+    each page gets the changes since the version it has."""
 
     def __init__(self) -> None:
         self._cond = threading.Condition()
-        self._channels: dict[str, tuple[int, str]] = {}
+        self._channels: dict[str, tuple[int, str]] = {}  # (a record channel: its last version's changes)
+        self._records: dict[str, _Records] = {}
         self._images: dict[tuple[int, int], bytes] = {}
         self.fonts: dict[str, bytes] | None = None  # the game's fonts by slug (None: not extracted yet)
         self.closed = False
@@ -64,6 +169,26 @@ class Hub:
             version = self._channels.get(channel, (0, ""))[0] + 1
             self._channels[channel] = (version, payload)
             self._cond.notify_all()
+
+    def publish_records(self, channel: str, list_key: str, records: list[Any], meta: dict[str, Any] | None = None,
+                        stamp: dict[str, Any] | None = None) -> bool:
+        """A record channel's records now (dicts with an "i", or rows [id, ...]) and its own fields (meta: the level...);
+        only what changed goes out (_Records). False if nothing did."""
+        with self._cond:
+            recs = self._records.get(channel)
+            if recs is None or recs.list_key != list_key:
+                recs = self._records[channel] = _Records(list_key)
+            if not recs.update(records, meta or {}, stamp or {}):
+                return False
+            self._channels[channel] = (recs.version, recs.step)
+            self._cond.notify_all()
+            return True
+
+    def latest(self, channel: str) -> str:
+        """A channel's latest payload whole (a record channel: all its records - its snapshot)."""
+        with self._cond:
+            recs = self._records.get(channel)
+            return json.dumps(recs.snapshot(), separators=_SEP) if recs is not None else self._channels[channel][1]
 
     def set_images(self, level: int, images: list[bytes]) -> None:
         """Replaces all images (only the current level's are kept)."""
@@ -81,8 +206,9 @@ class Hub:
             out = []
             for channel, (version, payload) in self._channels.items():
                 if seen.get(channel) != version:
+                    recs = self._records.get(channel)
+                    out.append((channel, recs.since(seen.get(channel)) if recs is not None else payload))
                     seen[channel] = version
-                    out.append((channel, payload))
             return out
 
     def _newer(self, seen: dict[str, int]) -> bool:

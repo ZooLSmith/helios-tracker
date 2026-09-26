@@ -296,8 +296,13 @@ It draws nothing in game: everything it shows is on the page.
   64 x 64, the logo; `fonts/helios-h-*.woff2` = the panel title's "H", the logo as a font of one letter - see base.css;
   both built from the logo's sources, a local repo kept out of git in `_work/logo/`), `/events` (SSE: `level`, `state` - only what moves, sent only when something did: per pawn a row
   `[id, x, y, z, health?, {shield, players' yaw, flags...}?]`, full health / shield left out -, `pawninfo` - the pawns'
-  kind / name / level / max health / max shield - and `pickups`, both on change, `objects`, `players`, latest
-  payload each), `/image/<level>/<n>`. Server changes need a mod reload; page / i18n edits only a
+  kind / name / level / max health / max shield - and `pickups`, both on change, `objects`, `players`... Record
+  channels (`state`, `pawninfo`, `pickups`, `objects`, `players`, `missionlog`, `missiondefs`, `shops`:
+  `Hub.publish_records`) send only what changed since the version the page has - records added / changed (a dict
+  record: its changed fields, `-` the ones it lost), ids gone, the order when it changed; a page behind gets what it
+  missed at once, a new one (or one too far behind) everything - data.js `keyed()` merges them back into the whole
+  list its handlers get (a message out of step: a new stream). The other channels: their latest payload whole),
+  `/image/<level>/<n>`. Server changes need a mod reload; page / i18n edits only a
   browser refresh. The Hub holds
   the payloads; server threads never touch UObjects. The running server is kept on
   `sys._helios_tracker_server` so a reload can always stop the previous one.

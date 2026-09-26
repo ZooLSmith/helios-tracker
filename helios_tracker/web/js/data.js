@@ -20,6 +20,7 @@ import { isLive, setMessage, setPaused, setStatus } from "./ui/status.js";
 const RETRY_MS = 2000; // lost the game: how often to check whether it's back
 
 export function connect() {
+  for (const k of Object.keys(stores)) delete stores[k]; // (a new stream: every record channel starts whole)
   const es = new EventSource("/events");
   es.onopen = () => setStatus("live", "status.live");
   // Lost the connection (game closed, mod reloaded, server restarted): no half-stale reconnect -
@@ -34,20 +35,53 @@ export function connect() {
     if (es.readyState === EventSource.OPEN && !isLive()) setStatus("live", "status.live");
     fn(JSON.parse(e.data));
   });
+  // a record channel: only what changed comes (server.py Hub); out of step (a bug): a new stream, everything again
+  const onRecords = (name, list, fn) => on(name, (msg) => {
+    const whole = keyed(name, list, msg);
+    if (whole) fn(whole);
+    else { console.warn("record channel out of step, reconnecting:", name, msg.b, stores[name]?.v); es.close(); connect(); }
+  });
   on("level", onLevel);
-  on("state", onState);
-  on("objects", onObjects);
+  onRecords("state", "pawns", onState);
+  onRecords("objects", "objects", onObjects);
   on("areas", onAreas);
   on("cutscene", onCutscene);
-  on("players", onPlayers);
+  onRecords("players", "players", onPlayers);
   on("missions", onMissions);
-  on("missiondefs", onMissionDefs);
-  on("missionlog", onMissionLog);
-  on("shops", onShops);
+  onRecords("missiondefs", "missions", onMissionDefs);
+  onRecords("missionlog", "missions", onMissionLog);
+  onRecords("shops", "machines", onShops);
   on("shoptimer", onShopTimer);
   on("lootpools", onLootPools);
-  on("pickups", onPickups);
-  on("pawninfo", onPawnInfo);
+  onRecords("pickups", "pickups", onPickups);
+  onRecords("pawninfo", "pawns", onPawnInfo);
+}
+
+/** The record channels' records as the page has them: name -> {v: version, meta: its own fields, recs: id -> record}. */
+const stores = {};
+
+/** Merges a record channel's message (server.py _Records: {v, b, m, set, del, o, rep | full}) into what the page has;
+ *  returns the channel whole ({...its fields, [list]: records in order} - what the handlers always got), or null when
+ *  it doesn't follow the version the page has. A record changed from the version before: only its changed fields,
+ *  "-" the ones it lost (a flag gone: gone here too); from further back ("rep") or new: whole. Records are never
+ *  changed in place: a new object each time (a handler may hold the old one). */
+export function keyed(name, list, msg) {
+  let store = stores[name];
+  if (msg.full) store = stores[name] = { v: msg.v, meta: msg.m, recs: new Map() };
+  else if (!store || msg.b !== store.v) return null;
+  else { store.v = msg.v; store.meta = msg.m; }
+  for (const id of msg.del || []) store.recs.delete(id);
+  for (const r of msg.set || []) {
+    const id = Array.isArray(r) ? String(r[0]) : r.i;
+    const old = store.recs.get(id);
+    if (!old || msg.full || msg.rep || Array.isArray(r)) { store.recs.set(id, r); continue; }
+    const { "-": lost, ...fields } = r;
+    const merged = { ...old, ...fields };
+    for (const k of lost || []) delete merged[k];
+    store.recs.set(id, merged);
+  }
+  if (msg.o) store.recs = new Map(msg.o.filter((id) => store.recs.has(id)).map((id) => [id, store.recs.get(id)]));
+  return { ...store.meta, [list]: [...store.recs.values()] };
 }
 
 function reloadWhenBack() {
@@ -217,7 +251,7 @@ function onPickups(msg) {
  *  real name that came in, a level up), without waiting for their next move. */
 function onPawnInfo(msg) {
   if (!S.level || msg.level !== S.level.id) return;
-  S.pawnInfo = msg.pawns;
+  S.pawnInfo = Object.fromEntries(msg.pawns.map((p) => [p.i, p]));
   for (const [id, p] of S.pawns) {
     const info = S.pawnInfo[id];
     if (!info) continue;

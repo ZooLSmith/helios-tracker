@@ -110,13 +110,13 @@ def _install_fakes() -> None:
 
 GAME_COOKED = project.cooked_dir()  # project.json's game; None: the game file checks are skipped
 
-# Run as an ES module: node test.mjs <web dir> <image file>
+# Run as an ES module: node test.mjs <web dir> <image file> <record channel scenarios (JSON)>
 PAGE_TEST_JS = """
 import fs from "node:fs";
 import crypto from "node:crypto";
 import path from "node:path";
 import { pathToFileURL } from "node:url";
-const [web, imageFile] = process.argv.slice(2);
+const [web, imageFile, recordsFile] = process.argv.slice(2);
 const load = (file) => import(pathToFileURL(path.join(web, file)).href);
 // Every module of the page: resolves each import (paths and names) and runs its top level, which
 // must not touch the DOM (main.js's start() does the hookup)
@@ -308,7 +308,15 @@ const bonusOut = bonusLines([
 const { movingOf } = await load("js/data.js");
 const rowsOut = [movingOf(["a", 1, 2, 3], { m: 100, sm: 50 }), movingOf(["b", 1, 2, 3, 40.5, { s: 10, r: 5 }], { m: 100, sm: 50 }),
   movingOf(["c", 1, 2, 3, { rs: 2 }], {})];
-const missionsOut = { rowsOut, shotCostOut, bonusOut, statsOut, lookOut, vaultCat, hitPicks, items, fallback, where, tooHigh, finish, difficulty, best, search, infoHtml, areas, gameText, story: flat(tree.story), other: flat(tree.other), counts: missionCounts(log),
+// The record channels (data.js keyed): the Hub's own messages, merged as the page does - each scenario's end result
+// (null: a message out of step, refused)
+const { keyed } = await load("js/data.js");
+const deltaOut = JSON.parse(fs.readFileSync(recordsFile, "utf-8")).map((sc, n) => {
+  let whole = null;
+  for (const msg of sc.messages) whole = keyed(`scenario${n}`, sc.list, msg);
+  return whole;
+});
+const missionsOut = { deltaOut, rowsOut, shotCostOut, bonusOut, statsOut, lookOut, vaultCat, hitPicks, items, fallback, where, tooHigh, finish, difficulty, best, search, infoHtml, areas, gameText, story: flat(tree.story), other: flat(tree.other), counts: missionCounts(log),
   objectives: objectiveStates(log[1]).map((s) => s.state) };
 console.log(JSON.stringify({ sha: crypto.createHash("sha256").update(rgba).digest("hex"), err, back, right, raw, modules, missions: missionsOut,
   migrated, checked: { enemy: checked.layers.enemy, view: checked.view, openLayers: checked.ui.openLayers, drawer: checked.ui.drawer, badDrawer }, i18nKeys, unknownSettings, lootLayers, gameRarity, freeRects }));
@@ -885,7 +893,7 @@ def check_helios_tracker() -> None:  # noqa: PLR0915
     c.tick(1001.2)
     level: dict = {}
     for _ in range(100):
-        level = json.loads(hub._channels["level"][1])
+        level = json.loads(hub.latest("level"))
         if level["status"] != "loading":
             break
         time.sleep(0.05)
@@ -893,9 +901,9 @@ def check_helios_tracker() -> None:  # noqa: PLR0915
     assert (level["zmin"], level["zmax"]) == (-4096, 12288), level
     fog = level.get("fog")
     assert fog and fog["url"] == f"/image/{level['id']}/1" and fog["pieces"][0][0] == "sanctuary_pwda_1", fog  # (the fake level: Sanctuary)
-    state = json.loads(hub._channels["state"][1])
+    state = json.loads(hub.latest("state"))
     # the pawns: their descriptions apart ("pawninfo", on change), the state what moves - merged as the page does
-    pawn_infos = json.loads(hub._channels["pawninfo"][1])["pawns"]
+    pawn_infos = {p["i"]: p for p in json.loads(hub.latest("pawninfo"))["pawns"]}  # (records: a list, by "i")
     # rows, compact: [id, x, y, z, health if not full, {the rest} if any] (data.js movingOf), the max in the description
     def state_row(row: list, info: dict) -> dict:
         row_id, row_x, row_y, row_z, *row_more = row
@@ -916,12 +924,12 @@ def check_helios_tracker() -> None:  # noqa: PLR0915
     assert not any(p.get("raw") for p in state_pawns), state_pawns  # both have game names
     assert all(p.get("l") == 12 for p in state_pawns), state_pawns
     assert state["hz"] == 10.0 and "t" in state, state
-    assert "pickups" not in state and "pickups" in json.loads(hub._channels["pickups"][1]), "the pickups: a channel of their own"
+    assert "pickups" not in state and "pickups" in json.loads(hub.latest("pickups")), "the pickups: a channel of their own"
     shields = {p["n"]: (p.get("s"), p.get("sm")) for p in state_pawns}
     assert shields == {"Zer0": (60.0, 120.0), "Bullymong": (25.0, 50.0)}, shields  # properties / functions
     assert kinds == {"Zer0": "me", "Bullymong": "enemy"}, kinds
     print(f"  collector: level {level['name']!r} {level['status']}, pawns {kinds}")
-    (player,) = json.loads(hub._channels["players"][1])["players"]
+    (player,) = json.loads(hub.latest("players"))["players"]
     (gun,) = player["equipped"]
     assert (player["n"], player["local"], player["cls"], player["inventory"]) == ("Zer0", True, "Assassin", "full"), player
     assert "clsRaw" not in player and player["char"] == "Zer0", player  # localized, via CharacterClassId
@@ -940,10 +948,10 @@ def check_helios_tracker() -> None:  # noqa: PLR0915
     assert (gun["type"], gun["maker"]) == ("Sub-Machine Gun", "Hyperion+"), gun
     parts = {slot: (name, group, text) for slot, name, group, text in gun["parts"]}
     assert parts["Barrel"] == ("SMG_Barrel_Hyperion", "Barrel", "") and parts["Title"][2] == "Bitch", parts
-    (obj,) = json.loads(hub._channels["objects"][1])["objects"]
+    (obj,) = json.loads(hub.latest("objects"))["objects"]
     assert obj["n"] == "Incendiary Barrel" and "raw" not in obj and obj["d"] == "IO_FireBarrel", obj
     # the areas: the game's names (none for a fog of war only one), the ones uncovered (pc.DiscoveredWorldAreas)
-    areas = json.loads(hub._channels["areas"][1])["areas"]
+    areas = json.loads(hub.latest("areas"))["areas"]
     assert areas == [{"k": "southernshelf_pwda_4", "x": 100, "y": -200, "z": 30, "r": 4644, "n": "Wreck Of The Ice Sickle"},
                      {"k": "southernshelf_pwda_3", "x": 100, "y": -200, "z": 30, "r": 5908}], areas
     real_get_pc = col.get_pc
@@ -952,16 +960,16 @@ def check_helios_tracker() -> None:  # noqa: PLR0915
                                                       ns(DiscoveryName="GLACIAL_PWDA_4", HasBeenUncovered=False)],
                                 FullyExploredAreas=["Glacial_P"])
     c._publish_areas()
-    msg = json.loads(hub._channels["areas"][1])
+    msg = json.loads(hub.latest("areas"))
     assert [a.get("u") for a in msg["areas"]] == [None, 1] and "full" not in msg, ("discovered: listed, by short name", msg)
     assert msg["seen"] == [], ("the fog pieces discovered: none of Sanctuary's", msg["seen"])
     col.get_pc = lambda **k: ns(DiscoveredWorldAreas=[ns(DiscoveryName="SANCTUARY_PWDA_0")], FullyExploredAreas=[])
     c._publish_areas()
-    msg = json.loads(hub._channels["areas"][1])
+    msg = json.loads(hub.latest("areas"))
     assert msg["seen"] == ["sanctuary_pwda_0"], ("a fog piece discovered, its actor loaded or not", msg["seen"])
     col.get_pc = lambda **k: ns(DiscoveredWorldAreas=[], FullyExploredAreas=[level["map"].upper()])
     c._publish_areas()
-    msg = json.loads(hub._channels["areas"][1])
+    msg = json.loads(hub.latest("areas"))
     assert msg.get("full") == 1 and all(a.get("u") for a in msg["areas"]), ("a fully explored map: every area", msg)
     col.get_pc = real_get_pc
     # A skill's stats (tools/probe_skill_stats2.txt): GetSkillEffectPresentations(grade, ctrl, out lines) -> the
@@ -1073,19 +1081,19 @@ def check_helios_tracker() -> None:  # noqa: PLR0915
     vc.movie_started(ns(_get_address=lambda: 0xC1), "Orchid_Intro", False)
     assert "cutscene" not in vhub._channels, "another player's video"
     vc.movie_started(me_pc, "Orchid_Intro", False)
-    video = json.loads(vhub._channels["cutscene"][1])
+    video = json.loads(vhub.latest("cutscene"))
     assert video["video"] == video["name"] == "Orchid_Intro" and video["len"] == 65.0 and video["at"] > 0, video
     t_now = time.monotonic()
     vc.tick(t_now)
     vc.tick(t_now + 1.5)  # frames still going on after its start (a fade): still playing
-    assert json.loads(vhub._channels["cutscene"][1]).get("video"), "cleared by the frames around its start"
+    assert json.loads(vhub.latest("cutscene")).get("video"), "cleared by the frames around its start"
     vc.tick(t_now + 60.0)  # frames again after a gap: it's over (or skipped)
-    assert json.loads(vhub._channels["cutscene"][1]) == {}, "over: cleared"
+    assert json.loads(vhub.latest("cutscene")) == {}, "over: cleared"
     vc.movie_started(me_pc, "Orchid_Intro", False)
     t_now = time.monotonic()
     for k in range(80):  # the frames never stopped: over at its length + 5 s
         vc.tick(t_now + k)
-    assert json.loads(vhub._channels["cutscene"][1]) == {}, "over past its length"
+    assert json.loads(vhub.latest("cutscene")) == {}, "over past its length"
     col.movie_length = real_length
     col.get_pc = real_get_pc
     # An in-engine cutscene: the script's cinematic mode; elapsed counted from its start (not a Matinee's
@@ -1107,46 +1115,46 @@ def check_helios_tracker() -> None:  # noqa: PLR0915
     assert "cutscene" not in shub._channels, "a cinematic mode not from the script (after a video, a respawn)"
     scene_pc.bKismetEnabledCinematicMode = True
     sc._check_scene(scene_pc, scene_wi, 10.0)
-    scene = json.loads(shub._channels["cutscene"][1])
+    scene = json.loads(shub.latest("cutscene"))
     assert scene["scene"] == 1 and scene["len"] == 16.0 and abs(time.time() - scene["at"]) < 1, ("from 0, 16 s long (its Matinee's rest)", scene)
     interp.Position = 15.0
     sc._check_scene(scene_pc, scene_wi, 11.0)  # 1 s in, the Matinee moving
     # the game paused: sent as paused where it is (the page's count stopped); resumed: from there
     scene_wi.Pauser = ns(PlayerName="me")
     sc._check_scene(scene_pc, scene_wi, 11.1)
-    scene = json.loads(shub._channels["cutscene"][1])
+    scene = json.loads(shub.latest("cutscene"))
     assert scene.get("paused") == 1 and abs(scene["pos"] - 1.0) < 0.01 and scene["len"] == 16.0, ("paused: held at 1 s", scene)
     assert scene["name"] == "SeqAct_Interp_3", ("its Matinee's name (no comment, no sequence)", scene)
     sc._check_scene(scene_pc, scene_wi, 20.0)  # 9 s paused: not counted
     scene_wi.Pauser = None
     interp.Position = 15.2
     sc._check_scene(scene_pc, scene_wi, 20.2)
-    scene = json.loads(shub._channels["cutscene"][1])
+    scene = json.loads(shub.latest("cutscene"))
     assert "paused" not in scene and abs(time.time() - scene["at"] - 1.2) < 0.5, ("resumed from 1.2 s, the pause not counted", scene)
     # its Matinee stuck (not moving, the game not paused): paused too
     sc._check_scene(scene_pc, scene_wi, 21.0)
-    assert json.loads(shub._channels["cutscene"][1]).get("paused") == 1, "a Matinee not moving: paused"
+    assert json.loads(shub.latest("cutscene")).get("paused") == 1, "a Matinee not moving: paused"
     # a later, longer shot: the length grows, elapsed goes on (no jump)
     interp.Position = 16.0
     later_shot = ns(Name="SeqAct_Interp_4", Class=ns(Name="SeqAct_Interp"), bIsPlaying=True, bLooping=False, PlayRate=1.0,
                Position=0.0, VariableLinks=[ns(LinkedVariables=[ns(InterpLength=40.0)])])
     sc._interps = (sc.level_id, [lambda: interp, lambda: later_shot])
     sc._check_scene(scene_pc, scene_wi, 22.5)
-    scene = json.loads(shub._channels["cutscene"][1])
+    scene = json.loads(shub.latest("cutscene"))
     assert scene["len"] > 40 and "paused" not in scene, ("a longer shot: its length grown", scene)
     scene_pc.bCinematicMode = False
     sc._check_scene(scene_pc, scene_wi, 23.0)
-    assert json.loads(shub._channels["cutscene"][1]) == {}, "over: cleared"
+    assert json.loads(shub.latest("cutscene")) == {}, "over: cleared"
     # the main menu: its background runs in the script's cinematic mode too - never a cutscene
     sc._level = {"map": "MenuMap"}
     scene_pc.bCinematicMode = True
     sc._check_scene(scene_pc, scene_wi, 24.0)
-    assert json.loads(shub._channels["cutscene"][1]) == {}, "the main menu's background shown as a cutscene"
+    assert json.loads(shub.latest("cutscene")) == {}, "the main menu's background shown as a cutscene"
     # the character creation's idle: in a level, no character in the world yet
     sc._level = {"map": "Stockade_P"}
     scene_pc.MyWillowPawn = None
     sc._check_scene(scene_pc, scene_wi, 25.0)
-    assert json.loads(shub._channels["cutscene"][1]) == {}, "the character creation's idle shown as a cutscene"
+    assert json.loads(shub.latest("cutscene")) == {}, "the character creation's idle shown as a cutscene"
     col.unrealsdk.find_all = real_find_all
     col.WeakPointer = real_weak
     col.unrealsdk.find_all = real_find_all
@@ -1162,21 +1170,21 @@ def check_helios_tracker() -> None:  # noqa: PLR0915
                           ns(ItemAttachments=[ns(ItemPool=ns(Name="Pool_GunsAndGear"))] * 4)])]))})
     c.object_spawned(chest)
     c.tick(1001.3)
-    names = [o["n"] for o in json.loads(hub._channels["objects"][1])["objects"]]
+    names = [o["n"] for o in json.loads(hub.latest("objects"))["objects"]]
     assert names == ["Incendiary Barrel", "Explosive Gas Tank", "Treasure Chest"], names
     chest.bCanBeUsed = (0, 0)  # opened: use off at once (the anim state only follows)
     c.object_usability_changed(chest)  # the SetUsability hook
     c.tick(1001.35)
-    looted = {o["n"]: (o.get("lootable"), o.get("looted")) for o in json.loads(hub._channels["objects"][1])["objects"]}
+    looted = {o["n"]: (o.get("lootable"), o.get("looted")) for o in json.loads(hub.latest("objects"))["objects"]}
     assert looted["Treasure Chest"] == (1, 1) and looted["Incendiary Barrel"] == (None, None), looted
-    contents = {o["n"]: o.get("loot") for o in json.loads(hub._channels["objects"][1])["objects"]}
-    objs = {o["n"]: o for o in json.loads(hub._channels["objects"][1])["objects"]}
+    contents = {o["n"]: o.get("loot") for o in json.loads(hub.latest("objects"))["objects"]}
+    objs = {o["n"]: o for o in json.loads(hub.latest("objects"))["objects"]}
     chest_rec = objs["Treasure Chest"]
     assert (chest_rec["loot"], chest_rec["slots"], chest_rec["lists"]) == (["Pool_GunsAndGear"], 4, ["EpicChestRedLoot"]), chest_rec
     assert "loot" not in objs["Incendiary Barrel"], objs["Incendiary Barrel"]
     c.object_destroyed(barrel)  # it exploded
     c.tick(1001.4)
-    names = [o["n"] for o in json.loads(hub._channels["objects"][1])["objects"]]
+    names = [o["n"] for o in json.loads(hub.latest("objects"))["objects"]]
     assert names == ["Explosive Gas Tank", "Treasure Chest"], names
     # Vending machines (tools/probe_vending.txt): a machine's 30-slot stock (the items, then None), its item of the
     # day, the price the machine asks; the restock timer from WorldInfo.Game (the host) - sent when it drifts
@@ -1204,7 +1212,7 @@ def check_helios_tracker() -> None:  # noqa: PLR0915
                       "ShopType": vend_shop_type.SType_BlackMarket, "ShopInventory": [], "FeaturedItem": None})
     c.object_spawned(vend_machine)  # (the hook: noted as a machine; the scan does the same)
     c.object_spawned(vend_earl)  # Crazy Earl: left out of the list
-    assert json.loads(hub._channels["shops"][1])["machines"] == [], "a stock before any machine"  # (the ticks: none yet)
+    assert json.loads(hub.latest("shops"))["machines"] == [], "a stock before any machine"  # (the ticks: none yet)
     vend_empty = hub._channels["shops"][0]
     vend_mod.BUILD_SECONDS, vend_budget = -1.0, vend_mod.BUILD_SECONDS  # no time for item records this pass
     c._publish_shops(2000.0)
@@ -1212,41 +1220,41 @@ def check_helios_tracker() -> None:  # noqa: PLR0915
         "a half-built stock sent")
     vend_mod.BUILD_SECONDS = vend_budget
     c._publish_shops(2000.1)
-    (vend_rec,) = json.loads(hub._channels["shops"][1])["machines"]
+    (vend_rec,) = json.loads(hub.latest("shops"))["machines"]
     assert (vend_rec["n"], vend_rec["k"], "raw" in vend_rec, "cur" in vend_rec) == ("Marcus Munitions", "weapons", False, False), vend_rec
     assert [(it["n"], it["v"]) for it in vend_rec["items"]] == [("Unkempt Harold", 669)], vend_rec["items"]  # (the machine's price)
     assert vend_rec["basics"] == [{"n": "SMG Ammo", "k": "ammo", "v": 10}], vend_rec.get("basics")
     assert (vend_rec["feat"]["n"], vend_rec["feat"]["v"], vend_rec["feat"]["k"]) == ("Adaptive Shield", 766, "shield"), vend_rec["feat"]
-    assert json.loads(hub._channels["shoptimer"][1]) == {"level": c.level_id, "left": 1169.0, "rate": 1.0}
+    assert json.loads(hub.latest("shoptimer")) == {"level": c.level_id, "left": 1169.0, "rate": 1.0}
     vend_versions = (hub._channels["shops"][0], hub._channels["shoptimer"][0])
     vend_game.SecondsUntilShopsReset = 1159.0  # 10 s later, as counted: nothing to send
     c._publish_shops(2010.1)
     assert (hub._channels["shops"][0], hub._channels["shoptimer"][0]) == vend_versions, "sent again unchanged"
     vend_game.SecondsUntilShopsReset = 1100.0  # the page's count would be off: the timer again, not the stock
     c._publish_shops(2011.1)
-    assert (hub._channels["shops"][0], hub._channels["shoptimer"][1]) == (vend_versions[0], json.dumps(
+    assert (hub._channels["shops"][0], hub.latest("shoptimer")) == (vend_versions[0], json.dumps(
         {"level": c.level_id, "left": 1100.0, "rate": 1.0}, separators=(",", ":"))), "a drifted timer not sent"
     # the game paused (WorldInfo.Pauser): its timer stands still - sent once, flagged; no resend while it holds
     vend_world.Pauser = ns(Name="PlayerReplicationInfo_0")
     c._publish_shops(2011.5)
-    assert json.loads(hub._channels["shoptimer"][1]) == {"level": c.level_id, "left": 1100.0, "rate": 1.0, "paused": 1}
+    assert json.loads(hub.latest("shoptimer")) == {"level": c.level_id, "left": 1100.0, "rate": 1.0, "paused": 1}
     vend_paused_version = hub._channels["shoptimer"][0]
     c._publish_shops(2030.0)  # 18.5 s later, the game's count unchanged: the page's held too - nothing to send
     assert hub._channels["shoptimer"][0] == vend_paused_version, "a paused timer resent (the page's count went on)"
     vend_world.Pauser = None
     c._publish_shops(2031.0)  # unpaused: sent again, counting
-    assert "paused" not in json.loads(hub._channels["shoptimer"][1]) and hub._channels["shoptimer"][0] == vend_paused_version + 1
+    assert "paused" not in json.loads(hub.latest("shoptimer")) and hub._channels["shoptimer"][0] == vend_paused_version + 1
     vend_new = ns(**{**vars(vend_gun), "Name": "WillowWeapon_31", "_get_address": lambda: 0x522})
     vend_machine.ShopInventory = [vend_new, None]  # restocked: a new item, the timer back up
     vend_game.SecondsUntilShopsReset = 1200.0
     c._publish_shops(2012.1)
-    (vend_rec,) = json.loads(hub._channels["shops"][1])["machines"]
-    assert [it["v"] for it in vend_rec["items"]] == [120] and json.loads(hub._channels["shoptimer"][1])["left"] == 1200.0, vend_rec
+    (vend_rec,) = json.loads(hub.latest("shops"))["machines"]
+    assert [it["v"] for it in vend_rec["items"]] == [120] and json.loads(hub.latest("shoptimer"))["left"] == 1200.0, vend_rec
     assert "basics" not in vend_rec, vend_rec  # (none left in that stock)
     assert (0x520, "WillowWeapon_27") not in c._shops._items, "a sold item's record kept"
     c.object_destroyed(vend_machine)
     c._publish_shops(2013.1)
-    assert json.loads(hub._channels["shops"][1])["machines"] == [], "a destroyed machine still listed"
+    assert json.loads(hub.latest("shops"))["machines"] == [], "a destroyed machine still listed"
     col.ENGINE, vend_find_class = vend_saved
     if vend_find_class is None:
         del vend_mod.unrealsdk.find_class
@@ -1316,7 +1324,7 @@ def check_helios_tracker() -> None:  # noqa: PLR0915
     assert lootodds.refresh(ns(Game=None)), "a client (no game info): back to the base values"
     print(f"  loot odds: the golden chest {[round(o['p']) for o in odds_chest]} %, health in a box ~{odds_box[1]['p']:.0f} % "
           f"(low on health ~{odds_box[1]['lo'][0]:.0f}-{odds_box[1]['lo'][1]:.0f} %), a legendary pool from Lv 7, the host's live common modifier")
-    missions = json.loads(hub._channels["missions"][1])
+    missions = json.loads(hub.latest("missions"))
     assert missions["tracked"] == {"n": "Ménage à Liar's Berg"}, missions
     obj_mk, giver = missions["markers"]  # the inactive objective is left out
     assert (obj_mk["k"], obj_mk["rad"], obj_mk["tracked"], obj_mk["objective"]) == (
@@ -1325,8 +1333,8 @@ def check_helios_tracker() -> None:  # noqa: PLR0915
     # The mission log: full pass (every entry, definitions cached), then the fast pass (the tracked /
     # active missions, every second) picks up progress
     def merged_log() -> dict:  # what the page builds: the definitions + the live part, by id
-        defs = {m["i"]: m for m in json.loads(hub._channels["missiondefs"][1])["missions"]}
-        live = json.loads(hub._channels["missionlog"][1])
+        defs = {m["i"]: m for m in json.loads(hub.latest("missiondefs"))["missions"]}
+        live = json.loads(hub.latest("missionlog"))
         return {**live, "missions": [{**defs[m["i"]], **m} for m in live["missions"]]}
     log = merged_log()
     by_id = {m["i"]: m for m in log["missions"]}
@@ -1605,10 +1613,66 @@ def check_helios_tracker() -> None:  # noqa: PLR0915
         print("  node not found: skipping the page's JS checks")
         return
     want = hashlib.sha256(_dxt5_rgba(468, 512, image)).hexdigest()
+    # Record channels (server.py Hub.publish_records): only what changed goes out - fields changed / lost, records gone,
+    # the order, the channel's own fields; a page behind gets what it missed at once, a new one (or one too far behind)
+    # everything. The page's merge (data.js keyed) runs on these very messages below, against the Hub's snapshot.
+    from helios_tracker import server as delta_server  # noqa: PLC0415
+    delta_hub = delta_server.Hub()
+    delta_a, delta_b, delta_c = {"i": "a", "n": 1, "raw": 1}, {"i": "b", "n": 2, "gear": [1, 2]}, {"i": "c", "n": 3}
+    delta_steps = [([delta_a, delta_b], {"level": 1}), ([{"i": "a", "n": 5}, delta_b], {"level": 1}), ([delta_b], {"level": 1}),
+                   ([delta_b, delta_c], {"level": 1}), ([delta_c, delta_b], {"level": 1}), ([delta_c, {"i": "b", "n": 2}], {"level": 2})]
+    delta_live, delta_msgs = [], []  # a page that follows each version / everything each one sent
+    for delta_n, (delta_recs, delta_meta) in enumerate(delta_steps):
+        assert delta_hub.publish_records("objs", "objects", delta_recs, delta_meta), ("a change: a new version", delta_n)
+        delta_msgs.append(json.loads(delta_hub._channels["objs"][1]))
+        delta_live.append(delta_hub._records["objs"].since(None if delta_n == 0 else delta_n))
+    assert not delta_hub.publish_records("objs", "objects", delta_steps[-1][0], {"level": 2}), "nothing changed: nothing sent"
+    assert delta_msgs[1]["set"] == [{"i": "a", "n": 5, "-": ["raw"]}], ("changed fields, lost ones", delta_msgs[1])
+    assert delta_msgs[2]["del"] == ["a"] and delta_msgs[2]["set"] == [] and "o" not in delta_msgs[2], ("gone", delta_msgs[2])
+    assert delta_msgs[3]["set"] == [delta_c] and "o" not in delta_msgs[3], ("added at the end: no order", delta_msgs[3])
+    assert delta_msgs[4]["o"] == ["c", "b"] and delta_msgs[4]["set"] == [], ("the order changed", delta_msgs[4])
+    assert delta_msgs[5]["m"] == {"level": 2} and delta_msgs[5]["set"] == [{"i": "b", "-": ["gear"]}], delta_msgs[5]  # (a flag gone: gone on the page)
+    delta_behind = json.loads(delta_hub._records["objs"].since(2))  # (missed versions 3 to 6: a gone "a" too, from 2)
+    assert delta_behind["rep"] == 1 and delta_behind["b"] == 2 and delta_behind["o"] == ["c", "b"], delta_behind
+    assert json.loads(delta_hub._records["objs"].since(None)).get("full") == 1, "a new page: everything"
+    # rows ([id, ...]: the state's pawns) and a stamp: the time goes out with a change, never makes one
+    assert delta_hub.publish_records("rows", "pawns", [["p1", 1, 2, 3], ["p2", 4, 5, 6]], {"level": 1}, {"t": 1.0})
+    assert not delta_hub.publish_records("rows", "pawns", [["p1", 1, 2, 3], ["p2", 4, 5, 6]], {"level": 1}, {"t": 1.1}), "the stamp alone"
+    assert delta_hub.publish_records("rows", "pawns", [["p1", 1, 2, 4], ["p2", 4, 5, 6]], {"level": 1}, {"t": 1.2})
+    delta_row = json.loads(delta_hub._channels["rows"][1])
+    assert delta_row["set"] == [["p1", 1, 2, 4]] and delta_row["m"] == {"level": 1, "t": 1.2}, ("only the pawn that moved", delta_row)
+    # a record changed in place (the collector's container "looted": the same dict published again) - still a change
+    delta_inplace = {"i": "box", "lootable": 1}
+    delta_hub.publish_records("inplace", "objects", [delta_inplace])
+    delta_inplace["looted"] = 1
+    assert delta_hub.publish_records("inplace", "objects", [delta_inplace]), "changed in place: missed"
+    assert json.loads(delta_hub._channels["inplace"][1])["set"] == [{"i": "box", "looted": 1}], delta_hub._channels["inplace"][1]
+    # too far behind (past the history): everything
+    delta_server.HISTORY, delta_history = 2, delta_server.HISTORY
+    for delta_n in range(4):
+        delta_hub.publish_records("short", "objects", [{"i": "x", "n": delta_n}])
+    delta_server.HISTORY = delta_history
+    assert json.loads(delta_hub._records["short"].since(1)).get("full") == 1, "too far behind: everything"
+    # deleted with nothing reordered after (an "o" rebuilds the list: it would hide a missed deletion)
+    delta_hub.publish_records("gone", "objects", [{"i": "x"}, {"i": "y"}, {"i": "z"}])
+    delta_gone_first = delta_hub._records["gone"].since(None)
+    delta_hub.publish_records("gone", "objects", [{"i": "x"}, {"i": "z"}])
+    delta_gone_step = delta_hub._records["gone"].since(1)
+    delta_hub.publish_records("gone", "objects", [{"i": "x"}])
+    delta_gone_last = delta_hub._records["gone"].since(2)
+    delta_scenarios = [
+        {"list": "objects", "messages": [json.loads(m) for m in delta_live]},  # following every version
+        {"list": "objects", "messages": [json.loads(delta_live[0]), json.loads(delta_hub._records["objs"].since(1))]},  # behind
+        {"list": "objects", "messages": [delta_msgs[-1]]},  # joined late with no full one: out of step
+        {"list": "pawns", "messages": [json.loads(delta_hub._records["rows"].since(None))]},
+        {"list": "objects", "messages": [json.loads(m) for m in (delta_gone_first, delta_gone_step, delta_gone_last)]},
+        {"list": "objects", "messages": [json.loads(delta_gone_first), json.loads(delta_hub._records["gone"].since(1))]},
+    ]
     with tempfile.TemporaryDirectory() as tmp:
         (Path(tmp) / "img.bin").write_bytes(image)
+        (Path(tmp) / "records.json").write_text(json.dumps(delta_scenarios), encoding="utf-8")
         (Path(tmp) / "test.mjs").write_text(PAGE_TEST_JS, encoding="utf-8")
-        out = subprocess.run([node, str(Path(tmp) / "test.mjs"), str(web), str(Path(tmp) / "img.bin")],
+        out = subprocess.run([node, str(Path(tmp) / "test.mjs"), str(web), str(Path(tmp) / "img.bin"), str(Path(tmp) / "records.json")],
                              capture_output=True, text=True, encoding="utf-8", check=False)
     assert out.returncode == 0, out.stderr
     js = json.loads(out.stdout)
@@ -1665,6 +1729,11 @@ def check_helios_tracker() -> None:  # noqa: PLR0915
     assert (lk["lookDefault"], lk["lookClamped"], lk["rgba"]) == ({"bg": 100, "map": 100, "panel": 90, "ui": 100, "marker": 100},
                                                                    {"bg": 100, "map": 0, "panel": 20, "ui": 200, "marker": 50}, "rgba(11, 17, 22, 0.4)"), lk
     assert mis["vaultCat"] == "vaultsymbol,station", ("a vault symbol: its own layer; Catch-A-Ride: a station", mis["vaultCat"])
+    delta_want = json.loads(delta_hub.latest("objs"))
+    delta_gone_want = {"objects": [{"i": "x"}]}
+    assert mis["deltaOut"] == [delta_want, delta_want, None, json.loads(delta_hub.latest("rows")), delta_gone_want,
+                               delta_gone_want], \
+        ("the page's merge of the Hub's messages: the Hub's records", mis["deltaOut"], delta_want)
     assert mis["rowsOut"] == [{"i": "a", "x": 1, "y": 2, "z": 3, "h": 100, "hf": 1, "s": 50, "sf": 1},
                               {"i": "b", "x": 1, "y": 2, "z": 3, "h": 40.5, "s": 10, "r": 5},
                               {"i": "c", "x": 1, "y": 2, "z": 3, "rs": 2}], ("the state's compact rows", mis["rowsOut"])

@@ -330,12 +330,8 @@ class Collector:
         self._next_scan = 0.0
         self._next_objects = 0.0
         self._next_players = 0.0
-        self._players_json = ""
         self._next_missions = 0.0
         self._missions_json = ""
-        # what the state update last sent, split by how often it changes (_publish_state): the pickups, the pawns'
-        # descriptions, the moving part (without its time)
-        self._pickups_json = self._pawninfo_json = self._state_key = ""
         self._tracker: WeakPointer | None = None  # the MissionTracker, found at each scan
         # A co-op client: the level's WillowWaypoint actors (no waypoint components there: the
         # markers are worked out from them - _client_markers), found at each objects scan
@@ -353,7 +349,6 @@ class Collector:
         self._skills = SkillReader()  # every player's action skill, timed effects, melee cooldown
         self._state_n = 0
         self._info: dict[int, dict[str, Any]] = {}  # per-actor cached name/kind, by address
-        self._objects_json = "[]"
         self._pools_sent: tuple[int, int] | None = None  # (lootodds.version, POOLS' size) when last sent (None: send it)
         # Interactive objects don't move or get renamed: each record is built once per level
         self._object_records: dict[tuple[int, str], dict[str, Any] | None] = {}
@@ -402,8 +397,7 @@ class Collector:
                 self.on_page()
             self._next_scan = self._next_objects = self._next_players = self._next_missions = self._next_log = 0.0
             self._log.dirty = self._log.defs_dirty = True  # the new page needs the log
-            self._objects_json = self._players_json = self._missions_json = self._areas_json = ""
-            self._pickups_json = self._pawninfo_json = self._state_key = ""
+            self._missions_json = self._areas_json = ""  # (the record channels: the Hub sends a new page everything)
             self._pools_sent = None
             self._shops.resend()
             self._next_shops = 0.0
@@ -847,8 +841,9 @@ class Collector:
         stock, timer = self._shops.read(ENGINE.GetCurrentWorldInfo(), get_pc(), self.level_id, self._client, now)
         if self._shops.pending:
             self._next_shops = now + SHOPS_RETRY
-        if stock is not None:
-            self.hub.publish("shops", stock)
+        if stock is not None:  # (a sale: only that machine goes out)
+            payload = json.loads(stock)
+            self.hub.publish_records("shops", "machines", payload.pop("machines"), payload)
         if timer is not None:
             self.hub.publish("shoptimer", timer)
 
@@ -859,10 +854,7 @@ class Collector:
         if (lootodds.version, len(lootodds.POOLS)) != self._pools_sent:
             self._pools_sent = (lootodds.version, len(lootodds.POOLS))
             self.hub.publish("lootpools", json.dumps({"pools": lootodds.POOLS}, separators=(",", ":")))
-        objects_json = json.dumps({"level": self.level_id, "objects": objects}, separators=(",", ":"))
-        if objects_json != self._objects_json:
-            self._objects_json = objects_json
-            self.hub.publish("objects", objects_json)
+        self.hub.publish_records("objects", "objects", objects, {"level": self.level_id})  # (only what changed goes out)
 
     # From hooks (game thread): objects that spawn / get their balance (display name) / go away after
     # the level loaded - e.g. hazards spawned when an area activates. Before the level is known, or
@@ -1069,7 +1061,7 @@ class Collector:
         t_skills = time.perf_counter()
         players = []  # player pawns seen this update (the skill reader forgets the others)
         pawns = []
-        infos: dict[str, dict[str, Any]] = {}  # id -> kind, name, level: sent apart, on change
+        infos: list[dict[str, Any]] = []  # id, kind, name, level, max health / shield: sent apart, on change
         health = {}
         pawn = wi.PawnList
         for n in range(MAX_PAWNS):
@@ -1122,8 +1114,7 @@ class Collector:
                         loc = spot
                     # Its description ("pawninfo": sent on change) with its max health / shield (they rarely change)
                     hp_max, sh_max = _vital(hp[1]), _vital(hp[3])
-                    infos[info["i"]] = {**{k: v for k, v in info.items() if k != "i"},
-                                        **({"m": hp_max} if hp_max else {}), **({"sm": sh_max} if sh_max else {})}
+                    infos.append({**info, **({"m": hp_max} if hp_max else {}), **({"sm": sh_max} if sh_max else {})})
                     extra = {
                         # the heading: the players' only (their arrows; the others are dots)
                         **({"r": view_yaw if info["k"] == "me" else get("Rotation").Yaw} if is_player else {}),
@@ -1166,24 +1157,15 @@ class Collector:
             except Exception as ex:  # noqa: BLE001
                 log_error("pickup", ex)
         t_pickups = time.perf_counter()
-        # Three channels by how often they change (the stream grew fast with nothing moving - the user: everything went
-        # out 10 times a second): the pickups and the pawns' descriptions only when they change (a pickup moves while
-        # thrown / spawned - then every update); the state - what moves - only when something did. Descriptions and
-        # pickups first: a new pawn's arrives with (or before) its first move (the page waits for it anyway).
-        pickups_json = json.dumps({"level": self.level_id, "pickups": pickups}, separators=(",", ":"))
-        if pickups_json != self._pickups_json:
-            self._pickups_json = pickups_json
-            self.hub.publish("pickups", pickups_json)
-        pawninfo_json = json.dumps({"level": self.level_id, "pawns": infos}, separators=(",", ":"))
-        if pawninfo_json != self._pawninfo_json:
-            self._pawninfo_json = pawninfo_json
-            self.hub.publish("pawninfo", pawninfo_json)
-        state = {"level": self.level_id, "hz": self.rate, "pawns": pawns,
-                 **({"paused": 1} if try_(lambda: field(wi, "Pauser") is not None, False) else {})}  # the game paused (its menu)
-        state_key = json.dumps(state, separators=(",", ":"))
-        if state_key != self._state_key:
-            self._state_key = state_key
-            self.hub.publish("state", state_key[:-1] + f',"t":{round(now, 3)}}}')  # (the time: not a change)
+        # Three record channels by how often they change (the stream grew fast with nothing moving - the user:
+        # everything went out 10 times a second), each sending only what changed (Hub.publish_records): the pickups, the
+        # pawns' descriptions, the state - what moves (only the pawns that did, with the time). Descriptions and pickups
+        # first: a new pawn's arrives with (or before) its first move (the page waits for it anyway).
+        self.hub.publish_records("pickups", "pickups", pickups, {"level": self.level_id})
+        self.hub.publish_records("pawninfo", "pawns", infos, {"level": self.level_id})
+        paused = try_(lambda: field(wi, "Pauser") is not None, False)  # the game paused (its menu)
+        self.hub.publish_records("state", "pawns", pawns, {"level": self.level_id, "hz": self.rate, **({"paused": 1} if paused else {})},
+                                 {"t": round(now, 3)})  # (the time: not a change)
         t_end = time.perf_counter()
         if (t_end - t0) * 1000 > SLOW_MS:  # slow: which part (and how many pawns / pickups)
             for part, a, b in (("skills", t0, t_skills), ("pawns", t_skills, t_pawns), ("pickups", t_pawns, t_pickups),
@@ -1506,10 +1488,11 @@ class Collector:
     def _publish_log(self) -> None:
         """The mission log, only when something in it changed (definitions are cached: a change is
         a status / progress / current step / tracked mission)."""
-        if self._log.defs_dirty:  # the definitions: static, only when the list changes (large: texts)
-            self.hub.publish("missiondefs", json.dumps(self._log.defs_payload(), separators=(",", ":")))
+        if self._log.defs_dirty:  # the definitions: static, only when the list changes (large: texts - the new ones go out)
+            self.hub.publish_records("missiondefs", "missions", self._log.defs_payload()["missions"])
         if self._log.dirty:  # the live part: small
-            self.hub.publish("missionlog", json.dumps(self._log.payload(self.level_id), separators=(",", ":")))
+            live = self._log.payload(self.level_id)
+            self.hub.publish_records("missionlog", "missions", live.pop("missions"), live)
 
     def _publish_players(self) -> None:
         wi = ENGINE.GetCurrentWorldInfo()
@@ -1517,9 +1500,6 @@ class Collector:
         if wi is None or pc is None:
             return
         players = read_players(wi, try_(lambda: pc.MyWillowPawn), pc)
-        players_json = json.dumps({"level": self.level_id, "players": players}, separators=(",", ":"))
-        if players_json != self._players_json:  # gear rarely changes: only send changes
-            self._players_json = players_json
-            self.hub.publish("players", players_json)
+        self.hub.publish_records("players", "players", players, {"level": self.level_id})  # (only the fields that changed go out)
 
     # endregion

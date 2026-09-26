@@ -90,13 +90,13 @@ def _tick(*_args) -> None:  # noqa: ANN002
         st["msgs"][channel] = st["msgs"].get(channel, 0) + missed
         st["bytes"][channel] = st["bytes"].get(channel, 0) + missed * len(payload)
         if channel in DIFFED:  # what changed from the previous one: which records, which of their fields
-            new = json.loads(payload)
+            new = json.loads(hub.latest(channel))  # (a record channel sends changes: diffed whole)
             old = st["last"].get(channel)
             st["last"][channel] = new
             if old is not None:
                 _diff(channel, old, new, now)
         if channel == "state":
-            s = json.loads(payload)
+            s = json.loads(hub.latest(channel))
             pawns, pickups = s.get("pawns", []), s.get("pickups", [])
             extras = [_extra(p) for p in pawns]
             skills = sum(_size({k: e[k] for k in ("ak", "ps", "mk") if k in e}) for e in extras)
@@ -145,6 +145,12 @@ def _finish() -> None:
     print("\n".join(lines))
 
 
+# What's already there counts as seen, not sent (counted once at the start, a 231 KB mission list read as 7.7 KB/s);
+# the diffed channels start from it, so their first change is diffed too
+st["seen"] = {c: v for c, (v, _) in list(hub._channels.items())}  # noqa: SLF001
+for _channel in DIFFED:
+    if _channel in st["seen"]:
+        st["last"][_channel] = json.loads(hub.latest(_channel))
 remove_hook(RENDER, Type.POST, HOOK_ID)
 add_hook(RENDER, Type.POST, HOOK_ID, _tick)
 builtins.helios_stream_stop = _finish
