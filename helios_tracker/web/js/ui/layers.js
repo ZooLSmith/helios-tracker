@@ -42,7 +42,7 @@ function layerIcon(l) {
     buff: `<circle cx="6" cy="6" r="4.6" fill="${c}" ${o}/>`, // (the map's disc)
     slots: `<rect x="2.2" y="0.8" width="7.6" height="10.4" fill="${c}" ${o}/><rect x="3.6" y="3.6" width="4.8" height="3.4" ` +
       `style="fill: var(--map-ink)"/>`, // (the map's slot machine: its reels' window)
-    vaultsymbol: `<circle cx="6" cy="6" r="4" fill="none" stroke="${c}" stroke-width="2"/><circle cx="6" cy="6" r="1.4" fill="${c}"/>`,
+    vaultsymbol: `<circle cx="6" cy="6" r="4.6" fill="none" stroke="${c}" stroke-width="1.5"/><path d="M2.92 9.42L6.0 3.93L9.08 9.42" fill="none" stroke="${c}" stroke-width="1.5" stroke-linejoin="round"/>`, // (the map's Vault logo: a ring, the arch inside)
     // a jump pad: the map's disc with an up chevron
     jumppad: `<circle cx="6" cy="6" r="5.4" fill="${c}" ${o}/><polyline points="3.3,7.3 6,4.4 8.7,7.3" fill="none" ` +
       `stroke="#fff" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>`,

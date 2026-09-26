@@ -139,12 +139,20 @@ export function burst(x, y, fill, k = 1) { // what explodes (a barrel): a 6-spik
   ctx.restore();
 }
 
-export function vaultMark(x, y, fill, k = 1) { // a Cult of the Vault symbol: a ring and a dot (not a container's square)
-  ctx.beginPath(); ctx.arc(x, y, 4.5 * k, 0, Math.PI * 2);
-  ctx.lineWidth = 2.5 * k; ctx.strokeStyle = COLORS.outline; ctx.stroke();
+export function vaultMark(x, y, fill, k = 1) { // a Cult of the Vault symbol: the Vault's logo - a ring, an inverted V
+  // with a rounded tip inside it, its feet on the ring's bottom (the Borderlands wiki: "a ring with an inverted letter V
+  // with a rounded corner placed inside")
+  const r = 4.6 * k, foot = 42 * Math.PI / 180, apex = y - 0.45 * r;
+  const fx = r * Math.sin(foot), fy = y + r * Math.cos(foot);
+  ctx.save();
+  ctx.beginPath();
+  ctx.arc(x, y, r, 0, Math.PI * 2);
+  ctx.moveTo(x - fx, fy); ctx.arcTo(x, apex, x + fx, fy, 1.4 * k); ctx.lineTo(x + fx, fy); // (the arch: its tip rounded)
+  ctx.lineJoin = "round"; ctx.lineCap = "butt";
+  ctx.lineWidth = 2.6 * k; ctx.strokeStyle = COLORS.outline; ctx.stroke();
   ctx.lineWidth = 1.6 * k; ctx.strokeStyle = fill; ctx.stroke();
-  dot(x, y, 1.6 * k, fill);
-  drew(5.8 * k);
+  ctx.restore();
+  drew(r + 1.3 * k);
 }
 
 export function slotMark(x, y, fill, k = 1) { // a slot machine: a tall box, its dark window of reels
