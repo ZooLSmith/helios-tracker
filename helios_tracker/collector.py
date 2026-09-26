@@ -1142,6 +1142,10 @@ class Collector:
         # other objects activating a skill have none (a switch console, the Space Hurps, BL2's whiskey barrel, the raid
         # bosses' ooze / orb...) - BL2's Ammo shrine neither (no list: left as it was). (Not its price: bought ones, and
         # golden chests too (golden keys), cost something - bCostsToUse / CostsToUseAmount, 0 before they're unlocked.)
+        # costs something to use (its primary use: bCostsToUse[0], CostsToUseAmount[0] - the slot machines' 85 credits,
+        # tools/probe_moxxtail.txt): the page's machines you pay (not a container: golden chests cost golden keys)
+        if try_(lambda: io.bCostsToUse[0], 0) and (cost := try_(lambda: int(io.CostsToUseAmount[0]), 0)) > 0:
+            record["cost"] = cost
         lootable = Collector._lootable(io, balance)
         if lootable and definition is not None and try_(lambda: buff_info(definition), False):
             record["buff"] = 1

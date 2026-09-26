@@ -30,7 +30,7 @@ function layerIcon(l) {
     enemy: `<polygon points="6,1 11,6 6,11 1,6" fill="${c}" ${o}/>`,
     npc: `<circle cx="6" cy="6" r="3.9" fill="none" style="stroke: var(--map-outline-soft)" stroke-width="2.3"/><circle cx="6" cy="6" r="3.9" fill="none" stroke="${c}" stroke-width="1.3"/>`,
     vehicle: `<rect x="1.5" y="1.5" width="9" height="9" fill="${c}" ${o}/>`,
-    objective: `<polygon points="6,1 11,6 6,11 1,6" fill="${c}" ${o}/><circle cx="6" cy="6" r="1.5" style="fill: var(--map-ink)"/>`,
+    objective: `<path d="M6 0.5 11.5 6 6 11.5 0.5 6Z M6 4 4 6 6 8 8 6Z" fill="${c}" fill-rule="evenodd" ${o}/>`, // (the map's hollow diamond)
     gear: triangle,
     // chests: the map's box, its lid line, its latch
     chest: `<rect x="0.5" y="2" width="11" height="8" fill="${c}" ${o}/><line x1="0.5" y1="4.8" x2="11.5" y2="4.8" ` +
@@ -39,6 +39,8 @@ function layerIcon(l) {
       `style="stroke: var(--map-ink)" stroke-width="1"/><circle cx="6" cy="5.2" r=".9" style="fill: var(--map-ink)"/>`,
     other: `<rect x="3.5" y="3.5" width="5" height="5" fill="${c}" ${o}/>`,
     buff: `<circle cx="6" cy="6" r="4.6" fill="${c}" ${o}/>`, // (the map's disc)
+    slots: `<rect x="2.2" y="0.8" width="7.6" height="10.4" fill="${c}" ${o}/><rect x="3.6" y="3.6" width="4.8" height="3.4" ` +
+      `style="fill: var(--map-ink)"/>`, // (the map's slot machine: its reels' window)
     vaultsymbol: `<circle cx="6" cy="6" r="4" fill="none" stroke="${c}" stroke-width="2"/><circle cx="6" cy="6" r="1.4" fill="${c}"/>`,
     // a jump pad: the map's disc with an up chevron
     jumppad: `<circle cx="6" cy="6" r="5.4" fill="${c}" ${o}/><polyline points="3.3,7.3 6,4.4 8.7,7.3" fill="none" ` +

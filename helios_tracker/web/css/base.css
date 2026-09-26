@@ -165,6 +165,7 @@
   --layer-objective: var(--objective);
   --layer-giver: #fecb0d; /* the game's yellow "!" (sampled: _work/ingame_quest_yellow.png; every theme: not the accent) */
   --layer-vendor: #4fd1c5;
+  --layer-slots: #5aa9ff; /* machines you pay to use (slot machines): a blue */
   --layer-vaultsymbol: #ff7eb6;
   --layer-station: #f0f0f0;
   --layer-area: #eadfbf;

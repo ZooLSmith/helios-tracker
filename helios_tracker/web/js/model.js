@@ -43,7 +43,7 @@ export function rainbowAt(ms) {
 }
 
 // The panel's categories, in order
-export const LAYER_GROUPS = ["characters", "loot", "world"];
+export const LAYER_GROUPS = ["characters", "loot", "missions", "services", "places", "map"]; // ("world" before: split, too generic)
 
 // Gear on the ground: a layer per rarity (misc: rarity 0 and unknown levels), in the Gear folder
 const LOOT_RARITIES = ["common", "uncommon", "rare", "epic", "legendary", "etech", "pearl", "seraph", "effervescent", "misc"];
@@ -76,27 +76,31 @@ export const LAYERS = [
   { id: "weaponchest", group: "loot", parent: "containers", on: true, settings: COMMON },
   { id: "container", group: "loot", parent: "containers", on: false, settings: COMMON }, // the other ones
   { id: "looted", group: "loot", parent: "containers", on: false, settings: COMMON }, // opened: nothing left to find
-  { id: "objective", group: "world", on: true, settings: ["names", "nameSize", "size", "floors", "trackedOnly"] },
-  // NPCs with a mission to give / take back: the game's yellow "!" (its directive markers, or worked out
-  // from the NPCs' own mission lists - collector _npc_givers)
-  { id: "giver", group: "world", on: true, settings: COMMON },
-  { id: "vendor", group: "world", on: true, settings: COMMON },
-  // the Cult of the Vault symbols (IO_VaultRoy: clicked to discover, a challenge - tools/probe_directors.txt;
-  // discovered ones not told apart yet)
-  { id: "vaultsymbol", group: "world", on: true, settings: COMMON },
-  { id: "station", group: "world", on: false, settings: COMMON },
-  // the level's areas (the game's discovery areas, tools/probe_discovery.txt): their names, the ones not
-  // discovered yet dimmed; the fog of war: the game's fog pieces over the areas not discovered (its count)
-  { id: "area", group: "world", on: true, settings: ["size", "opacity"] },
+  // Missions: the objectives, and NPCs with a mission to give / take back - the game's yellow "!" (its directive
+  // markers, or worked out from the NPCs' own mission lists - collector _npc_givers)
+  { id: "objective", group: "missions", on: true, settings: ["names", "nameSize", "size", "floors", "trackedOnly"] },
+  { id: "giver", group: "missions", on: true, settings: COMMON },
+  // Services: what you use - shops, machines you pay to use, not containers (the slot machines: their bCostsToUse -
+  // collector.py "cost"), stations (fast travel, New-U, Quick Change...)
+  { id: "vendor", group: "services", on: true, settings: COMMON },
+  { id: "slots", group: "services", on: true, settings: COMMON },
+  { id: "station", group: "services", on: false, settings: COMMON },
+  // Places: things in the level
   // the Pre-Sequel's jump pads (and geysers): the class OzPlayerJumpPad
-  { id: "jumppad", group: "world", on: true, game: "tps", settings: COMMON },
+  { id: "jumppad", group: "places", on: true, game: "tps", settings: COMMON },
   // what explodes (barrels...: both games) - in its element's colour, its health under it when hurt
-  { id: "explosive", group: "world", on: true, settings: COMMON },
+  { id: "explosive", group: "places", on: true, settings: COMMON },
   // what gives oxygen (the Pre-Sequel's): air domes (their breathable area - on: filled; off, their generator's button
   // not pushed: dashed), their generators, oxygen fissures
-  { id: "oxygen", group: "world", on: true, game: "tps", settings: COMMON },
-  { id: "fog", group: "world", on: false, settings: ["opacity"] },
-  { id: "other", group: "world", on: false, settings: COMMON },
+  { id: "oxygen", group: "places", on: true, game: "tps", settings: COMMON },
+  // the Cult of the Vault symbols (IO_VaultRoy: clicked to discover, a challenge - tools/probe_directors.txt;
+  // discovered ones not told apart yet)
+  { id: "vaultsymbol", group: "places", on: true, settings: COMMON },
+  { id: "other", group: "places", on: false, settings: COMMON },
+  // Map: the level's areas (the game's discovery areas, tools/probe_discovery.txt): their names, the ones not
+  // discovered yet dimmed; the fog of war: the game's fog pieces over the areas not discovered (its count)
+  { id: "area", group: "map", on: true, settings: ["size", "opacity"] },
+  { id: "fog", group: "map", on: false, settings: ["opacity"] },
 ];
 export const LAYER_COLOR = Object.fromEntries(LAYERS.map((l) => [l.id, l.color]));
 
@@ -180,6 +184,7 @@ export function objectCategory(o) {
   if (/fasttravel|fast travel|travelstation|newu|respawn|quickchange|customiz|catcharide|catch-a-ride|vehiclespawn/.test(s)) return "station";
   // it has loot (the game's: its own or its balance's - collector.py _lootable), whatever its name (the Pre-Sequel's
   // Hyperion ammo crate: "InteractiveObj_HyperionAmmo", no container word in it); else guessed from the name
+  if (o.cost && !o.lootable) return "slots"; // a machine you pay to use, no loot of its own (the slot machines: collector "cost")
   if (o.lootable) return "container";
   if (/chest|lockbox|lootable|loot|safe|cache|box|crate|locker|dumpster|toilet|cooler|cabinet|stash|pile/.test(s)) return "container";
   return "other";

@@ -6,7 +6,7 @@ import { FLOOR_UU, LAYERS, LAYER_COLOR, chestTier, isGear, lootLayer, nameText, 
 import { look, withAlpha } from "./look.js";
 import { missionItemWanted } from "./missions.js";
 import { settings } from "./settings.js";
-import { COLORS, areaName, arrow, bang, bossDiamond, question, brackets, burst, chest, coin, diamond, dot, jumpMark, label, leader, menuBadge, oxygenMark, respawnRing, ring, setMarkerScale, square, triangle, typeIcon,
+import { COLORS, areaName, arrow, bang, bossDiamond, question, brackets, burst, chest, coin, diamond, dot, hollowDiamond, jumpMark, slotMark, vaultMark, label, leader, menuBadge, oxygenMark, respawnRing, ring, setMarkerScale, square, triangle, typeIcon,
   vitalBars } from "./shapes.js";
 import { S, findDetail, findPlayer, frame, pawnPos, trackedPawn } from "./state.js";
 import { tooltip } from "./tooltip.js";
@@ -290,21 +290,18 @@ export function draw() {
     stem(o.x, o.y, sx, sy, LAYER_COLOR[o.cat]);
     // Containers (looted ones too, just dimmed): chests biggest, others by how many items they spawn
     const tier = chestTier(o);
-    const size = st.k * (o.cat === "other" ? 2.5 : o.cat === "oxygen" ? 9 : o.cat === "explosive" ? 7.5 : o.cat === "jumppad" ? 7 : o.cat === "buff" ? 4.5 : tier === 2 ? 7 : tier === 1 ? 5.5 : o.slots ? 2.5 + Math.min(o.slots, 4) * 0.6 : 3.5);
+    const size = st.k * (o.cat === "other" ? 2.5 : o.cat === "oxygen" ? 9 : o.cat === "explosive" ? 7.5 : o.cat === "jumppad" ? 7 : o.cat === "buff" ? 4.5 : o.cat === "slots" ? 5.8 : tier === 2 ? 7 : tier === 1 ? 5.5 : o.slots ? 2.5 + Math.min(o.slots, 4) * 0.6 : 3.5);
     if (o.cat === "oxygen") oxygenMark(sx, sy, LAYER_COLOR[o.cat], st.k); // (a generator, a fissure: a diamond, "O2")
     else if (o.cat === "jumppad") jumpMark(sx, sy, LAYER_COLOR[o.cat], st.k); // (a disc, an up chevron)
     else if (o.cat === "buff") dot(sx, sy, size, LAYER_COLOR[o.cat]); // (a buff: a disc - the pickups' dot, bigger)
     else if (o.cat === "explosive") burst(sx, sy, o.ecol || LAYER_COLOR[o.cat], st.k); // (a burst in its element's colour: the game's)
-    else if (o.cat === "vaultsymbol") { // a ring and a dot: not a container (squares)
-      ctx.beginPath(); ctx.arc(sx, sy, 4.5 * st.k, 0, Math.PI * 2);
-      ctx.lineWidth = 2.5 * st.k; ctx.strokeStyle = COLORS.outline; ctx.stroke();
-      ctx.lineWidth = 1.6 * st.k; ctx.strokeStyle = LAYER_COLOR[o.cat]; ctx.stroke();
-      dot(sx, sy, 1.6 * st.k, LAYER_COLOR[o.cat]);
-    } else if (tier) chest(sx, sy, size, LAYER_COLOR[o.cat]); // (a big chest, a weapon chest - looted ones too, dimmed)
+    else if (o.cat === "vaultsymbol") vaultMark(sx, sy, LAYER_COLOR[o.cat], st.k); // (a ring and a dot)
+    else if (o.cat === "slots") slotMark(sx, sy, LAYER_COLOR[o.cat], st.k); // (a tall box, its reels' window)
+    else if (tier) chest(sx, sy, size, LAYER_COLOR[o.cat]); // (a big chest, a weapon chest - looted ones too, dimmed)
     else square(sx, sy, size, LAYER_COLOR[o.cat]);
-    const halfW = tier && o.cat !== "oxygen" && o.cat !== "explosive" && o.cat !== "jumppad" ? size * 1.35 : size; // (a chest: wide)
-    if (o.m > 0 && o.h < o.m) vitalBars(sx, sy, o, st.k, size); // (an object with health, hurt: its bar, as a pawn's)
-    if (st.names) label(sx, sy, nameText(o), o.cat === "explosive" && o.ecol ? o.ecol : LAYER_COLOR[o.cat], o.raw, st.ns, halfW);
+    // (its bars and name past its edge: the marker's own size - shapes.js drew)
+    if (o.m > 0 && o.h < o.m) vitalBars(sx, sy, o, st.k); // (an object with health, hurt: its bar, as a pawn's)
+    if (st.names) label(sx, sy, nameText(o), o.cat === "explosive" && o.ecol ? o.ecol : LAYER_COLOR[o.cat], o.raw, st.ns);
     hits.push({ sx, sy, r: size, kind: o.cat, item: o });
   }
   // quest markers: point objectives, quest givers; areas are hit-tested at their centre too. A quest
@@ -331,16 +328,16 @@ export function draw() {
         if (mk.end || (mk.list || []).some((e) => e.end)) question(sx, sy, COLORS.turnin, st.k); // (the game's directive: "end")
         else bang(sx, sy, LAYER_COLOR.giver, st.k);
         const more = mk.list && mk.list.length > 1 ? ` +${mk.list.length - 1}` : ""; // (several: the first, "+N")
-        if (st.names) label(sx, sy, nameText(mk.mission) + more, LAYER_COLOR.giver, mk.mission.raw, st.ns, 10 * st.k); // (past its disc)
+        if (st.names) label(sx, sy, nameText(mk.mission) + more, LAYER_COLOR.giver, mk.mission.raw, st.ns);
       });
     } else if (!mk.rad) {
       overNpcs.push(() => {
         fadeTo(alpha);
-        diamond(sx, sy, 10 * st.k, objColor); ctx.beginPath(); ctx.arc(sx, sy, 3 * st.k, 0, Math.PI * 2); ctx.fillStyle = COLORS.ink; ctx.fill();
+        hollowDiamond(sx, sy, 10 * st.k, objColor); // (the game's: a hollow diamond)
         if (st.names && mk.objective) label(sx, sy, nameText(mk.objective), objColor, mk.objective.raw, st.ns);
       });
     } else if (st.names && mk.objective) {
-      fadeTo(alpha); label(sx, sy, nameText(mk.objective), objColor, mk.objective.raw, st.ns);
+      fadeTo(alpha); label(sx, sy, nameText(mk.objective), objColor, mk.objective.raw, st.ns, 0); // (in its circle: no marker)
     }
     hits.push({ sx, sy, r: (mk.rad ? 7 : 10) * st.k, kind: mk.k, item: mk }); // (a giver's "!" on its disc: 10)
   }
@@ -370,7 +367,7 @@ export function draw() {
     else if (layer === "pickup.mission") diamond(sx, sy, 6 * st.k, LAYER_COLOR[layer]);
     else if (layer === "pickup.cash") coin(sx, sy, LAYER_COLOR[layer], st.k); // money: a "$" disc
     else dot(sx, sy, 3.5 * st.k, LAYER_COLOR[layer]); // not gear (ammo, cash...): its kind's colour, no rarity
-    if (st.names) label(sx, sy, nameText(p), isGear(p.c) ? color : LAYER_COLOR[layer], p.raw, st.ns, layer === "pickup.mission" ? (p.ms?.k === "gives" ? 10 : 6) * st.k : 0);
+    if (st.names) label(sx, sy, nameText(p), isGear(p.c) ? color : LAYER_COLOR[layer], p.raw, st.ns); // (past its marker: shapes.js drew)
     hits.push({ sx, sy, r: 6 * st.k, kind: "loot", item: p });
   }
   // pawns: players on top, the tracked one last
@@ -395,7 +392,7 @@ export function draw() {
     if (isPlayer) { // the tracked player: the yellow arrow; the others white
       if (p === tracked) arrow(sx, sy, angle, 9 * st.k, COLORS.tracked, COLORS.ink);
       else arrow(sx, sy, angle, 8 * st.k, LAYER_COLOR.player, COLORS.playerEdge);
-      if (hurt && !p.rs && !p.dd) vitalBars(sx, sy + 3 * st.k, { ...p, h: pos.h, s: pos.s }, st.k);
+      if (hurt && !p.rs && !p.dd) vitalBars(sx, sy, { ...p, h: pos.h, s: pos.s }, st.k); // (under its arrow: shapes.js drew)
       if (p.rs) respawnRing(sx, sy, 12 * st.k, p === tracked ? COLORS.tracked : LAYER_COLOR.player);
       else if (p.dd) respawnRing(sx, sy, 12 * st.k, COLORS.dead); // died: grey, where their body is
       // crippled (down, fighting for their life): the same ring, red
@@ -407,10 +404,10 @@ export function draw() {
       if (p.k === "enemy" && p.boss) bossDiamond(sx, sy, 8 * st.k, LAYER_COLOR.enemy); // a boss: bigger, a gold outline
       else if (p.k === "enemy") diamond(sx, sy, 5 * st.k, LAYER_COLOR.enemy); // like the game's minimap
       else ring(sx, sy, 4.5 * st.k, LAYER_COLOR[p.k], st.k); // NPCs: a hollow ring (pickups are dots, mission items a filled "!")
-      if (hurt) vitalBars(sx, sy, { ...p, h: pos.h, s: pos.s }, st.k, p.boss ? 9.5 * st.k : 0); // (a boss: under its diamond)
+      if (hurt) vitalBars(sx, sy, { ...p, h: pos.h, s: pos.s }, st.k); // (under its marker - a boss's diamond too)
     }
     // (a boss: named even with the layer's names off)
-    if (st.names || p.boss) label(sx, sy, nameText(p), p === tracked ? COLORS.tracked : LAYER_COLOR[layer], p.raw, st.ns, p.boss ? 9.5 * st.k : 0);
+    if (st.names || p.boss) label(sx, sy, nameText(p), p === tracked ? COLORS.tracked : LAYER_COLOR[layer], p.raw, st.ns);
     hits.push({ sx, sy, r: (p.boss ? 9 : 6) * st.k, kind: p.k, item: p, pos });
   }
   drawGivers(); // (no pawn above the NPCs)

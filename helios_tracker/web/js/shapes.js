@@ -16,7 +16,14 @@ export function initColors() {
   setLayerColors(tokenColor);
 }
 
+// The last marker drawn: its half-width / half-height (px, drawn) - every marker shape records its own (drew), and its
+// name (label) and bars (vitalBars) start past its edge by themselves, whatever the marker and its size. The label
+// clears it: a name with no marker of its own (an area objective's, in its circle) isn't pushed off by the last one's.
+let lastW = 0, lastH = 0;
+function drew(w, h = w) { lastW = w; lastH = h; }
+
 export function arrow(x, y, angle, size, fill, stroke) {
+  drew(size * 0.72, size);
   ctx.save();
   ctx.translate(x, y); ctx.rotate(angle);
   ctx.beginPath();
@@ -28,21 +35,36 @@ export function arrow(x, y, angle, size, fill, stroke) {
 }
 
 export function dot(x, y, r, fill) {
+  drew(r);
   ctx.beginPath(); ctx.arc(x, y, r, 0, Math.PI * 2);
   ctx.fillStyle = fill; ctx.fill();
   ctx.lineWidth = 1; ctx.strokeStyle = COLORS.outline; ctx.stroke();
 }
 
 export function ring(x, y, r, color, k = 1) { // a hollow ring (NPCs): a dark outline under the colour, to read on any map
+  drew(r + 1.2 * k);
   ctx.beginPath(); ctx.arc(x, y, r, 0, Math.PI * 2);
   ctx.lineWidth = 2.4 * k; ctx.strokeStyle = COLORS.outlineSoft; ctx.stroke();
   ctx.lineWidth = 1.3 * k; ctx.strokeStyle = color; ctx.stroke();
 }
 
 export function diamond(x, y, r, fill) {
+  drew(r);
   ctx.beginPath(); ctx.moveTo(x, y - r); ctx.lineTo(x + r, y); ctx.lineTo(x, y + r); ctx.lineTo(x - r, y); ctx.closePath();
   ctx.fillStyle = fill; ctx.fill();
   ctx.lineWidth = 1; ctx.strokeStyle = COLORS.outline; ctx.stroke();
+}
+
+/** An objective: the game's hollow diamond (_work/mission_objective.png: a thick frame, its middle open - the hole
+ *  about a third of it across - dark edged inside and out). */
+export function hollowDiamond(x, y, r, fill) {
+  drew(r);
+  const h = r * 0.36;
+  ctx.beginPath();
+  ctx.moveTo(x, y - r); ctx.lineTo(x + r, y); ctx.lineTo(x, y + r); ctx.lineTo(x - r, y); ctx.closePath();
+  ctx.moveTo(x, y - h); ctx.lineTo(x - h, y); ctx.lineTo(x, y + h); ctx.lineTo(x + h, y); ctx.closePath(); // (the other way: a hole)
+  ctx.fillStyle = fill; ctx.fill("evenodd");
+  ctx.lineWidth = 1.2; ctx.strokeStyle = COLORS.outline; ctx.stroke();
 }
 
 /** A boss (its AI class's bBoss): the enemy's diamond, bigger, a gold outline around it. */
@@ -53,12 +75,14 @@ export function bossDiamond(x, y, r, fill) {
   const a = ctx.globalAlpha;
   ctx.globalAlpha = a * 0.8; ctx.lineWidth = 1.3; ctx.strokeStyle = COLORS.boss; ctx.stroke();
   ctx.globalAlpha = a;
+  drew(r + g);
 }
 
 export function bang(x, y, fill, k = 1) { // quest giver / turn-in, a mission item: a "!" alone, like the game's (k: size)
   // (the game's map "!" - _work/ingame_quest_yellow.png: a straight bar 12 x 22 px, a 3 px gap, a block as wide 7 px
   // high, a thin dark outline; narrow - the round badge it replaced read wide)
   const hw = 2.8 * k, top = y - 7.5 * k, barEnd = y + 2.8 * k, dotTop = y + 4.2 * k, bottom = y + 7.5 * k;
+  drew(10 * k); // (its disc)
   ctx.save();
   // on a dark disc (not the game's: the 3D view's stems read as its bar going on - the user), its edge faintly the colour
   ctx.beginPath(); ctx.arc(x, y, 10 * k, 0, Math.PI * 2); ctx.fillStyle = COLORS.halo; ctx.fill();
@@ -76,6 +100,7 @@ export function bang(x, y, fill, k = 1) { // quest giver / turn-in, a mission it
 const QUESTION = [[0, 0], [5, 0], [5, 3.9], [2.2, 3.9], [2.2, 5.1], [0.4, 5.1], [0.4, 2.6], [3.4, 2.6], [3.4, 1.5], [1.6, 1.5], [1.6, 2.2], [0, 2.2]];
 export function question(x, y, fill, k = 1) { // a mission to hand in: its giver's green "?" (k: size)
   const u = 2 * k, ox = x - 2.5 * u, oy = y - 3.5 * u;
+  drew(10 * k); // (its disc)
   ctx.save();
   ctx.beginPath(); ctx.arc(x, y, 10 * k, 0, Math.PI * 2); ctx.fillStyle = COLORS.halo; ctx.fill(); // (the "!"'s disc)
   ctx.globalAlpha *= 0.5; ctx.lineWidth = 1; ctx.strokeStyle = fill; ctx.stroke(); ctx.globalAlpha /= 0.5;
@@ -89,6 +114,7 @@ export function question(x, y, fill, k = 1) { // a mission to hand in: its giver
 }
 
 export function coin(x, y, fill, k = 1) { // cash: a disc with a dark "$"
+  drew(5.5 * k);
   ctx.save();
   ctx.beginPath(); ctx.arc(x, y, 5.5 * k, 0, Math.PI * 2);
   ctx.fillStyle = fill; ctx.fill(); ctx.lineWidth = 1.2; ctx.strokeStyle = COLORS.ink; ctx.stroke();
@@ -100,6 +126,7 @@ export function coin(x, y, fill, k = 1) { // cash: a disc with a dark "$"
 
 export function burst(x, y, fill, k = 1) { // what explodes (a barrel): a 6-spike burst in its element's colour
   const outer = 7.5 * k, inner = 3.8 * k;
+  drew(outer * 0.87, outer); // (its side spikes at 30 degrees off the horizontal)
   ctx.save();
   ctx.beginPath();
   for (let i = 0; i < 12; i++) {
@@ -112,8 +139,25 @@ export function burst(x, y, fill, k = 1) { // what explodes (a barrel): a 6-spik
   ctx.restore();
 }
 
+export function vaultMark(x, y, fill, k = 1) { // a Cult of the Vault symbol: a ring and a dot (not a container's square)
+  ctx.beginPath(); ctx.arc(x, y, 4.5 * k, 0, Math.PI * 2);
+  ctx.lineWidth = 2.5 * k; ctx.strokeStyle = COLORS.outline; ctx.stroke();
+  ctx.lineWidth = 1.6 * k; ctx.strokeStyle = fill; ctx.stroke();
+  dot(x, y, 1.6 * k, fill);
+  drew(5.8 * k);
+}
+
+export function slotMark(x, y, fill, k = 1) { // a slot machine: a tall box, its dark window of reels
+  const w = 4.2 * k, h = 5.8 * k;
+  drew(w, h);
+  ctx.fillStyle = fill; ctx.fillRect(x - w, y - h, 2 * w, 2 * h);
+  ctx.lineWidth = 1; ctx.strokeStyle = COLORS.outline; ctx.strokeRect(x - w, y - h, 2 * w, 2 * h);
+  ctx.fillStyle = COLORS.ink; ctx.fillRect(x - w * 0.62, y - h * 0.45, w * 1.24, h * 0.6);
+}
+
 export function jumpMark(x, y, fill, k = 1) { // a jump pad (the Pre-Sequel's): a disc with a white up chevron
   const r = 7 * k;
+  drew(r);
   ctx.save();
   ctx.beginPath(); ctx.arc(x, y, r, 0, Math.PI * 2);
   ctx.fillStyle = fill; ctx.fill(); ctx.lineWidth = 1.2; ctx.strokeStyle = COLORS.ink; ctx.stroke();
@@ -124,6 +168,7 @@ export function jumpMark(x, y, fill, k = 1) { // a jump pad (the Pre-Sequel's): 
 
 export function oxygenMark(x, y, fill, k = 1) { // an oxygen source (the Pre-Sequel's): a diamond with a white "O2"
   const r = 9 * k;
+  drew(r);
   ctx.save();
   ctx.beginPath(); ctx.moveTo(x, y - r); ctx.lineTo(x + r, y); ctx.lineTo(x, y + r); ctx.lineTo(x - r, y); ctx.closePath();
   ctx.fillStyle = fill; ctx.fill(); ctx.lineWidth = 1.2; ctx.strokeStyle = COLORS.ink; ctx.stroke();
@@ -185,16 +230,19 @@ export function typeIcon(x, y, key, color, h) {
   if (!c || !c.width || !c.height) return false;
   const w = Math.min(h * c.width / c.height, h * 2.4), hh = w * c.height / c.width;
   ctx.drawImage(c, x - w / 2, y - hh / 2, w, hh);
+  drew(w / 2, hh / 2);
   return true;
 }
 
 export function triangle(x, y, r, fill) { // loot
+  drew(r * 0.9, r);
   ctx.beginPath(); ctx.moveTo(x, y - r); ctx.lineTo(x + r * 0.9, y + r * 0.7); ctx.lineTo(x - r * 0.9, y + r * 0.7); ctx.closePath();
   ctx.fillStyle = fill; ctx.fill();
   ctx.lineWidth = 1; ctx.strokeStyle = COLORS.outline; ctx.stroke();
 }
 
 export function square(x, y, r, fill) {
+  drew(r);
   ctx.fillStyle = fill; ctx.fillRect(x - r, y - r, 2 * r, 2 * r);
   ctx.lineWidth = 1; ctx.strokeStyle = COLORS.outline; ctx.strokeRect(x - r, y - r, 2 * r, 2 * r);
 }
@@ -203,6 +251,7 @@ export function square(x, y, r, fill) {
  *  height, like square()'s. */
 export function chest(x, y, r, fill) {
   const w = r * 1.35, top = y - r, lid = y - r * 0.3;
+  drew(w, r);
   ctx.fillStyle = fill; ctx.fillRect(x - w, top, 2 * w, 2 * r);
   ctx.lineWidth = 1; ctx.strokeStyle = COLORS.outline; ctx.strokeRect(x - w, top, 2 * w, 2 * r);
   ctx.beginPath(); ctx.moveTo(x - w, lid); ctx.lineTo(x + w, lid); ctx.strokeStyle = COLORS.ink; ctx.lineWidth = 1; ctx.stroke();
@@ -215,9 +264,10 @@ export function setMarkerScale(s) { markerScale = s; }
 
 // raw: a made-up name ending in " ?", the "?" drawn dimmer; k: its layer's Name size (the text only: it stays by
 // its marker)
-/** A marker's name, right of it. `r`: the marker's half-width (px, drawn) when it's bigger than the usual ~5 - the
- *  label then starts past its edge (a boss's diamond, a chest, the O2 diamond...). */
-export function label(x, y, text, color, raw, k = 1, r = 0) {
+/** A marker's name, right of it, past its edge: `r` the marker's half-width (px, drawn) - by default the last marker
+ *  drawn's (every shape records it: drew); 0 for a name with no marker. */
+export function label(x, y, text, color, raw, k = 1, r = lastW) {
+  lastW = lastH = 0;
   const main = raw ? text.slice(0, -2) : text, s = markerScale;
   ctx.font = `600 ${11 * s * k}px 'Segoe UI', system-ui, sans-serif`;
   x += Math.max(8 * s, r + 3) - 8; y += 4 * s - 4 + (k - 1) * 4 * s; // (the offsets below: 8 right, 4 down, at 100 %; bigger text: lower)
@@ -279,7 +329,7 @@ export function menuBadge(x, y, k = 1) { // a player in a menu: a "..." pill at 
   for (let i = 0; i < 3; i++) { ctx.beginPath(); ctx.arc(bx + w * (i + 1) / 4, by + h / 2, 1.1 * k, 0, Math.PI * 2); ctx.fill(); }
 }
 
-export function vitalBars(x, y, p, k = 1, r = 0) { // health, and the shield above it when there is one (k: the marker's size;
+export function vitalBars(x, y, p, k = 1, r = lastH) { // health, and the shield above it when there is one (k: the marker's size;
   // r: its half-height, px drawn, when bigger than usual - the bars then just under its edge)
   const w = 16 * k, bh = 2 * k, gap = 3 * k, clamp = (v) => Math.max(0, Math.min(1, v));
   const bars = [];

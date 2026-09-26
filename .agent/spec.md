@@ -35,7 +35,7 @@ It draws nothing in game: everything it shows is on the page.
   labelled "Host" (the player running the tracker). Missing data (co-op client: other players'
   inventories / skill trees) shows a reason instead.
 - **Quest markers** ("Objectives" layer): the game's active mission waypoints - area objectives as
-  dashed circles (radius = the waypoint's AreaRadius), point objectives as diamonds; other missions'
+  dashed circles (radius = the waypoint's AreaRadius), point objectives as the game's hollow diamonds (a thick frame, its middle open: _work/mission_objective.png); other missions'
   markers fainter than the tracked one's. Tooltip: objective, mission, area radius, distance. Read
   every 1 s from `MissionTracker.MissionWaypoints` (only `bActive` components), sent on change. A
   co-op client has none: its objective markers come from the level's `WillowWaypoint` actors (their
@@ -188,6 +188,9 @@ It draws nothing in game: everything it shows is on the page.
 - **The game files' scan** (`gamescan.py`): the fonts, card icons and skill icons found in **one** pass over the packages
   (a gamework job), started when a page first connects (once per session), cached in `.cache/scan.json` (per package,
   by size + date: later sessions scan nothing). Font / icon requests wait for it (`SCAN_WAIT`).
+- **Slot machines** (World, `slots`): what costs something to use (its bCostsToUse[0], CostsToUseAmount[0]: the
+  collector's `cost`) and has no loot of its own - a tall box, its reels' window. Costing isn't "not a container": golden
+  chests cost golden keys (lootable: still chests), bought Moxxtails too (buffs first).
 - **Containers**: category from the game's loot list names - an "Epic" list = **Big chests** (red
   chests, orange-red, biggest), a "WeaponChest" list = **Weapon chests** (metal crates, bandit weapon
   chests, amber), else Containers sized by item slots (most items one opening spawns). **Looted**
@@ -222,7 +225,9 @@ It draws nothing in game: everything it shows is on the page.
   driving (the collector's `dv`: the vehicle's pawn id), shield and health side by side and the
   vehicle's health under them (orange). Faint patterns on the bars: shield hexagons, health columns,
   vehicle warning stripes (XP plain).
-- **Layers tab**: categories (Characters, Loot, World: plain headings that fold, no box), a row
+- **Layers tab**: categories (Characters, Loot, Missions, Services (vendors, slot machines, stations), Places (jump pads,
+  explosives, oxygen sources, Vault symbols, other), Map (areas, fog) - one World heading before, too generic: plain
+  headings that fold, no box), a row
   per layer (enabled, marker icon, count, ⚙) and its settings panel inline under it (several can
   be open). Buttons: All on / All off (every layer on the map) and Collapse (every category and
   folder folded, every settings panel closed). Players can't be hidden (no enabled box), only configured. Folder rows (a tri-state box
@@ -235,7 +240,9 @@ It draws nothing in game: everything it shows is on the page.
   never containers, whatever loot list their balance has), **Containers** (Big chests, Weapon
   chests, Other containers, Looted). Per-layer
   settings (`model.js` `LAYER_SETTINGS`, which apply per layer in `LAYERS[].settings`, in the panel's order):
-  Names (its Name size slider on the same row, no label: 50-200 %, the labels' text), Size (50-200 %), Other
+  Names (its Name size slider on the same row, no label: 50-200 %, the labels' text; a name starts past its
+  marker, whatever it is: every marker shape records its own size (shapes.js `drew`), label() and vitalBars() read
+  it - a new shape calls drew too), Size (50-200 %), Other
   floors (show / dim / hide, > 6 m up / down from "Who"), Max distance (from "Who"), Tracked mission only
   (objectives). Counts = what passes the layer's filters, on or not.
   Faded markers (another floor, looted, an untracked quest, a respawning / dead player): drawn whole on a layer of
