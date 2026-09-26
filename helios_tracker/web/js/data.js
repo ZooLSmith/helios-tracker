@@ -1,7 +1,7 @@
 // The game's data: the SSE stream (/events) and what each event does to the state.
 import { $ } from "./dom.js";
 import { decodeTexture } from "./dxt.js";
-import { setVariant, t } from "./i18n.js";
+import { setGameLanguage, setVariant, t } from "./i18n.js";
 import { objectCategory, setRarityTable } from "./model.js";
 import { initColors } from "./shapes.js";
 import { invalidate } from "./scheduler.js";
@@ -13,7 +13,7 @@ import { restoreDrawer } from "./ui/drawer.js";
 import { closeInspector, renderInspector } from "./ui/inspector.js";
 import { renderMission } from "./ui/mission.js";
 import { renderMissionLog } from "./ui/missionlog.js";
-import { renderMotion } from "./ui/panel.js";
+import { languageChanged, renderMotion } from "./ui/panel.js";
 import { renderShops, renderShopsView } from "./ui/shops.js";
 import { patternTiming, renderPlayers } from "./ui/players.js";
 import { renderLayers } from "./ui/layers.js";
@@ -100,6 +100,7 @@ function reloadWhenBack() {
 
 function onLevel(level) {
   setVariant(level.game); // (the Pre-Sequel's words for its labels: i18n.js)
+  if (setGameLanguage(level.lang)) languageChanged(); // (the page's language on "Auto": the game's)
   invalidate();
   const changed = !S.level || S.level.id !== level.id;
   if (changed) {

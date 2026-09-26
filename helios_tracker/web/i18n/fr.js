@@ -1,7 +1,7 @@
 // Français. Same keys as en.js.
 export default {
   "lang.name": "Français",
-  "lang.auto": "Auto (navigateur)",
+  "lang.auto": "Auto (celle du jeu)",
 
   "status.connecting": "Connexion…",
   "status.live": "En direct",

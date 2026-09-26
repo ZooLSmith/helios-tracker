@@ -2,7 +2,7 @@
 // "{name}" placeholders are replaced by the page (numbers already formatted for the language).
 export default {
   "lang.name": "English",
-  "lang.auto": "Auto (browser)",
+  "lang.auto": "Auto (the game's)",
 
   "status.connecting": "Connecting…",
   "status.live": "Live",

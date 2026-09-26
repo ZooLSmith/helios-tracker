@@ -21,8 +21,8 @@ from . import gamecards, gamefonts, gameicons, gamework
 from .tacmap import Package
 
 CACHE = Path(__file__).with_name(".cache") / "scan.json"
-VERSION = 4  # the cache's layout: another number = scanned again (2: the card arts' layers; 3: the textures; 4: skill
-# icons whose texture has another name than their movie)
+VERSION = 5  # the cache's layout: another number = scanned again (2: the card arts' layers; 3: the textures; 4: skill
+# icons whose texture has another name than their movie; 5: each font's movie package - its language's library)
 PAUSE = 0.003  # s slept after each decompressed block, scanning in process
 SWITCH_INTERVAL = 0.001  # s (Python's default: 0.005), scanning in process
 
@@ -61,7 +61,8 @@ def scan_package(path: Path) -> dict:
                 except Exception:  # noqa: BLE001, S112 - a movie that won't read
                     continue
                 try:
-                    out["fonts"] += [[name, count, i, n] for n, name, count in gamefonts.font_headers(raw)]
+                    library = pkg.path(i).split(".")[0]  # (its movie's package: a language's font library - UI_FontsEn...)
+                    out["fonts"] += [[name, count, i, n, library] for n, name, count in gamefonts.font_headers(raw)]
                 except Exception:  # noqa: BLE001, S110
                     pass
                 try:
@@ -132,9 +133,10 @@ def scan_to_cache(cooked: Path, cache: Path) -> None:
         _save_cache(cache, entries)
 
 
-def run(cooked: Path | None) -> None:
+def run(cooked: Path | None, language: str = "") -> None:
     """The game's side (a thread: a page connected): the scan in the worker unless the cache's up to date, then
-    the fonts / card icons / skill icons get their indexes from the cache. Once per session."""
+    the fonts / card icons / skill icons get their indexes from the cache. Once per session. `language`: the game's
+    (GetLanguage, read on the game thread) - its font library's fonts first (gamefonts.font_library)."""
     with _lock:
         if _done.is_set() or cooked is None:
             return
@@ -144,15 +146,21 @@ def run(cooked: Path | None) -> None:
             entries = _load_cache(CACHE)
         # the indexes: fonts (each name's fullest), card arts (by label), skill icons (by path)
         fonts: dict = {}
+        font_rank: dict = {}  # slug -> its entry's rank: (its language's library, not another language's, its glyphs)
+        library = gamefonts.font_library(language).lower()
+        other_libraries = {lib.lower() for lib in (*gamefonts.FONT_LIBRARIES.values(), gamefonts.DEFAULT_LIBRARY)} - {library}
         arts: dict = {}
         icons: dict = {}
         textures: dict = {}
         for key, entry in entries.items():
             path = Path(key)
-            for name, count, idx, n in entry["fonts"]:
+            for name, count, idx, n, font_lib in entry["fonts"]:
+                # each font name: the game's language's library's (the Pre-Sequel's UI_FontsRu WillowBody isn't its
+                # English one), else one that's no other language's (a menu's), then the fullest (menus embed subsets)
                 slug = gamefonts.slug(name)
-                if slug and count and (slug not in fonts or count > fonts[slug][1]):
-                    fonts[slug] = (name, count, path, idx, n)
+                rank = (font_lib.lower() == library, font_lib.lower() not in other_libraries, count)
+                if slug and count and (slug not in fonts or rank > font_rank[slug]):
+                    fonts[slug], font_rank[slug] = (name, count, path, idx, n), rank
             for art in entry["arts"]:
                 arts.setdefault(art["label"], []).append(gamecards.Art.load(path, art))
             for icon, idx in entry["icons"].items():

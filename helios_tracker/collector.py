@@ -104,6 +104,15 @@ def _game_name() -> str:
 
 
 GAME = _game_name()
+_language: list[str] = []
+
+
+def game_language() -> str:
+    """The game's language (Core.Object's static GetLanguage: "INT", "FRA", "RUS"... - the game thread only: read
+    the first time), "" unknown: the page's language by default, its fonts' library (gamefonts.font_library)."""
+    if not _language:
+        _language.append(try_(lambda: str(unrealsdk.find_class("Object").ClassDefaultObject.GetLanguage()), "") or "")
+    return _language[0]
 
 
 def _vital(value: float) -> float:
@@ -501,6 +510,7 @@ class Collector:
         with self._lock:
             self.level_id += 1
             level_id = self.level_id
+        game_language()  # (read here, on the game thread: the level message carries it - the page's language)
         game_name = level_name(name)
         level: dict[str, Any] = {"id": level_id, "map": name, "name": game_name or pretty_map_name(name), "images": [],
                                  "rarity": try_(rarity_table, {}) or {}}  # the game's rarity colours
@@ -540,7 +550,8 @@ class Collector:
             if keep_lv and "lv" not in level and self._level and self._level.get("id") == level["id"] and "lv" in self._level:
                 level = {**level, "lv": self._level["lv"]}  # (the map thread's copy predates the area's level)
             self._level = level
-            self.hub.publish("level", json.dumps({**level, **({"game": GAME} if GAME else {})}))
+            self.hub.publish("level", json.dumps({**level, **({"game": GAME} if GAME else {}),
+                                                  **({"lang": _language[0]} if _language and _language[0] else {})}))
 
     def _extract(self, level: dict[str, Any], map_name: str, movie: str) -> None:
         """Background thread: files only, no UObjects."""

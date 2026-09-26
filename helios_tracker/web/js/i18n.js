@@ -4,17 +4,26 @@ import CATALOG from "../i18n/index.js";
 import { saveSettings, settings } from "./settings.js";
 
 export { CATALOG };
-export let langPref = settings.ui.lang; // "auto" = the browser's
+export let langPref = settings.ui.lang; // "auto" = the game's (its language, the level message's "lang")
+// The game's language codes (Object.GetLanguage) -> the page's (its catalogs: one missing -> English)
+const GAME_LANGS = { INT: "en", FRA: "fr", DEU: "de", ITA: "it", ESN: "es", JPN: "ja", KOR: "ko", TWN: "zh", RUS: "ru" };
+let gameLang = ""; // the game's, once the mod has said ("INT", "FRA"...)
 export let lang = pickLang(langPref);
 
 function pickLang(pref) {
   if (pref !== "auto" && CATALOG[pref]) return pref;
-  const langs = typeof navigator === "undefined" ? [] : navigator.languages || [navigator.language || "en"];
-  for (const l of langs) {
-    const base = String(l).toLowerCase().split("-")[0];
-    if (CATALOG[base]) return base;
-  }
-  return "en";
+  const fromGame = GAME_LANGS[gameLang];
+  return fromGame && CATALOG[fromGame] ? fromGame : "en";
+}
+
+/** The game's language (the level message's "lang"): the page's, on "Auto" - true when that changed it (the caller
+ *  renders the page again). */
+export function setGameLanguage(code) {
+  gameLang = String(code || "").toUpperCase();
+  const was = lang;
+  lang = pickLang(langPref);
+  if (lang !== was) applyI18n();
+  return lang !== was;
 }
 
 /** Switches language (a code or "auto"), remembers it and re-translates the static HTML. */

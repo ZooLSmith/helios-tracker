@@ -72,6 +72,10 @@ export function showPanelTab(name) {
   syncPanelToTop();
 }
 
+// The page shown again in another language (the Language box, or the game's on "Auto": data.js) - set by initPanel
+let languageRenders = () => {};
+export function languageChanged() { languageRenders(); }
+
 export function initPanel() {
   const bindBox = (id, key) => {
     const el = $(id);
@@ -131,13 +135,11 @@ export function initPanel() {
   mapColorsBox.onchange = () => { settings.view.mapColors = mapColorsBox.value; saveSettings(); invalidate(); };
 
   const langBox = $("lang");
+  languageRenders = () => { renderThemes(); refreshStatus(); renderLevel(); renderPlayers(); renderTargets(); renderMotion(); renderLayers(); renderInspector(); renderMission(); invalidate(); };
   langBox.innerHTML = `<option value="auto" data-i18n="lang.auto"></option>` +
     Object.keys(CATALOG).map((c) => `<option value="${c}">${esc(CATALOG[c]["lang.name"] || c)}</option>`).join("");
   langBox.value = CATALOG[langPref] ? langPref : "auto";
-  langBox.onchange = () => {
-    setLanguage(langBox.value);
-    renderThemes(); refreshStatus(); renderLevel(); renderPlayers(); renderTargets(); renderMotion(); renderLayers(); renderInspector(); renderMission(); invalidate();
-  };
+  langBox.onchange = () => { setLanguage(langBox.value); languageChanged(); };
 
   // The Info tab's sections (Mission, Shops, Players): a click on the heading folds / unfolds one (its buttons do their own
   // thing) - remembered, like the Layers tab's categories

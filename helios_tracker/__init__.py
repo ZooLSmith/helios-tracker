@@ -22,7 +22,7 @@ from mods_base import BoolOption, ButtonOption, SliderOption, build_mod, hook
 from unrealsdk.hooks import Type
 from unrealsdk.unreal import BoundFunction, UObject, WrappedStruct
 
-from .collector import Collector, cooked_dir
+from .collector import Collector, cooked_dir, game_language
 from . import gamecards, gamefonts, gameicons, gamescan, gamework
 from .script import start_script
 from .server import Hub, TrackerServer
@@ -162,12 +162,16 @@ def _scan_game_files() -> None:
     if _scan_started[0]:
         return
     _scan_started[0] = True
+    # the game's language (Core.Object's static GetLanguage: "INT", "RUS"... - read here, on the game thread): its font
+    # library (gamefonts.font_library)
+    language = game_language()
 
     def scan() -> None:
         try:
             t = time.monotonic()
-            gamescan.run(cooked_dir())
-            log(f"game files indexed in {time.monotonic() - t:.1f} s ({gamework.mode()}): fonts {', '.join(gamefonts.FONTS.names())}")
+            gamescan.run(cooked_dir(), language)
+            log(f"game files indexed in {time.monotonic() - t:.1f} s ({gamework.mode()}): language {language or '?'}"
+                f" ({gamefonts.font_library(language)}), fonts {', '.join(gamefonts.FONTS.names())}")
         except Exception as ex:  # noqa: BLE001
             log_error("game files scan", ex)
 
