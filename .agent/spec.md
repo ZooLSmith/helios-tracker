@@ -232,8 +232,8 @@ It draws nothing in game: everything it shows is on the page.
   or the game's blue whatever the theme: `view.mapColors`), Background / Map opacity (`look.js`; 0 % background: in OBS
   via its browser source's "Interact"), Markers 50-200 % (every marker, its label and bars - times its layer's Size),
   Tilt (3: `view.threeD` - was "3D view"; the map tilted by an orthographic camera, `view.tilt3d` 0-80 deg, markers
-  lifted by their height above the map's plane - the level's typical ground, the median height of its objects - with a
-  stem down to it; quest areas as ellipses on the plane; toScreen(mx, my, h), toMap on the plane: pan / zoom / clicks
+  lifted by their height above the map's plane - the tracked player's height, the tooltips' "x m above / below" origin
+  (nobody tracked: the level's typical ground, the median height of its objects) - with a stem down to it; quest areas as ellipses on the plane; toScreen(mx, my, h), toMap on the plane: pan / zoom / clicks
   / coordinates / the fog unchanged. The floors / walls from the level's collision were tried and parked on the
   `experimental/map_3d` branch: design.md), Coordinates (C: was "Show coordinates"); **Panels**: Theme (ECHO-2 - the
   default, id "default" -, Hyperion, Vladof, Dahl, Eridian:

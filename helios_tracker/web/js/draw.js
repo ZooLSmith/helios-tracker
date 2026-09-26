@@ -51,20 +51,22 @@ function drawSelection(f, now, tracked, mePos, hits, place) {
   brackets(sx, sy, r + 5 * G + breathe, COLORS.tracked, G);
 }
 
-// The 3D view's map plane (S.view.ground, world uu): the level's typical ground - the median height of its objects
-// (chests, crates: mostly on the ground). Stable: the map doesn't bob as the player jumps. No objects yet: the tracked
-// player's height.
+// The 3D view's map plane (S.view.ground, world uu): the tracked player's height - the same origin as the tooltips'
+// "x m above / below" and the layers' other floors (the user: a marker's stem shows how far above / below you it is;
+// the level's median object height first made a chest at your feet on a walkway stand tall and read "same height").
+// The map moves up and down with them. Nobody tracked (or respawning where the game doesn't say): the level's typical
+// ground - the median height of its objects (chests, crates: mostly on the ground).
 let groundFor = null, groundAt = null;
-function groundZ() {
+function groundZ(now) {
+  const me = trackedPawn();
+  if (me && me.rs !== 2) { const z = pawnPos(me, now).z; if (z != null) return z; }
   if (groundFor !== S.objects) {
     groundFor = S.objects;
     const zmin = S.level && S.level.zmin != null ? S.level.zmin : -Infinity; // (fallen off the map: not the ground)
     const zs = S.objects.map((o) => o.z).filter((z) => z != null && z >= zmin).sort((a, b) => a - b);
     groundAt = zs.length ? zs[zs.length >> 1] : null;
   }
-  if (groundAt != null) return groundAt;
-  const me = trackedPawn();
-  return me && me.z != null ? me.z : 0;
+  return groundAt ?? 0;
 }
 
 function drawGrid(f) { // areas without a map: a 10 m grid so movement still reads (map transform set)
@@ -148,7 +150,7 @@ export function draw() {
   if (!f) return;
   const threeD = settings.view.threeD; // the 3D view: tilted, turned by the user's spin, markers at their height
   S.view.tilt = threeD ? settings.view.tilt3d * Math.PI / 180 : 0;
-  S.view.ground = groundZ();
+  S.view.ground = groundZ(now);
   if (!S.fitted && (S.images.length || S.meId)) fit(true); // first time: fits; after a level change: keeps the zoom
   const tracked = trackedPawn();
   // Rotate: only while following - the map turns so their heading points up; else as the game's map screen shows it
