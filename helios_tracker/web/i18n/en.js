@@ -87,7 +87,7 @@ export default {
   "set.range": "Max distance",
   "set.range.0": "Any",
   "set.trackedOnly": "Tracked mission only",
-  "set.amounts": "Amounts",
+  "set.amounts": "Amnt",
   "set.amountSize": "Amount size",
   "unit.percent": "{n}\u202f%",
 

@@ -59,7 +59,9 @@ label.row.off { opacity: .45; cursor: default; } /* a setting that does nothing 
 .cset { display: flex; flex-wrap: wrap; align-items: center; gap: 2px 6px; padding: 2px 0; font-size: 12px; }
 .cset .clabel { flex: 1; color: var(--dim); white-space: nowrap; }
 label.row.cset { gap: 6px; }
-.cset label.row.cnames { flex: 1; gap: 6px; } /* a layer's Names box, its size's slider on the same row */
+.cset label.row.cnames { flex: 1 1 0; min-width: 0; gap: 6px; } /* a layer's Names / Amounts box, its size's slider on the same row */
+.cset:has(> .cnames) { flex-wrap: nowrap; } /* (its slider and % never below: a longer label - Amounts - shrinks instead) */
+.cset .cnames span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .cset select { width: auto; padding: 1px 4px; font-size: 12px; margin-left: auto; }
 .cset input[type="range"] { width: 72px; margin: 0; accent-color: var(--accent); }
 .cset .cval { width: 36px; text-align: right; font-variant-numeric: tabular-nums; }

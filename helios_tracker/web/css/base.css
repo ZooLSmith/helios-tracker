@@ -150,7 +150,7 @@
   --layer-pickup-ammo: #d8c07a;
   --layer-pickup-cash: #ffe36e; /* a pale gold: apart from the givers' "!" yellow and the ammo's sand */
   --layer-pickup-eridium: #c77dff;
-  --layer-pickup-eridium-tps: #4fe3e8; /* the Pre-Sequel's moonstones: a cyan (the user), greener than the mission items' */
+  --layer-pickup-eridium-tps: #4bf2be; /* the Pre-Sequel's moonstones: the game's colour for them (the user) */
   --layer-pickup-health: #ff6f7d;
   --layer-jumppad: #2f9e8f; /* the Pre-Sequel's jump pads: a teal */
   --layer-explosive: #e0703a; /* what explodes (barrels): an orange - each drawn in its element's colour (the game's) */
