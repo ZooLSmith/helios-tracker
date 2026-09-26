@@ -397,7 +397,7 @@ export default {
   "best.pct": "{n}\u202f%",
   "best.none": "Nothing doable right now",
   "best.tooHigh": "{n} too high level for you left out (Lv {lv}+: hard or impossible for now)",
-  "best.noReward": "reward unknown for this player",
+  "best.noReward": "Reward unknown",
   "best.fromOther": "Level {n}'s reward (this player's isn't known here): most likely the same",
   "mlog.noArea": "OTHER",
   "mdetail.givenAt": "Given at",

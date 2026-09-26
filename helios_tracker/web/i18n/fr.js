@@ -396,7 +396,7 @@ export default {
   "best.pct": "{n}\u202f%",
   "best.none": "Rien de faisable pour l'instant",
   "best.tooHigh": "{n} de trop haut niveau pour vous écartée(s) (Niv {lv}+ : difficile ou impossible pour l'instant)",
-  "best.noReward": "récompense inconnue pour ce joueur",
+  "best.noReward": "Récompense inconnue",
   "best.fromOther": "Récompense au niveau {n} (celle de ce joueur n'est pas connue ici) : sans doute la même",
   "mlog.noArea": "AUTRES",
   "mdetail.givenAt": "Donnée à",

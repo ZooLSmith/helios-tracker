@@ -94,7 +94,7 @@ export function renderInspector(resetScroll) {
   bindItems(body);
 }
 
-/** The item cards in `body` (items.js): a click opens / closes one, a fold's header its fold. */
+/** The item cards in `body` (items.js): a click opens one, its header closes it; a fold's header its fold. */
 export function bindItems(body) {
   for (const el of body.querySelectorAll(".item")) {
     el.onclick = (e) => {
@@ -107,7 +107,8 @@ export function bindItems(body) {
         fold.classList.toggle("open");
         return;
       }
-      if (e.target.closest(".idetail")) return;
+      // folded: anywhere opens it; open: its header closes it - only it (drawer.css: its hover / pointer the same)
+      if (S.expanded.has(id) && !e.target.closest(".ihd")) return;
       if (S.expanded.has(id)) S.expanded.delete(id); else S.expanded.add(id);
       el.classList.toggle("expanded");
     };
@@ -116,12 +117,15 @@ export function bindItems(body) {
 
 let nextInfo = 0, infoState = 0;
 /** From the frames: the Info tab follows the game's data - only when a new update arrived (the
- *  game's rate), at most every 250 ms, and the DOM only touched when its content changed. */
+ *  game's rate) or Follow changed, at most every 250 ms, and the DOM only touched when its content changed. */
 export function refreshPlayerInfo(now) {
   if (!S.inspect || S.detail || S.missionView || S.shopView || settings.ui.inspectorTab !== "info") return;
-  if (now < nextInfo || S.lastState === infoState) return;
+  // (a new game update - or Follow / the tracked player changed: its Follow button - "Following" stayed after a drag
+  // let go, no update coming while nothing moves: the stream sends changes only)
+  const state = `${S.lastState}|${settings.view.follow}|${settings.view.target}`;
+  if (now < nextInfo || state === infoState) return;
   nextInfo = now + 250;
-  infoState = S.lastState;
+  infoState = state;
   const p = findPlayer();
   if (!p) return;
   const html = playerInfoHtml(p), body = $("ibody");

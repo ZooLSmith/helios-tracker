@@ -31,12 +31,11 @@
 .item { border-left: 3px solid var(--c, var(--dim)); background: var(--card); border-radius: 3px; padding: 5px 8px;
   margin: 4px 0; cursor: pointer; }
 .item:hover { background: var(--hover); }
-/* open: only its header and icon row fold it back (a click in its details does nothing) - the hover and the hand
-   there only */
+/* open: only its header folds it back (its details, its icon row: nothing) - the hover and the hand there only */
 .item.expanded { cursor: default; }
 .item.expanded:hover { background: var(--card); }
-.item.expanded > :not(.idetail) { cursor: pointer; }
-.item.expanded:has(> :not(.idetail):hover) { background: var(--hover); }
+.item.expanded > .ihd { cursor: pointer; }
+.item.expanded:has(> .ihd:hover) { background: var(--hover); }
 .item .iname { color: var(--c, var(--text)); font-weight: 600; }
 /* effervescent (the game's RARITY_Rainbow): the item's rarity colour (--c: its name, its border, its logo's tint)
    cycling through the hues, like the game's (the map's markers the same: model.js rainbowAt) - the animation beats
@@ -407,7 +406,7 @@
     padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left); }
   /* the status (the game paused, the connection lost: bottom centre, over the page) showing: room under the page's content
      for it - its height at the interface size, and its gap */
-  body:has(#status:not(.live)) #inspector { padding-bottom: calc(env(safe-area-inset-bottom) + 48px * var(--ui-zoom, 1)); }
+  body:has(#status:not(.live)) #inspector { padding-bottom: calc(env(safe-area-inset-bottom) + 56px * var(--ui-zoom, 1)); }
   /* the mission list's filters always unfolded on a page this size: its chevron (#ifold) gone - a fold saved on a wider
      screen doesn't hide them here (settings.ui.missionFiltersClosed kept for there) */
   #ifold { display: none; }

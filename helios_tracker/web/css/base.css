@@ -229,10 +229,11 @@ canvas.dragging { cursor: grabbing; }
 #tip .tli { display: block; }
 #tip .tli::before { content: "· "; color: var(--dim); }
 /* the connection status: bottom centre of the page (clear of the panel, top left, and the drawer, right), only
-   while connecting / disconnected / the game paused - over the panels (the drawer: 3), under the tooltips (10) */
-#status { position: fixed; left: 50%; bottom: 8px; transform: translateX(-50%); white-space: nowrap; display: flex; align-items: center; gap: 8px; z-index: 6;
+   while connecting / disconnected / the game paused - over the panels (the drawer: 3), under the tooltips (10). The
+   panels' look: 12 px from the edge, their padding, corners, blur (the user: its own padding stood out) */
+#status { position: fixed; left: 50%; bottom: 12px; transform: translateX(-50%); white-space: nowrap; display: flex; align-items: center; gap: 8px; z-index: 6;
   color: var(--text); font-size: 14px; font-weight: 600; background: var(--panel); border: 1px solid var(--panel-edge);
-  border-radius: 5px; padding: 6px 12px; pointer-events: none; }
+  border-radius: 6px; padding: 10px 12px; backdrop-filter: blur(4px); pointer-events: none; }
 #status i { width: 10px; height: 10px; border-radius: 50%; background: var(--warn); display: inline-block; }
 #status.live { display: none; }
 #status.bad i { background: var(--bad); }
@@ -246,11 +247,16 @@ canvas.dragging { cursor: grabbing; }
   font-variant-numeric: tabular-nums; pointer-events: none; text-shadow: 0 0 2px #000, 0 0 2px #000; }
 #coords:empty { display: none; }
 /* the compass (view.js refreshNorth): placed by script in the map's free corner, its needle turned with the map */
-#north { position: fixed; z-index: 5; width: 34px; height: 34px; padding: 0; border-radius: 50%; display: flex;
+#north { position: fixed; z-index: 1; /* (under the drawer: a phone's, a page, covers it; the tooltip over it) */ width: 34px; height: 34px; padding: 0; border-radius: 50%; display: flex;
   align-items: center; justify-content: center; background: var(--panel); border: 1px solid var(--panel-edge);
-  color: var(--accent); font-size: 22px; cursor: pointer; zoom: var(--ui-zoom, 1); }
+  color: var(--accent); font-size: 15px; cursor: pointer; zoom: var(--ui-zoom, 1); } /* (font-size: its arrow's) */
 #north[hidden] { display: none; }
-@media (pointer: coarse) { #north { width: 44px; height: 44px; font-size: 26px; } } /* (a finger's target) */
+/* its N: a small upright badge orbiting the button at the needle's tip (view.js refreshNorth: its transform) */
+#north .nmoon { position: absolute; left: 50%; top: 50%; width: 20px; height: 20px; margin: -10px 0 0 -10px;
+  border-radius: 50%; background: var(--panel); border: 1px solid var(--panel-edge); color: var(--accent);
+  font: 700 13px/18px system-ui, sans-serif; text-align: center; pointer-events: none; }
+#north:hover .nmoon { border-color: var(--accent); }
+@media (pointer: coarse) { #north { width: 44px; height: 44px; font-size: 18px; } } /* (a finger's target) */
 #north:hover { border-color: var(--accent); }
 #msg { position: fixed; left: 50%; top: 50%; transform: translate(-50%, -50%); color: var(--dim);
   font-size: 15px; text-align: center; pointer-events: none; }

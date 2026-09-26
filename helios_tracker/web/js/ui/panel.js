@@ -84,7 +84,7 @@ export function initPanel() {
     };
   };
   bindBox("follow", "follow"); bindBox("rotate", "rotate"); bindBox("threeD", "threeD"); bindBox("coords-on", "coords");
-  $("north").onclick = resetSpin; // (the compass on the map: shown once it's turned)
+  $("north").onclick = resetSpin; // (the compass on the map: shown once it's turned, or turning with the heading)
   syncRotate();
   $("follow").addEventListener("change", syncRotate);
   renderMotion();

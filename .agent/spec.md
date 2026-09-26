@@ -20,7 +20,8 @@ It draws nothing in game: everything it shows is on the page.
   colour; a triangle until loaded / without one) - clicked, its item's card (stats, parts: the backpack's own record,
   by the item's address - dropped / picked up, the same item), objects = squares by category). Follow me (F), fit (0),
   **Smooth movement** (on: interpolates between updates, redraws every frame; off: markers jump,
-  frames are only requested on a change - data, view, input - for weak / integrated GPUs), tooltip
+  frames are only requested on a change - data, view, input - for weak / integrated GPUs), tooltip (by the cursor -
+  below right, else below left / above right / above left: the first clear of the panels and the window's edges)
   (name, kind, health, distance, height difference), world X/Y by the cursor (above it; Settings Show coordinates or C, off by default). Wheel / pinch zoom,
   drag pan (following: a drag lets go of the player only past 40 px - input.js FOLLOW_LET_GO; not following: at once;
   leaving Follow + Rotate - a drag, the box, F - turns the map back north around the player, eased from the frames:
@@ -228,9 +229,10 @@ It draws nothing in game: everything it shows is on the page.
   offset -, in 2D and tilted; vertically, tilted, it tilts) - around where the drag started, that spot staying under the
   cursor (following: around the player). While Follow + Rotate turn it to the heading, the heading
   owns the turn (the drag only tilts, the spin is set aside). On a touch screen: a two-finger twist (past 10 deg, so a
-  pinch doesn't turn it by accident) turns it around the point between the fingers (view.js spinAt). Once turned, a
-  compass shows in the map's free corner (view.js refreshNorth: the largest area no panel covers, its needle pointing
-  north; bigger on a touch screen; hidden while the drawer is open); a click or N turns it back.
+  pinch doesn't turn it by accident) turns it around the point between the fingers (view.js spinAt). Once turned - or
+  while Follow + Rotate turn it to the heading (its click then: Rotate off) - a compass shows in the map's free corner (view.js refreshNorth: the largest area no panel covers, its arrow pointing north
+  and an upright N orbiting on its border (the badge's centre there) at the arrow's tip, like a moon (never turned: a turned N read as a Z); bigger on a touch screen; beside the drawer, in the free area's corner - on a
+  phone the drawer, an opaque page, covers it); a click or N turns it back.
 - **Phones** (up to 520 px wide): the drawer (the right pane) is a solid page of its own over everything - the whole window,
   clear of the notch / home bar, its close button back to the map; room under its content while the status shows (the
   game paused, the connection lost); the mission list's filters always unfolded (their chevron gone); the left panel

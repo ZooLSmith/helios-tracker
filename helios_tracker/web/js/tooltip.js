@@ -7,7 +7,7 @@ import { isGear, poolKinds, rainbowAt, rarity } from "./model.js";
 import { settings } from "./settings.js";
 import { S, itemById, trackedPawn } from "./state.js";
 import { pickupAmount, pickupIconHtml, rarityName } from "./ui/items.js";
-import { H, W, toMap } from "./view.js";
+import { H, W, panelRects, toMap } from "./view.js";
 
 // The last frame's context: the tooltip also follows the pointer between frames (refreshTooltip: at full speed,
 // whatever the Refresh rate - someone's using the page), from that frame's markers (S.hits)
@@ -127,15 +127,38 @@ function renderTooltip(mePos, f) {
 
 // The coordinates by the cursor, above and right of it (the tooltip: below) - kept inside the window (the drawer
 // open used to hide them in the bottom right corner)
+/** Where a box (w x h) by the cursor goes: the first of `spots` ([x, y] top-left corners, in order of preference) that
+ *  fits the window and covers no panel (the panel, the open drawer: the tooltip went under the drawer); none clear, the
+ *  one covering the least. Kept `margin` inside the window. */
+function placeBox(w, h, spots, margin) {
+  const rects = panelRects();
+  let best = null, bestCover = Infinity;
+  for (const [sx, sy] of spots) {
+    const x = Math.max(margin, Math.min(W - w - margin, sx)), y = Math.max(margin, Math.min(H - h - margin, sy));
+    let cover = 0;
+    for (const r of rects) {
+      const ox = Math.min(x + w, r.right) - Math.max(x, r.left), oy = Math.min(y + h, r.bottom) - Math.max(y, r.top);
+      if (ox > 0 && oy > 0) cover += ox * oy;
+    }
+    if (cover < bestCover) { best = [x, y]; bestCover = cover; }
+    if (!cover) break;
+  }
+  return best;
+}
+
 function placeCoords(coords) {
-  const cw = coords.offsetWidth, ch = coords.offsetHeight;
-  coords.style.left = Math.max(4, Math.min(W - cw - 4, S.mouse.x + 14)) + "px";
-  coords.style.top = Math.max(4, S.mouse.y - ch - 6) + "px";
+  const cw = coords.offsetWidth, ch = coords.offsetHeight, { x, y } = S.mouse;
+  // above right of the cursor (the tooltip: below), else above left, below right, below left
+  const [left, top] = placeBox(cw, ch, [[x + 14, y - ch - 6], [x - 14 - cw, y - ch - 6], [x + 14, y + 6], [x - 14 - cw, y + 6]], 4);
+  coords.style.left = left + "px";
+  coords.style.top = top + "px";
 }
 
 function placeTip(tip) {
   tip.style.display = "block";
-  const tw = tip.offsetWidth, th = tip.offsetHeight;
-  tip.style.left = Math.min(W - tw - 8, S.mouse.x + 14) + "px";
-  tip.style.top = Math.min(H - th - 8, S.mouse.y + 14) + "px";
+  const tw = tip.offsetWidth, th = tip.offsetHeight, { x, y } = S.mouse;
+  // below right of the cursor, else below left, above right, above left - clear of the panels
+  const [left, top] = placeBox(tw, th, [[x + 14, y + 14], [x - 14 - tw, y + 14], [x + 14, y - 14 - th], [x - 14 - tw, y - 14 - th]], 8);
+  tip.style.left = left + "px";
+  tip.style.top = top + "px";
 }

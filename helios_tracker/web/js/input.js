@@ -54,7 +54,13 @@ export function initInput() {
   let dragFrom = null; // where a one-pointer drag started (Follow on: it lets go of the player only past FOLLOW_LET_GO;
   // a right-drag: the point it turns / tilts around)
   canvas.addEventListener("contextmenu", (e) => e.preventDefault()); // (the right button orbits)
+  // A right-drag released over a panel: the menu comes on the release (Windows), to what's under the cursor - not the
+  // captured map; a right press on the map eats the next one, wherever (another press elsewhere: forgotten)
+  let eatMenu = false;
+  document.addEventListener("contextmenu", (e) => { if (eatMenu) { e.preventDefault(); eatMenu = false; } }, true);
+  document.addEventListener("pointerdown", (e) => { if (e.target !== canvas) eatMenu = false; }, true);
   canvas.addEventListener("pointerdown", (e) => {
+    if (e.button === 2) eatMenu = true;
     canvas.setPointerCapture(e.pointerId);
     if (!pointers.size) orbit = e.button === 2 || e.shiftKey;
     downAt = pointers.size || e.button === 2 ? null : { x: e.clientX, y: e.clientY, t: performance.now() };

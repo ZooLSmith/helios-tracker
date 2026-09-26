@@ -15,6 +15,11 @@ export let W = 0, H = 0, dpr = 1; // CSS px, device pixel ratio
 const OCCLUDERS = ["panel", "inspector"];
 let freeCenter = null; // screen px, null = the window's centre
 let freeRect = null; // the largest part of the screen no panel covers (the compass sits in its bottom-right corner)
+let panels = []; // the panels' rectangles on screen ({left, top, right, bottom}: the panel, the drawer - open)
+
+/** The panels on screen (the panel, the open drawer): what the map's tooltips keep clear of (kept current by a
+ *  ResizeObserver). */
+export function panelRects() { return panels; }
 const followOffset = { x: 0, y: 0 }; // the player's screen offset from the centre, eased towards freeCenter's
 const GLIDE_S = 0.15; // the ease's time constant (s): ~0.5 s to settle, whatever the frame rate
 let lastGlide = 0;
@@ -46,6 +51,7 @@ function measureFree() {
     const r = el.getBoundingClientRect(); // (display: none: 0 x 0, ignored)
     if (r.width > 0 && r.height > 0) rects.push({ left: r.left, top: r.top, right: r.right, bottom: r.bottom });
   }
+  panels = rects;
   const free = largestFreeRect(W, H, rects);
   freeCenter = { x: free.x + free.w / 2, y: free.y + free.h / 2 };
   freeRect = free;
@@ -127,8 +133,7 @@ export function zoomAt(sx, sy, factor) {
   S.view.cy = my - dy;
 }
 
-// The compass (#north): shown while the user has turned the map (and the heading doesn't own the turn, and the drawer
-// isn't open - on a phone it's a page over the map; beside it, pointless), its needle
+// The compass (#north): shown while the user has turned the map (and the heading doesn't own the turn), its needle
 // pointing north on screen, in the free area's bottom-right corner; a click / N turns the map back (resetSpin). Written
 // only when something changed (it's called every frame).
 let northShown = null;
@@ -136,21 +141,28 @@ export function refreshNorth() {
   const el = $("north");
   if (!el) return;
   const v = settings.view;
-  const drawer = $("inspector");
-  const show = !(v.rotate && v.follow) && Math.abs(((v.spin % 360) + 540) % 360 - 180) > 0.5 &&
-    !(drawer && drawer.classList.contains("open"));
+  // (the drawer doesn't hide it: beside it, it sits in the free area's corner; on a phone the drawer - an opaque page -
+  // covers it)
+  // (Follow + Rotate turning it to the heading: shown too - where north is as it turns; a click: Rotate off)
+  const show = (v.rotate && v.follow) || Math.abs(((v.spin % 360) + 540) % 360 - 180) > 0.5;
   if (!show) {
     if (northShown !== "") { el.hidden = true; northShown = ""; }
     return;
   }
   const r = freeRect || { x: 0, y: 0, w: W, h: H };
   const state = `${Math.round(r.x + r.w)},${Math.round(r.y + r.h)},${(-S.view.rot * 180 / Math.PI).toFixed(1)}`;
-  if (state === northShown) return;
+  if (state === northShown && el.querySelector(".nmoon")) return; // (its moon gone: the icons rebuilt - a language change)
   northShown = state;
   el.hidden = false;
   el.style.left = `${Math.round(r.x + r.w - el.offsetWidth - 16)}px`;
   el.style.top = `${Math.round(r.y + r.h - el.offsetHeight - 16)}px`;
-  el.firstElementChild.style.transform = `rotate(${(-S.view.rot * 180 / Math.PI).toFixed(1)}deg)`; // (map up = north: turned by -rot)
+  const north = -S.view.rot; // (map up = north: turned by -rot on screen)
+  el.firstElementChild.style.transform = `rotate(${(north * 180 / Math.PI).toFixed(1)}deg)`;
+  // its N: a moon orbiting on the button's border (its centre there), at the arrow's tip - upright, never turned (a
+  // turned N read as a Z)
+  const moon = el.querySelector(".nmoon") || el.appendChild(Object.assign(document.createElement("span"), { className: "nmoon", textContent: "N" }));
+  const orbit = el.offsetWidth / 2;
+  moon.style.transform = `translate(${(orbit * Math.sin(north)).toFixed(1)}px, ${(-orbit * Math.cos(north)).toFixed(1)}px)`;
 }
 
 /** Turns the map by `deg` (the user's turn: settings.view.spin) around the screen point (sx, sy) - it stays under it (a
@@ -196,9 +208,15 @@ export function easeSpinBack(f) {
 /** The user turns the map: the ease back to north (leaving Follow) stops where it is. */
 export function cancelSpinBack() { spinBack = null; }
 
-/** The map back to its usual orientation (the game's map screen's): the user's turn dropped. */
+/** The map back to its usual orientation (the game's map screen's): the user's turn dropped - and Rotate, if it was
+ *  turning it to the heading (the compass: shown then too). */
 export function resetSpin() {
-  settings.view.spin = 0;
+  const v = settings.view;
+  if (v.rotate && v.follow) { // the heading turning it: Rotate off (Follow keeps the player where they are)
+    v.rotate = false;
+    $("rotate").checked = false;
+  }
+  v.spin = 0;
   saveSettings();
   invalidateNow();
 }
