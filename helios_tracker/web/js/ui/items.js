@@ -168,7 +168,11 @@ export function itemHtml(it, ownerLevel) {
   const parts = foldHtml(it, "parts", t("item.parts"), (it.parts || []).map(partRow));
   const details = foldHtml(it, "details", t("item.details"), [
     [t("item.rarityLevel"), t("item.rarityGuess", { n: String(it.q), name: rarityName(it.q) })],
-    [t("item.class"), String(it.c || "")]]); // (exact: WillowWeapon - the technical details)
+    [t("item.class"), String(it.c || "")], // (exact: WillowWeapon - the technical details)
+    // its code for Gibbed's save editors (inspector.py gibbed_code: the game's serial), selectable, and a Copy button
+    // (inspector.js bindItems)
+    ...(it.gib ? [[t("item.gibbed"), it.gib, t("item.gibbedTip"), `<span class="igib"><code>${esc(it.gib)}</code>` +
+      `<button type="button" class="icopy" data-copy="${esc(it.gib)}">${esc(t("item.copy"))}</button></span>`]] : [])]);
   // its item card icons (the game's: gamecards.py), along the card's bottom like the game's (smaller while folded):
   // the manufacturer's logo, the element's, the type's - each dropped if the game has none (or the key's odd); the
   // logo missing: the maker's name instead

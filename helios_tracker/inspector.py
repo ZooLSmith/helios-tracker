@@ -16,15 +16,17 @@ is reported (as a reason code the page translates), not guessed. Stats are sent 
   has every player's controller), never the others' on a client.
 """
 
+import base64
 import json
 import math
 import re
+import zlib
 from pathlib import Path
 from typing import Any
 
 import unrealsdk
 from unrealsdk.unreal import WeakPointer
-from mods_base import get_pc
+from mods_base import Game, get_pc
 
 from . import amounts, gamecards
 
@@ -116,6 +118,33 @@ def card_keys(inv: Any, kind: str | None = None) -> dict[str, str]:
     if (element := try_(lambda: str(inv.ElementalFrame), "") or "").lower() not in ("", "none"):
         out["el"] = element
     return out
+
+
+GIBBED_PREFIXES = {"BL2": "BL2", "TPS": "BLOZ"}  # Gibbed's save editors' code prefix per game (none: no code)
+
+
+def gibbed_code(inv: Any) -> str:
+    """Its code for Gibbed's save editors ("BL2(hwAAAAAB...)", the Pre-Sequel's "BLOZ(...)"), or "". The body is the
+    game's own item serial - what a save holds: the native CreateSerialNumber()'s Buffer, the packed bits before the
+    game writes its check and scrambles it (tools/probe_serial2.txt) - finished the way Gibbed's copy button does it
+    (PackedDataHelper.Encode): the unique id cleared (then the scrambling, seeded by it, does nothing), the check
+    written (CRC32 of the 40 bytes with 0xFFFF in its place, its halves xored), the trailing 0xFF bytes dropped,
+    base64. A call, once per item record (they're cached)."""
+    prefix = GIBBED_PREFIXES.get(getattr(Game.get_current(), "name", ""), "")
+    serial = try_(lambda: inv.CreateSerialNumber()) if prefix else None
+    if serial is None or _enum_name(try_(lambda: serial.State, "")) != "SNS_Full":
+        return ""
+    data = try_(lambda: bytearray(int(b) & 0xFF for b in serial.Buffer))
+    if not data or len(data) != 40:
+        return ""
+    data[1:5] = bytes(4)  # the unique id
+    data[5:7] = b"\xff\xff"
+    check = zlib.crc32(data)
+    data[5:7] = (((check >> 16) ^ check) & 0xFFFF).to_bytes(2, "big")
+    end = len(data)
+    while end > 7 and data[end - 1] == 0xFF:
+        end -= 1
+    return f"{prefix}({base64.b64encode(bytes(data[:end])).decode('ascii')})"
 
 
 def _num(v: Any) -> float | None:
@@ -344,6 +373,8 @@ def _item(inv: Any, equipped: bool, ctrl: Any = None) -> dict[str, Any]:
             if any(rgb):
                 item["ecol"] = "#%02x%02x%02x" % rgb
     item["parts"] = _parts(inv, item)
+    if code := gibbed_code(inv):
+        item["gib"] = code  # (the Details fold: copyable)
     if kind == "weapon" and (slot := try_(lambda: int(inv.QuickSelectSlot), 0)):
         item["slot"] = slot
     return item

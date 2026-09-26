@@ -275,6 +275,11 @@ export default {
   "item.parts": "Parts",
   "item.details": "Details",
   "item.class": "Class",
+  "item.gibbed": "Gibbed code",
+  "item.gibbedTip": "This item for Gibbed's save editor: paste it in its backpack or bank",
+  "item.copy": "Copy",
+  "item.copied": "Copied",
+  "item.copyByHand": "Selected: Ctrl+C",
 
   "stat.element": "Element",
   "stat.cardValue": "On the card:",

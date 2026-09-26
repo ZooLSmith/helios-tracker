@@ -263,16 +263,16 @@ function onItems(msg) {
 }
 
 // The drawer shows a pickup: again when its record changed (records are new objects only when they change: keyed) - its
-// item's card came in, it rolled (its distance)
+// item's card came in, it rolled (its distance). `render`: offline_check's counter (no DOM there)
 let lootShown = null;
-function refreshLootDetail() {
+export function refreshLootDetail(render = renderDetail) {
   if (!S.detail || S.detail.kind !== "loot") { lootShown = null; return; }
-  const found = findDetail();
+  const found = findDetail(); // (the pickup itself)
   if (!found) return;
-  const card = itemById(found.item.it);
-  if (found.item === lootShown?.item && card === lootShown?.card) return;
-  lootShown = { item: found.item, card };
-  renderDetail();
+  const card = itemById(found.it);
+  if (found === lootShown?.item && card === lootShown?.card) return;
+  lootShown = { item: found, card };
+  render();
 }
 
 /** The pawns' descriptions (kind, name, level, max health / shield - sent when they change); the pawns on the map get them at once (a

@@ -613,6 +613,36 @@ Southern Shelf's `_P` alone: 404 `StaticMesh`, 4131 `StaticMeshComponent`, 11 `T
   collector.py: a boss = bBoss, or a pawn that's been the BossPawn this level (`_note_boss`, kept per level). Before
   its fight starts (no bar yet) a boss without bBoss isn't known. Also: `WillowAIPawn.IsBoss()` (native; not called).
 
+## Item serials / Gibbed codes (probe_serial.py + probe_serial2.py, in game, both games, 2026-09-26)
+
+- A Gibbed code (`BL2(hwAAAAAB...)`, the Pre-Sequel's `BLOZ(...)`) is the **game's own item serial** - what a save
+  holds (`PackedWeaponData.InventorySerialNumber`) - base64'd, in Gibbed's wrapper. Gibbed re-implements the packing
+  (`references.gibbed`: `Gibbed.Borderlands2.FileFormats\Items\PackedDataHelper.cs`, `PackedWeapon.cs` /
+  `PackedItem.cs`, `AssetLibraryManagerHelpers.cs`) with a dumped asset table; we don't need it: the game packs.
+- Layout (≤ 40 bytes, bits read lowest first): version 7 bits (BL2 7, the Pre-Sequel 10), is-weapon 1, unique id 32,
+  check 16 (bytes 5-6), DLC asset set id 8, then type / balance / manufacturer (asset refs), manufacturer grade 7, game
+  stage 7, 11 parts (weapon: body grip barrel sight stock elemental acc1 acc2 material prefix title; item: alpha...theta
+  material prefix title). An asset ref = sublibrary index << asset bits | asset index, its top bit "the item's DLC set,
+  not the base game's", all ones = None; widths per group in `AssetLibraryManager.LibraryConfigs` (the same in both
+  games: weapon types 7+6, weapon parts 6+11, item types 9+8, item parts 6+10, manufacturers 4+7, balances 10+10).
+  Check = CRC32 of the 40 bytes (0xFF-padded, 0xFFFF in the check's place), its halves xored. Then the bytes after the
+  5th are scrambled, seeded by bytes 1-4 (the unique id): a rotation + an xor stream - nothing with id 0, which is why
+  Gibbed's copies (id cleared) all start `hwAAAAA` (weapons) / `BwAAAAA` (items). Trailing 0xFF bytes dropped.
+- The game's functions (native): `WillowInventory.CreateSerialNumber()` -> `InventorySerialNumber` {`Buffer` (40
+  bytes, a tuple in Python), `State` (`SerialNumberState.SNS_Full` = 2), `RunningCounter` (the bits used: 309 for a
+  weapon), `EncryptedLength` (garbage)}: the Buffer holds the plain packed bits, check still 0xFFFF, not scrambled.
+  `GetSerialNumberString()`: the finished serial, base64 (with its unique id: scrambled - Gibbed takes it too, and
+  gives a pasted item a new id anyway). Also `WillowWeapon` / `WillowItem.PackSerialNumber(Def)`,
+  `UnpackSerialNumber`, `CreateWeaponFromSerialNumber` / `CreateItemFromSerialNumber`,
+  `WillowInventory.CreateInventoryFromSerialNumberString(str, source)` (static: pasting a code in game - not tried).
+- The asset library itself: `GD_Globals.General.Globals`.`AssetLibraries` (6 `PackageAssetLibrary`, one per group),
+  each DLC a `DownloadableAssetLibraryDefinition` (its own 6), 423 `PackageAssetSublibrary` (`Assets`, `AssetPaths`,
+  `CachedPackageName`) in the Pre-Sequel - not needed since the game packs.
+- Checked: codes built from the Buffer (a BL2 Law, a Tenderbox, a BanditTech skin) decode with Gibbed's format and
+  table - every part right, check ok; the Pre-Sequel's Bullpup code (a user's, from Gibbed) decodes with
+  `references.gibbed_oz`'s table. A code from the page (the Pre-Sequel's, `BLOZ`) pasted into Gibbed's editor: accepted (the user, 2026-09-26);
+  BL2's goes through the same code (its codes checked against Gibbed's table above).
+
 ## Backlog
 
 - **Mission log cost** (user, 2026-09-23: 20-40 ms often) - (1) and (3) DONE, to measure in game; (2) if still needed:

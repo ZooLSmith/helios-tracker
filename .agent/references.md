@@ -106,6 +106,10 @@ relative to that clone. Its game data is JSON dumped from the game's objects,
 keyed by object path (`GD_...`), base game plus every DLC. It lives in the `Resources\Dumps` submodule
 (checked out with `git submodule update --init`):
 `projects\Gibbed.Borderlands2.GameInfo\Resources\Dumps\` (~2.8 MB)
+The Pre-Sequel's editor is a separate repo, not a branch: `references.gibbed_oz`
+(https://github.com/gibbed/Gibbed.BorderlandsOz), same layout, its dumps in
+`projects\Gibbed.BorderlandsOz.GameInfo\Resources\Dumps\` (the other submodules - Gearbox, Gibbed.IO,
+NDesk.Options - are the same commits in both).
 
 - `Missions.json`: path → `number`, `name`, `description`, `is_plot_critical`, `can_be_failed`.
 - `Travel Stations.json` / `Fast Travel Station Ordering.json`: stations → `level_name` (`*_P`),

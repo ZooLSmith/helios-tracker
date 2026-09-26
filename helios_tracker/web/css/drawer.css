@@ -215,6 +215,12 @@
 .ifold > .kv { display: none; padding: 2px 0 4px; }
 .ifold > .kv > span:nth-child(even) { overflow-wrap: anywhere; } /* (the exact names: long paths wrap anywhere) */
 .ifold.open > .kv { display: grid; }
+/* an item's Gibbed code (Details): selected whole with one click, its Copy button after it */
+.igib { display: flex; align-items: flex-start; gap: 6px; min-width: 0; }
+.igib code { flex: 1; min-width: 0; font: 10.5px ui-monospace, Consolas, monospace; overflow-wrap: anywhere; user-select: all; cursor: text; }
+.igib .icopy { flex: none; padding: 0 6px; font-size: 10.5px; line-height: 1.6; color: var(--text); background: var(--control);
+  border: 1px solid var(--card-edge); border-radius: 3px; cursor: pointer; }
+.igib .icopy:hover { color: var(--text-bright); }
 .ifold > .plist { display: none; padding: 2px 0 4px; } /* (a vending machine's pools: detail.js) */
 /* a panel's Nearby list (detail.js): what's within 1 m - its name (a link), its kind and distance */
 .nblist { display: flex; flex-direction: column; gap: 2px; font-size: 12px; }

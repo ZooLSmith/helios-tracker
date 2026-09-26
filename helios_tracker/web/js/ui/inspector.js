@@ -94,11 +94,37 @@ export function renderInspector(resetScroll) {
   bindItems(body);
 }
 
+/** A Copy button's code (an item's Gibbed code) to the clipboard: "Copied" on it until the pointer leaves. Without
+ *  the clipboard API (the page opened by another machine's address: not a secure context) the old copy command on the
+ *  code selected; that failing too, the code stays selected and the button says to copy it by hand. */
+function copyCode(btn) {
+  const said = (key) => {
+    btn.textContent = t(key);
+    btn.onmouseleave = () => { btn.textContent = t("item.copy"); btn.onmouseleave = null; };
+  };
+  const byHand = () => {
+    const code = btn.parentElement.querySelector("code"), range = document.createRange();
+    range.selectNodeContents(code);
+    getSelection().removeAllRanges();
+    getSelection().addRange(range);
+    let ok = false;
+    try { ok = document.execCommand("copy"); } catch { /* (unsupported) */ }
+    said(ok ? "item.copied" : "item.copyByHand");
+  };
+  if (navigator.clipboard && window.isSecureContext) navigator.clipboard.writeText(btn.dataset.copy).then(() => said("item.copied"), byHand);
+  else byHand();
+}
+
 /** The item cards in `body` (items.js): a click opens one, its header closes it; a fold's header its fold. */
 export function bindItems(body) {
   for (const el of body.querySelectorAll(".item")) {
     el.onclick = (e) => {
       const id = el.dataset.id;
+      const copy = e.target.closest(".icopy"); // (its Gibbed code's Copy button)
+      if (copy) {
+        copyCode(copy);
+        return;
+      }
       // a fold's header (Parts, Details): that fold opens / closes, not the item; inside an open item: nothing
       const head = e.target.closest(".ifhead");
       if (head) {

@@ -274,6 +274,11 @@ export default {
   "item.parts": "Pièces",
   "item.details": "Détails",
   "item.class": "Classe",
+  "item.gibbed": "Code Gibbed",
+  "item.gibbedTip": "Cet objet pour l'éditeur de sauvegarde de Gibbed : à coller dans son sac à dos ou sa banque",
+  "item.copy": "Copier",
+  "item.copied": "Copié",
+  "item.copyByHand": "Sélectionné : Ctrl+C",
 
   "stat.element": "Élément",
   "stat.cardValue": "Sur la carte :",

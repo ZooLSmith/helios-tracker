@@ -71,6 +71,14 @@ def _install_fakes() -> None:
     mb.Mod = object
     mb.EInputEvent = types.SimpleNamespace(IE_Pressed=0, IE_Released=1, IE_Repeat=2)
 
+    class FakeGame:  # mods_base.Game: the current game (a test switches it: FakeGame.current)
+        current = types.SimpleNamespace(name="BL2")
+
+        @classmethod
+        def get_current(cls):  # noqa: ANN206
+            return cls.current
+    mb.Game = FakeGame
+
     class PC:
         class Pawn:
             DrivenVehicle = None
@@ -339,7 +347,18 @@ const deltaOut = JSON.parse(fs.readFileSync(recordsFile, "utf-8")).map((sc, n) =
   for (const msg of sc.messages) whole = keyed(`scenario${n}`, sc.list, msg);
   return whole;
 });
-const missionsOut = { deltaOut, rowsOut, shotCostOut, bonusOut, statsOut, lookOut, vaultCat, healthShown, variantWords, stepOrder, hitPicks, items, fallback, where, tooHigh, finish, difficulty, best, search, infoHtml, areas, gameText, story: flat(tree.story), other: flat(tree.other), counts: missionCounts(log),
+// An open loot panel (data.js refreshLootDetail, on the items / pickups updates): drawn again when its pickup's item
+// card arrives, not when nothing changed (it once read the pickup as a hit's wrapper - found.item - and threw)
+const { refreshLootDetail } = await load("js/data.js");
+let lootDetailRenders = 0;
+const countLootRender = () => { lootDetailRenders += 1; };
+Object.assign(S, { detail: { kind: "loot", id: "lootP" }, pickups: [{ i: "lootP", it: "lootCard" }], groundItems: new Map() });
+refreshLootDetail(countLootRender); // shown, its card not read yet: drawn
+refreshLootDetail(countLootRender); // nothing changed: not again
+S.groundItems = new Map([["lootCard", { i: "lootCard" }]]);
+refreshLootDetail(countLootRender); // its card came: again
+Object.assign(S, { detail: null, pickups: [], groundItems: new Map() });
+const missionsOut = { deltaOut, lootDetailRenders, rowsOut, shotCostOut, bonusOut, statsOut, lookOut, vaultCat, healthShown, variantWords, stepOrder, hitPicks, items, fallback, where, tooHigh, finish, difficulty, best, search, infoHtml, areas, gameText, story: flat(tree.story), other: flat(tree.other), counts: missionCounts(log),
   objectives: objectiveStates(log[1]).map((s) => s.state) };
 console.log(JSON.stringify({ sha: crypto.createHash("sha256").update(rgba).digest("hex"), err, back, right, raw, modules, missions: missionsOut,
   migrated, checked: { enemy: checked.layers.enemy, view: checked.view, openLayers: checked.ui.openLayers, drawer: checked.ui.drawer, badDrawer }, i18nKeys, unknownSettings, lootLayers, gameRarity, freeRects }));
@@ -892,11 +911,15 @@ def check_helios_tracker() -> None:  # noqa: PLR0915
         BarrelPartDefinition=ns(Name="SMG_Barrel_Hyperion", Outer=ns(Name="Barrel")),
         TitlePartDefinition=ns(Name="Title_Barrel_Hyperion", Outer=ns(Name="Title_Hyperion"), PartName="Bitch"),
     )
+    serial_state = enum.IntEnum("SerialNumberState", ["SNS_Empty", "SNS_Encrypted", "SNS_Full"], start=0)
     weapon = ns(
         _get_address=lambda: 0x300, Class=ns(Name="WillowWeapon", SuperField=None), Inventory=None,
         GetShortHumanReadableName=lambda: "Unkempt Harold", RarityLevel=5, ExpLevel=30, MonetaryValue=4321,
         InstantHitDamage=512.4, ProjectilesPerShot=3.0, FireInterval=0.25, ClipSize=16.0, ReloadTime=2.25,
         QuickSelectSlot=1, DefinitionData=weapon_data,
+        # its serial: a BL2 Law's (tools/probe_serial2.txt: the packed bits, unique id 235059291, no check yet)
+        CreateSerialNumber=lambda: ns(State=serial_state.SNS_Full, RunningCounter=309, Buffer=tuple(bytes.fromhex(
+            "875bb8020effff008747024006814042c38885110d2301c6ffffffffd230feff4fc38840820de3ff"))),
     )
     shield = ns(
         _get_address=lambda: 0x301, Class=ns(Name="WillowShield", SuperField=None), Inventory=None,
@@ -1061,6 +1084,22 @@ def check_helios_tracker() -> None:  # noqa: PLR0915
     assert (gun["type"], gun["maker"]) == ("Sub-Machine Gun", "Hyperion+"), gun
     parts = {slot: (name, group, text) for slot, name, group, text in gun["parts"]}
     assert parts["Barrel"] == ("SMG_Barrel_Hyperion", "Barrel", "") and parts["Title"][2] == "Bitch", parts
+    # its Gibbed code: the game's serial, unique id cleared, check written, trailing 0xFF dropped (decoded by Gibbed's
+    # format: the Law, all its parts - tools/probe_serial2.txt); the Pre-Sequel's prefix; none in Assault on Dragon
+    # Keep (no Gibbed editor), nor for a serial not full, nor without one (the fake shield)
+    law_code = "BL2(hwAAAADNoQCHRwJABoFAQsOIhRENIwHG/////9Iw/v9Pw4hAgg3j)"
+    assert gun["gib"] == law_code, gun.get("gib")
+    game_fake = sys.modules["mods_base"].Game
+    game_fake.current = ns(name="TPS")
+    assert stats_insp.gibbed_code(weapon) == "BLOZ" + law_code.removeprefix("BL2"), stats_insp.gibbed_code(weapon)
+    game_fake.current = ns(name="AoDK")
+    assert stats_insp.gibbed_code(weapon) == "", "no Gibbed editor for Assault on Dragon Keep"
+    game_fake.current = ns(name="BL2")
+    skin_serial = ns(State=serial_state.SNS_Full, Buffer=tuple(bytes.fromhex(  # a BanditTech skin's: 16 bytes left
+        "07a3123038ffff0021014208e0ff04c2" + "ff" * 24)))
+    assert stats_insp.gibbed_code(ns(CreateSerialNumber=lambda: skin_serial)) == "BL2(BwAAAADUWgAhAUII4P8Ewg==)"
+    assert stats_insp.gibbed_code(ns(CreateSerialNumber=lambda: ns(State=serial_state.SNS_Empty, Buffer=(255,) * 40))) == ""
+    assert stats_insp.gibbed_code(shield) == "", "no serial: no code"
     (obj,) = json.loads(hub.latest("objects"))["objects"]
     assert obj["n"] == "Incendiary Barrel" and "raw" not in obj and obj["d"] == "IO_FireBarrel", obj
     # no balance name, no target name: its definition's map hover header (the Pre-Sequel's oxygen source - it came out
@@ -2041,6 +2080,7 @@ def check_helios_tracker() -> None:  # noqa: PLR0915
     assert mis["rowsOut"] == [{"i": "a", "x": 1, "y": 2, "z": 3, "h": 100, "hf": 1, "s": 50, "sf": 1},
                               {"i": "b", "x": 1, "y": 2, "z": 3, "h": 40.5, "s": 10, "r": 5},
                               {"i": "c", "x": 1, "y": 2, "z": 3, "rs": 2}], ("the state's compact rows", mis["rowsOut"])
+    assert mis["lootDetailRenders"] == 2, ("an open loot panel: drawn, not again unchanged, again with its card", mis["lootDetailRenders"])
     assert mis["hitPicks"] == ["chest", "onChest", "loot"], ("the click picks what's under the pointer first", mis["hitPicks"])
     fb = mis["fallback"]  # a reward not known for the player's level: the local player's level's, else any
     assert fb["own"] == {"xp": 900} and fb["toLocal"] == {"xp": 1100, "from": 15} and fb["toAny"] == {"xp": 900, "from": 12} and fb["none"] is None, fb

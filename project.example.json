@@ -12,6 +12,10 @@
     "gibbed": {
       "path": "",
       "about": "Optional. A clone of Gibbed.Borderlands2 (https://github.com/gibbed/Gibbed.Borderlands2, with its Resources/Dumps submodule)."
+    },
+    "gibbed_oz": {
+      "path": "",
+      "about": "Optional. A clone of Gibbed.BorderlandsOz, the Pre-Sequel's save editor (https://github.com/gibbed/Gibbed.BorderlandsOz, with its Resources/Dumps submodule)."
     }
   }
 }

@@ -165,6 +165,12 @@ It draws nothing in game: everything it shows is on the page.
   hit markers': fire's line has no colour - the line gets it too), else the element art's measured colour. The
   element's stat tiles' values in that colour too (exact, not pastel), like the game's card. Non-weapons' type frame: the card's
   `IItemCardable.GetZippyFrame()` ("Artifact", "comm", "Customization_Head": tools/probe_zippy.txt; once per definition).
+- **Gibbed code** (`inspector.py gibbed_code`, notes "Item serials"): every item record with a serial gets `gib`, its code
+  for Gibbed's save editors (`BL2(...)`, the Pre-Sequel's `BLOZ(...)`, none in Assault on Dragon Keep) - the game's own
+  serial (`CreateSerialNumber()`, once per record) finished as Gibbed's copy button does (unique id 0). In the item's
+  Details fold: the code (one click selects it) and a Copy button (the clipboard; not a secure context - the page
+  opened by another machine's address: the copy command, else the code left selected and "Ctrl+C" on the button).
+  Only items with an object on our side: ours, the ground's, the machines' (not the others' backpacks).
 - **Item header**: the name and type left; its level top right (red, with a hover tip, above its owner's level:
   the game won't let them equip it) and its price under it. **Effervescent** (the game's `RARITY_Rainbow`, 506):
   the item's rarity colour cycles through pastel hues (name, border, logo tint; the map's loot markers too,
