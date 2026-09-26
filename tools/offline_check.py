@@ -281,6 +281,12 @@ setGameVariant("tps");
 const variantWords = [tVariant("group.relic"), tVariant("currency.eridium", { n: 3 }), tVariant("group.weapon")];
 setGameVariant("");
 variantWords.push(tVariant("group.relic"));
+// a mission's current step in its own order (m.cur: the set's ObjectiveDefinitions - the Pre-Sequel's "Marooned": Throw
+// breaker, Power up jump pad, Kill Deadlift, Pick up digistruct key), in the slots it takes; the others where they are
+const { objectiveStates: stepStates } = await load("js/missions.js");
+const stepOrder = stepStates({ obj: [{ n: "Kill Deadlift", c: 1 }, { n: "Pick up digistruct key", c: 1 }, { n: "Use jump pad", c: 1 },
+  { n: "Throw breaker", c: 1 }, { n: "Power up jump pad", c: 1 }], p: [0, 0, 1, 0, 0], cur: [3, 4, 0, 1] })
+  .map((s) => `${s.o.n}:${s.state}`).join(",");
 const vaultCat = objectCategory({ d: "IO_VaultRoy", n: "Vault Roy", c: "WillowInteractiveObject" })
   + "," + objectCategory({ d: "CatchARideTerminal", n: "Catch-A-Ride", c: "WillowVehicleSpawnStationTerminal" })
   + "," + objectCategory({ d: "InteractiveObj_HyperionAmmo", n: "Ammo", c: "WillowInteractiveObject", lootable: 1, lists: ["AmmoCrateLoot_Hyp"] })
@@ -333,7 +339,7 @@ const deltaOut = JSON.parse(fs.readFileSync(recordsFile, "utf-8")).map((sc, n) =
   for (const msg of sc.messages) whole = keyed(`scenario${n}`, sc.list, msg);
   return whole;
 });
-const missionsOut = { deltaOut, rowsOut, shotCostOut, bonusOut, statsOut, lookOut, vaultCat, healthShown, variantWords, hitPicks, items, fallback, where, tooHigh, finish, difficulty, best, search, infoHtml, areas, gameText, story: flat(tree.story), other: flat(tree.other), counts: missionCounts(log),
+const missionsOut = { deltaOut, rowsOut, shotCostOut, bonusOut, statsOut, lookOut, vaultCat, healthShown, variantWords, stepOrder, hitPicks, items, fallback, where, tooHigh, finish, difficulty, best, search, infoHtml, areas, gameText, story: flat(tree.story), other: flat(tree.other), counts: missionCounts(log),
   objectives: objectiveStates(log[1]).map((s) => s.state) };
 console.log(JSON.stringify({ sha: crypto.createHash("sha256").update(rgba).digest("hex"), err, back, right, raw, modules, missions: missionsOut,
   migrated, checked: { enemy: checked.layers.enemy, view: checked.view, openLayers: checked.ui.openLayers, drawer: checked.ui.drawer, badDrawer }, i18nKeys, unknownSettings, lootLayers, gameRarity, freeRects }));
@@ -1993,6 +1999,8 @@ def check_helios_tracker() -> None:  # noqa: PLR0915
     assert (lk["lookDefault"], lk["lookClamped"], lk["rgba"]) == ({"bg": 100, "map": 100, "panel": 90, "ui": 100, "marker": 100},
                                                                    {"bg": 100, "map": 0, "panel": 20, "ui": 200, "marker": 50}, "rgba(11, 17, 22, 0.4)"), lk
     assert mis["variantWords"] == ["OZ KITS", "3 moonstones", "WEAPONS", "RELICS"], ("the Pre-Sequel's words", mis["variantWords"])
+    assert mis["stepOrder"] == ("Throw breaker:current,Power up jump pad:current,Use jump pad:done,Kill Deadlift:current,"
+                                "Pick up digistruct key:current"), ("the step's own order, in its slots", mis["stepOrder"])
     assert mis["healthShown"] == "107,107,100,100", ("health rounded down, as the game's HUD; the max the same", mis["healthShown"])
     assert mis["vaultCat"] == "vaultsymbol,station,container,oxygen,oxygen,oxygen,jumppad,chest", \
         ("a vault symbol: its own layer; Catch-A-Ride: a station; anything with loot a container (the Pre-Sequel's"

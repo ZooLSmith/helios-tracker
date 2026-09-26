@@ -113,14 +113,22 @@ export function nodeVisible(node, showLocked) {
 }
 
 /** Per objective: { o, i, p, state: "done" | "current" | "pending" } - done: its count reached;
- *  current: in the step the game shows now; pending: later or never (branches). */
+ *  current: in the step the game shows now; pending: later or never (branches). The current step's in its own order
+ *  (m.cur: its objective set's ObjectiveDefinitions, as the game lists them - "Throw breaker, Power up jump pad, Kill
+ *  Deadlift, Pick up digistruct key"; each step orders its own, the mission's standing goals in every one), in the
+ *  slots they take in the definition's order; the others there. `i` stays their index (progress). */
 export function objectiveStates(m) {
-  const cur = new Set(m.cur || []);
-  return (m.obj || []).map((o, i) => {
+  const curOrder = m.cur || [];
+  const cur = new Set(curOrder);
+  const states = (m.obj || []).map((o, i) => {
     const p = (m.p || [])[i] || 0;
     const state = p >= o.c ? "done" : cur.has(i) ? "current" : "pending";
     return { o, i, p, state };
   });
+  const inStep = curOrder.filter((i) => i < states.length).map((i) => states[i]);
+  const slots = states.map((s, n) => (cur.has(s.i) ? n : -1)).filter((n) => n >= 0);
+  slots.forEach((slot, k) => { states[slot] = inStep[k]; });
+  return states;
 }
 
 /** The required objectives not done yet (at least 1: turning it in is a step too) - the "N to do"

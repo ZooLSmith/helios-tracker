@@ -149,6 +149,13 @@ item's `DefinitionData.ItemDefinition` (a `UsableItemDefinition`):
   (4) (tools/probe_turnin.txt); 5 (failed?) not seen - the page shows unknown names as the game's.
   2 and 3 = the page's "ready" (to turn in: green).
   `ObjectivesProgress[i]` = count of `MissionDef.ObjectiveDefs[i]` (empty before the mission starts).
+- **The objectives' order** (the Pre-Sequel's "Marooned", 2026-09-26 - the user: "Throw breaker" first in game,
+  "Pick up digistruct key" last; the page had ObjectiveDefs' order): each step orders its own. A step is a
+  `MissionObjectiveSetDefinition` (InitialObjectiveSet, then each set's NextSet - bAutoEnableNextSet), its
+  `ObjectiveDefinitions` in the game's order; the mission's standing goals are in every set (Marooned: KillDead,
+  RetrievePart in all 12), so there's no one global order (a chain walk by first appearance gives ObjectiveDefs'
+  order back - tried, dropped). The current step's order is the collector's "cur" (its sets' objectives, in order):
+  missions.js objectiveStates puts the current ones in that order, in the slots they take.
 - `MissionDefinition`: `MissionName`, `MissionDescription`, `MissionSummary`, `TurnInDescription`,
   `MissionGiver`, `MissionTurnInLocation` (localized; `[place]...[-place]` markup), `bPlotCritical`
   (story), `MissionNumber`, `GameStage`, `Dependencies` (missions), `NextMissionInChain`,
@@ -383,6 +390,13 @@ What "Can contain" could turn into percentages - read as properties only:
     `LootSchedule_ClassMod_*` common 8, uncommon 10, rare 13, very rare 16, legendary 20); a balance's `Manufacturers[].Grades[].GameStageRequirement {MinGameStage, MaxGameStage}` and
     Min/MaxSpawnProbabilityModifier (a common Bandit pistol: 1-10000, x1). A legendary balance's own fields read empty
     (its data on its archetype / base definition?).
+- **Open (the user, 2026-09-26): the odds on a co-op client.** The pools, weights, game stage gates and configurations
+  are static data - the same on a client. What isn't: GearDrops_CommonWeightModifier's live value is in the host's
+  WorldInfo.Game.DesignerAttributes (0.625 there, solo host, base 1): a client has no game info, lootodds.py uses the
+  base - its commons over-weighted. Not tested on a client. To find out: what the host's value is in co-op (what sets
+  it - playthrough? player count?), whether a client can read it (replicated anywhere?); and whose resources the "if
+  low on health / ammo / oxygen" weights use in co-op (the host rolls the loot). Also not applied yet, for everyone:
+  the level gates (a pool above the area's game stage can't roll - its weight still counts in the chances).
 - **Open (the user, 2026-09-25): does it hold for the DLCs and the Pre-Sequel?** The DLCs use the same classes and
   structures (their own `GD_<DLC>_Itempools` / pools / weights - the probe reads whatever a chest points to, but their
   weights may be other objects than `GD_Balance.Weighting.*`, and seasonal / Pearl pools may be gated): to check with
