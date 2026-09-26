@@ -388,6 +388,8 @@ What "Can contain" could turn into percentages - read as properties only:
   weights may be other objects than `GD_Balance.Weighting.*`, and seasonal / Pearl pools may be gated): to check with
   a DLC chest (a Pirate's Booty / Dragon Keep area). The Pre-Sequel is another game on the same engine (the SDK's
   willow2 side covers it) - the mod as a whole isn't known to run there; a question for the whole mod, not just this.
+  2026-09-26: the manifest now lists it (`supported_games = ["BL2", "TPS"]`) to try it as-is; `python tools/link_mod.py tps`
+  links it there (project.json's `tps`). What was seen there: `.agent/presequel.md`.
 
 ## Pickup amounts (probe_pickup_amounts*.py, in game, 2026-09-26)
 
@@ -543,6 +545,25 @@ Southern Shelf's `_P` alone: 404 `StaticMesh`, 4131 `StaticMeshComponent`, 11 `T
   StaticMeshes' vertex buffers (native, bigger work), `RB_BodySetup.AggGeom` (collision hulls), `BlockingMeshActor`s.
 - Scripts: the session's scratch `navall.py` (reads every sublevel with `tacmap.Package`, renders PNGs) - not kept;
   the format above is enough to rebuild it.
+
+## Item card stats (probe_shield.py / probe_accuracy.py in the Pre-Sequel, offline packages, 2026-09-26)
+
+- **Items' top stats** (a shield's Capacity 53, Recharge Rate 16, Recharge Delay 2.36): no number property holds
+  them (the shield only has ReplicatedAttributeSlotModifierValues). `WillowItem.UIStatModifiers[]` =
+  UIStatModifierData {AttributePresentation, ModifierTotal (53.0588), CompareModifierTotal (53.0), AttributeStyle,
+  StatCombinationMethod SCM_Multiply, Supplemental...}: the presentation's Description the label ("Capacity"), its
+  RoundingMode / FloatPrecision the rounding (ATTRROUNDING_IntRound: 53.06 -> 53, 15.70 -> 16; the delay: precision
+  2, 2.3649 -> 2.36). The same in both games' WillowGame.upk. The card is filled natively (InventoryCardGFx.
+  SetShieldCard: a stub; ItemCardGFxObject.SetCardUIStats only gets formatted TopStatData). inspector._ui_stats, for
+  shields (other items: not checked). CompareModifierTotal: what it holds for a backpack item not checked.
+- **A weapon's Accuracy** (72.1 for a shotgun's Spread 4.186, 95.6 for a sniper's 0.667): WillowWeapon has no
+  UIStatModifiers. The "Accuracy" presentation, `GD_AttributePresentation.Weapons.AttrPresent_WeaponSpread`
+  (Startup.upk, both games): bValueRemappingEnabled, RemappingData InputValueMn..Mx 0..15 onto OutputValueMn..Mx
+  100..0 (each an AttributeInitializationData: BaseValueConstant; the unset ones default 0), RoundingMode
+  ATTRROUNDING_Float, FloatPrecision the class default 1 -> 100 - Spread x 100 / 15. inspector._accuracy (card:
+  SpreadBaseValue, with bonuses: Spread). Whether the game clamps a spread over 15: not known (not clamped).
+- Health on the game's text: StatusMenuExGFxMovie.SetCondensedHealthWidget = `FFloor(GetHealth()) $ " / " $
+  FCeil(GetMaxHealth())` - the only script rounding health (both games); the HUD's UpdateHealth / UpdateShield native.
 
 ## Backlog
 
@@ -791,8 +812,10 @@ Southern Shelf's `_P` alone: 404 `StaticMesh`, 4131 `StaticMeshComponent`, 11 `T
   that layer's missing. Other movies have type lists too (the ammo's 30 x 41 icons, the vendors' tabs) - the one
   nearest the manufacturer's in the tree is the card's. The element list's labels: amp (slag), corrosive, explosive,
   fire, shock, none = the DamageType enum's names without DAMAGE_TYPE_ (lower case; Incendiary's frame is "fire"). The
-  "item icons" sprite (quest, sdu, artifacts) is vector (no icon). Everything found from the game's data: the
+  "item icons" sprite (quest, sdu, artifacts) is vector (drawn since 2026-09-26: gamecards._shape_rgba, solid fills
+  without strokes - the Pre-Sequel's card type icons, BL2's weapon outlines). Everything found from the game's data: the
   packages from the engine config ([Engine.ScriptPackages], [Engine.StartupPackages], + the cooked Startup), the
   lists by their labels vs the keys (nearest the manufacturer's, the best overlap, the largest) - for the Pre-Sequel
   as is. The fonts the same way now (any movie's compacted fonts in those
-  packages, each name's fullest). Still named: the skill icons' packages (GD_*_Streaming_SF + Startup).
+  packages, each name's fullest). Still named: the skill icons' packages (GD_*_Streaming_SF, any *_Streaming_SF in a
+  DLC's Content - the Pre-Sequel's DLC classes have no "GD_" -, + Startup).

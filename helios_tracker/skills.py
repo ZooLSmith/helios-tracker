@@ -16,11 +16,18 @@ Verified in game (tools/probe_passives.txt, cooldown probes):
   (tools/probe_action_skill.txt): their cooldown = the full length from when their action skill was last
   seen running (the instance's Duration isn't its real length). pc.SavedSkillTreeSkill: the action skill's definition (seen: Gunzerking;
   on the host, another player's gave no name: their tree's SKILL_TYPE_Action skill then).
+- Not unlocked yet (before the story gives it - Lv 1 in the Pre-Sequel, tools/probe_tps.txt): the tree's action skill
+  has Grade 0 (1 once it's there: BL2's Gunzerking, Krieg's, tools/probe_skill_layout.txt) - its cooldown still reads
+  a length and an empty pool: it looked "ready". No "ak" then.
 
 Hidden helper skills: some timed effects run as a helper that no skill tree lists, with dev text
 for a name (Krieg's Blood Overdrive runs "BloodOverdriveChild": "Blood Overdrive Child - If you are
-reading this please bug it!"). The helper uses its skill's icon (SkillIcon: unique per tree skill,
+reading this please bug it!"). The helper uses its skill's icon (skill_icon: unique per tree skill,
 shared with its helpers - tools/probe_child_skill.txt): shown under that tree skill's name.
+Nameless timed effects (an empty SkillName) - seen on a Pre-Sequel Lv 1 player: definitions a behaviour creates,
+"GD_PlayerShared.Behaviors.PlayerBehavior_LevelUp:Behavior_AttributeEffect_1.SkillDefinition_2" (4 s, twice),
+"...PlayerBehavior_LevelUpNaturally:...SkillDefinition_1" (30 s), "GD_JackCombatNPC.injured.JackInjuredDefinition:
+Behavior_AttributeEffect_4.SkillDefinition_1" (15 s). Each definition's path logged once.
 
 The manager is read once per pass (every SKILLS_EVERY s) for everyone; definitions are cached forever
 (static game data); the full cooldown lengths are function calls, refreshed every MAX_EVERY s.
@@ -30,7 +37,7 @@ from typing import Any
 
 from unrealsdk.unreal import WeakPointer
 
-from .util import field, try_
+from .util import def_name, field, log, try_
 
 SKILLS_EVERY = 0.2  # s between reads of the skill manager (every player's running skills)
 MAX_EVERY = 5.0  # s between reads of a player's full cooldown lengths (function calls)
@@ -40,6 +47,19 @@ _defs: dict[int, tuple[str, str, str]] = {}
 # Controller address -> (its tree's skill definition addresses, SkillIcon path -> tree skill name,
 # the action skill's name): a skill tree's definitions never change (static per class)
 _trees: dict[int, tuple[set[int], dict[str, str], str]] = {}
+_unnamed: set[int] = set()  # nameless timed skills' definitions already logged
+
+
+def skill_icon(skill_def: Any) -> str:
+    """A skill's icon texture path, as the game's movies name it ("SharedSkillIcons_Soldier.SkillIcon-Able"; gameicons.py
+    serves it): its SkillIcon movie's path - or, with a SkillIconTextureName (the Pre-Sequel's), that texture in the
+    movie's package: its DLC classes' skills all share one movie ("SharedSkillIcons_Cro_Aurelia.SkillIcon-Aurelia",
+    every icon an image of it), the name picks theirs ("SkillIcon-Avalanche"). "" without an icon."""
+    movie = try_(lambda: skill_def.SkillIcon._path_name(), "") or ""
+    texture = str(try_(lambda: skill_def.SkillIconTextureName, "") or "")
+    if movie and texture and texture.lower() != "none":
+        return f"{movie.split('.')[0]}.{texture}"
+    return movie
 
 
 def _tree_names(pc: Any) -> tuple[set[int], dict[str, str], str]:
@@ -58,7 +78,7 @@ def _tree_names(pc: Any) -> tuple[set[int], dict[str, str], str]:
             name, kind, _ = definition_info(d)
             if kind == "SKILL_TYPE_Action" and not action:
                 action = name
-            icon = try_(lambda d=d: d.SkillIcon._path_name())
+            icon = skill_icon(d)
             if icon and name:
                 by_icon.setdefault(icon, name)
         cached = (defs, by_icon, action)
@@ -72,7 +92,7 @@ def _shown_name(skill_def: Any, name: str, pc: Any) -> str:
     defs, by_icon, _ = _tree_names(pc)
     if not defs or skill_def._get_address() in defs:
         return name
-    icon = try_(lambda: skill_def.SkillIcon._path_name())
+    icon = skill_icon(skill_def)
     return by_icon.get(icon, name) if icon else name
 
 
@@ -96,10 +116,11 @@ class SkillReader:
     def __init__(self) -> None:
         self._manager: WeakPointer | None = None
         self._next = 0.0
-        # controller address -> {"act": (name, left, duration) | None, "timed": [(name, left, duration)]}
+        # controller address -> {"act": (name, left, duration) | None, "timed": [(name, left, duration, made up)]}
         self._by_pc: dict[int, dict[str, Any]] = {}
-        # controller address -> (next read, action skill full cooldown, melee full cooldown, action skill name)
-        self._max: dict[int, tuple[float, float, float, str]] = {}
+        # controller address -> (next read, action skill full cooldown, melee full cooldown, action skill name,
+        # whether it's still locked)
+        self._max: dict[int, tuple[float, float, float, str, bool]] = {}
         self._world = 0.0  # the world time of the last update() call
         # controller address -> the world time their action skill was last seen running: the start of
         # its cooldown for the other players on the host, whose cooldown pool reads empty
@@ -139,13 +160,21 @@ class SkillReader:
                 entry["act"] = (name, left, duration)
                 self._act_seen[instigator._get_address()] = world_time
             else:
-                entry["timed"].append((try_(lambda d=skill_def, n=name, c=instigator: _shown_name(d, n, c), name), left, duration))
+                shown = try_(lambda d=skill_def, n=name, c=instigator: _shown_name(d, n, c), name)
+                if not shown:  # no name of the game's: its object name, a guess
+                    shown = try_(lambda d=skill_def: def_name(d), "") or "?"
+                    if skill_def._get_address() not in _unnamed:
+                        _unnamed.add(skill_def._get_address())
+                        log(f"timed skill without a name: {try_(lambda d=skill_def: d._path_name(), shown)} ({duration:.1f} s)")
+                    entry["timed"].append((shown, left, duration, True))
+                else:
+                    entry["timed"].append((shown, left, duration, False))
         self._by_pc = by_pc
 
     def player(self, pawn: Any, now: float) -> dict[str, Any]:
         """The payload fields for one player pawn: "ak" (action skill: ["r", name] ready, ["a", fraction
         left, seconds left, name] running, ["c", fraction left, seconds left, name] cooling down),
-        "ps" (timed passive effects: [[name, seconds left, duration]]), "mk" (melee skill cooling down:
+        "ps" (timed passive effects: [[name, seconds left, duration(, 1: a made-up name)]]), "mk" (melee skill cooling down:
         [fraction left, seconds left]). Empty without their controller (a co-op client only has its own)."""
         # (driving, the controller possesses the vehicle: the player pawn's own is None meanwhile)
         pc = try_(lambda: field(pawn, "Controller")) or try_(lambda: field(pawn, "DrivenVehicle").Controller)
@@ -161,15 +190,15 @@ class SkillReader:
             if not action_name:  # the host, another player: SavedSkillTreeSkill has no name - their tree's
                 action_name = try_(lambda: _tree_names(pc)[2], "") or ""
             cached = (now + MAX_EVERY, try_(lambda: float(pc.GetSkillCooldownTime()), 0.0),
-                      try_(lambda: float(pc.GetMeleeSkillCooldownTime()), 0.0), action_name)
+                      try_(lambda: float(pc.GetMeleeSkillCooldownTime()), 0.0), action_name, _action_locked(pc))
             self._max[key] = cached
-        _, action_max, melee_max, action_name = cached
+        _, action_max, melee_max, action_name, locked = cached
         out: dict[str, Any] = {}
         running = self._by_pc.get(key, {})
         if (act := running.get("act")) is not None:
             name, left, duration = act
             out["ak"] = ["a", round(left / duration, 3), round(left, 1), name or action_name]
-        elif action_max > 0:
+        elif action_max > 0 and not locked:
             left = _pool_seconds(try_(lambda: field(pc, "SkillCooldownPool").Data))
             if left[0] <= 0 and key != self._local and (ended := self._act_seen.get(key)) is not None:
                 # another player on the host: their pool reads empty (tools/probe_action_skill.txt) -
@@ -182,7 +211,8 @@ class SkillReader:
                     left = (remaining, round(remaining, 1))
             out["ak"] = ["c", round(min(1.0, left[0] / action_max), 3), left[1], action_name] if left[0] > 0 else ["r", action_name]
         if running.get("timed"):
-            out["ps"] = [[name, round(left, 1), round(duration, 1)] for name, left, duration in running["timed"]]
+            out["ps"] = [[name, round(left, 1), round(duration, 1), *([1] if raw else [])]
+                         for name, left, duration, raw in running["timed"]]
         if melee_max > 0:
             left = _pool_seconds(try_(lambda: field(pc, "MeleeSkillCooldownPool").Data))
             if left[0] > 0:
@@ -203,6 +233,16 @@ class SkillReader:
         """Drops the cooldown lengths (and last action skill runs) of controllers that are gone."""
         self._max = {k: v for k, v in self._max.items() if k in keep}
         self._act_seen = {k: v for k, v in self._act_seen.items() if k in keep}
+
+
+def _action_locked(pc: Any) -> bool:
+    """Whether the player's action skill isn't unlocked yet: its tree's SKILL_TYPE_Action skill at Grade 0 (a grade that
+    doesn't read: unlocked, as before)."""
+    for s in try_(lambda: list(pc.PlayerSkillTree.Skills), []) or []:
+        d = try_(lambda s=s: s.Definition)
+        if d is not None and definition_info(d)[1] == "SKILL_TYPE_Action":
+            return try_(lambda s=s: int(s.Grade), None) == 0
+    return False
 
 
 def _pool_seconds(pool: Any) -> tuple[float, float]:

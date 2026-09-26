@@ -271,6 +271,7 @@ export default {
   "stat.elementChance": "Chance élémentaire",
   "stat.blastRadius": "Rayon d'explosion",
   "stat.fuse": "Détonateur",
+  "stat.accuracy": "Précision",
   "unit.perSecond": "{n}/s",
   "unit.seconds": "{n}\u202fs",
   "unit.meters": "{n}\u202fm",

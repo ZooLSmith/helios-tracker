@@ -11,6 +11,7 @@ The page does the conversion; the level payload carries c, upp and the volume's 
 """
 
 import json
+import math
 import sys
 import struct
 import threading
@@ -97,8 +98,17 @@ class _Timings:
 
 
 def _vital(value: float) -> float:
-    """A health / shield value for the page: a tenth is enough (it shows them rounded), and 100 not "100.0"."""
-    value = round(float(value or 0), 1)
+    """A current health / shield value for the page: truncated to a tenth (enough for the bars; the page rounds it as
+    the game does - down for health, and a truncated tenth rounds down / to the nearest like the exact value: 57.96
+    rounded to 58.0 first showed 58 where the game shows 57), 100 not "100.0"."""
+    value = math.floor(float(value or 0) * 10) / 10
+    return int(value) if value.is_integer() else value
+
+
+def _vital_max(value: float) -> float:
+    """A max health / shield for the page (sent on change, so precise costs nothing): the page rounds it as the current
+    value - a tenth rounded first could push it past the next whole number."""
+    value = round(float(value or 0), 4)
     return int(value) if value.is_integer() else value
 
 
@@ -1125,6 +1135,11 @@ class Collector:
                         hp = self._health.get(key)
                         if hp is None or not stagger:
                             hp = self._vitals(pawn)
+                    elif is_player and hp[3] and try_(lambda: get("Controller")) is not None:
+                        # a player's shield from the functions: ShieldVar / ShieldMaxVar drop the fraction (57.70 read
+                        # 57, the game showed 58 - its log's "vitals check"); ours, or everyone's on the host (a
+                        # co-op client: the replicated properties only)
+                        hp = (hp[0], hp[1], try_(pawn.GetShieldStrength, hp[2]) or 0.0, try_(pawn.GetMaxShieldStrength, hp[3]) or hp[3])
                     health[key] = hp
                     if new and len(self._vars_logged) < 3:  # (not per update: function calls, and a kind never met
                         self._check_vitals(pawn)             # - no vehicle around - kept it running for every pawn)
@@ -1139,12 +1154,12 @@ class Collector:
                     if spot is not None:
                         loc = spot
                     # Its description ("pawninfo": sent on change) with its max health / shield (they rarely change)
-                    hp_max, sh_max = _vital(hp[1]), _vital(hp[3])
+                    hp_max, sh_max = _vital_max(hp[1]), _vital_max(hp[3])
                     infos.append({**info, **({"m": hp_max} if hp_max else {}), **({"sm": sh_max} if sh_max else {})})
                     extra = {
                         # the heading: the players' only (their arrows; the others are dots)
                         **({"r": view_yaw if info["k"] == "me" else get("Rotation").Yaw} if is_player else {}),
-                        **({"s": sh} if sh_max and (sh := _vital(hp[2])) != sh_max else {}),  # the shield: when not full
+                        **({"s": _vital(hp[2])} if sh_max and hp[2] < hp[3] else {}),  # the shield: when not full
                         **({"rs": 1 if spot is not None else 2} if respawning else {}),
                         **({"dn": 1} if down == "crippled" else {"dd": 1} if down == "dead" else {}),
                         **({"mn": 1} if is_player and self._in_menu(pawn) else {}),
@@ -1158,8 +1173,8 @@ class Collector:
                     # What moves, compact (50 NPCs walking around Sanctuary: the stream's bulk): [id, x, y, z], then
                     # the health when not full, then the rest when there's any - data.js onState reads it back
                     row: list[Any] = [info["i"], round(loc.X), round(loc.Y), round(loc.Z)]
-                    if hp_max and (h := _vital(hp[0])) != hp_max:
-                        row.append(h)
+                    if hp_max and hp[0] < hp[1]:
+                        row.append(_vital(hp[0]))
                     if extra:
                         row.append(extra)
                     pawns.append(row)

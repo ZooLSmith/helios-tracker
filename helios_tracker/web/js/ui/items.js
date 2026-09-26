@@ -38,6 +38,7 @@ function statRow([key, base, now, extra]) {
     fuse: (x) => t("unit.seconds", { n: one(x) }),
     blastRadius: (x) => t("unit.meters", { n: one(x) }),
     elementChance: (x) => t("unit.percent", { n: numUpTo(x, 1) }), // (the card's: 16.8 %)
+    accuracy: (x) => num(x, extra), // (its presentation's decimals: the card's 72.1)
   }[key] || ((x) => num(x));
   const changed = now != null && base && Math.abs(now - base) / Math.abs(base) >= 0.005;
   const delta = changed ? Math.round((now / base - 1) * 100) : 0;
@@ -82,7 +83,9 @@ function cardLinesHtml(it) {
 /** Its stats as a grid of tiles (label small, value big), like the game's card - the element's damage per second
  *  a tile too, named by its frame ("shock ?": the game has no display name for it). */
 function statTilesHtml(it) {
-  const tiles = (it.stats || []).map(statRow);
+  // its card's stats as the game shows them (a shield's: the game's labels, its rounding - inspector.py _ui_stats)
+  const tiles = (it.ui || []).map(([label, value, decimals]) => [label, num(value, decimals)]);
+  tiles.push(...(it.stats || []).map(statRow));
   // its element's damage, labelled with the game's name for it ("shock": its localization - capitalised here)
   const element = it.eln ? it.eln.charAt(0).toLocaleUpperCase() + it.eln.slice(1) : t("stat.elementDamage");
   if (it.edps) tiles.push([element, t("unit.perSecond", { n: num(it.edps, 1) }), "", "", "element"]);

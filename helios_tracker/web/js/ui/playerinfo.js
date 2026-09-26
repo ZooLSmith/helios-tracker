@@ -3,7 +3,7 @@
 // their pawn in the state payload (refreshed a few times a second while the tab is open).
 import { esc } from "../dom.js";
 import { num, t } from "../i18n.js";
-import { nameText } from "../model.js";
+import { nameText, shownHealth, shownMaxHealth } from "../model.js";
 import { settings } from "../settings.js";
 import { S, pawnPos } from "../state.js";
 import { tipAttrs } from "./hovertip.js";
@@ -46,7 +46,7 @@ export function playerInfoHtml(p) {
     `<span class="pstate ${state}">${esc(t(state === "fine" ? "pinfo.fine" : "vital." + state))}</span></div>${track}</div>`;
   html += `<div class="group">${esc(t("pinfo.vitals"))}</div>`;
   if (live.sm > 0) html += barRow(t("detail.shield"), `${num(Math.round(live.s))} / ${num(Math.round(live.sm))}`, live.s / live.sm, "sh");
-  if (live.m > 0) html += barRow(t("detail.health"), `${num(Math.round(live.h))} / ${num(Math.round(live.m))}`, live.h / live.m, "hp");
+  if (live.m > 0) html += barRow(t("detail.health"), `${num(shownHealth(live.h))} / ${num(shownMaxHealth(live.m))}`, live.h / live.m, "hp");
   const veh = pawn.dv ? S.pawns.get(pawn.dv) : null; // driving: the vehicle's health
   if (veh && veh.m > 0) {
     const v = { ...veh, ...pawnPos(veh, performance.now()) };
@@ -79,10 +79,10 @@ export function playerInfoHtml(p) {
     else html += barRow(label, seconds(ak[2]), ak[1], "cooldown");
   }
   if (pawn.mk) html += barRow(t("pinfo.melee"), seconds(pawn.mk[1]), pawn.mk[0], "cooldown");
-  // Timed skill effects (a passive's triggered buff...)
+  // Timed skill effects (a passive's triggered buff...; a nameless one's object name, as a guess: its 4th field)
   if (pawn.ps && pawn.ps.length) {
     html += `<div class="group">${esc(t("pinfo.effects"))}</div>` +
-      pawn.ps.map(([name, left, duration]) => barRow(name || "?", seconds(left), duration > 0 ? left / duration : 0, "effect")).join("");
+      pawn.ps.map(([name, left, duration, raw]) => barRow(nameText({ n: name, raw }), seconds(left), duration > 0 ? left / duration : 0, "effect")).join("");
   }
   return html;
 }

@@ -16,11 +16,14 @@ Borderlands - the Pre-Sequel - should work as is):
   enum); a type / element list also nearest the chosen manufacturer's in the movie's tree (BL2's "item card"
   places all three - other movies have type lists too: the ammo's, the vendors' tabs), then the largest;
 - the art: a GFx DefineSubImage (tag 1008: bitmap id, atlas image, the rectangle) of a DefineExternalImage2 atlas
-  (tag 1009: its texture, cooked next to the movie; its declared size vs the texture's: the scale).
+  (tag 1009: its texture, cooked next to the movie; its declared size vs the texture's: the scale) - or a vector
+  shape with solid fills only, drawn here (_shape_rgba): the Pre-Sequel's item card draws its type icons so (a
+  black outline, a white fill: only its pistol's outline an atlas bitmap), BL2's its shotgun's outline.
 Extracted from the player's install at run time (decoded by gamework, its subinterpreter; cached on disk), never
 stored in the repo.
 """
 
+import math
 import re
 import struct
 import threading
@@ -31,7 +34,7 @@ from typing import Any
 
 from . import gamework
 from .gameicons import decode_dxt, png
-from .tacmap import _Bits, _matrix, _rect, _shape_bitmap, _tags, opened, texture
+from .tacmap import _Bits, _matrix, _movie_raw, _rect, _shape_bitmap, _tags, opened, texture
 
 KINDS = ("manufacturer", "type", "element")
 MIN_SCORE = 3  # a list must share this many labels with a kind's keys (a manufacturer / type list, not a stray frame)
@@ -58,9 +61,12 @@ class Art:
     offset: tuple[float, float]  # its top left in the group's space (movie px)
     size: tuple[float, float]  # its shape's size (movie px)
     ancestry: dict[int, int]  # the group and its ancestors (sprite id -> distance)
+    shape: int = 0  # a vector art: its DefineShape's id in the movie (no texture, no rect); 0: an atlas bitmap
 
     @property
     def area(self) -> int:
+        if self.shape:
+            return round(self.size[0] * self.size[1])
         return (self.rect[2] - self.rect[0]) * (self.rect[3] - self.rect[1])
 
     @classmethod
@@ -68,7 +74,7 @@ class Art:
         """From gamescan's cache (movie_arts' dict + its movie)."""
         return cls(d["label"], frozenset(d["labels"]), package, d["movie"], d["texture"], tuple(d["rect"]),
                    tuple(d["declared"]), d["group"], d["depth"], tuple(d["offset"]), tuple(d["size"]),
-                   {int(k): v for k, v in d["ancestry"].items()})
+                   {int(k): v for k, v in d["ancestry"].items()}, d.get("shape", 0))
 
 
 # Called (no arguments, any thread) when ready() may have changed: the mod publishes it ("assets") - the page asks
@@ -186,6 +192,7 @@ def movie_arts(raw: bytes, movie_package: str) -> list[dict]:
     images: dict[int, tuple[str, tuple[int, int]]] = {}  # atlas index -> (texture path, declared size)
     subs: dict[int, tuple[int, tuple[int, int, int, int]]] = {}  # bitmap id -> (atlas index, rect)
     shapes: dict[int, tuple[int, tuple[float, float, float, float]]] = {}  # shape id -> (its bitmap id, bounds)
+    vectors: dict[int, tuple[float, float, float, float]] = {}  # shape id -> bounds: solid fills only (_solid_shape)
     sprites: dict[int, bytes] = {}
     for code, body in _movie_tags(raw):
         if code == 1009 and len(body) > 12:  # id u32, format u16, declared w / h u16, export name, file name
@@ -205,6 +212,8 @@ def movie_arts(raw: bytes, movie_package: str) -> list[dict]:
         elif code in (2, 22, 32, 83):
             if (s := _shape_bitmap(code, body)) is not None:
                 shapes[s[0]] = (s[2], s[1])
+            elif (bounds := _solid_shape(code, body)) is not None:
+                vectors[struct.unpack_from("<H", body)[0]] = bounds
         elif code == 39:
             sprites[struct.unpack_from("<H", body)[0]] = body
 
@@ -244,14 +253,14 @@ def movie_arts(raw: bytes, movie_package: str) -> list[dict]:
                 label = None
         return out
 
-    def bitmap_of(cid: int, depth: int = 0) -> tuple[int, tuple[float, float, float, float]] | None:
-        """A character's bitmap and its shape's bounds: a shape's fill, or a one-frame, one-character sprite's."""
-        if cid in shapes:
-            return shapes[cid]
+    def shape_of(cid: int, depth: int = 0) -> int | None:
+        """The shape a character shows: itself, or a one-frame, one-character sprite's."""
+        if cid in shapes or cid in vectors:
+            return cid
         if cid in sprites and depth < 4:
             f = frames(cid)
             if len(f) == 1 and len(f[0][1]) == 1:
-                return bitmap_of(f[0][1][0], depth + 1)
+                return shape_of(f[0][1][0], depth + 1)
         return None
 
     out = []
@@ -259,21 +268,234 @@ def movie_arts(raw: bytes, movie_package: str) -> list[dict]:
         labelled = [(lab, chars) for lab, chars in frames(sid) if lab]
         arts = {}
         for lab, chars in labelled:
-            if len(chars) != 1 or (found := bitmap_of(chars[0])) is None or found[0] not in subs:
+            if len(chars) != 1 or (sh := shape_of(chars[0])) is None:
                 continue
-            image, rect = subs[found[0]]
+            if sh in vectors:
+                arts[lab.lower()] = ("", (0, 0, 0, 0), (0, 0), vectors[sh], sh)
+                continue
+            bitmap, bounds = shapes[sh]
+            if bitmap not in subs:
+                continue
+            image, rect = subs[bitmap]
             if image in images and rect[2] <= images[image][1][0] and rect[3] <= images[image][1][1]:  # (inside its atlas)
-                arts[lab.lower()] = (images[image][0], rect, images[image][1], found[1])
+                arts[lab.lower()] = (images[image][0], rect, images[image][1], bounds, 0)
         if not arts:
             continue
         labels = sorted({lab.lower() for lab, _ in labelled})
         for group, depth, tx, ty in parents.get(sid) or [(sid, 0, 0.0, 0.0)]:
             anc = ancestry(group)
-            for lab, (texture, rect, declared, (x0, x1, y0, y1)) in arts.items():
+            for lab, (texture, rect, declared, (x0, x1, y0, y1), sh) in arts.items():
                 out.append({"label": lab, "labels": labels, "texture": texture, "rect": list(rect), "declared": list(declared),
                             "group": group, "depth": depth, "offset": [tx + x0, ty + y0], "size": [x1 - x0, y1 - y0],
-                            "ancestry": anc})
+                            "ancestry": anc, **({"shape": sh} if sh else {})})
     return out
+
+
+# endregion
+# region The vector shapes (DefineShape 1-4: solid fills, no strokes)
+
+VECTOR_SCALE = 2.0  # px per movie px of an icon drawn from vectors only (a layer over a bitmap: the bitmap's)
+CURVE_STEPS = 8  # segments per quadratic curve
+SUBROWS = 4  # samples per pixel row (the coverage along a row: exact)
+
+
+def _solid_fills(code: int, body: bytes, o: int) -> tuple[list[tuple[int, int, int, int]] | None, int]:
+    """A FILLSTYLEARRAY at o -> ([(r, g, b, a)], the offset after it), None for any other fill than a solid one."""
+    count = body[o]
+    o += 1
+    if count == 0xFF and code != 2:
+        count = struct.unpack_from("<H", body, o)[0]
+        o += 2
+    fills = []
+    for _ in range(count):
+        if body[o] != 0x00:
+            return None, o
+        if code in (2, 22):
+            fills.append((body[o + 1], body[o + 2], body[o + 3], 255))
+            o += 4
+        else:
+            fills.append(tuple(body[o + 1 : o + 5]))
+            o += 5
+    return fills, o
+
+
+def _no_strokes(body: bytes, o: int) -> int | None:
+    """A LINESTYLEARRAY at o: the offset after it if it's empty, else None (strokes aren't drawn here)."""
+    count = body[o]
+    o += 1
+    if count == 0xFF:
+        count = struct.unpack_from("<H", body, o)[0]
+        o += 2
+    return o if count == 0 else None
+
+
+def _styles_start(code: int, body: bytes) -> tuple[tuple[float, float, float, float], int]:
+    """A DefineShape's bounds (x0, x1, y0, y1 px) and where its fill styles start."""
+    b = _Bits(body, 2)
+    bounds = _rect(b)
+    o = b.align()
+    if code == 83:  # DefineShape4: edge bounds + flags
+        b = _Bits(body, o)
+        _rect(b)
+        o = b.align() + 1
+    return bounds, o
+
+
+def _solid_shape(code: int, body: bytes) -> tuple[float, float, float, float] | None:
+    """A DefineShape's bounds if it only has solid fills (at least one) and no strokes - one we can draw."""
+    try:
+        bounds, o = _styles_start(code, body)
+        fills, o = _solid_fills(code, body, o)
+        return bounds if fills and _no_strokes(body, o) is not None else None
+    except (IndexError, struct.error):
+        return None
+
+
+def _shape_paths(code: int, body: bytes) -> list[tuple[tuple[int, ...], list[tuple[float, float, float, float]]]]:
+    """A solid, stroke-free DefineShape's fills, in their order: [(colour, edges (x0, y0, x1, y1) px)] - each
+    region's outline, oriented (an edge's FillStyle1 kept as it goes, its FillStyle0's reversed), for a non-zero
+    fill."""
+    _bounds, o = _styles_start(code, body)
+    fills, o = _solid_fills(code, body, o)
+    o = _no_strokes(body, o) if fills else None
+    if o is None:
+        return []
+    styles: list = [None, *fills]  # (index 0: no fill)
+    edges: dict[int, list] = {}
+    base = 0
+    b = _Bits(body, o)
+    fill_bits, line_bits = b.u(4), b.u(4)
+    x = y = 0.0
+    f0 = f1 = 0
+
+    def edge(x0: float, y0: float, x1: float, y1: float) -> None:
+        if f1:
+            edges.setdefault(f1, []).append((x0, y0, x1, y1))
+        if f0:
+            edges.setdefault(f0, []).append((x1, y1, x0, y0))
+
+    while True:
+        if not b.u(1):  # a style change
+            flags = b.u(5)
+            if not flags:
+                break
+            if flags & 0x01:
+                n = b.u(5)
+                x, y = b.s(n) / 20, b.s(n) / 20
+            if flags & 0x02:
+                v = b.u(fill_bits)
+                f0 = base + v if v else 0
+            if flags & 0x04:
+                v = b.u(fill_bits)
+                f1 = base + v if v else 0
+            if flags & 0x08:
+                b.u(line_bits)
+            if flags & 0x10:  # new styles (DefineShape2+): the indices from here on into them
+                new, o = _solid_fills(code, body, b.align())
+                o = _no_strokes(body, o) if new is not None else None
+                if o is None:
+                    return []
+                base = len(styles) - 1
+                styles += new
+                b = _Bits(body, o)
+                fill_bits, line_bits = b.u(4), b.u(4)
+        elif b.u(1):  # a straight edge
+            n = b.u(4) + 2
+            if b.u(1):
+                dx, dy = b.s(n), b.s(n)
+            elif b.u(1):
+                dx, dy = 0, b.s(n)
+            else:
+                dx, dy = b.s(n), 0
+            edge(x, y, x + dx / 20, y + dy / 20)
+            x, y = x + dx / 20, y + dy / 20
+        else:  # a quadratic curve: flattened
+            n = b.u(4) + 2
+            cx, cy = x + b.s(n) / 20, y + b.s(n) / 20
+            ax, ay = cx + b.s(n) / 20, cy + b.s(n) / 20
+            px, py = x, y
+            for i in range(1, CURVE_STEPS + 1):
+                s = i / CURVE_STEPS
+                qx = (1 - s) ** 2 * x + 2 * (1 - s) * s * cx + s * s * ax
+                qy = (1 - s) ** 2 * y + 2 * (1 - s) * s * cy + s * s * ay
+                edge(px, py, qx, qy)
+                px, py = qx, qy
+            x, y = ax, ay
+    return [(styles[i], edges[i]) for i in sorted(edges) if 0 < i < len(styles)]
+
+
+def _shape_rgba(code: int, body: bytes, scale: float) -> tuple[int, int, bytes]:
+    """A solid, stroke-free DefineShape drawn at `scale` px per movie px, its bounds' top left at (0, 0): (w, h,
+    RGBA) - its fills over each other in their order, antialiased (each pixel's coverage: exact along a row,
+    SUBROWS samples down)."""
+    (x0, x1, y0, y1), _o = _styles_start(code, body)
+    w, h = max(1, math.ceil((x1 - x0) * scale)), max(1, math.ceil((y1 - y0) * scale))
+    out = bytearray(w * h * 4)
+    for colour, edges in _shape_paths(code, body):
+        segs = []  # in px, y down: (x at its top, dx per px down, top, bottom, direction)
+        for ax, ay, bx, by in edges:
+            ax, ay, bx, by = (ax - x0) * scale, (ay - y0) * scale, (bx - x0) * scale, (by - y0) * scale
+            if ay == by:
+                continue
+            direction = 1 if by > ay else -1
+            if ay > by:
+                ax, ay, bx, by = bx, by, ax, ay
+            segs.append((ax, (bx - ax) / (by - ay), ay, by, direction))
+        cover = [0.0] * (w * h)
+        for row in range(h):
+            line = row * w
+            for sub in range(SUBROWS):
+                yy = row + (sub + 0.5) / SUBROWS
+                xs = sorted((sx + (yy - top) * slope, d) for sx, slope, top, bottom, d in segs if top <= yy < bottom)
+                winding = 0
+                for i in range(len(xs) - 1):
+                    winding += xs[i][1]
+                    if not winding:
+                        continue
+                    xa, xb = max(0.0, xs[i][0]), min(float(w), xs[i + 1][0])
+                    if xb <= xa:
+                        continue
+                    first, last = int(xa), min(w - 1, int(xb))
+                    if first == last:
+                        cover[line + first] += (xb - xa) / SUBROWS
+                        continue
+                    cover[line + first] += (first + 1 - xa) / SUBROWS
+                    for px in range(first + 1, last):
+                        cover[line + px] += 1 / SUBROWS
+                    cover[line + last] += (xb - last) / SUBROWS
+        r, g, bl, a = colour
+        for i, c in enumerate(cover):
+            alpha = round(min(1.0, c) * a) if c > 0 else 0
+            if not alpha:
+                continue
+            d = i * 4
+            if alpha == 255 or not out[d + 3]:
+                out[d : d + 4] = bytes((r, g, bl, alpha))
+                continue
+            # "over": this fill on what's under it
+            da = out[d + 3] * (255 - alpha) // 255
+            oa = alpha + da
+            for k, v in enumerate((r, g, bl)):
+                out[d + k] = (v * alpha + out[d + k] * da) // oa
+            out[d + 3] = oa
+    return w, h, bytes(out)
+
+
+_movie_shapes: dict[tuple[str, str], dict[int, tuple[int, bytes]]] = {}  # (package, movie) -> shape id -> (code, body)
+
+
+def _movie_shape(pkg: Any, package: str, movie: str, sid: int) -> tuple[int, bytes] | None:
+    """A movie's DefineShape by id (the worker: its movie's shapes kept for the next icons)."""
+    key = (package, movie)
+    if key not in _movie_shapes:
+        idx = pkg.find(movie, "SwfMovie")
+        found = {}
+        if idx is not None:
+            for code, body in _movie_tags(_movie_raw(pkg, idx)):
+                if code in (2, 22, 32, 83):
+                    found[struct.unpack_from("<H", body)[0]] = (code, body)
+        _movie_shapes[key] = found
+    return _movie_shapes[key].get(sid)
 
 
 # endregion
@@ -304,10 +526,17 @@ def _decode_region(fmt: str, w: int, h: int, data: bytes, rect: tuple[int, int, 
 
 
 def layers_png(layers: list[list]) -> bytes:
-    """An icon's layers - [[package, texture, rect, declared, offset, size]], bottom first - drawn over each other
-    at their offsets (gamework's job) -> a PNG."""
-    crops = []
-    for package, texture_path, rect, declared, offset, size in layers:
+    """An icon's layers - [[package, texture, rect, declared, offset, size(, movie, shape id)]], bottom first -
+    drawn over each other at their offsets (gamework's job) -> a PNG. A vector layer (a shape id): drawn at the
+    bitmaps' scale (the first one's), else VECTOR_SCALE."""
+    crops: list = []  # (w, h, rgba, offset, px per movie px); None: a vector layer, drawn once the scale is known
+    vectors = []
+    for layer in layers:
+        package, texture_path, rect, declared, offset, size = layer[:6]
+        if len(layer) > 7 and layer[7]:
+            crops.append(None)
+            vectors.append((len(crops) - 1, package, layer[6], layer[7], offset))
+            continue
         with opened(Path(package)) as pkg:  # (the worker: the package and its atlas kept for the next icons)
             idx = pkg.find(texture_path, "Texture2D")
             if idx is None:
@@ -317,9 +546,16 @@ def layers_png(layers: list[list]) -> bytes:
         rw, rh, rgba = _decode_region(fmt, w, h, body, tuple(round(v * s) for v, s in zip(rect, (sx, sy, sx, sy))))
         if rw and rh:
             crops.append((rw, rh, rgba, offset, (rw / size[0] if size[0] else 1)))
+    scale = next((c[4] for c in crops if c is not None), VECTOR_SCALE)  # (px per movie px: the first bitmap's)
+    for i, package, movie, sid, offset in vectors:
+        with opened(Path(package)) as pkg:
+            shape = _movie_shape(pkg, package, movie, sid)
+        if shape is not None:
+            rw, rh, rgba = _shape_rgba(*shape, scale)
+            crops[i] = (rw, rh, rgba, offset, scale)
+    crops = [c for c in crops if c is not None]
     if not crops:
         raise ValueError("no layer decoded")
-    scale = crops[0][4]  # (texels per movie px: the bottom layer's)
     x_min = min(c[3][0] for c in crops)
     y_min = min(c[3][1] for c in crops)
     places = [(round((c[3][0] - x_min) * scale), round((c[3][1] - y_min) * scale)) for c in crops]
@@ -409,7 +645,8 @@ def card_png(kind: str, label: str) -> bytes | None:
         layers = _choose(kind, key[1])
     data = None
     if layers:
-        job = [[str(a.package), a.texture, list(a.rect), list(a.declared), list(a.offset), list(a.size)] for a in layers]
+        job = [[str(a.package), a.texture, list(a.rect), list(a.declared), list(a.offset), list(a.size),
+                *([a.movie, a.shape] if a.shape else [])] for a in layers]
         data = gamework.asset({"do": "card", "layers": job}, sorted({a.package for a in layers}))
     with _lock:
         _pngs[key] = data

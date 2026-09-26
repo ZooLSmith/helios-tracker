@@ -122,6 +122,12 @@ export function prettyRaw(s) {
   return (words || "?") + " ?";
 }
 
+/** Health as the game shows it: rounded down - the HUD's (107.89: 107; StatusMenuExGFxMovie.SetCondensedHealthWidget
+ *  floors it too). The game shows no max anywhere (that widget's FCeil(GetMaxHealth()) is never seen): the page's
+ *  "/ max" is ours, rounded the same way - full health reads full, "107 / 107" (not the widget's "107 / 108"). */
+export function shownHealth(h) { return Math.floor(h); }
+export function shownMaxHealth(m) { return Math.floor(m); }
+
 /** Display text of anything with a name ("n"), made-up ones ("raw": 1) prettified. */
 export function nameText(o) { return o.raw ? prettyRaw(o.n) : String(o.n || "?"); }
 
@@ -149,6 +155,9 @@ export function objectCategory(o) {
   if (/vaultroy|vaultsymbol/.test(s)) return "vaultsymbol"; // before "container": "Vault..." isn't a vault chest
   // machines you use: fast travel, New-U, Quick Change, the Catch-A-Ride terminals (vehicle spawns)
   if (/fasttravel|fast travel|travelstation|newu|respawn|quickchange|customiz|catcharide|catch-a-ride|vehiclespawn/.test(s)) return "station";
+  // it has loot (the game's: its own or its balance's - collector.py _lootable), whatever its name (the Pre-Sequel's
+  // Hyperion ammo crate: "InteractiveObj_HyperionAmmo", no container word in it); else guessed from the name
+  if (o.lootable) return "container";
   if (/chest|lockbox|lootable|loot|safe|cache|box|crate|locker|dumpster|toilet|cooler|cabinet|stash|pile/.test(s)) return "container";
   return "other";
 }

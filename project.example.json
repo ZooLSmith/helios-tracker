@@ -4,6 +4,10 @@
     "path": "C:/Program Files (x86)/Steam/steamapps/common/Borderlands 2",
     "about": "The Borderlands 2 install (the folder holding Binaries/, WillowGame/, DLC/, sdk_mods/)."
   },
+  "tps": {
+    "path": "C:/Program Files (x86)/Steam/steamapps/common/BorderlandsPreSequel",
+    "about": "Optional. The Pre-Sequel install, to link the mod there too: python tools/link_mod.py tps."
+  },
   "references": {
     "gibbed": {
       "path": "",

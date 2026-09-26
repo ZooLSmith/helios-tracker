@@ -16,6 +16,7 @@ is reported (as a reason code the page translates), not guessed. Stats are sent 
   has every player's controller), never the others' on a client.
 """
 
+import math
 import re
 from typing import Any
 
@@ -23,8 +24,9 @@ import unrealsdk
 from unrealsdk.unreal import WeakPointer
 from mods_base import get_pc
 
-from . import gamecards
+from . import amounts, gamecards
 
+from .skills import skill_icon
 from .util import addr, call_str, def_name, field, item_name, log, log_error, named, player_info, try_
 
 MAX_CHAIN = 32  # guard for the linked inventory chains
@@ -137,6 +139,9 @@ def _stats(inv: Any, kind: str) -> list[list[Any]]:
         (dmg0, dmg), pellets = pair("InstantHitDamage"), get("ProjectilesPerShot")
         if dmg:
             out.append(["damage", round(dmg0), round(dmg), round(pellets or 1)])
+        spread0, spread = pair("Spread")
+        if spread is not None and (accuracy := _accuracy(inv, spread0, spread)) is not None:
+            out.append(["accuracy", *accuracy])
         interval0, interval = pair("FireInterval")
         if interval and interval > 0 and interval0 and interval0 > 0:
             out.append(["fireRate", round(1 / interval0, 2), round(1 / interval, 2)])
@@ -158,6 +163,74 @@ def _stats(inv: Any, kind: str) -> list[list[Any]]:
         fuse0, fuse = pair("FuseTime")
         if fuse:
             out.append(["fuse", round(fuse0, 2), round(fuse, 2)])
+    return out
+
+
+_rounding_logged: set[str] = set()  # attribute presentations' rounding modes not handled, already logged
+ACCURACY_PRESENTATION = "GD_AttributePresentation.Weapons.AttrPresent_WeaponSpread"  # the card's "Accuracy" (both games)
+_accuracy_pres: list[Any] = []  # [the presentation, or None]: found once
+
+
+def _presented(pres: Any, value: float) -> tuple[float, int]:
+    """A value rounded as its attribute presentation shows it: (value, decimals). RoundingMode ATTRROUNDING_IntRound
+    -> a whole number (half away from zero, not Python's to-even); ATTRROUNDING_Float (the accuracy's) or unset ->
+    FloatPrecision decimals (its class default 1: the accuracy's 72.1; a shield's delay 2); another mode: logged once,
+    FloatPrecision meanwhile (not guessed)."""
+    mode = str(getattr(try_(lambda: pres.RoundingMode), "name", "") or "")
+    if mode == "ATTRROUNDING_IntRound":
+        return math.floor(abs(value) + 0.5) * (1 if value >= 0 else -1), 0
+    if mode not in ("", "ATTRROUNDING_Float") and mode not in _rounding_logged:
+        _rounding_logged.add(mode)
+        log(f"item card stat rounding not handled: {mode} ({try_(lambda: pres._path_name(), '?')})")
+    decimals = max(0, min(4, try_(lambda: int(pres.FloatPrecision), 0) or 0))
+    return round(value, decimals), decimals
+
+
+def _remapped(pres: Any, value: float, inv: Any) -> float | None:
+    """A value through its presentation's RemappingData (bValueRemappingEnabled): InputValueMn..Mx onto
+    OutputValueMn..Mx, linearly - each bound an AttributeInitializationData (amounts' evaluation; the accuracy's:
+    0..15 onto 100..0, both games' Startup.upk). Not clamped (whether the game clamps: not known). None without it."""
+    if not try_(lambda: bool(pres.bValueRemappingEnabled), False):
+        return None
+    data = try_(lambda: pres.RemappingData)
+    ctx = amounts._Ctx(inv, None, 1)  # noqa: SLF001 - (the pickup amounts' evaluator: constants, formulas, attributes)
+    bounds = [amounts._data(try_(lambda n=name: getattr(data, n)), ctx, 0)  # noqa: SLF001
+              for name in ("InputValueMn", "InputValueMx", "OutputValueMn", "OutputValueMx")] if data is not None else []
+    if len(bounds) != 4 or any(b is None for b in bounds) or bounds[1] == bounds[0]:
+        return None
+    in_mn, in_mx, out_mn, out_mx = bounds
+    return out_mn + (value - in_mn) * (out_mx - out_mn) / (in_mx - in_mn)
+
+
+def _accuracy(inv: Any, spread0: float | None, spread: float) -> list[Any] | None:
+    """A weapon's card Accuracy (72.1 for a shotgun's Spread 4.19 - tools/probe_accuracy.txt): its spread through
+    the "Accuracy" presentation's remapping, rounded as it says -> [card (from SpreadBaseValue), with the owner's
+    bonuses (Spread), decimals], or None (no presentation / remapping)."""
+    if not _accuracy_pres:
+        _accuracy_pres.append(try_(lambda: unrealsdk.find_object("AttributePresentationDefinition", ACCURACY_PRESENTATION)))
+    pres = _accuracy_pres[0]
+    if pres is None:
+        return None
+    card, now = _remapped(pres, spread0 if spread0 is not None else spread, inv), _remapped(pres, spread, inv)
+    if card is None or now is None:
+        return None
+    (card, decimals), (now, _) = _presented(pres, card), _presented(pres, now)
+    return [card, now, decimals]
+
+
+def _ui_stats(inv: Any) -> list[list[Any]]:
+    """An item's card stats as the game's card shows them (a shield's Capacity 53, Recharge Rate 16, Recharge Delay
+    2.36 - tools/probe_shield.txt): WillowItem.UIStatModifiers[] = {AttributePresentation, ModifierTotal (53.059...)},
+    the presentation's Description the label (the game's text) and its rounding the value's (_presented).
+    -> [[label, value, decimals]]. The same property in both games (WillowGame.upk)."""
+    out: list[list[Any]] = []
+    for entry in try_(lambda: list(inv.UIStatModifiers), []) or []:
+        pres = try_(lambda e=entry: e.AttributePresentation)
+        value = _num(try_(lambda e=entry: e.ModifierTotal))
+        label = try_(lambda p=pres: str(p.Description), "") if pres is not None else ""
+        if not label or value is None:
+            continue
+        out.append([label, *_presented(pres, value)])
     return out
 
 
@@ -224,6 +297,7 @@ def _item(inv: Any, equipped: bool, ctrl: Any = None) -> dict[str, Any]:
         "v": try_(lambda: int(inv.MonetaryValue), 0),
         "e": equipped,
         "stats": _stats(inv, kind),
+        **({"ui": ui} if kind == "shield" and (ui := _ui_stats(inv)) else {}),  # its card's stats (the game's labels)
     }
     if card := _card_lines(inv, kind):
         item["card"] = card
@@ -612,7 +686,7 @@ def _skills(ctrl: Any, player: dict[str, Any], bonuses: dict[str, list[list[Any]
             "m": try_(lambda: int(d.MaxGrade), 0),
             "d": try_(lambda: str(d.SkillDescription), ""),
             # its icon: the movie's path = its texture's (gameicons.py serves it: /icon/<path>.png)
-            **({"ic": ic} if (ic := try_(lambda: d.SkillIcon._path_name(), "")) else {}),
+            **({"ic": ic} if (ic := skill_icon(d)) else {}),
         })
         grade = try_(lambda s=s: int(s.Grade), None)
         if grade is None:

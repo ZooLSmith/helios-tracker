@@ -272,6 +272,7 @@ export default {
   "stat.elementChance": "Elemental chance",
   "stat.blastRadius": "Blast radius",
   "stat.fuse": "Fuse",
+  "stat.accuracy": "Accuracy",
   "unit.perSecond": "{n}/s",
   "unit.seconds": "{n}\u202fs",
   "unit.meters": "{n}\u202fm",

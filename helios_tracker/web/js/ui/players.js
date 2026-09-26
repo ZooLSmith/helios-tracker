@@ -1,7 +1,7 @@
 // Panel "Players" list: name, level · class, shield / health / XP bars; a click opens the inspector.
 import { esc, nameHtml } from "../dom.js";
 import { num, numShort, t } from "../i18n.js";
-import { prettyRaw } from "../model.js";
+import { prettyRaw, shownHealth, shownMaxHealth } from "../model.js";
 import { S, findPlayer, isTrackedPlayer, pawnPos } from "../state.js";
 import { openInspector } from "./inspector.js";
 import { renderTargets } from "./panel.js";
@@ -85,7 +85,8 @@ export function updatePlayerVitals(now = performance.now()) {
     const pawn = S.pawns.get(row.dataset.id);
     const p = pawn && { ...pawn, ...pawnPos(pawn, now) };
     // short: the numbers compacted ("1.7M / 1.7M": half-width bars while driving), the full ones on hover
-    const set = (cls, cur, max, short = false) => {
+    // (shownCur / shownMax: how the game rounds it - health: the current down, the max up, model.js shownHealth)
+    const set = (cls, cur, max, short = false, shownCur = Math.round, shownMax = Math.round) => {
       const el = row.querySelector(".vital." + cls);
       const on = !!p && max > 0;
       if (el.classList.contains("on") !== on) {
@@ -97,18 +98,18 @@ export function updatePlayerVitals(now = performance.now()) {
       const bar = el.querySelector("i"), width = (frac * 100).toFixed(1) + "%";
       if (bar.style.width !== width) bar.style.width = width; // only on a change (called with the frames)
       const fmt = short ? numShort : num;
-      const curText = fmt(Math.round(cur)), maxText = ` / ${fmt(Math.round(max))}`; // "/ max": smaller, at 70%
+      const curText = fmt(shownCur(cur)), maxText = ` / ${fmt(shownMax(max))}`; // "/ max": smaller, at 70%
       const curEl = el.querySelector(".vnum b"), maxEl = el.querySelector(".vnum .vmax");
       if (curEl.textContent !== curText) curEl.textContent = curText;
       if (maxEl.textContent !== maxText) maxEl.textContent = maxText;
-      const title = short ? `${num(Math.round(cur))} / ${num(Math.round(max))}` : "";
+      const title = short ? `${num(shownCur(cur))} / ${num(shownMax(max))}` : "";
       if (el.title !== title) el.title = title;
     };
     // Driving: the vehicle's health (its own marker's), shield and health side by side above it
     const veh = p && p.dv ? S.pawns.get(p.dv) : null, vp = veh ? { ...veh, ...pawnPos(veh, now) } : null;
     const driving = !!(vp && vp.m > 0);
     set("sh", p && p.s, p && p.sm, driving);
-    set("hp", p && p.h, p && p.m, driving);
+    set("hp", p && p.h, p && p.m, driving, shownHealth, shownMaxHealth);
     set("vh", vp && vp.h, vp && vp.m);
     // its boost (nitro): a quarter of the row, the action skill's look, no numbers (the % on hover)
     const bo = vp && vp.bo, boEl = row.querySelector(".vital.bo");

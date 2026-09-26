@@ -3,7 +3,7 @@ import { $, esc, nameHtml } from "../dom.js";
 import { UU_PER_METER } from "../geo.js";
 import { num, t } from "../i18n.js";
 import { icon } from "../icons.js";
-import { isGear, nameText, rarity } from "../model.js";
+import { isGear, nameText, rarity, shownHealth, shownMaxHealth } from "../model.js";
 import { S, findDetail, isTrackedPlayer, itemById, pawnPos, trackedPawn } from "../state.js";
 import { saveDrawer } from "./drawer.js";
 import { bindItems, renderInspector } from "./inspector.js";
@@ -126,7 +126,7 @@ export function renderDetail(resetScroll) {
   }
   if (kind === "loot" && !gear && it.am) rows.push([t("detail.amount"), pickupAmount(it)]); // money / ammo: how much
   if (it.sm > 0) rows.push([t("detail.shield"), `${num(Math.round(it.s))} / ${num(Math.round(it.sm))}`]);
-  if (it.m > 0) rows.push([t("detail.health"), `${num(Math.round(it.h))} / ${num(Math.round(it.m))}`]);
+  if (it.m > 0) rows.push([t("detail.health"), `${num(shownHealth(it.h))} / ${num(shownMaxHealth(it.m))}`]);
   if (mission) {
     // its mission(s): links to them in the mission log (a quest giver can have several: "list" - the ones
     // to hand in marked); a quest giver's: who gives them, a link to their panel

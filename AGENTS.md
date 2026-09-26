@@ -6,7 +6,7 @@ The mod itself is the `helios_tracker/` package: read `.agent/spec.md` (the spec
 `.agent/notes.md` when working on it
 (`.agent/design.md`: design wishes not built yet, and why). See
 `.agent/references.md` for the game's layout, installed SDK version, APIs and
-useful links.
+useful links. The Pre-Sequel: `.agent/presequel.md`.
 
 Machine paths live in `project.json` (repo root, gitignored; from `project.example.json`): never
 hard-code one. What needs a path names its key; `<game>` in the docs is `game.path`, `<repo>` this
@@ -24,7 +24,8 @@ bl2-helios-tracker/
 │   ├── spec.md                           #   the mod's spec
 │   ├── notes.md                          #   findings about the game's objects
 │   ├── design.md                         #   design wishes not built yet, and why
-│   └── references.md                     #   game layout, SDK facts, API notes
+│   ├── references.md                     #   game layout, SDK facts, API notes
+│   └── presequel.md                      #   the mod in the Pre-Sequel: what works, what was seen
 ├── tools/                                # offline_check.py, project.py (reads project.json),
 │                                         # link_mod.py + in-game probes (probe_*.py)
 └── helios_tracker/                       # the mod (Python package + web/ page)
@@ -60,6 +61,9 @@ bl2-helios-tracker/
   (its localized properties / functions, in the game's language) or we don't have them - then the
   technical name prettified and marked as a guess ("Fire Barrel ?"). No glossaries / mapping tables of
   object names. The page's own UI labels are ours to translate.
+  That fallback is the thing's **own** object name, as is: no heuristics to make a nicer one (walking to an
+  owner object, stripping prefixes / suffixes picked to fit the cases at hand - the user: "don't make stuff up, no
+  hacks no guessing"; a nameless level-up effect first came out "Level Up Naturally ?" that way).
 - **Game enums by name**: unrealsdk's enums are int-based, `str(value)` is the number ("0"), not
   "DMGSURFACE_Generic" - a string test silently never matches. Compare through `getattr(v, "name", v)`
   (inspector.py `_enum_name`); in offline_check fake them with `enum.IntEnum`, not strings.

@@ -5,7 +5,8 @@ A skill's SkillDefinition.SkillIcon is a small Scaleform movie ("SharedSkillIcon
 Texture2D of the same path sits next to it, in its class's streaming package (tools: GD_Soldier_Streaming_SF.upk,
 34 icons - DXT5, 64 x 64; the action skill's 256 x 128): the four classes' in WillowGame/CookedPCConsole, the
 DLC classes' in DLC/<code name>/<Compat...>/Content (GD_Lilac_Psycho_..., GD_Tulip_Mechro_...: their icons
-named UI_Lilac_SharedSkillIcons_Psyc.* / UI_Tulip_SharedSkillIcons_Mech.*). Indexed once
+named UI_Lilac_SharedSkillIcons_Psyc.* / UI_Tulip_SharedSkillIcons_Mech.*; the Pre-Sequel's without "GD_":
+Crocus_Baroness_..., Quince_Doppel_..., icons SharedSkillIcons_Cro_Aurelia.*). Indexed once
 (which package holds which icon), decoded and encoded as a PNG the first time one is asked for, then kept -
 extracted from the player's install at run time, never stored in the repo.
 """
@@ -31,11 +32,11 @@ _pngs: dict[str, bytes | None] = {}
 
 def icon_packages(cooked: Path | None) -> list[Path]:
     """Where the skill icons are: the classes' streaming packages (BL2's naming - the engine config doesn't list
-    them), the DLC classes' too, and Startup (a few icons only there: Axton's Willing, "Skillicon-willing")."""
+    them), the DLC classes' too (any "*_Streaming_SF" in a DLC's Content: only theirs, in both games), and Startup (a few icons only there: Axton's Willing, "Skillicon-willing")."""
     if cooked is None:
         return []
     game = cooked.parent.parent
-    return (sorted(cooked.glob("GD_*_Streaming_SF.upk")) + sorted((game / "DLC").glob("*/*/Content/GD_*_Streaming_SF.upk"))
+    return (sorted(cooked.glob("GD_*_Streaming_SF.upk")) + sorted((game / "DLC").glob("*/*/Content/*_Streaming_SF.upk"))
             + [p for p in (cooked / "Startup.upk",) if p.is_file()])
 
 

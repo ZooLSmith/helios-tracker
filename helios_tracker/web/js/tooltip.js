@@ -3,7 +3,7 @@ import { $, classHtml, esc, nameHtml } from "./dom.js";
 import { UU_PER_METER, mapToWorld } from "./geo.js";
 import { money, t, num } from "./i18n.js";
 import { hitAt } from "./input.js";
-import { isGear, poolKinds, rainbowAt, rarity } from "./model.js";
+import { isGear, poolKinds, rainbowAt, rarity, shownHealth, shownMaxHealth } from "./model.js";
 import { settings } from "./settings.js";
 import { S, itemById, trackedPawn } from "./state.js";
 import { pickupAmount, pickupIconHtml, rarityName } from "./ui/items.js";
@@ -92,7 +92,7 @@ function renderTooltip(mePos, f) {
   // money / ammo on the ground: how much it gives (the collector's, from its definition: amounts.py)
   if (best.kind === "loot" && !gear && it.am) lines.push(`<span class="tl">${esc(pickupAmount(it))}</span>`);
   if (it.sm > 0) lines.push(`<span class="tl">${esc(t("tip.shield", { s: Math.round(it.s), m: Math.round(it.sm) }))}</span>`);
-  if (it.m > 0) lines.push(`<span class="tl">${esc(t("tip.health", { h: Math.round(it.h), m: Math.round(it.m) }))}</span>`);
+  if (it.m > 0) lines.push(`<span class="tl">${esc(t("tip.health", { h: shownHealth(it.h), m: shownMaxHealth(it.m) }))}</span>`);
   if (mePos && it !== trackedPawn()) { // not the tracked player itself
     const dist = Math.hypot(pos.x - mePos.x, pos.y - mePos.y, pos.z - mePos.z) / UU_PER_METER;
     const dz = (pos.z - mePos.z) / UU_PER_METER;

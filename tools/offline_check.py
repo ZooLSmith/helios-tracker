@@ -271,8 +271,12 @@ const lookClamped = look();
 lookSettings.view.bgOpacity = 100; lookSettings.view.mapOpacity = 100; lookSettings.view.uiScale = 100; lookSettings.view.panelOpacity = 90; lookSettings.view.markerScale = 100;
 const lookOut = { lookDefault, lookClamped, rgba: withAlpha("#0b1116", 0.4) };
 const { objectCategory } = await load("js/model.js");
+const { shownHealth, shownMaxHealth } = await load("js/model.js");
+// health as the game's HUD shows it: rounded down (107.89: 107), the page's max the same (full reads full: "107 / 107")
+const healthShown = [shownHealth(107.8), shownMaxHealth(107.8907), shownHealth(100), shownMaxHealth(100)].join(",");
 const vaultCat = objectCategory({ d: "IO_VaultRoy", n: "Vault Roy", c: "WillowInteractiveObject" })
-  + "," + objectCategory({ d: "CatchARideTerminal", n: "Catch-A-Ride", c: "WillowVehicleSpawnStationTerminal" });
+  + "," + objectCategory({ d: "CatchARideTerminal", n: "Catch-A-Ride", c: "WillowVehicleSpawnStationTerminal" })
+  + "," + objectCategory({ d: "InteractiveObj_HyperionAmmo", n: "Ammo", c: "WillowInteractiveObject", lootable: 1, lists: ["AmmoCrateLoot_Hyp"] });
 // The map's click / hover pick (input.js hitAt): what the pointer is ON wins over a nearer-layer marker merely close by
 // (a chest under the pointer, a pickup 10 px off: the chest); both under it: the layer (an item on its chest: the item);
 // on none: the nearest centre
@@ -316,7 +320,7 @@ const deltaOut = JSON.parse(fs.readFileSync(recordsFile, "utf-8")).map((sc, n) =
   for (const msg of sc.messages) whole = keyed(`scenario${n}`, sc.list, msg);
   return whole;
 });
-const missionsOut = { deltaOut, rowsOut, shotCostOut, bonusOut, statsOut, lookOut, vaultCat, hitPicks, items, fallback, where, tooHigh, finish, difficulty, best, search, infoHtml, areas, gameText, story: flat(tree.story), other: flat(tree.other), counts: missionCounts(log),
+const missionsOut = { deltaOut, rowsOut, shotCostOut, bonusOut, statsOut, lookOut, vaultCat, healthShown, hitPicks, items, fallback, where, tooHigh, finish, difficulty, best, search, infoHtml, areas, gameText, story: flat(tree.story), other: flat(tree.other), counts: missionCounts(log),
   objectives: objectiveStates(log[1]).map((s) => s.state) };
 console.log(JSON.stringify({ sha: crypto.createHash("sha256").update(rgba).digest("hex"), err, back, right, raw, modules, missions: missionsOut,
   migrated, checked: { enemy: checked.layers.enemy, view: checked.view, openLayers: checked.ui.openLayers, drawer: checked.ui.drawer, badDrawer }, i18nKeys, unknownSettings, lootLayers, gameRarity, freeRects }));
@@ -592,6 +596,19 @@ def check_helios_tracker() -> None:  # noqa: PLR0915
         ("every class's icons indexed, the DLC classes' (Gaige, Krieg) too", len(icons))
     assert gameicons.icon_png("SharedSkillIcons_Soldier.Nope") is None and gameicons.icon_png("../server.py") is None
     print(f"  skill icons: {len(icons)} indexed, Able {len(able)} bytes ({time.perf_counter() - t:.2f} s)")
+    # A skill's icon path (skills.skill_icon): its SkillIcon movie's - or the Pre-Sequel's SkillIconTextureName in that
+    # movie's package (its DLC classes' skills share one movie: Aurelia's "SkillIcon-Aurelia", 37 skills)
+    from helios_tracker.skills import skill_icon  # noqa: PLC0415
+    def icon_movie(path: str) -> types.SimpleNamespace:
+        return types.SimpleNamespace(_path_name=lambda: path)
+    aurelia_icon = skill_icon(types.SimpleNamespace(SkillIcon=icon_movie("SharedSkillIcons_Cro_Aurelia.SkillIcon-Aurelia"),
+                                                    SkillIconTextureName="SkillIcon-Avalanche"))
+    assert aurelia_icon == "SharedSkillIcons_Cro_Aurelia.SkillIcon-Avalanche", aurelia_icon
+    assert skill_icon(types.SimpleNamespace(SkillIcon=icon_movie("SharedSkillIcons_Soldier.SkillIcon-Able"))) == \
+        "SharedSkillIcons_Soldier.SkillIcon-Able", "BL2: no SkillIconTextureName, the movie's path"
+    assert skill_icon(types.SimpleNamespace(SkillIcon=icon_movie("SharedSkillIcons_Soldier.SkillIcon-Able"),
+                                            SkillIconTextureName="None")) == "SharedSkillIcons_Soldier.SkillIcon-Able"
+    assert skill_icon(types.SimpleNamespace(SkillIcon=None, SkillIconTextureName="SkillIcon-Avalanche")) == "", "no movie: none"
     gameicons._pngs.clear()
     t = time.perf_counter()
     assert gameicons.icon_png("SharedSkillIcons_Soldier.SkillIcon-Able") == able and time.perf_counter() - t < 0.2, \
@@ -623,8 +640,12 @@ def check_helios_tracker() -> None:  # noqa: PLR0915
     assert pistol and struct.unpack(">II", pistol[16:24]) == (49, 33), "the item card's pistol (not the ammo's, 30 x 41)"
     shock = gamecards.card_png("element", "shock")
     assert shock and struct.unpack(">II", shock[16:24]) == (42, 42), "the item card's shock icon"
-    assert gamecards._choose("type", "shotgun")[0].group == gamecards._choose("type", "pistol")[0].group, \
-        "the shotgun from the card's type lists too (its outline's vector: one layer)"
+    card_shotgun = gamecards._choose("type", "shotgun")
+    assert card_shotgun[0].group == gamecards._choose("type", "pistol")[0].group, "the shotgun from the card's type lists too"
+    assert [bool(a.shape) for a in card_shotgun] == [True, False], \
+        ("its outline a vector shape (drawn: _shape_rgba), its fill an atlas bitmap", card_shotgun)
+    card_shotgun_png = gamecards.card_png("type", "shotgun")
+    assert card_shotgun_png and struct.unpack(">II", card_shotgun_png[16:24]) == (81, 28), "the shotgun: its outline's size"
     assert gamecards.card_png("manufacturer", "../x") is None and gamecards.card_png("nope", "maliwan") is None
     assert all(a.rect[2] <= a.declared[0] and a.rect[3] <= a.declared[1] for arts in gamecards._index.values() for a in arts), \
         "every art inside its atlas (a plain image's id - the 8 x 4 scanlines, 1 - never taken for atlas 1)"
@@ -680,6 +701,10 @@ def check_helios_tracker() -> None:  # noqa: PLR0915
     assert (looted(opened_box), looted(opened_box, True), looted(closed_box, True)) == (False, True, False)
     assert looted(ns(SimpleAnimState=7, bCanBeUsed=(0, 0))), "host: opened and no longer usable"
     respawn_state = col.Collector._respawn_state
+    # Health / shield values for the page: the current truncated to a tenth (57.96 rounded to 58.0 showed 58, the game
+    # 57), the max precise (sent on change)
+    assert (col._vital(57.96), col._vital(107.89068603515625), col._vital(100.0)) == (57.9, 107.8, 100)
+    assert (col._vital_max(107.89068603515625), col._vital_max(57.695556640625), col._vital_max(100.0)) == (107.8907, 57.6956, 100)
     # Skills (tools/probe_passives.txt): the manager's running timed skills by player; the action skill
     # running / cooling down (its pool) / ready; timed passive effects; melee cooldown
     from helios_tracker.skills import SkillReader  # noqa: PLC0415
@@ -742,6 +767,29 @@ def check_helios_tracker() -> None:  # noqa: PLR0915
     host.update(player_pc, 2005.0, 15.0)  # (still cooling at 2005, but:)
     host.update(player_pc, 3.0, 16.0)  # a level load: the world time restarted
     assert host.player(ns(Controller=other_pc), 16.0) == {"ak": ["r", "Phaselock"]}, "level load: not cooling"
+    # not unlocked yet (the Pre-Sequel at Lv 1, tools/probe_tps.txt): the tree's action skill at Grade 0 - its cooldown
+    # reads a length, its pool empty: no "ak" (not "ready"); unlocked (Grade 1): ready
+    cold_as_ice = skill_def(0x907, "Cold as Ice", skill_type.SKILL_TYPE_Action)
+    locked_tree_skill = ns(Definition=cold_as_ice, Grade=0)
+    locked_pc = ns(_get_address=lambda: 0x970, SavedSkillTreeSkill=cold_as_ice, GetSkillCooldownTime=lambda: 30.0,
+                   GetMeleeSkillCooldownTime=lambda: 0.0, PlayerSkillTree=ns(Skills=[locked_tree_skill]),
+                   SkillCooldownPool=ns(Data=ns(CurrentValue=0.0, ConsumptionRate=1.0)))
+    locked_reader = SkillReader()
+    locked_reader.update(locked_pc, 100.0, 20.0)
+    assert locked_reader.player(ns(Controller=locked_pc), 20.0) == {}, "action skill not unlocked yet: nothing"
+    locked_tree_skill.Grade = 1
+    assert locked_reader.player(ns(Controller=locked_pc), 20.0 + 6.0) == {"ak": ["r", "Cold as Ice"]}, "unlocked: ready"
+    # a nameless timed effect (an empty SkillName: three on a Pre-Sequel Lv 1 player): its object name, a guess ("raw" 1)
+    nameless_skill = skill_def(0x908, "", skill_type.SKILL_TYPE_Passive)
+    nameless_skill.Name = "Skill_LevelUp"
+    nameless_skill._path_name = lambda: "GD_Test.Skills.Skill_LevelUp"
+    manager.ActiveSkills = [ns(Definition=nameless_skill, SkillState=skill_state.SKILL_Active, StartTime=90.0, Duration=30.0,
+                               SkillInstigator=locked_pc)]
+    locked_pc.GetSkillManager = lambda: manager
+    locked_reader.update(locked_pc, 100.0, 27.0)
+    nameless_got = locked_reader.player(ns(Controller=locked_pc), 27.0)
+    assert nameless_got["ps"] == [["Skill LevelUp", 20.0, 30.0, 1]], ("its object name, marked made up", nameless_got)
+    manager.ActiveSkills = []
     # a hidden helper (Krieg's BloodOverdriveChild, dev text for a name, in no tree): shown as the tree
     # skill with its icon (tools/probe_child_skill.txt)
     icon = ns(_path_name=lambda: "UI_Lilac_SharedSkillIcons_Psyc.SkillIcon-Psycho04")
@@ -753,7 +801,7 @@ def check_helios_tracker() -> None:  # noqa: PLR0915
     manager.ActiveSkills = [ns(Definition=child, SkillState=skill_state.SKILL_Active, StartTime=1640.0, Duration=8.0,
                                SkillInstigator=krieg_pc)]
     reader.update(player_pc, 1642.0, 12.0)
-    assert reader._by_pc[0x951]["timed"] == [("Surcharge sanglante", 6.0, 8.0)], reader._by_pc
+    assert reader._by_pc[0x951]["timed"] == [("Surcharge sanglante", 6.0, 8.0, False)], reader._by_pc
     assert respawn_state(ns(bHidden=True, bAwaitingInjuredRespawn=True, AwaitingRespawnResurrectLocation=spot)) == (True, spot)
     assert respawn_state(ns(bHidden=False, bAwaitingInjuredRespawn=True, AwaitingRespawnResurrectLocation=spot)) == (False, None)
     assert respawn_state(ns(bHidden=True, AwaitingRespawnResurrectLocation=spot)) == (False, None), "hidden alone"
@@ -1583,6 +1631,33 @@ def check_helios_tracker() -> None:  # noqa: PLR0915
                             EquippedItems=[shield, None, None, None]), remote)
     assert remote["inventory"] == "partial" and [i["k"] for i in remote["equipped"]] == ["weapon", "shield"], remote
     assert remote["inventoryWhy"] == "coopClient" and "backpack" not in remote, remote
+    # A shield's card stats (tools/probe_shield.txt, the Pre-Sequel's Dinky Shield - the card: 53, 16, 2.36): its
+    # UIStatModifiers, labelled by their presentation's Description, rounded by its RoundingMode / FloatPrecision
+    attr_rounding = enum.IntEnum("EAttributePresentationRoundingMode", ["ATTRROUNDING_None", "ATTRROUNDING_IntRound"], start=0)
+    def ui_stat(label: str, total: float, rounding: int, precision: int) -> types.SimpleNamespace:
+        return ns(ModifierTotal=total, AttributePresentation=ns(Description=label, RoundingMode=attr_rounding(rounding),
+                                                                FloatPrecision=precision, _path_name=lambda: label))
+    card_shield = ns(UIStatModifiers=[ui_stat("Capacity", 53.0588264465332, 1, 1), ui_stat("Recharge Rate", 15.70201587677002, 1, 1),
+                                      ui_stat("Recharge Delay", 2.3648648262023926, 0, 2), ui_stat("Half", 16.5, 1, 1)])
+    assert inspector._ui_stats(card_shield) == [["Capacity", 53, 0], ["Recharge Rate", 16, 0], ["Recharge Delay", 2.36, 2],
+                                                ["Half", 17, 0]], ("the card's numbers, IntRound half up", inspector._ui_stats(card_shield))
+    assert inspector._ui_stats(ns(UIStatModifiers=None)) == [], "no stats: none"
+    # A weapon's card Accuracy (tools/probe_accuracy.txt: the Pre-Sequel's shotgun, Spread 4.186 -> the card's 72.1; a
+    # sniper, 0.667 -> 95.6): its spread through AttrPresent_WeaponSpread's remapping (both games' Startup.upk: 0..15
+    # onto 100..0, ATTRROUNDING_Float, the class default FloatPrecision 1)
+    accuracy_rounding = enum.IntEnum("EAccuracyRounding", ["ATTRROUNDING_None", "ATTRROUNDING_IntRound", "ATTRROUNDING_Float"], start=0)
+    def remap_bound(value: float) -> types.SimpleNamespace:
+        return ns(BaseValueConstant=value, BaseValueScaleConstant=1.0)
+    accuracy_pres = ns(bValueRemappingEnabled=True, RoundingMode=accuracy_rounding.ATTRROUNDING_Float, FloatPrecision=1,
+                       RemappingData=ns(InputValueMn=remap_bound(0.0), InputValueMx=remap_bound(15.0),
+                                        OutputValueMn=remap_bound(100.0), OutputValueMx=remap_bound(0.0)))
+    inspector._accuracy_pres[:] = [accuracy_pres]
+    assert inspector._accuracy(None, 4.186046600341797, 4.186046600341797) == [72.1, 72.1, 1], "the shotgun's card: 72.1"
+    assert inspector._accuracy(None, 0.6666666865348816, 0.6666666865348816) == [95.6, 95.6, 1], "the sniper's card: 95.6"
+    assert inspector._accuracy(None, 4.186046600341797, 3.0) == [72.1, 80.0, 1], "with bonuses: from Spread"
+    accuracy_pres.bValueRemappingEnabled = False
+    assert inspector._accuracy(None, 4.0, 4.0) is None, "no remapping: no accuracy"
+    inspector._accuracy_pres.clear()
     print(f"  inspector: {player['n']} Lv{player['lvl']} {player['cls']}, {len(player['equipped'])} equipped,"
           f" {len(player['backpack'])} in backpack, skills {[b['n'] for b in player['skills']]};"
           f" gun '{gun['type']}' by '{gun['maker']}'; object '{obj['n']}'")
@@ -1825,7 +1900,10 @@ def check_helios_tracker() -> None:  # noqa: PLR0915
     lk = mis["lookOut"]  # the see-through settings: 100 % by default, clamped to 0-100, the colour with its alpha
     assert (lk["lookDefault"], lk["lookClamped"], lk["rgba"]) == ({"bg": 100, "map": 100, "panel": 90, "ui": 100, "marker": 100},
                                                                    {"bg": 100, "map": 0, "panel": 20, "ui": 200, "marker": 50}, "rgba(11, 17, 22, 0.4)"), lk
-    assert mis["vaultCat"] == "vaultsymbol,station", ("a vault symbol: its own layer; Catch-A-Ride: a station", mis["vaultCat"])
+    assert mis["healthShown"] == "107,107,100,100", ("health rounded down, as the game's HUD; the max the same", mis["healthShown"])
+    assert mis["vaultCat"] == "vaultsymbol,station,container", \
+        ("a vault symbol: its own layer; Catch-A-Ride: a station; anything with loot a container (the Pre-Sequel's"
+         " Hyperion ammo crate: no container word in its name)", mis["vaultCat"])
     delta_want = json.loads(delta_hub.latest("objs"))
     delta_gone_want = {"objects": [{"i": "x"}]}
     assert mis["deltaOut"] == [delta_want, delta_want, None, json.loads(delta_hub.latest("rows")), delta_gone_want,
