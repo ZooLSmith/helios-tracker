@@ -21,7 +21,8 @@ from . import gamecards, gamefonts, gameicons, gamework
 from .tacmap import Package
 
 CACHE = Path(__file__).with_name(".cache") / "scan.json"
-VERSION = 3  # the cache's layout: another number = scanned again (2: the card arts' layers; 3: the textures)
+VERSION = 4  # the cache's layout: another number = scanned again (2: the card arts' layers; 3: the textures; 4: skill
+# icons whose texture has another name than their movie)
 PAUSE = 0.003  # s slept after each decompressed block, scanning in process
 SWITCH_INTERVAL = 0.001  # s (Python's default: 0.005), scanning in process
 
@@ -48,7 +49,7 @@ def scan_package(path: Path) -> dict:
     """Everything the page uses from one package: {"fonts": [[name, glyphs, export, n]], "arts": [gamecards'
     art dicts + "movie"], "icons": {path: export}, "textures": {path: export} - every texture of an always-loaded
     package (a pickup's own icon, its PickupFlagIcon: served by path, gameicons.texture_by_path)}."""
-    out: dict = {"fonts": [], "arts": [], "icons": {}, "textures": {}}
+    out: dict = {"fonts": [], "arts": [], "icons": {}, "textures": {}, "icon_refs": {}}
     always = path in engine_set
     pkg = Package(path)
     try:
@@ -68,6 +69,14 @@ def scan_package(path: Path) -> dict:
                     out["arts"] += [{**art, "movie": movie} for art in gamecards.movie_arts(raw, movie.split(".")[0])]
                 except Exception:  # noqa: BLE001, S110
                     pass
+                # a skill icon's movie: the texture it draws, as the game links it - its References (usually its own
+                # name; not always - SharedSkillIcons_Mercenary.SkillIcon-DoubleYourFun uses SkillIcon-DoubleFun)
+                if gameicons.ICON_PATH.fullmatch(pkg.path(i)):
+                    try:
+                        if (texture := gameicons.movie_texture(pkg, i)) is not None:
+                            out["icon_refs"][pkg.path(i).lower()] = texture
+                    except Exception:  # noqa: BLE001, S110
+                        pass
             elif cls == "Texture2D":
                 name = pkg.path(i)
                 if gameicons.ICON_PATH.fullmatch(name):
@@ -118,7 +127,7 @@ def scan_to_cache(cooked: Path, cache: Path) -> None:
         try:
             entries[key] = {"stamp": stamp, **scan_package(path)}
         except Exception:  # noqa: BLE001 - a package that won't read: nothing from it
-            entries[key] = {"stamp": stamp, "fonts": [], "arts": [], "icons": {}, "textures": {}}
+            entries[key] = {"stamp": stamp, "fonts": [], "arts": [], "icons": {}, "textures": {}, "icon_refs": {}}
     if entries != cached:
         _save_cache(cache, entries)
 
@@ -150,6 +159,14 @@ def run(cooked: Path | None) -> None:
                 icons.setdefault(icon, (path, idx))
             for tex, idx in entry.get("textures", {}).items():
                 textures.setdefault(tex, (path, idx))
+        # a skill icon's movie draws the texture its References link, as the game resolves it: usually the movie's own
+        # name, not always (SharedSkillIcons_Mercenary.SkillIcon-DoubleYourFun uses SkillIcon-DoubleFun), in any
+        # scanned package (a texture can be another package's: the Soldier's streaming package imports Willing's from
+        # Startup.upk) - that texture under the movie's path too (the page asks by the skill's SkillIcon: the movie)
+        for entry in entries.values():
+            for movie_path, texture_path in entry.get("icon_refs", {}).items():
+                if movie_path not in icons and texture_path in icons:
+                    icons[movie_path] = icons[texture_path]
         gamefonts.set_catalogue(fonts)
         gameicons.set_textures(textures)  # (before the card arts: their news - "assets" - tells about both)
         gamecards.set_index(arts)

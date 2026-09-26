@@ -1177,6 +1177,18 @@ class Collector:
                 record["looted"] = 1
         return record
 
+    @staticmethod
+    def _exit_text(station: Any) -> str:
+        """A mission waypoint on a map exit (the objective is in another map: a LevelTransitionWaypointComponent on a
+        LevelTravelStation - no objective of its own, no WaypointInfo: tools/probe_waypoint_exit.txt): the game's words
+        for it - the station's LevelTravelMapDisplayName ("Exit to %s") with its TravelDefinition's destination's
+        DisplayName ("Frostburn Canyon"), in the game's language. "" if it isn't one / has none."""
+        text = try_(lambda: str(station.LevelTravelMapDisplayName), "") or ""
+        dest = try_(lambda: str(station.TravelDefinition.DestinationStationDefinition.DisplayName), "") or ""
+        if not text or not dest:
+            return ""
+        return text.replace("%s", dest) if "%s" in text else f"{text} {dest}"
+
     def _pawn_info(self, pawn: Any, me: Any) -> dict[str, Any]:
         addr = pawn._get_address()
         if (info := self._info.get(addr)) is not None:
@@ -1686,6 +1698,8 @@ class Collector:
                             marker["end"] = 1
                     if objective is not None:
                         marker["objective"] = named(try_(lambda o=objective: str(o.ProgressMessage), ""), def_name(objective))
+                    elif (exit_text := self._exit_text(owner)):
+                        marker["objective"] = named(exit_text, "")  # (a map exit the objective is past: "Exit to ...")
                     markers.append(marker)
                 except Exception as ex:  # noqa: BLE001
                     log_error("mission marker", ex)

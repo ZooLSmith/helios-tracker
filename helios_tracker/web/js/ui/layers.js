@@ -161,7 +161,7 @@ export function initLayers() {
     const el = e.target;
     if (el.classList.contains("lbox")) { setLayersOn(boxLayers(el), el.checked); return; }
     const { layer, set } = el.dataset;
-    if (!layer) return;
+    if (!layer || el.type === "range") return; // (a slider: saved while dragged - the "input" handler)
     const s = LAYER_SETTINGS[set];
     layerCfg(layer)[set] = el.type === "checkbox" ? el.checked : s.options.find((o) => String(o) === el.value);
     saveSettings();

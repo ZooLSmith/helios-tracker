@@ -16,6 +16,7 @@ import struct
 import threading
 import zlib
 from pathlib import Path
+from typing import Any
 
 from . import gamework
 from .tacmap import _texture, opened
@@ -77,6 +78,22 @@ def texture_by_path(path: str) -> bytes | None:
             _texture_pngs.pop(next(iter(_texture_pngs)))
         _texture_pngs[key] = data
     return data
+
+
+def movie_texture(pkg: Any, idx: int) -> str | None:
+    """The texture a skill icon's movie (SwfMovie export `idx`) draws, as the game links it: the movie's References
+    (its first - the icon's one image), an export of the same package or an import of another's (the Soldier's
+    streaming package imports Willing's from Startup.upk). Its path, lower case; None if it has none. Usually the
+    movie's own path (SkillIcon-Able), not always (SkillIcon-DoubleYourFun uses SkillIcon-DoubleFun)."""
+    props, _ = pkg.properties(pkg.export_data(idx))
+    if "References" not in props:
+        return None
+    value = props["References"][1]
+    count = struct.unpack_from("<i", value)[0]
+    for n in range(count):
+        if ref := struct.unpack_from("<i", value, 4 + 4 * n)[0]:
+            return pkg.ref_path(ref).lower()
+    return None
 
 
 def set_index(index: dict[str, tuple[Path, int]]) -> None:

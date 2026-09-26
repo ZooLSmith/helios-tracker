@@ -318,8 +318,12 @@ class Package:
         return self.exports[cls - 1]["name"] if cls > 0 else "Class"
 
     def path(self, idx: int) -> str:
+        return self.ref_path(idx + 1)
+
+    def ref_path(self, ref: int) -> str:
+        """An object reference's path (an ObjectProperty's value: > 0 an export, its index + 1; < 0 an import - another
+        package's object, its path as the engine resolves it: "SharedSkillIcons_Soldier.Skillicon-willing")."""
         parts = []
-        ref = idx + 1
         while ref:
             item = self.exports[ref - 1] if ref > 0 else self.imports[-ref - 1]
             parts.append(item["name"])

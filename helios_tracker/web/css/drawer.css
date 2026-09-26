@@ -279,6 +279,10 @@
 .mbest .mbody { flex: 1; min-width: 0; display: flex; flex-direction: column; }
 .mbest .mbody .mn { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .mbest .msub { color: var(--dim); font-size: 10.5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+/* (a badge in them - its level, "You're here" - an inline-block of a set height, and a pixel of room above and below:
+   their overflow: hidden, for the ellipsis, cut its edge's top and bottom otherwise) */
+.mbest .mbody .mn, .mbest .msub { padding-block: 1px; }
+.mlv, .mheretag { display: inline-block; line-height: 1.35; }
 .mbest .mval { flex: none; display: flex; flex-direction: column; align-items: flex-end; font-size: 11.5px;
   font-variant-numeric: tabular-nums; }
 /* a mission's level, coloured like the game's mission log difficulty (for the selected player) */

@@ -610,6 +610,11 @@ Southern Shelf's `_P` alone: 404 `StaticMesh`, 4131 `StaticMeshComponent`, 11 `T
   (moonstones), CostsToPickUpAmount 10 (the only pickups that cost: tools/probe_moxxtail_pickup.txt). Tied to its
   Moxxtail both ways: the pickup's Base = the Moxxtail's WillowInteractiveObject, the Moxxtail's Attached = [the pickup]
   (tools/probe_moxxtail_link.txt, all 8). The page shows the Moxxtail with the drink's price, not the drink.
+- **Mission waypoints on a map exit** (the objective in another map): a LevelTransitionWaypointComponent on the
+  LevelTravelStation - no LinkedObjective, no WaypointInfo (the page had no name for it). The game's text for it: the
+  station's LevelTravelMapDisplayName "Exit to %s", %s its TravelDefinition (LevelTravelStationDefinition
+  GD_LevelTravelStations.Zone1.IceToIceCanyon) -> DestinationStationDefinition -> DisplayName ("Frostburn Canyon"; also
+  StationDisplayName, StationLevelName icecanyon_p) - tools/probe_waypoint_exit.txt, Three Horns Divide.
 - **Elemental plants** (BL2's Firemelon, Acidolus, Shock Cactus; the Pre-Sequel's Cryo Vine _Normal / _Medium / _Large -
   GD_ElementalPlants): the game groups them - their definition's Allegiance GD_AI_Allegiance.Allegiance_ElementalPlant,
   no other object's (both games' packages). Like barrels, but shot empty they recharge (bDestroyWhenKilled False). Their
