@@ -6,14 +6,14 @@ import { FLOOR_UU, LAYERS, LAYER_COLOR, chestTier, isGear, lootLayer, nameText, 
 import { look, withAlpha } from "./look.js";
 import { missionItemWanted } from "./missions.js";
 import { settings } from "./settings.js";
-import { COLORS, areaName, arrow, bang, bossDiamond, brackets, burst, chest, coin, diamond, dot, jumpMark, label, leader, menuBadge, oxygenMark, respawnRing, ring, setMarkerScale, square, triangle, typeIcon,
+import { COLORS, areaName, arrow, bang, bossDiamond, question, brackets, burst, chest, coin, diamond, dot, jumpMark, label, leader, menuBadge, oxygenMark, respawnRing, ring, setMarkerScale, square, triangle, typeIcon,
   vitalBars } from "./shapes.js";
 import { S, findDetail, findPlayer, frame, pawnPos, trackedPawn } from "./state.js";
 import { tooltip } from "./tooltip.js";
 import { refreshPlayerInfo } from "./ui/inspector.js";
 import { updatePlayerVitals } from "./ui/players.js";
 import { refreshShops } from "./ui/shops.js";
-import { H, W, centerOnTarget, ctx, dpr, fit, refreshNorth, toScreen } from "./view.js";
+import { H, W, centerOnTarget, ctx, dpr, fit, refreshNorth, setCtx, toScreen } from "./view.js";
 
 /** The mission log by mission id (mission items check their mission): rebuilt only when the log changes. */
 let byIdFor = null, byIdMap = null;
@@ -137,6 +137,23 @@ function drawFog(lk, opacity) {
   return todo.length;
 }
 
+// The markers' two layers (canvases the map's size): the faded markers - another floor, looted, an untracked quest, a
+// body - drawn whole on the first, at full strength, the layer then faded once (FADED); the others on the second, over
+// it. Faded ones overlapping no longer blend into an unreadable mix (the user: "a quest on a dead body"): the top one
+// covers the rest, and a marker that isn't faded is always over the faded ones.
+const FADED = 0.45;
+const markerLayers = [];
+function markerLayer(n, main) {
+  let c = markerLayers[n];
+  if (!c) c = markerLayers[n] = document.createElement("canvas").getContext("2d");
+  if (c.canvas.width !== main.canvas.width || c.canvas.height !== main.canvas.height) {
+    c.canvas.width = main.canvas.width; c.canvas.height = main.canvas.height;
+  }
+  c.setTransform(1, 0, 0, 1, 0, 0); c.clearRect(0, 0, c.canvas.width, c.canvas.height);
+  c.setTransform(dpr, 0, 0, dpr, 0, 0); c.globalAlpha = 1;
+  return c;
+}
+
 export function draw() {
   const now = performance.now();
   ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
@@ -237,6 +254,11 @@ export function draw() {
   ctx.globalAlpha = 1;
   const hits = [];
   const visible = (sx, sy) => sx > -20 && sy > -20 && sx < W + 20 && sy < H + 20;
+  // the markers from here: on their layers (see markerLayer) - fadeTo(a): a marker's strength, below 1 its layer the
+  // faded one (drawn there at full strength)
+  const mainCtx = ctx, dimCtx = markerLayer(0, mainCtx), fullCtx = markerLayer(1, mainCtx);
+  const fadeTo = (a) => { setCtx(a < 1 ? dimCtx : fullCtx); ctx.globalAlpha = 1; };
+  fadeTo(1);
 
   // interactive objects
   // Below the level's mapped volume: fallen off the map (still a real actor): not shown
@@ -251,9 +273,9 @@ export function draw() {
     const r = Math.max(o.dome[0] / f.upp * S.view.zoom, 3);
     if (sx + r < 0 || sy + r < 0 || sx - r > W || sy - r > H) continue;
     const on = o.dome[1] === 1;
-    ctx.globalAlpha = st.alpha;
+    fadeTo(st.alpha);
     ctx.beginPath(); ctx.ellipse(sx, sy, r, r * Math.cos(S.view.tilt), 0, 0, Math.PI * 2);
-    if (on) { ctx.fillStyle = LAYER_COLOR.oxygen; ctx.globalAlpha = st.alpha * 0.22; ctx.fill(); ctx.globalAlpha = st.alpha; }
+    if (on) { ctx.fillStyle = LAYER_COLOR.oxygen; ctx.globalAlpha = 0.22; ctx.fill(); ctx.globalAlpha = 1; }
     ctx.setLineDash(on ? [] : [6, 4]); ctx.lineWidth = 1.5; ctx.strokeStyle = LAYER_COLOR.oxygen; ctx.stroke(); ctx.setLineDash([]);
   }
   ctx.globalAlpha = 1;
@@ -264,13 +286,14 @@ export function draw() {
     const [sx, sy] = place(o.x, o.y, o.z);
     if (!visible(sx, sy)) continue;
     if (o.dome) { hits.push({ sx, sy, r: 6 * st.k, kind: o.cat, item: o }); continue; } // (a dome: its area, drawn above)
-    ctx.globalAlpha = st.alpha * (o.cat === "looted" ? 0.55 : 1);
+    fadeTo(st.alpha * (o.cat === "looted" ? 0.55 : 1));
     stem(o.x, o.y, sx, sy, LAYER_COLOR[o.cat]);
     // Containers (looted ones too, just dimmed): chests biggest, others by how many items they spawn
     const tier = chestTier(o);
-    const size = st.k * (o.cat === "other" ? 2.5 : o.cat === "oxygen" ? 9 : o.cat === "explosive" ? 7.5 : o.cat === "jumppad" ? 7 : tier === 2 ? 7 : tier === 1 ? 5.5 : o.slots ? 2.5 + Math.min(o.slots, 4) * 0.6 : 3.5);
+    const size = st.k * (o.cat === "other" ? 2.5 : o.cat === "oxygen" ? 9 : o.cat === "explosive" ? 7.5 : o.cat === "jumppad" ? 7 : o.cat === "buff" ? 4.5 : tier === 2 ? 7 : tier === 1 ? 5.5 : o.slots ? 2.5 + Math.min(o.slots, 4) * 0.6 : 3.5);
     if (o.cat === "oxygen") oxygenMark(sx, sy, LAYER_COLOR[o.cat], st.k); // (a generator, a fissure: a diamond, "O2")
     else if (o.cat === "jumppad") jumpMark(sx, sy, LAYER_COLOR[o.cat], st.k); // (a disc, an up chevron)
+    else if (o.cat === "buff") dot(sx, sy, size, LAYER_COLOR[o.cat]); // (a buff: a disc - the pickups' dot, bigger)
     else if (o.cat === "explosive") burst(sx, sy, o.ecol || LAYER_COLOR[o.cat], st.k); // (a burst in its element's colour: the game's)
     else if (o.cat === "vaultsymbol") { // a ring and a dot: not a container (squares)
       ctx.beginPath(); ctx.arc(sx, sy, 4.5 * st.k, 0, Math.PI * 2);
@@ -290,7 +313,7 @@ export function draw() {
   const overNpcs = [];
   const drawGivers = () => {
     for (const draw of overNpcs.splice(0)) draw();
-    ctx.globalAlpha = 1;
+    fadeTo(1);
   };
   for (const mk of S.missions.markers) {
     const giver = mk.k === "directive";
@@ -300,23 +323,26 @@ export function draw() {
     const [sx, sy] = place(mk.x, mk.y, mk.z);
     if (!visible(sx, sy)) continue;
     const alpha = (mk.tracked || giver ? 1 : 0.55) * st.alpha;
-    if (!mk.rad) { ctx.globalAlpha = alpha; stem(mk.x, mk.y, sx, sy, giver ? LAYER_COLOR.giver : objColor); }
+    if (!mk.rad) { fadeTo(alpha); stem(mk.x, mk.y, sx, sy, giver ? LAYER_COLOR.giver : objColor); }
     if (giver) {
       overNpcs.push(() => {
-        ctx.globalAlpha = alpha; bang(sx, sy, LAYER_COLOR.giver, st.k);
+        fadeTo(alpha);
+        // a mission to hand in there (its list's "end"): the game's green "?", else its yellow "!"
+        if (mk.end || (mk.list || []).some((e) => e.end)) question(sx, sy, COLORS.turnin, st.k); // (the game's directive: "end")
+        else bang(sx, sy, LAYER_COLOR.giver, st.k);
         const more = mk.list && mk.list.length > 1 ? ` +${mk.list.length - 1}` : ""; // (several: the first, "+N")
-        if (st.names) label(sx, sy, nameText(mk.mission) + more, LAYER_COLOR.giver, mk.mission.raw, st.ns);
+        if (st.names) label(sx, sy, nameText(mk.mission) + more, LAYER_COLOR.giver, mk.mission.raw, st.ns, 10 * st.k); // (past its disc)
       });
     } else if (!mk.rad) {
       overNpcs.push(() => {
-        ctx.globalAlpha = alpha;
+        fadeTo(alpha);
         diamond(sx, sy, 10 * st.k, objColor); ctx.beginPath(); ctx.arc(sx, sy, 3 * st.k, 0, Math.PI * 2); ctx.fillStyle = COLORS.ink; ctx.fill();
         if (st.names && mk.objective) label(sx, sy, nameText(mk.objective), objColor, mk.objective.raw, st.ns);
       });
     } else if (st.names && mk.objective) {
-      ctx.globalAlpha = alpha; label(sx, sy, nameText(mk.objective), objColor, mk.objective.raw, st.ns);
+      fadeTo(alpha); label(sx, sy, nameText(mk.objective), objColor, mk.objective.raw, st.ns);
     }
-    hits.push({ sx, sy, r: (mk.k === "directive" || mk.rad ? 7 : 10) * st.k, kind: mk.k, item: mk });
+    hits.push({ sx, sy, r: (mk.rad ? 7 : 10) * st.k, kind: mk.k, item: mk }); // (a giver's "!" on its disc: 10)
   }
   ctx.globalAlpha = 1;
   // loot: styled by its rarity's layer (gear), or the pickups' (ammo, cash...)
@@ -332,17 +358,19 @@ export function draw() {
     const [tierName, tierColor] = rarity(tier);
     // effervescent: the game's rainbow, its hue from the clock (moves as frames are drawn, at the Refresh rate)
     const color = tierName === "effervescent" ? rainbowAt(now) : tierColor;
-    ctx.globalAlpha = st.alpha;
+    fadeTo(st.alpha);
     stem(p.x, p.y, sx, sy, isGear(p.c) ? color : LAYER_COLOR[layer]);
     // gear: its item card's type icon (a rifle, a shield...) in its rarity's colour - the triangle until it's loaded / none
     if (isGear(p.c)) { if (!typeIcon(sx, sy, p.wt, color, (tier >= 5 ? 13 : 11) * st.k)) triangle(sx, sy, (tier >= 5 ? 6.5 : 5) * st.k, color); }
-    // a mission item: a "!" (like quest givers), as big as a legendary's triangle (6.5 px: 7 x 0.93)
+    // a mission item, cyan: one that starts a mission (its "ms" k "gives": an ECHO log starting one) the Missions
+    // layer's "!" on its disc, one part of a mission under way ("for") a diamond
     // (their own icons - the game's PickupFlagIcon - were tried here: unreadable at map size, too detailed; the user's
     // call - they're in the tooltip / panel instead)
-    else if (layer === "pickup.mission") bang(sx, sy, LAYER_COLOR[layer], 0.93 * st.k);
+    else if (layer === "pickup.mission" && p.ms?.k === "gives") bang(sx, sy, LAYER_COLOR[layer], st.k);
+    else if (layer === "pickup.mission") diamond(sx, sy, 6 * st.k, LAYER_COLOR[layer]);
     else if (layer === "pickup.cash") coin(sx, sy, LAYER_COLOR[layer], st.k); // money: a "$" disc
     else dot(sx, sy, 3.5 * st.k, LAYER_COLOR[layer]); // not gear (ammo, cash...): its kind's colour, no rarity
-    if (st.names) label(sx, sy, nameText(p), isGear(p.c) ? color : LAYER_COLOR[layer], p.raw, st.ns);
+    if (st.names) label(sx, sy, nameText(p), isGear(p.c) ? color : LAYER_COLOR[layer], p.raw, st.ns, layer === "pickup.mission" ? (p.ms?.k === "gives" ? 10 : 6) * st.k : 0);
     hits.push({ sx, sy, r: 6 * st.k, kind: "loot", item: p });
   }
   // pawns: players on top, the tracked one last
@@ -358,7 +386,7 @@ export function draw() {
     if (!st) continue;
     const [sx, sy] = place(pos.x, pos.y, pos.z);
     if (!visible(sx, sy) && p !== tracked) continue;
-    ctx.globalAlpha = st.alpha * (p.rs || p.dd ? 0.5 : 1); // respawning (at their New-U) / dead (their body): faded
+    fadeTo(st.alpha * (p.rs || p.dd ? 0.5 : 1)); // respawning (at their New-U) / dead (their body): faded
     stem(pos.x, pos.y, sx, sy, p === tracked ? COLORS.tracked : LAYER_COLOR[layer]);
     // the heading on the (tilted) plane: its direction squashed like the plane's
     const turn = yawToAngle(f, pos.r) - S.view.rot;
@@ -386,7 +414,12 @@ export function draw() {
     hits.push({ sx, sy, r: (p.boss ? 9 : 6) * st.k, kind: p.k, item: p, pos });
   }
   drawGivers(); // (no pawn above the NPCs)
-  ctx.globalAlpha = 1;
+  // the layers onto the map: the faded markers' faded once, the others' over them
+  setCtx(mainCtx);
+  ctx.setTransform(1, 0, 0, 1, 0, 0);
+  ctx.globalAlpha = FADED; ctx.drawImage(dimCtx.canvas, 0, 0);
+  ctx.globalAlpha = 1; ctx.drawImage(fullCtx.canvas, 0, 0);
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
   drawSelection(f, now, tracked, mePos, hits, place); // (over every marker)
   S.hits = hits;
 

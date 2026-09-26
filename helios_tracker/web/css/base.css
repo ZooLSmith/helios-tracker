@@ -135,6 +135,7 @@
   --map-outline: rgba(0, 0, 0, .8);
   --map-outline-soft: rgba(0, 0, 0, .6);
   --map-ink: #1a1200;
+  --map-turnin: #00f800; /* a mission to hand in: the game's green "?" (sampled: _work/return_questionmark.png) */
   --map-boss: #c9a54a; /* a boss's outline (its AI class's bBoss, the boss bar's pawn): a muted gold */
   --map-halo: rgba(5, 10, 14, .9);
   --map-bar-back: rgba(0, 0, 0, .7);
@@ -153,15 +154,16 @@
   --layer-explosive: #e0703a; /* what explodes (barrels): an orange - each drawn in its element's colour (the game's) */
   --layer-oxygen: #4e6a86; /* the Pre-Sequel's oxygen sources (air domes, fissures): a dark blue-grey (the user's) */
   --layer-pickup-oxygen: #4e6a86; /* the Pre-Sequel's oxygen canisters: the oxygen sources' blue-grey (the user's; their loot beam's #0096c8 before) */
-  --layer-pickup-mission: var(--objective);
+  --layer-pickup-mission: #3fd8ff; /* mission items: a cyan "!" (the user: cyan in game - this one picked, not sampled) */
   --layer-pickup-other: #9aa7ad;
+  --layer-buff: #ff7fc8; /* buffs you use (Moxxtails, shrines): a pink (Moxxi's) */
   --layer-containers: #e2c170;
   --layer-chest: #ff6b2c; /* orange-red, like the red chests */
   --layer-weaponchest: #e8943a;
   --layer-container: #e2c170;
   --layer-looted: #56646d;
   --layer-objective: var(--objective);
-  --layer-giver: #ffd23f; /* the game's yellow "!" (every theme: not the accent) */
+  --layer-giver: #fecb0d; /* the game's yellow "!" (sampled: _work/ingame_quest_yellow.png; every theme: not the accent) */
   --layer-vendor: #4fd1c5;
   --layer-vaultsymbol: #ff7eb6;
   --layer-station: #f0f0f0;

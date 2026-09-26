@@ -7,6 +7,8 @@ import { S, frame, pawnPos, trackedPawn } from "./state.js";
 import { syncRotate } from "./ui/panel.js";
 
 export let canvas = null, ctx = null;
+/** The context the shapes draw on (draw.js's marker layers: faded markers on one, the others on another). */
+export function setCtx(c) { ctx = c; }
 export let W = 0, H = 0, dpr = 1; // CSS px, device pixel ratio
 
 // Following: the player goes at the centre of the largest part of the map no panel covers (the

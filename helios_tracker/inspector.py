@@ -637,6 +637,32 @@ def element_of(damage_type: Any, ctrl: Any = None) -> dict[str, str]:
     return out
 
 
+# Behaviours that hand an interactive object's own loot out (its Loot / balance's lists): a container's
+_LOOT_GIVERS = {"Behavior_AttachItems", "Behavior_DropItems", "Behavior_SpawnLootAroundPoint", "Behavior_SpawnLootAtPoints"}
+_buffs: dict[int, bool] = {}  # object definition address -> a buff (buff_info), static
+
+
+def _behavior_classes(definition: Any) -> set[str]:
+    """Its definition's behaviours' classes (BehaviorProviderDefinition.BehaviorSequences[].BehaviorData2[].Behavior)."""
+    found: set[str] = set()
+    for seq in try_(lambda: list(definition.BehaviorProviderDefinition.BehaviorSequences), []) or []:
+        for data in try_(lambda s=seq: list(s.BehaviorData2), []) or []:
+            if (behavior := try_(lambda d=data: d.Behavior)) is not None:
+                found.add(try_(lambda b=behavior: str(b.Class.Name), ""))
+    return found
+
+
+def buff_info(definition: Any) -> bool:
+    """A buff you use, not a container: its behaviours activate a skill (Behavior_ActivateSkill) and none hands its own
+    loot out (_LOOT_GIVERS) - the Pre-Sequel's Moxxtails (their balances list EpicChestRedLoot, never dropped), BL2's
+    Tiny Tina shrines; Isaiah's strongbox activates one too but drops its loot: a container. Per definition, once."""
+    key = definition._get_address()
+    if key not in _buffs:
+        classes = _behavior_classes(definition)
+        _buffs[key] = "Behavior_ActivateSkill" in classes and not classes & _LOOT_GIVERS
+    return _buffs[key]
+
+
 def explosion_info(definition: Any, ctrl: Any = None) -> dict[str, Any]:
     """An interactive object that explodes (a barrel): its definition's behaviours hold a Behavior_Explode
     (BehaviorProviderDefinition.BehaviorSequences[].BehaviorData2[].Behavior - the Pre-Sequel's barrels: bBarrelSource;

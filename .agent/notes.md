@@ -585,6 +585,20 @@ Southern Shelf's `_P` alone: 404 `StaticMesh`, 4131 `StaticMeshComponent`, 11 `T
   whether it takes damage: its InteractiveObjectDefinition's bCanTakeDirectDamage / bCanTakeRadiusDamage (bCanBeKilled,
   bDestroyWhenKilled...) - both games. Aiming at one shows a health bar like an enemy's (IIDamageable / IITargetable).
   An exploded barrel stays (its wreck, another model): bHasBeenKilled / health 0 - the page leaves it out ("kd").
+- **Buffs, not containers** (the Pre-Sequel's Moxxtails - GD_Moxxtails, BL2's Tiny Tina shrines GD_Aster_Shrines: the same
+  design, both "ShrineEffect"): their balance can carry a chest's loot list (ObjectGrade_SpeedMoxxtail's own
+  DefaultIncludedLootLists: EpicChestRedLoot - a leftover: the page took them for epic chests), never handed out. Their
+  definition's behaviours: Behavior_ActivateSkill (Skill_Moxxtail_SpeedBoost...), DeactivateSkill, a Behavior_SpawnItems of
+  their own (the glass: its own ItemPoolList, bDisablePickups) - and no AttachItems / DropItems / SpawnLootAroundPoint /
+  SpawnLootAtPoints, what containers hand their loot out with. Of the definitions activating a skill (15 TPS, 12 BL2: all
+  packages scanned) only Isaiah's strongbox hands loot out. Not their price: bCostsToUse / CostsToUseAmount read 0 on
+  them (not unlocked yet: bought later - GD_Moxxtails.Misc.Init_MoxxtailCost), golden chests cost golden keys, the slot
+  machine 85 credits (tools/probe_moxxtail.txt). Some real containers have no loot behaviour of their own either (the
+  Dice chest, meteorite loot piles, Claptrap's stash): not a test for "container". The rule also needs loot (that
+  leftover list): the other objects activating a skill have none - the Pre-Sequel's IO_ComputerConsole_A, IO_ScreenFX,
+  IO_SpaceHurp / IO_InnerHull_SpaceHurpManager, BL2's whiskey barrel (Wedding Day), the Splinter Group's pizza, the
+  raids' worm ooze / shaman orb, a test spike trap. BL2's shrines: 6 of 7 carry a list (the Ammo shrine none: not a
+  buff on the page), and every one's balance DefaultDisplayName is "Health Shrine" (the game's copy-paste).
 - **What explodes**: its definition's behaviours hold a Behavior_Explode (BehaviorProviderDefinition.BehaviorSequences[]
   .BehaviorData2[].Behavior; the Pre-Sequel's barrels: bBarrelSource, DamageFormula / DamageRadiusFormula,
   Definition an ExplosionDefinition - its DamageTypeDef the element). The air dome generator: health, no behaviours.

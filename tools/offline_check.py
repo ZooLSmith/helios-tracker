@@ -303,7 +303,8 @@ const vaultCat = objectCategory({ d: "IO_VaultRoy", n: "Vault Roy", c: "WillowIn
   + "," + objectCategory({ d: "IO_OxygenCracks", n: "Oxygen Source", c: "WillowInteractiveObject", o2: 1 })
   + "," + objectCategory({ d: "IO_Geysers_Vertical", n: "Geysers Vertical", raw: 1, c: "OzPlayerJumpPad" })
   + "," + objectCategory({ d: "InteractiveObj_DahlEpic_LastRequests", c: "WillowInteractiveObject", lootable: 1, slots: 15,
-    loot: ["Pool_EpicChest_Weapons_LongGuns", "Pool_Chest_Ammo"] }); // (no loot list: its pools say a big chest)
+    loot: ["Pool_EpicChest_Weapons_LongGuns", "Pool_Chest_Ammo"] }) // (no loot list: its pools say a big chest)
+  + "," + objectCategory({ d: "InteractiveObject_SpeedMoxxtail", n: "Speed Moxxtail", c: "WillowInteractiveObject", buff: 1 });
 // The map's click / hover pick (input.js hitAt): what the pointer is ON wins over a nearer-layer marker merely close by
 // (a chest under the pointer, a pickup 10 px off: the chest); both under it: the layer (an item on its chest: the item);
 // on none: the nearest centre
@@ -1790,6 +1791,14 @@ def check_helios_tracker() -> None:  # noqa: PLR0915
             ns(BehaviorData2=[ns(Behavior=ns(Class=ns(Name="Behavior_Destroy"))), ns(Behavior=explode)])]))
     cryo_barrel = inspector.explosion_info(barrel_def(0xB01, barrel_damage.DAMAGE_TYPE_Ice), barrel_ctrl)
     assert cryo_barrel == {"xp": 1, "el": "ice", "et": "DAMAGE_TYPE_Ice", "eln": "cryo", "ecol": "#5ac8ff"}, cryo_barrel
+    # A buff you use (a Moxxtail): activates a skill, hands none of its own loot out; Isaiah's strongbox does: a container
+    def behaviours_def(addr: int, *classes: str) -> types.SimpleNamespace:
+        return ns(_get_address=lambda: addr, BehaviorProviderDefinition=ns(BehaviorSequences=[
+            ns(BehaviorData2=[ns(Behavior=ns(Class=ns(Name=c))) for c in classes])]))
+    buff_kinds = [inspector.buff_info(behaviours_def(0xB11, "Behavior_ActivateSkill", "Behavior_SpawnItems")),
+                  inspector.buff_info(behaviours_def(0xB12, "Behavior_ActivateSkill", "Behavior_AttachItems")),
+                  inspector.buff_info(behaviours_def(0xB13, "Behavior_AttachItems"))]
+    assert buff_kinds == [True, False, False], ("a Moxxtail, Isaiah's strongbox, a chest", buff_kinds)
     assert inspector.explosion_info(ns(_get_address=lambda: 0xB02, BehaviorProviderDefinition=None), barrel_ctrl) == {}, \
         "no behaviours (the air dome generator): doesn't explode"
     fire_element = inspector.element_of(ns(DamageType=barrel_damage.DAMAGE_TYPE_Incindiary), barrel_ctrl)
@@ -1802,11 +1811,10 @@ def check_helios_tracker() -> None:  # noqa: PLR0915
     assert json.loads(inspector.FRAMES_FILE.read_text(encoding="utf-8")) == {"DAMAGE_TYPE_Incindiary": "fire"}, "remembered"
     inspector.FRAMES_FILE = frames_file
     frames_tmp.cleanup()
-    inspector._element_frames.clear()
-    inspector._element_frames.update(saved_frames)
     fire_after = inspector.element_of(ns(DamageType=barrel_damage.DAMAGE_TYPE_Incindiary), barrel_ctrl).get("el")
     assert (fire_before, fire_after) == ("fire", "fire"), ("the game's typo's frame, then the one learned from its items", fire_before, fire_after)
-    inspector._element_frames.clear()
+    inspector._element_frames.clear()  # (the real .cache's frames back, once these checks are done)
+    inspector._element_frames.update(saved_frames)
     # an object's health: when its definition can take damage and its max is above 0
     hurt_barrel = ns(InteractiveObjectDefinition=ns(bCanTakeDirectDamage=True, bCanTakeRadiusDamage=True), MaxHealth=80.0, Health=35.5)
     assert col.Collector._health(hurt_barrel) == (35.5, 80), col.Collector._health(hurt_barrel)
@@ -2069,7 +2077,7 @@ def check_helios_tracker() -> None:  # noqa: PLR0915
     assert mis["stepOrder"] == ("Throw breaker:current,Power up jump pad:current,Use jump pad:done,Kill Deadlift:current,"
                                 "Pick up digistruct key:current"), ("the step's own order, in its slots", mis["stepOrder"])
     assert mis["healthShown"] == "107,107,100,100", ("health rounded down, as the game's HUD; the max the same", mis["healthShown"])
-    assert mis["vaultCat"] == "vaultsymbol,station,container,oxygen,oxygen,oxygen,jumppad,chest", \
+    assert mis["vaultCat"] == "vaultsymbol,station,container,oxygen,oxygen,oxygen,jumppad,chest,buff", \
         ("a vault symbol: its own layer; Catch-A-Ride: a station; anything with loot a container (the Pre-Sequel's"
          " Hyperion ammo crate: no container word in its name)", mis["vaultCat"])
     delta_want = json.loads(delta_hub.latest("objs"))

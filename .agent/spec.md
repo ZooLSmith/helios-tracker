@@ -40,7 +40,12 @@ It draws nothing in game: everything it shows is on the page.
   every 1 s from `MissionTracker.MissionWaypoints` (only `bActive` components), sent on change. A
   co-op client has none: its objective markers come from the level's `WillowWaypoint` actors (their
   linked objective + step restrictions vs the mission log).
-- **Quest givers** (own layer, "Quest givers"): yellow "!" badges like the game's, drawn over their
+- **Quest givers** (own layer, "Missions" - the "!" to pick up, the "?" to hand in): a yellow "!" alone like the game's (a straight bar, a block as wide
+  under it, #fecb0d - sampled from the game's map; not a round badge: it read wide) on a dark disc (not the game's:
+  the 3D view's stems read as its bar going on); one with a mission to hand in (its list's "end"): the game's
+  green "?" instead (#00f800, blocky - a squared hook, its stem, a square dot: sampled, _work/return_questionmark.png);
+  mission items, cyan (#3fd8ff - the user's cyan, picked, not sampled): one that starts a mission (its "ms" k
+  "gives") the "!" on its disc, one part of a mission under way ("for") a diamond, drawn over their
   NPC. The game's directive waypoints, plus NPCs (`MissionDirectives`) and objects (the bounty board:
   `Directives`) whose lists give a mission that can be
   picked up now / take back one ready to hand in (`_npc_givers`: host and client - the host's
@@ -186,7 +191,8 @@ It draws nothing in game: everything it shows is on the page.
 - **Containers**: category from the game's loot list names - an "Epic" list = **Big chests** (red
   chests, orange-red, biggest), a "WeaponChest" list = **Weapon chests** (metal crates, bandit weapon
   chests, amber), else Containers sized by item slots (most items one opening spawns). **Looted**
-  (anim state 7 + no longer usable; checked round robin every second) = their own dimmed layer, off
+  (the "Opened" animation's bit of SimpleAnimState + no longer usable - notes.md; checked round robin every second) =
+  their own dimmed layer, off
   by default, same sizes. Contents = the item pools their loot rolls from (items only exist once
   opened), in the click panel.
 - **Click panel**: clicking any marker opens a detail drawer (players: the inspector) - containers
@@ -223,12 +229,18 @@ It draws nothing in game: everything it shows is on the page.
   turning their layers on / off, they fold): **Gear** (a layer per rarity; `misc` = rarity 0 /
   unknown), **Pickups** (not gear, a layer per kind: Ammo, Cash, Eridium, Health, Mission items (WillowMissionItem: ECHO logs, objective items; the objectives' green), Other - the collector's
   `pk`, from the item definition's inventory card `Presentation`, resolved once per definition:
-  see notes; eridium not probed yet, so Other), **Containers** (Big chests, Weapon
+  see notes; eridium not probed yet, so Other; and **Shrines** ("Moxxtails" in the Pre-Sequel; the layer id `buff`): interactive objects you use for a bonus for a while - the
+  Pre-Sequel's Moxxtails, BL2's shrines: their behaviours activate a skill and none hands their own loot out, and they have loot (a leftover
+  chest list: other skill objects have none), a pink disc;
+  never containers, whatever loot list their balance has), **Containers** (Big chests, Weapon
   chests, Other containers, Looted). Per-layer
   settings (`model.js` `LAYER_SETTINGS`, which apply per layer in `LAYERS[].settings`, in the panel's order):
   Names (its Name size slider on the same row, no label: 50-200 %, the labels' text), Size (50-200 %), Other
   floors (show / dim / hide, > 6 m up / down from "Who"), Max distance (from "Who"), Tracked mission only
   (objectives). Counts = what passes the layer's filters, on or not.
+  Faded markers (another floor, looted, an untracked quest, a respawning / dead player): drawn whole on a layer of
+  their own, faded once (0.45 - draw.js markerLayer), under the others' layer: overlapping, the top one covers the
+  rest (they used to blend into an unreadable mix), and one that isn't faded is always over them.
   No global names / floors / rarity settings any
   more - the loot filter will come back as a Loot setting (to design).
 - **Turning the map**: right-drag / Shift+drag turns it (`view.spin`, degrees on top of its own turn - the level's north

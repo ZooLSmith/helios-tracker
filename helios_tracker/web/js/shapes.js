@@ -9,7 +9,7 @@ import { ctx } from "./view.js";
 export const COLORS = {};
 const TOKENS = { bg: "bg", grid: "grid", shield: "shield", health: "health", dead: "dead", menu: "menu", objective: "objective",
   tracked: "map-tracked", playerEdge: "map-player-edge", outline: "map-outline", outlineSoft: "map-outline-soft",
-  ink: "map-ink", boss: "map-boss", halo: "map-halo", barBack: "map-bar-back" };
+  ink: "map-ink", boss: "map-boss", turnin: "map-turnin", halo: "map-halo", barBack: "map-bar-back" };
 export function initColors() {
   for (const [k, token] of Object.entries(TOKENS)) COLORS[k] = tokenColor("--" + token);
   COLORS.mapFilter = tokenRaw("--map-filter") || "none"; // (the theme's map tint: draw.js mapCanvas)
@@ -55,14 +55,40 @@ export function bossDiamond(x, y, r, fill) {
   ctx.globalAlpha = a;
 }
 
-export function bang(x, y, fill, k = 1) { // quest giver / turn-in: a "!" badge (k: size factor)
-  ctx.beginPath(); ctx.arc(x, y, 7 * k, 0, Math.PI * 2);
-  ctx.fillStyle = fill; ctx.fill(); ctx.lineWidth = 1.5; ctx.strokeStyle = COLORS.ink; ctx.stroke();
-  ctx.fillStyle = COLORS.ink; ctx.font = `700 ${11 * k}px 'Segoe UI', system-ui, sans-serif`; ctx.textAlign = "center";
-  ctx.fillText("!", x, y + 4 * k); ctx.textAlign = "left";
+export function bang(x, y, fill, k = 1) { // quest giver / turn-in, a mission item: a "!" alone, like the game's (k: size)
+  // (the game's map "!" - _work/ingame_quest_yellow.png: a straight bar 12 x 22 px, a 3 px gap, a block as wide 7 px
+  // high, a thin dark outline; narrow - the round badge it replaced read wide)
+  const hw = 2.8 * k, top = y - 7.5 * k, barEnd = y + 2.8 * k, dotTop = y + 4.2 * k, bottom = y + 7.5 * k;
+  ctx.save();
+  // on a dark disc (not the game's: the 3D view's stems read as its bar going on - the user), its edge faintly the colour
+  ctx.beginPath(); ctx.arc(x, y, 10 * k, 0, Math.PI * 2); ctx.fillStyle = COLORS.halo; ctx.fill();
+  ctx.globalAlpha *= 0.5; ctx.lineWidth = 1; ctx.strokeStyle = fill; ctx.stroke(); ctx.globalAlpha /= 0.5;
+  ctx.lineWidth = 1.2; ctx.strokeStyle = COLORS.ink; ctx.fillStyle = fill;
+  ctx.fillRect(x - hw, top, 2 * hw, barEnd - top); ctx.strokeRect(x - hw, top, 2 * hw, barEnd - top);
+  ctx.fillRect(x - hw, dotTop, 2 * hw, bottom - dotTop); ctx.strokeRect(x - hw, dotTop, 2 * hw, bottom - dotTop);
+  ctx.restore();
 }
 
-export function coin(x, y, fill, k = 1) { // cash: a disc with a dark "$" (the "!" badge's look, smaller)
+// The turn-in "?" (the game's: _work/return_questionmark.png - blocky, a squared hook, its stem, a square dot), on a
+// 5 x 7 grid centred on the marker - compact, its hook's opening narrow (the user: "more into itself")
+// (its stem and dot on the left, under the hook's end - like the game's; a narrow gap between the hook's end and the
+// middle bar there)
+const QUESTION = [[0, 0], [5, 0], [5, 3.9], [2.2, 3.9], [2.2, 5.1], [0.4, 5.1], [0.4, 2.6], [3.4, 2.6], [3.4, 1.5], [1.6, 1.5], [1.6, 2.2], [0, 2.2]];
+export function question(x, y, fill, k = 1) { // a mission to hand in: its giver's green "?" (k: size)
+  const u = 2 * k, ox = x - 2.5 * u, oy = y - 3.5 * u;
+  ctx.save();
+  ctx.beginPath(); ctx.arc(x, y, 10 * k, 0, Math.PI * 2); ctx.fillStyle = COLORS.halo; ctx.fill(); // (the "!"'s disc)
+  ctx.globalAlpha *= 0.5; ctx.lineWidth = 1; ctx.strokeStyle = fill; ctx.stroke(); ctx.globalAlpha /= 0.5;
+  ctx.lineWidth = 1.2; ctx.lineJoin = "miter"; ctx.strokeStyle = COLORS.ink; ctx.fillStyle = fill;
+  ctx.beginPath();
+  QUESTION.forEach(([px, py], n) => (n ? ctx.lineTo(ox + px * u, oy + py * u) : ctx.moveTo(ox + px * u, oy + py * u)));
+  ctx.closePath(); ctx.fill(); ctx.stroke();
+  ctx.fillRect(ox + 0.4 * u, oy + 5.8 * u, 1.8 * u, 1.2 * u);
+  ctx.strokeRect(ox + 0.4 * u, oy + 5.8 * u, 1.8 * u, 1.2 * u);
+  ctx.restore();
+}
+
+export function coin(x, y, fill, k = 1) { // cash: a disc with a dark "$"
   ctx.save();
   ctx.beginPath(); ctx.arc(x, y, 5.5 * k, 0, Math.PI * 2);
   ctx.fillStyle = fill; ctx.fill(); ctx.lineWidth = 1.2; ctx.strokeStyle = COLORS.ink; ctx.stroke();

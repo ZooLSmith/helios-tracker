@@ -17,12 +17,14 @@ function layerIcon(l) {
   const triangle = `<polygon points="6,1.5 10.5,9.5 1.5,9.5" fill="${c}" ${o}/>`;
   const dot = `<circle cx="6" cy="6" r="3.5" fill="${c}" ${o}/>`;
   // mission items, quest givers: the map's small "!" badge (a disc with a dark "!")
-  const bang = `<circle cx="6" cy="6" r="5" fill="${c}" ${o}/><rect x="5.25" y="2.6" width="1.5" height="4.4" rx=".5" style="fill: var(--map-ink)"/>` +
-    `<circle cx="6" cy="8.8" r=".85" style="fill: var(--map-ink)"/>`;
+  // a quest giver, a mission item: the map's "!" alone (a bar, a block as wide under it)
+  const bang = `<circle cx="6" cy="6" r="5.9" style="fill: var(--map-halo)"/>` +
+    `<rect x="4.3" y="1.9" width="3.4" height="5.2" fill="${c}"/><rect x="4.3" y="8.1" width="3.4" height="1.8" fill="${c}"/>`;
   // money: the map's "$" disc
   const coin = `<circle cx="6" cy="6" r="5" fill="${c}" ${o}/><text x="6" y="6.4" text-anchor="middle" dominant-baseline="middle" ` +
     `font-size="8" font-weight="700" font-family="'Segoe UI', system-ui, sans-serif" style="fill: var(--map-ink)">$</text>`;
-  const shape = l.rarity ? triangle : l.id === "pickup.mission" || l.id === "giver" ? bang : l.id === "pickup.cash" ? coin
+  const missionItem = `<polygon points="6,0.8 11.2,6 6,11.2 0.8,6" fill="${c}" ${o}/>`; // (the map's diamond)
+  const shape = l.rarity ? triangle : l.id === "pickup.mission" ? missionItem : l.id === "giver" ? bang : l.id === "pickup.cash" ? coin
     : l.id.startsWith("pickup") ? dot : {
     player: `<polygon points="6,1 10.3,10.8 6,8.3 1.7,10.8" fill="${c}" ${o}/>`,
     enemy: `<polygon points="6,1 11,6 6,11 1,6" fill="${c}" ${o}/>`,
@@ -36,6 +38,7 @@ function layerIcon(l) {
     weaponchest: `<rect x="1.5" y="3" width="9" height="6.5" fill="${c}" ${o}/><line x1="1.5" y1="5.2" x2="10.5" y2="5.2" ` +
       `style="stroke: var(--map-ink)" stroke-width="1"/><circle cx="6" cy="5.2" r=".9" style="fill: var(--map-ink)"/>`,
     other: `<rect x="3.5" y="3.5" width="5" height="5" fill="${c}" ${o}/>`,
+    buff: `<circle cx="6" cy="6" r="4.6" fill="${c}" ${o}/>`, // (the map's disc)
     vaultsymbol: `<circle cx="6" cy="6" r="4" fill="none" stroke="${c}" stroke-width="2"/><circle cx="6" cy="6" r="1.4" fill="${c}"/>`,
     // a jump pad: the map's disc with an up chevron
     jumppad: `<circle cx="6" cy="6" r="5.4" fill="${c}" ${o}/><polyline points="3.3,7.3 6,4.4 8.7,7.3" fill="none" ` +

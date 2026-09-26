@@ -65,8 +65,12 @@ export const LAYERS = [
   ...LOOT_RARITIES.map((r) => ({ id: "loot." + r, group: "loot", parent: "gear", legacy: "loot", rarity: r, color: RARITY_COLOR[r], on: true, settings: COMMON })),
   // not gear: no real rarity (made-up levels, for their colour in game)
   { id: "pickups", group: "loot", folder: true, settings: [] },
-  ...PICKUP_KINDS.map((k) => ({ id: "pickup." + k, group: "loot", parent: "pickups", legacy: "loot", on: true, settings: COMMON,
-    ...(k === "other" ? { tip: "layer.pickup.otherTip" } : {}), ...(k === "oxygen" ? { game: "tps" } : {}) })),
+  // (Other last: the buffs before it)
+  ...PICKUP_KINDS.flatMap((k) => [
+    // buffs you use (interactive objects, not pickups: the Pre-Sequel's Moxxtails, BL2's shrines - a skill for a while)
+    ...(k === "other" ? [{ id: "buff", group: "loot", parent: "pickups", on: true, tip: "layer.buffTip", settings: COMMON }] : []),
+    { id: "pickup." + k, group: "loot", parent: "pickups", legacy: "loot", on: true, settings: COMMON,
+      ...(k === "other" ? { tip: "layer.pickup.otherTip" } : {}), ...(k === "oxygen" ? { game: "tps" } : {}) }]),
   { id: "containers", group: "loot", folder: true, settings: [] },
   { id: "chest", group: "loot", parent: "containers", on: true, settings: COMMON },
   { id: "weaponchest", group: "loot", parent: "containers", on: true, settings: COMMON },
@@ -164,6 +168,7 @@ export function objectCategory(o) {
   if (o.dome || o.dg || o.o2) return "oxygen";
   if (o.c === "OzPlayerJumpPad") return "jumppad"; // the Pre-Sequel's jump pads and geysers: their own class
   if (o.xp) return "explosive"; // it explodes (its behaviours: a Behavior_Explode - collector.py, inspector.explosion_info)
+  if (o.buff) return "buff"; // a buff you use (Moxxtails, shrines: activates a skill, drops no loot - inspector.buff_info)
   if (o.looted) return "looted";
   // The game's loot lists are named by tier: an "Epic" one (EpicChestRedLoot...) = a chest
   const tier = chestTier(o);

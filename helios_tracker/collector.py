@@ -25,7 +25,7 @@ from mods_base import ENGINE, get_pc
 from unrealsdk.unreal import WeakPointer
 
 from .amounts import pickup_amount
-from .inspector import element_frame, explosion_info, ground_item, is_gear, read_players
+from .inspector import buff_info, element_frame, explosion_info, ground_item, is_gear, read_players
 from . import lootodds
 from .missions import MissionLog, mission_id
 from .missions import objective_index as _mission_index
@@ -1137,7 +1137,15 @@ class Collector:
                 record["kd"] = 1  # (killed already: an exploded barrel's wreck)
         if definition is not None and (explosion := try_(lambda: explosion_info(definition), {})):
             record.update(explosion)
-        if Collector._lootable(io, balance):
+        # a buff you use (the Pre-Sequel's Moxxtails, BL2's shrines: inspector.buff_info) - not a container, whatever loot
+        # list its balance has (the Moxxtails': EpicChestRedLoot, never handed out). Only one with loot (that list): the
+        # other objects activating a skill have none (a switch console, the Space Hurps, BL2's whiskey barrel, the raid
+        # bosses' ooze / orb...) - BL2's Ammo shrine neither (no list: left as it was). (Not its price: bought ones, and
+        # golden chests too (golden keys), cost something - bCostsToUse / CostsToUseAmount, 0 before they're unlocked.)
+        lootable = Collector._lootable(io, balance)
+        if lootable and definition is not None and try_(lambda: buff_info(definition), False):
+            record["buff"] = 1
+        elif lootable:
             record["lootable"] = 1
             if try_(lambda: io.bCanBeUsed[0], 0):
                 record["usable"] = 1  # for the usability hook: usable, then not = opened
@@ -1622,6 +1630,7 @@ class Collector:
         active = try_(lambda: tracker.ActiveMission)
         active_addr = active._get_address() if active is not None else None
         markers, giver_npcs = [], set()
+        states = None  # the log's missions to pick up / hand in (giver_states): read once, for the game's directives
         for entry in try_(lambda: list(tracker.MissionWaypoints), []):
             mission = try_(lambda e=entry: e.Mission)
             for comp in try_(lambda e=entry: list(e.Waypoints), []):
@@ -1647,6 +1656,11 @@ class Collector:
                         marker["mi"] = mission_id(mission)  # (the page links its mission in the log)
                     if kind == "directive":
                         marker["by"] = addr(owner)
+                        # its mission ready to hand in: the page's turn-in "?" (the game's directive has no such flag)
+                        if states is None:
+                            states = try_(lambda: self._log.giver_states(), {}) or {}
+                        if mission is not None and states.get(mission_id(mission)) == "end":
+                            marker["end"] = 1
                     if objective is not None:
                         marker["objective"] = named(try_(lambda o=objective: str(o.ProgressMessage), ""), def_name(objective))
                     markers.append(marker)
