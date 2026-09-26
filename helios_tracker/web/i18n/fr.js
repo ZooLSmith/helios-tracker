@@ -86,6 +86,8 @@ export default {
   "set.range": "Distance max",
   "set.range.0": "Illimitée",
   "set.trackedOnly": "Mission suivie seulement",
+  "set.amounts": "Montants",
+  "set.amountSize": "Taille des montants",
   "unit.percent": "{n}\u202f%",
 
 

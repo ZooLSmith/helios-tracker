@@ -10,6 +10,8 @@ export const LAYER_SETTINGS = {
   opacity: { type: "range", min: 10, max: 100, step: 5, def: 100 }, // area names, fog of war: how opaque, %
   range: { type: "choice", options: [0, 25, 50, 100, 200], def: 0, select: true }, // max distance from "Who", m (0: any)
   trackedOnly: { type: "bool", def: false }, // objectives: only the tracked mission's
+  amounts: { type: "bool", def: true }, // cash, eridium / moonstones: how much one gives - under its name, or alone
+  amountSize: { type: "range", min: 50, max: 200, step: 10, def: 100 }, // their text's size, % (like nameSize)
 };
 const COMMON = ["names", "nameSize", "size", "floors", "range"]; // (the panel's order: other floors just before max distance)
 
@@ -80,10 +82,12 @@ export const LAYERS = [
   // not gear: no real rarity (made-up levels, for their colour in game)
   { id: "pickups", group: "loot", folder: true, settings: [] },
   // (Other last: the buffs before it)
+  // (cash, eridium / moonstones: their amounts too - a setting of their own, next to Names)
   ...PICKUP_KINDS.flatMap((k) => [
     // buffs you use (interactive objects, not pickups: the Pre-Sequel's Moxxtails, BL2's shrines - a skill for a while)
     ...(k === "other" ? [{ id: "buff", group: "loot", parent: "pickups", on: true, tip: "layer.buffTip", settings: COMMON }] : []),
-    { id: "pickup." + k, group: "loot", parent: "pickups", legacy: "loot", on: true, settings: COMMON,
+    { id: "pickup." + k, group: "loot", parent: "pickups", legacy: "loot", on: true,
+      settings: k === "cash" || k === "eridium" ? ["names", "nameSize", "amounts", "amountSize", ...COMMON.slice(2)] : COMMON,
       ...(k === "other" ? { tip: "layer.pickup.otherTip" } : {}), ...(k === "oxygen" ? { game: "tps" } : {}) }]),
   { id: "containers", group: "loot", folder: true, settings: [] },
   { id: "chest", group: "loot", parent: "containers", on: true, settings: COMMON },
@@ -122,12 +126,14 @@ export const LAYER_COLOR = Object.fromEntries(LAYERS.map((l) => [l.id, l.color])
  *  one (the Pre-Sequel's oxygen canisters); the game not known yet: not those. */
 export function layerInGame(l, game) { return !l.game || l.game === game; }
 
-/** The layers' colours, from the page's tokens (base.css --layer-<id>, "." as "-"): read(name) -> the value
- *  (shapes.js initColors). The rarity layers keep the game's. */
-export function setLayerColors(read) {
+/** The layers' colours, from the page's tokens (base.css --layer-<id>, "." as "-"; a game's own first:
+ *  --layer-<id>-<game>, the Pre-Sequel's cyan moonstones): read(name) -> the value (shapes.js initColors). The rarity
+ *  layers keep the game's. */
+export function setLayerColors(read, game = "") {
   for (const l of LAYERS) {
     if (l.rarity) continue;
-    const c = read("--layer-" + l.id.replace(".", "-"));
+    const token = "--layer-" + l.id.replace(".", "-");
+    const c = (game && read(token + "-" + game)) || read(token);
     if (c) { l.color = c; LAYER_COLOR[l.id] = c; }
   }
 }

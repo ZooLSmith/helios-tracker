@@ -13,7 +13,7 @@ const TOKENS = { bg: "bg", grid: "grid", shield: "shield", health: "health", dea
 export function initColors() {
   for (const [k, token] of Object.entries(TOKENS)) COLORS[k] = tokenColor("--" + token);
   COLORS.mapFilter = tokenRaw("--map-filter") || "none"; // (the theme's map tint: draw.js mapCanvas)
-  setLayerColors(tokenColor);
+  setLayerColors(tokenColor, S.level?.game); // (a game's own layer colours: the level's game)
 }
 
 // The last marker drawn: its half-width / half-height (px, drawn) - every marker shape records its own (drew), and its
@@ -113,14 +113,14 @@ export function question(x, y, fill, k = 1) { // a mission to hand in: its giver
   ctx.restore();
 }
 
-export function coin(x, y, fill, k = 1) { // cash: a disc with a dark "$"
+export function coin(x, y, fill, k = 1, glyph = "$") { // cash: a disc with a dark "$" (the Pre-Sequel's moonstones: "m", the game's sign)
   drew(5.5 * k);
   ctx.save();
   ctx.beginPath(); ctx.arc(x, y, 5.5 * k, 0, Math.PI * 2);
   ctx.fillStyle = fill; ctx.fill(); ctx.lineWidth = 1.2; ctx.strokeStyle = COLORS.ink; ctx.stroke();
   ctx.fillStyle = COLORS.ink; ctx.font = `700 ${9 * k}px 'Segoe UI', system-ui, sans-serif`;
   ctx.textAlign = "center"; ctx.textBaseline = "middle";
-  ctx.fillText("$", x, y + 0.5 * k);
+  ctx.fillText(glyph, x, y + 0.5 * k);
   ctx.restore();
 }
 
@@ -279,6 +279,24 @@ export function label(x, y, text, color, raw, k = 1, r = lastW) {
   ctx.strokeText("?", qx, y + 4); ctx.fillText("?", qx, y + 4);
   ctx.globalAlpha = alpha;
 }
+
+/** How much a pickup gives ("$ 22", "3 moonstones"), by its marker like its name, smaller (k: its Amount size): under
+ *  the name (`nameK`: the name's size - its line's height), or in its place (0: no name). `r`: the marker's half-width,
+ *  as label()'s - lastMark() before the label clears it. */
+export function amountLabel(x, y, text, color, k = 1, r = lastW, nameK = 0) {
+  const s = markerScale;
+  ctx.font = `600 ${9 * s * k}px 'Segoe UI', system-ui, sans-serif`;
+  // (its baseline: one name line lower under a name - the name's own offsets, then its height; else where a name's is)
+  y += nameK ? 4 * s - 4 + (nameK - 1) * 4 * s + 11 * s * nameK - (1 - k) * 2 * s : 4 * s - 4 + (k - 1) * 4 * s;
+  x += Math.max(8 * s, r + 3) - 8;
+  ctx.lineWidth = 3 * Math.max(0.6, k); ctx.strokeStyle = COLORS.halo; ctx.fillStyle = color;
+  const alpha = ctx.globalAlpha;
+  ctx.globalAlpha = alpha * 0.85;
+  ctx.strokeText(text, x + 8, y + 4); ctx.fillText(text, x + 8, y + 4);
+  ctx.globalAlpha = alpha;
+}
+/** The last marker drawn's half-width (px): for a second line by it (amountLabel), before label() clears it. */
+export function lastMark() { return lastW; }
 
 export function areaName(x, y, text, color, k = 1) { // an area's name, centred on it (the map screen's style)
   ctx.font = `600 ${13 * k}px 'Segoe UI', system-ui, sans-serif`;

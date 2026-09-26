@@ -20,12 +20,13 @@ function layerIcon(l) {
   // a quest giver, a mission item: the map's "!" alone (a bar, a block as wide under it)
   const bang = `<circle cx="6" cy="6" r="5.9" style="fill: var(--map-halo)"/>` +
     `<rect x="4.3" y="1.9" width="3.4" height="5.2" fill="${c}"/><rect x="4.3" y="8.1" width="3.4" height="1.8" fill="${c}"/>`;
-  // money: the map's "$" disc
-  const coin = `<circle cx="6" cy="6" r="5" fill="${c}" ${o}/><text x="6" y="6.4" text-anchor="middle" dominant-baseline="middle" ` +
-    `font-size="8" font-weight="700" font-family="'Segoe UI', system-ui, sans-serif" style="fill: var(--map-ink)">$</text>`;
+  // money: the map's "$" disc (the Pre-Sequel's moonstones: its "m" one)
+  const coinOf = (glyph) => `<circle cx="6" cy="6" r="5" fill="${c}" ${o}/><text x="6" y="6.4" text-anchor="middle" dominant-baseline="middle" ` +
+    `font-size="8" font-weight="700" font-family="'Segoe UI', system-ui, sans-serif" style="fill: var(--map-ink)">${glyph}</text>`;
+  const coin = coinOf("$");
   const missionItem = `<polygon points="6,0.8 11.2,6 6,11.2 0.8,6" fill="${c}" ${o}/>`; // (the map's diamond)
   const shape = l.rarity ? triangle : l.id === "pickup.mission" ? missionItem : l.id === "giver" ? bang : l.id === "pickup.cash" ? coin
-    : l.id.startsWith("pickup") ? dot : {
+    : l.id === "pickup.eridium" && S.level?.game === "tps" ? coinOf("m") : l.id.startsWith("pickup") ? dot : {
     player: `<polygon points="6,1 10.3,10.8 6,8.3 1.7,10.8" fill="${c}" ${o}/>`,
     enemy: `<polygon points="6,1 11,6 6,11 1,6" fill="${c}" ${o}/>`,
     npc: `<circle cx="6" cy="6" r="3.9" fill="none" style="stroke: var(--map-outline-soft)" stroke-width="2.3"/><circle cx="6" cy="6" r="3.9" fill="none" stroke="${c}" stroke-width="1.3"/>`,
@@ -63,13 +64,15 @@ const foldKey = (id) => "layer:" + id; // a folder's entry in ui.closedGroups (n
 function settingHtml(l, key) {
   const s = LAYER_SETTINGS[key], v = layerCfg(l.id)[key], name = esc(t("set." + key));
   const attrs = `data-layer="${l.id}" data-set="${key}"`;
-  if (key === "nameSize" && l.settings.includes("names")) return ""; // (on the Names row: below)
-  if (key === "names" && l.settings.includes("nameSize")) {
-    // Names and their size on one row: the box, then the size's slider (no label: its tooltip says it)
-    const size = layerCfg(l.id).nameSize, sizeAttrs = `data-layer="${l.id}" data-set="nameSize"`;
+  // a box and its text's size on one row (Names + Name size, Amounts + Amount size): the box, then the size's slider
+  // (no label: its tooltip says it)
+  const SIZE_OF = { names: "nameSize", amounts: "amountSize" };
+  if (Object.values(SIZE_OF).includes(key) && l.settings.includes(Object.keys(SIZE_OF).find((b) => SIZE_OF[b] === key))) return ""; // (on its box's row)
+  if (SIZE_OF[key] && l.settings.includes(SIZE_OF[key])) {
+    const sizeKey = SIZE_OF[key], size = layerCfg(l.id)[sizeKey], sizeAttrs = `data-layer="${l.id}" data-set="${sizeKey}"`;
     return `<div class="cset"><label class="row cnames"><input type="checkbox" ${attrs}${v ? " checked" : ""}><span>${name}</span></label>` +
-      `<input type="range" ${sizeAttrs} min="${LAYER_SETTINGS.nameSize.min}" max="${LAYER_SETTINGS.nameSize.max}" ` +
-      `step="${LAYER_SETTINGS.nameSize.step}" value="${size}"${tipAttrs("", t("set.nameSize"))}>` +
+      `<input type="range" ${sizeAttrs} min="${LAYER_SETTINGS[sizeKey].min}" max="${LAYER_SETTINGS[sizeKey].max}" ` +
+      `step="${LAYER_SETTINGS[sizeKey].step}" value="${size}"${tipAttrs("", t("set." + sizeKey))}>` +
       `<span class="cval">${esc(t("unit.percent", { n: size }))}</span></div>`;
   }
   if (s.type === "bool") {

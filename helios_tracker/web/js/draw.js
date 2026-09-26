@@ -3,10 +3,11 @@
 // click, updates the layer counts.
 import { UU_PER_METER, mapTurn, worldToMap, yawToAngle } from "./geo.js";
 import { FLOOR_UU, LAYERS, LAYER_COLOR, chestTier, isGear, isGoldenChest, lootLayer, nameText, rainbowAt, rarity } from "./model.js";
+import { num } from "./i18n.js";
 import { look, withAlpha } from "./look.js";
 import { missionItemWanted } from "./missions.js";
 import { settings } from "./settings.js";
-import { COLORS, areaName, arrow, bang, bossDiamond, question, brackets, burst, chest, coin, diamond, dot, hollowDiamond, jumpMark, slotMark, vaultMark, label, leader, menuBadge, oxygenMark, respawnRing, ring, setMarkerScale, square, triangle, typeIcon,
+import { COLORS, areaName, arrow, bang, bossDiamond, question, brackets, burst, chest, coin, diamond, dot, amountLabel, lastMark, hollowDiamond, jumpMark, slotMark, vaultMark, label, leader, menuBadge, oxygenMark, respawnRing, ring, setMarkerScale, square, triangle, typeIcon,
   vitalBars } from "./shapes.js";
 import { S, findDetail, findPlayer, frame, pawnPos, trackedPawn } from "./state.js";
 const objectIds = new Set(); // (this frame's objects: a pickup on sale on one of them isn't drawn - the object is)
@@ -208,7 +209,7 @@ export function draw() {
     if (count) counts[id]++;
     if (cfg.on === false) return null;
     return { alpha: otherFloor && cfg.floors === "dim" ? 0.4 : 1, k: (cfg.size ?? 100) / 100 * G, names: !!cfg.names,
-      ns: (cfg.nameSize ?? 100) / 100 }; // (ns: the names' size, on top of the markers': label())
+      ns: (cfg.nameSize ?? 100) / 100, amounts: !!cfg.amounts, as: (cfg.amountSize ?? 100) / 100 }; // (ns: the names' size, on top of the markers': label())
   };
   const questShown = (mk) => mk.tracked || !L.objective.trackedOnly;
   const objColor = LAYER_COLOR.objective;
@@ -373,8 +374,14 @@ export function draw() {
     else if (layer === "pickup.mission" && p.ms?.k === "gives") bang(sx, sy, LAYER_COLOR[layer], st.k);
     else if (layer === "pickup.mission") diamond(sx, sy, 6 * st.k, LAYER_COLOR[layer]);
     else if (layer === "pickup.cash") coin(sx, sy, LAYER_COLOR[layer], st.k); // money: a "$" disc
+    else if (layer === "pickup.eridium" && S.level?.game === "tps") coin(sx, sy, LAYER_COLOR[layer], st.k, "m"); // moonstones: an "m" disc (the game's own sign for them: a small m)
     else dot(sx, sy, 3.5 * st.k, LAYER_COLOR[layer]); // not gear (ammo, cash...): its kind's colour, no rarity
+    const markR = lastMark(); // (label() clears it: the amount's line uses it too)
     if (st.names) label(sx, sy, nameText(p), isGear(p.c) ? color : LAYER_COLOR[layer], p.raw, st.ns); // (past its marker: shapes.js drew)
+    // cash, eridium / moonstones: how much (the collector's "am") - under the name, or alone in its place
+    if (st.amounts && p.am && (layer === "pickup.cash" || layer === "pickup.eridium")) {
+      amountLabel(sx, sy, num(p.am), LAYER_COLOR[layer], st.as, markR, st.names ? st.ns : 0); // (the number alone: its disc has the "$" / "m")
+    }
     hits.push({ sx, sy, r: 6 * st.k, kind: "loot", item: p });
   }
   // pawns: players on top, the tracked one last

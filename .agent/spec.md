@@ -248,7 +248,9 @@ It draws nothing in game: everything it shows is on the page.
   settings (`model.js` `LAYER_SETTINGS`, which apply per layer in `LAYERS[].settings`, in the panel's order):
   Names (its Name size slider on the same row, no label: 50-200 %, the labels' text; a name starts past its
   marker, whatever it is: every marker shape records its own size (shapes.js `drew`), label() and vitalBars() read
-  it - a new shape calls drew too), Size (50-200 %), Other
+  it - a new shape calls drew too), Amounts (Cash, Eridium / Moonstones: how much one gives, on by default - the number
+  alone (its disc has the "$" / "m"), a smaller line like a subtitle: under the name, or in its place without it; its
+  Amount size slider on its row, like Names'), Size (50-200 %), Other
   floors (show / dim / hide, > 6 m up / down from "Who"), Max distance (from "Who"), Tracked mission only
   (objectives). Counts = what passes the layer's filters, on or not.
   Faded markers (another floor, looted, an untracked quest, a respawning / dead player): drawn whole on a layer of

@@ -3,6 +3,7 @@ import { $ } from "./dom.js";
 import { decodeTexture } from "./dxt.js";
 import { setVariant, t } from "./i18n.js";
 import { objectCategory, setRarityTable } from "./model.js";
+import { initColors } from "./shapes.js";
 import { invalidate } from "./scheduler.js";
 import { settings } from "./settings.js";
 import { S, findDetail, itemById, pawnPos } from "./state.js";
@@ -110,7 +111,7 @@ function onLevel(level) {
   const wasReady = S.level && S.level.id === level.id && S.level.status === "ready";
   const gameChanged = (S.level?.game || "") !== (level.game || "");
   S.level = level;
-  if (gameChanged) renderLayers(); // (a game's own layers: the Pre-Sequel's oxygen - model.js layerInGame)
+  if (gameChanged) { initColors(); renderLayers(); } // (a game's own layers and colours: model.js layerInGame, setLayerColors)
   if (level.rarity) setRarityTable(level.rarity, level.game); // (tiers by colour entry: each game's own table)
   renderLevel();
   renderMessage();
