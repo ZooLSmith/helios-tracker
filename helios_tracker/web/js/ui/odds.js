@@ -20,10 +20,22 @@ function lowHtml(row) {
   if (!row.lo) return "";
   const [a, b] = row.lo;
   const range = Math.abs(a - b) < 0.05 ? pct(a) : "~" + t("unit.percent", { n: `${figure(Math.min(a, b))}–${figure(Math.max(a, b))}` });
-  return ` <span class="odlow">${esc(t("odds.ifLow", { p: range, what: t("odds.low." + (row.c || "ammo")) }))}</span>`;
+  // (its condition: the collector's - health, oxygen, ammo; another resource: its own name)
+  return ` <span class="odlow">${esc(t("odds.ifLow", { p: range, what: t("odds.low." + row.c, null, row.c || "?") }))}</span>`;
+}
+
+/** A pool that only wraps one item (Pool_Oxygen_Instant -> Pool_BuffDrinks_OxygenInstant -> "Oxygen Canister"): that
+ *  item's game name (lootodds.py "g"), down single-entry pools; else null (a real choice, or no game name). */
+function singleItem(key, depth = 0) {
+  const pool = S.lootPools && S.lootPools[key];
+  if (!pool || !pool.e || pool.e.length !== 1 || depth > MAX_DEPTH) return null;
+  const [e] = pool.e;
+  return e.pool ? singleItem(e.pool, depth + 1) : e.g ? e.n : null;
 }
 
 const poolName = (key) => {
+  const item = singleItem(key);
+  if (item) return nameHtml({ n: item, raw: 0 }); // (the game's name for the one item it gives)
   const pool = S.lootPools && S.lootPools[key];
   return nameHtml({ n: String(pool ? pool.n : key.split(".").pop()).replace(/^Pool_/, ""), raw: 1 });
 };
@@ -32,10 +44,11 @@ const poolName = (key) => {
 function poolHtml(key, depth, count = 1) {
   const pool = S.lootPools && S.lootPools[key];
   const head = `${count > 1 ? `<span class="odn">${esc(t("odds.times", { n: count }))}</span>` : ""}${poolName(key)}`;
-  if (!pool || !pool.e || !pool.e.length || depth > MAX_DEPTH) return `<div class="odpool">${head}</div>`;
+  // (one item, down single-entry pools: named by it, nothing to open)
+  if (!pool || !pool.e || !pool.e.length || depth > MAX_DEPTH || singleItem(key)) return `<div class="odpool">${head}</div>`;
   const rows = [...pool.e].sort((a, b) => (b.p ?? -1) - (a.p ?? -1)).map((e) =>
     `<div class="odrow"><span class="odp">${esc(pct(e.p))}</span><span class="odwhat">` +
-    (e.pool ? poolHtml(e.pool, depth + 1) : nameHtml({ n: e.n, raw: 1 })) +
+    (e.pool ? poolHtml(e.pool, depth + 1) : nameHtml({ n: e.n, raw: e.g ? 0 : 1 })) + // (g: the game's item name)
     (e.min ? ` <span class="odmin">${esc(t("odds.fromLevel", { n: e.min }))}</span>` : "") + lowHtml(e) + `</span></div>`).join("");
   return `<details class="odpool"><summary>${head}</summary><div class="odrows">${rows}</div></details>`;
 }

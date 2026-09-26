@@ -171,6 +171,7 @@ export default {
   "odds.ifLow": "{p} if low on {what}",
   "odds.low.health": "health",
   "odds.low.ammo": "ammo",
+  "odds.low.oxygen": "oxygen",
   "odds.fromLevel": "Lv {n}+",
   "odds.times": "{n} ×",
   "odds.nothing": "Nothing",

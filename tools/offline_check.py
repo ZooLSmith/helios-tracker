@@ -1505,6 +1505,15 @@ def check_helios_tracker() -> None:  # noqa: PLR0915
     odds_live = {r["n"]: r for r in lootodds.POOLS["GD_Itempools.WeaponPools.Pool_Weapons_Pistols"]["e"]}
     assert abs(odds_live["Pool_Weapons_Pistols_01_Common"]["p"] - 62.5 / 72.51 * 100) < 0.01, odds_live
     assert lootodds.refresh(ns(Game=None)), "a client (no game info): back to the base values"
+    # a weight's condition, from the resource (D_Resources.*): health / oxygen by name, ammo by its group, another its name
+    # (the Pre-Sequel's oxygen canisters read "if low on ammo" when "ammo" was the default)
+    odds_conditions = [lootodds.condition_of(ns(Name=n, Outer=ns(Name=g))) for n, g in
+                       (("Health", "D_Resources"), ("Oxygen", "D_Resources"), ("Ammo_Sniper_Rifle", "AmmoResources"), ("Shield", "D_Resources"))]
+    assert odds_conditions == ["health", "oxygen", "ammo", "Shield"], odds_conditions
+    # an item entry: the game's name for it (a usable item's ItemName, a balance's InventoryDefinition's); none: ""
+    assert lootodds._item_text(ns(ItemName="Oxygen Canister")) == "Oxygen Canister"
+    assert lootodds._item_text(ns(ItemName="", InventoryDefinition=ns(ItemName="Health Now!"))) == "Health Now!"
+    assert lootodds._item_text(ns(InventoryDefinition=None)) == "", "a weapon's balance: no item name"
     print(f"  loot odds: the golden chest {[round(o['p']) for o in odds_chest]} %, health in a box ~{odds_box[1]['p']:.0f} % "
           f"(low on health ~{odds_box[1]['lo'][0]:.0f}-{odds_box[1]['lo'][1]:.0f} %), a legendary pool from Lv 7, the host's live common modifier")
     missions = json.loads(hub.latest("missions"))

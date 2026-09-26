@@ -25,7 +25,20 @@ from .util import try_
 
 MAX_DEPTH = 6  # pool nesting followed
 MAX_ENTRIES = 40  # a pool's entries sent
-CONDITIONS = {"Health": "health"}  # an AmmoDropWeight resolver's resource -> the page's condition ("if low on ...")
+# An AmmoDropWeight resolver's resource -> the page's condition ("if low on ..."): D_Resources.Health / .Oxygen (the
+# Pre-Sequel's) by name, the ammo ones by their group (D_Resources.AmmoResources.Ammo_*); another: its own name (not a
+# guess - "ammo" was the default once, and the Pre-Sequel's oxygen canisters read "if low on ammo")
+CONDITIONS = {"Health": "health", "Oxygen": "oxygen"}
+
+
+def condition_of(resource: Any) -> str:
+    """The page's condition for a resource a weight depends on ("health", "oxygen", "ammo", else its name)."""
+    name = str(try_(lambda: resource.Name, "") or "")
+    if name in CONDITIONS:
+        return CONDITIONS[name]
+    if str(try_(lambda: resource.Outer.Name, "") or "") == "AmmoResources":
+        return "ammo"
+    return name
 
 
 class Val:
@@ -143,8 +156,7 @@ def attr_value(attr: Any, depth: int = 0) -> Val | None:
             low_min = data_value(try_(lambda: r.MinBelowThresholdWeight), depth)
             low_max = data_value(try_(lambda: r.MaxBelowThresholdWeight), depth)
             if above is not None and low_min is not None and low_max is not None:
-                resource = str(try_(lambda: r.Resource.Name, "") or "")
-                value = Val(above.n, (low_min.n, low_max.n), CONDITIONS.get(resource, "ammo"))
+                value = Val(above.n, (low_min.n, low_max.n), condition_of(try_(lambda: r.Resource)))
     _inits[key] = value
     return value
 
@@ -178,6 +190,15 @@ def _pct(x: float | None) -> float | None:
     return None if x is None else round(x * 100, 3)
 
 
+def _item_text(item: Any) -> str:
+    """An item entry's name as the game has it: its ItemName (a usable item's definition - BuffDrink_OxygenInstant:
+    "Oxygen Canister"), or its balance's InventoryDefinition's; "" without (a weapon's: from its parts - none here)."""
+    for obj in (item, try_(lambda: item.InventoryDefinition)):
+        if obj is not None and (text := str(try_(lambda o=obj: o.ItemName, "") or "")) and text != "None":
+            return text
+    return ""
+
+
 def pool_key(pool: Any) -> str:
     return str(try_(pool._path_name, "") or pool.Name)
 
@@ -198,6 +219,8 @@ def add_pool(pool: Any, pools: dict[str, dict[str, Any]], depth: int = 0) -> str
         item = try_(lambda e=entry: e.InvBalanceDefinition)
         target = sub if sub is not None else item
         row: dict[str, Any] = {"n": str(try_(lambda t=target: t.Name, "?"))}
+        if sub is None and (text := _item_text(item)):
+            row["n"], row["g"] = text, 1  # an item: the game's name for it ("Oxygen Canister"); a pool: its object name
         if share is not None:
             row["p"] = _pct(share)
         if low:
