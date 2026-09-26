@@ -7,6 +7,8 @@ export const S = {
   level: null, images: [], // [{canvas, bounds}]
   pawns: new Map(), pickups: [], objects: [],
   pawnInfo: {}, // id -> the pawn's description {k, n, raw?, l?} (the "pawninfo" channel: data.js merges it in each state)
+  assets: {}, // what the server can serve from the game's files now ({cards}: its "assets" event)
+  groundItems: new Map(), // id -> the gear pickups' items (their cards: the "items" channel); itemById looks there first
   areas: [], explored: false, // the level's discovery areas (names, fog of war: data.js onAreas), all of it explored
   fogBlob: null, // the game's fog of war piece: {canvas, bounds} (placed per area: S.level.fog.pieces)
   video: null, // a cutscene playing (a video / an in-engine one): {len (s, or null), at (epoch s), paused, pos (s), name} - data.js onCutscene
@@ -71,6 +73,19 @@ export function isTrackedPlayer(p) {
   const target = settings.view.target;
   const named = target !== "me" && S.players.some((q) => !q.local && q.n === target);
   return named ? !p.local && p.n === target : !!p.local;
+}
+
+/** An item's record by its id (its object's address): on the ground (a gear pickup's "it") or in a player's gear - the
+ *  same item dropped / picked up keeps its id (and its card's open / closed state: S.expanded). */
+export function itemById(id) {
+  if (!id) return null;
+  const ground = S.groundItems.get(id);
+  if (ground) return ground;
+  for (const p of S.players) {
+    const found = (p.equipped || []).find((it) => it.i === id) || (p.backpack || []).find((it) => it.i === id);
+    if (found) return found;
+  }
+  return null;
 }
 
 /** The inspected player (by id, else by name: ids change when a level loads). */

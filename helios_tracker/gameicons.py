@@ -39,6 +39,45 @@ def icon_packages(cooked: Path | None) -> list[Path]:
             + [p for p in (cooked / "Startup.upk",) if p.is_file()])
 
 
+_textures: dict[str, tuple[Path, int]] | None = None  # every always-loaded package's texture: path -> (package, export)
+_texture_pngs: dict[str, bytes | None] = {}
+TEXTURE_PATH = re.compile(r"[A-Za-z0-9_]+(?:\.[A-Za-z0-9_-]+)+")
+
+
+def set_textures(index: dict[str, tuple[Path, int]]) -> None:
+    """The always-loaded packages' textures by path, from gamescan's pass (a pickup's own icon: its PickupFlagIcon)."""
+    global _textures  # noqa: PLW0603
+    with _lock:
+        _textures = index
+        _texture_pngs.clear()
+
+
+def textures_ready() -> bool:
+    with _lock:
+        return _textures is not None
+
+
+def texture_by_path(path: str) -> bytes | None:
+    """An always-loaded texture by its object path ("fx_shared_items.Textures.ItemCards.Credits": a pickup's icon) as
+    a PNG, or None (not one of them, won't decode, not indexed yet: not kept). Decoded by gamework (cached on disk);
+    its pixels in a texture file cache (.tfc) too (tacmap._texture). Thread-safe."""
+    if not TEXTURE_PATH.fullmatch(path or ""):
+        return None
+    key = path.lower()
+    with _lock:
+        if key in _texture_pngs:
+            return _texture_pngs[key]
+        if _textures is None:
+            return None
+        where = _textures.get(key)
+    data = gamework.asset({"do": "icon", "package": str(where[0]), "export": where[1]}, [where[0]]) if where else None
+    with _lock:
+        if len(_texture_pngs) >= MAX_ICONS:
+            _texture_pngs.pop(next(iter(_texture_pngs)))
+        _texture_pngs[key] = data
+    return data
+
+
 def set_index(index: dict[str, tuple[Path, int]]) -> None:
     """The icons by path, from gamescan's one pass (cached)."""
     global _index  # noqa: PLW0603

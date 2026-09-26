@@ -14,7 +14,11 @@ It draws nothing in game: everything it shows is on the page.
   Second** (1-30, default 10). Port / LAN changes restart the server immediately.
 - Page: full-window canvas, the level's map image(s), markers (the tracked player - "Who", else the host -
   = yellow arrow, drawn on top; other players = white arrows + names, enemies = red diamonds (like the game's minimap) + health bar when hurt, NPCs green
-  hollow rings (not dots: the other pickups are dots of their kind's colour, cash a yellow "$" disc), vehicles purple, loot = triangles in rarity colour, objects = squares by category). Follow me (F), fit (0),
+  hollow rings (not dots: the other pickups are dots of their kind's colour, cash a yellow "$" disc - their own icon, the
+  game's PickupFlagIcon, in the tooltip / panel: unreadable as map markers, too detailed; their amount there too:
+  amounts.py), vehicles purple, loot = its item card's type icon (a rifle, a shield... the game's art, its white fill in the rarity's
+  colour; a triangle until loaded / without one) - clicked, its item's card (stats, parts: the backpack's own record,
+  by the item's address - dropped / picked up, the same item), objects = squares by category). Follow me (F), fit (0),
   **Smooth movement** (on: interpolates between updates, redraws every frame; off: markers jump,
   frames are only requested on a change - data, view, input - for weak / integrated GPUs), tooltip
   (name, kind, health, distance, height difference), world X/Y by the cursor (above it; Settings Show coordinates or C, off by default). Wheel / pinch zoom,
@@ -297,12 +301,14 @@ It draws nothing in game: everything it shows is on the page.
   both built from the logo's sources, a local repo kept out of git in `_work/logo/`), `/events` (SSE: `level`, `state` - only what moves, sent only when something did: per pawn a row
   `[id, x, y, z, health?, {shield, players' yaw, flags...}?]`, full health / shield left out -, `pawninfo` - the pawns'
   kind / name / level / max health / max shield - and `pickups`, both on change, `objects`, `players`... Record
-  channels (`state`, `pawninfo`, `pickups`, `objects`, `players`, `missionlog`, `missiondefs`, `shops`:
+  channels (`state`, `pawninfo`, `pickups`, `items` - the gear pickups' item records, a few built per update -,
+  `objects`, `players`, `missionlog`, `missiondefs`, `shops`:
   `Hub.publish_records`) send only what changed since the version the page has - records added / changed (a dict
   record: its changed fields, `-` the ones it lost), ids gone, the order when it changed; a page behind gets what it
   missed at once, a new one (or one too far behind) everything - data.js `keyed()` merges them back into the whole
-  list its handlers get (a message out of step: a new stream). The other channels: their latest payload whole),
-  `/image/<level>/<n>`. Server changes need a mod reload; page / i18n edits only a
+  list its handlers get (a message out of step: a new stream). The other channels: their latest payload whole -
+  `assets` {cards}: what the server can serve from the game's files now (the map's gear icons wait for it)),
+  `/image/<level>/<n>`, `/texture/<path>.png` (an always-loaded texture by object path: a pickup's icon). Server changes need a mod reload; page / i18n edits only a
   browser refresh. The Hub holds
   the payloads; server threads never touch UObjects. The running server is kept on
   `sys._helios_tracker_server` so a reload can always stop the previous one.

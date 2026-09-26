@@ -210,6 +210,20 @@ canvas.dragging { cursor: grabbing; }
 #htip .tsec.bonus .tl { color: var(--skill-bonus); } /* an item's bonus ranks: blue, like the game's */
 #htip .tsec.desc .tl { font-size: 11.5px; line-height: 1.35; }
 #tip b { display: block; font-size: 13px; }
+/* a pickup's own icon (the game's): in the bottom right corner, the text clear of it */
+#tip.hasicon { padding-right: 58px; min-height: 44px; }
+#tip .tpicon { position: absolute; right: 6px; bottom: 6px; width: 44px; height: 44px; }
+/* gear's manufacturer logo in its rarity's colour, 60 % pastel (its white fill multiplied: the item card's logo,
+   drawer.css .iitint.brand) - along the bottom, right-aligned: logos are wide */
+#tip.hasgear { padding-bottom: 34px; } /* (a logo reads small: the pickups' icons needed the size) */
+#tip .tpicons { position: absolute; right: 8px; bottom: 6px; display: flex; align-items: center; gap: 6px; }
+#tip .tpelement { display: block; height: 22px; } /* its element's icon, as the game draws it (the card's) */
+#tip .tptint { position: relative; display: block; }
+#tip .tpbrand { color: color-mix(in srgb, var(--c, var(--dim)) 60%, white); font-size: 12px; } /* no logo: the maker's name */
+#tip .tptint img { display: block; height: 26px; max-width: 110px; }
+#tip .tptint::after { content: ""; position: absolute; inset: 0; mix-blend-mode: multiply;
+  background: color-mix(in srgb, var(--c, white) 60%, white);
+  -webkit-mask: var(--src) center / 100% 100% no-repeat; mask: var(--src) center / 100% 100% no-repeat; }
 #tip .tl { display: block; color: var(--dim); } /* the lines under the name, one block each */
 #tip .tlist { display: block; margin: 1px 0 2px 8px; font-size: 11px; } /* e.g. a container's contents */
 #tip .tli { display: block; }

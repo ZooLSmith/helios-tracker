@@ -60,6 +60,8 @@
 .item { min-width: 0; overflow-wrap: anywhere; }  /* (a long unbroken game text wraps, never widens the drawer) */
 .item.expanded .idetail { display: block; }
 .kv { display: grid; grid-template-columns: auto 1fr; gap: 1px 10px; }
+.dpicons { display: flex; justify-content: center; margin: 2px 0 8px; } /* a pickup's own icon (the game's), big */
+.dpicon { width: 64px; height: 64px; }
 .kv > span:nth-child(odd) { color: var(--dim); }
 .plist { font-size: 12px; } .plist > div:not(.odds) { padding: 1px 0; border-bottom: 1px solid var(--divider); }
 .kv > span:nth-child(even) { overflow-wrap: anywhere; }

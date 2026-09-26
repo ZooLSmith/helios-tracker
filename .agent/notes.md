@@ -389,6 +389,34 @@ What "Can contain" could turn into percentages - read as properties only:
   a DLC chest (a Pirate's Booty / Dragon Keep area). The Pre-Sequel is another game on the same engine (the SDK's
   willow2 side covers it) - the mod as a whole isn't known to run there; a question for the whole mod, not just this.
 
+## Pickup amounts (probe_pickup_amounts*.py, in game, 2026-09-26)
+
+How much a cash / ammo pickup gives: never a plain property (the item's `MonetaryValue` is 0 on cash, `Quantity` 1) -
+worked out from the item definition by the attribute system, all of it readable as properties (amounts.py):
+- **Cash** (`Currency` / `Currency_Big`, balance `ItemGrade_Currency_Money[_Big]`): its ExternalAttributeEffects adds
+  `CreditsOnHand` + `AttrSlotValue_BaseCredits` (an AttributeSlotEffectAttributeValueResolver, slot "BaseCredits") **at
+  scale 0**; the amount is its "external" AttributeSlotEffects (`bExternalSlot`, AttributeSlotEffectMode 2): slot
+  BaseCredits, `CreditsOnHand` MT_PostAdd, `GD_Economy.CashPickups.Init_CashPickupCalc` x 10 (+ x 0.1 per grade above
+  AttributeSlotBaseGrade 1: GradeIncrease 0 seen). Init_CashPickupCalc = `Att_CashPickups_BaseValue` (constant 1.25) x
+  `Att_UniversalPriceIncreasePerLevelScaler` (1.12) ^ `CurrencyItemLevel` (an ObjectPropertyAttributeValueResolver: the
+  item's `ExpLevel`) - level 5: 22.03, **credited rounded up: $23** (seen in game; plain `Currency` at level 6: scale 1,
+  2.47 -> $3). `Currency_Big` has MonetaryValueModifierTotal 1.0 (plain: 0) - its role unknown.
+- **Ammo** (`AmmoDrop_<type>_<Clip...>`): adds to the weapon's pool (`Ammo_<type>_CurrentValue`) the formula
+  `Init_AmmoAmountShared_<type>`: Multiplier `AmmoAmount_<type>` (a ConditionalAttributeValueResolver: 36 if
+  `PlayThroughCount` == 2, else 18 - repeater; `PlayThroughCountAttributeValueResolver` IncludePlaythroughThree 0: the
+  third taken as 2, inferred; the playthrough: `WorldInfo.GRI.CurrentPlaythrough` + 1 - a property of the game
+  replication info; the controller only has `GetCurrentPlaythrough()`, `pc.CurrentPlaythrough` fails) x Level `Init_AmmoAmountSharedPercentage_<type>` (a ConditionalInitialization: 0.5 -
+  `Att_AmmoPercentageShared_<type>` - if the item's `ClonedForSharing` == 1, a co-op copy; else 1), ^1 + 0.
+- **Their icons** (probe_pickup_icons.py; offline: tools/extract_pickup_icons.py -> _work/pickup_icons/): the item
+  definition's `PickupFlagIcon`, a 128 x 128 DXT5 texture in Startup.upk - `fx_shared_items.Textures.ItemCards.`
+  Credits, Eridium_Currency, Health, Ammo_Repeater / SMG / CombatRifle / Shotgun / RocketLauncher / Grenade, the
+  sniper's `fx_shared_items.Textures.Ammo_Sniper_Dif`; navy and white (cash / health: a disc, ammo: a starburst badge;
+  the user: "they're the right ones" - drawn as they are). Mission items: none. Eridium's pixels aren't in the
+  package: bulk flags 0x11 (separate file + LZO) - in the texture file cache named by its `TextureFileCacheName`
+  (`Textures` -> CookedPCConsole/Textures.tfc) at the mip header's offset, a compressed chunk (tacmap._texture).
+- Not seen yet: eridium, health (the collector tries eridium the same way; health left out - its amount may be a share
+  of max health). The picker's own bonuses (skills, relics) aren't counted.
+
 ## Level geometry for a 3D map (offline, the level's packages, 2026-09-25)
 
 What a level's `<Map>_*.upk` packages hold (the persistent one + every sublevel: `_Dynamic`, `_Freighter`, `_Light`...;

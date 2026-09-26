@@ -8,6 +8,19 @@ import { skillStatParts } from "./skills.js";
 
 const KIND_ORDER = ["weapon", "shield", "grenade", "classmod", "relic", "usable", "mission", "item"];
 
+/** A pickup's own icon (the game's PickupFlagIcon: cash, eridium, health, each ammo type - too detailed for the map's
+ *  markers, read here at its size) as an <img>, or "" (none, or the server can't serve textures yet: "assets"). */
+export function pickupIconHtml(p, cls) {
+  if (!p || !p.fi || !S.assets.textures || !/^[A-Za-z0-9_]+(\.[A-Za-z0-9_-]+)+$/.test(p.fi)) return "";
+  return `<img class="${cls}" src="/texture/${esc(p.fi)}.png" crossorigin="anonymous" alt="" draggable="false" onerror="this.remove()">`;
+}
+
+/** How much a money / ammo pickup gives ("$ 22", "3 eridium", "18 rounds": the collector's "am", amounts.py), or "". */
+export function pickupAmount(p) {
+  if (!p || !p.am) return "";
+  return p.pk === "eridium" ? t("currency.eridium", { n: num(p.am) }) : p.pk === "ammo" ? t("tip.rounds", { n: num(p.am) }) : money(p.am);
+}
+
 export function rarityName(q) {
   const [key] = rarity(q || 0);
   return t("rarity." + key, { n: q || 0 });

@@ -22,7 +22,8 @@ import unrealsdk
 from mods_base import ENGINE, get_pc
 from unrealsdk.unreal import WeakPointer
 
-from .inspector import read_players
+from .amounts import pickup_amount
+from .inspector import ground_item, is_gear, read_players
 from . import lootodds
 from .missions import MissionLog, mission_id
 from .missions import objective_index as _mission_index
@@ -37,6 +38,7 @@ MOVIE_SCALE = 4  # movie px per volume "pixel": UnrealUnitsPerPixel is 32, the f
 LEVEL_CHECK_EVERY = 1.0  # s
 SCAN_EVERY = 120.0  # s between full pickup scans: a safety net, new ones come from the spawn hook
                     # (each find_all walks every object in the game: ~10 ms, a hitch - measured)
+ITEMS_PER_UPDATE = 1  # gear pickups' item records built per state update (function calls, parts: a few ms each)
 HEALTH_EVERY = 4  # updates between health reads of a pawn (function calls: the costly part of an update)
 OBJECTS_EVERY = 120.0  # s between full interactive object scans: a safety net (~11 ms); objects that
                        # spawn / get their balance / are destroyed later come from hooks
@@ -179,15 +181,22 @@ def level_name(map_name: str) -> str:
     return cached
 
 
+def current_playthrough() -> int:
+    """The playthrough, 0-based (Normal 0, True Vault Hunter 1...), -1 if unknown: the game replication info's
+    CurrentPlaythrough (tools/probe_loot_odds2.txt - a property there; the controller only has a GetCurrentPlaythrough
+    function: reading pc.CurrentPlaythrough failed silently, ammo amounts and the enemies' playthrough names with it)."""
+    return try_(lambda: int(ENGINE.GetCurrentWorldInfo().GRI.CurrentPlaythrough), -1)
+
+
 def pawn_display_name(pawn: Any) -> str:
     """An AI pawn's name as the game shows it, from properties only (no function call: the name
     functions crashed the game): its AIPawnBalanceDefinition's PlayThroughs[].DisplayName - the entry
-    of the current playthrough (the controller's CurrentPlaythrough, 0-based; the entries' PlayThrough
-    is 1-based) if it has a name, else the first one that has. "" if none."""
+    of the current playthrough (current_playthrough, 0-based; the entries' PlayThrough is 1-based) if it
+    has a name, else the first one that has. "" if none."""
     balance = try_(lambda: pawn.BalanceDefinitionState.BalanceDefinition)
     entries = try_(lambda: list(balance.PlayThroughs), []) or [] if balance is not None else []
     names = [(try_(lambda e=e: int(e.PlayThrough), 0), try_(lambda e=e: str(e.DisplayName), "") or "") for e in entries]
-    current = try_(lambda: int(get_pc(possibly_loading=True).CurrentPlaythrough), -1)
+    current = current_playthrough()
     return next((n for pt, n in names if n and pt == current + 1), "") or next((n for _, n in names if n), "")
 
 
@@ -344,6 +353,7 @@ class Collector:
         self._log = MissionLog()
         self._active = False  # a page was connected last tick
         self._pickups: dict[int, WeakPointer] = {}  # by address: from scans and the spawn hook
+        self._gear_classes: dict[int, bool] = {}  # item class address -> gear (cards on the map; per level: addresses)
         # pawn address -> (health, max, shield, shield max), read every HEALTH_EVERY updates
         self._health: dict[int, tuple[float, float, float, float]] = {}
         self._skills = SkillReader()  # every player's action skill, timed effects, melee cooldown
@@ -1024,6 +1034,13 @@ class Collector:
         self._info[addr] = info
         return info
 
+    def _is_gear(self, inv: Any) -> bool:
+        """inspector.is_gear, per item class (cached by its address)."""
+        key = inv.Class._get_address()
+        if (gear := self._gear_classes.get(key)) is None:
+            gear = self._gear_classes[key] = bool(try_(lambda: is_gear(inv), False))
+        return gear
+
     def _pickup_info(self, p: Any) -> dict[str, Any]:
         addr = p._get_address()
         if (info := self._info.get(addr)) is not None:
@@ -1040,6 +1057,15 @@ class Collector:
             info["l"] = level
         if kind := pickup_kind(inv):  # ammo / cash / eridium / health (the page's pickup layers)
             info["pk"] = kind
+            # its own icon (the game's: its definition's PickupFlagIcon - fx_shared_items...Credits, Ammo_SMG...: the
+            # map marker, served by /texture/<path>.png)
+            if (icon := try_(lambda: inv.DefinitionData.ItemDefinition.PickupFlagIcon)) is not None:
+                if path := try_(lambda: str(icon._path_name()), ""):
+                    info["fi"] = path
+            # how much it gives (the tooltip: "$ 22", "18 rounds") - worked out from its definition (amounts.py)
+            if kind in ("cash", "eridium", "ammo"):
+                if amount := try_(lambda: pickup_amount(inv, current_playthrough() + 1)):
+                    info["am"] = amount
         if (mission := pickup_mission(inv)) is not None:
             info["ms"] = mission
         self._info[addr] = info
@@ -1144,6 +1170,8 @@ class Collector:
         self._health = health  # drops the pawns that are gone
         self._skills.forget({a for a in (try_(lambda p=p: field(p, "Controller")._get_address()) for p in players) if a})
         pickups = []
+        items: dict[str, dict[str, Any]] = {}  # the gear pickups' items (their cards: "items"), by id
+        budget = ITEMS_PER_UPDATE
         for key, ptr in list(self._pickups.items()):
             p = ptr()
             if p is None:
@@ -1153,7 +1181,19 @@ class Collector:
                 if field(p, "bDeleteMe") or field(p, "bHidden"):
                     continue
                 loc = field(p, "Location")
-                pickups.append({**self._pickup_info(p), "x": round(loc.X), "y": round(loc.Y), "z": round(loc.Z)})
+                pickup = {**self._pickup_info(p), "x": round(loc.X), "y": round(loc.Y), "z": round(loc.Z)}
+                # Gear: its item's record (its card: stats, parts - the page's panel when it's clicked; the backpack's
+                # own, by the item's address: dropped / picked up, the same item) - built a few per update (function
+                # calls: a boss's loot pile over a few updates); its type / element icons' keys on the map marker
+                inv = try_(lambda p=p: field(p, "Inventory"))
+                if inv is not None and self._is_gear(inv):
+                    item, built = try_(lambda inv=inv: ground_item(inv, budget > 0), (None, False))
+                    budget -= built
+                    if item is not None:
+                        items[item["i"]] = item
+                        pickup["it"] = item["i"]
+                        pickup.update({k: item[k] for k in ("wt", "el") if k in item})
+                pickups.append(pickup)
             except Exception as ex:  # noqa: BLE001
                 log_error("pickup", ex)
         t_pickups = time.perf_counter()
@@ -1161,6 +1201,7 @@ class Collector:
         # everything went out 10 times a second), each sending only what changed (Hub.publish_records): the pickups, the
         # pawns' descriptions, the state - what moves (only the pawns that did, with the time). Descriptions and pickups
         # first: a new pawn's arrives with (or before) its first move (the page waits for it anyway).
+        self.hub.publish_records("items", "items", list(items.values()), {"level": self.level_id})  # (before their pickups)
         self.hub.publish_records("pickups", "pickups", pickups, {"level": self.level_id})
         self.hub.publish_records("pawninfo", "pawns", infos, {"level": self.level_id})
         paused = try_(lambda: field(wi, "Pauser") is not None, False)  # the game paused (its menu)

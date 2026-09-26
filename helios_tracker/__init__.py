@@ -23,7 +23,7 @@ from unrealsdk.hooks import Type
 from unrealsdk.unreal import BoundFunction, UObject, WrappedStruct
 
 from .collector import Collector, cooked_dir
-from . import gamefonts, gamescan, gamework
+from . import gamecards, gamefonts, gameicons, gamescan, gamework
 from .script import start_script
 from .server import Hub, TrackerServer
 from .util import log, log_error, start_log
@@ -89,6 +89,22 @@ open_page = ButtonOption(
 
 _hub = Hub()
 _collector = Collector(_hub)  # not `collector`: that would shadow the submodule
+
+
+def _publish_assets() -> None:
+    """The game assets the server can serve now ("assets": the page asks for item card icons only once they're there -
+    before, a 404). Any thread (gamecards.listener: the files' scan, the first players' read)."""
+    payload = '{"cards":%d,"textures":%d}' % (gamecards.ready(), gameicons.textures_ready())
+    if payload != _assets_sent[0]:  # (only when it changed: the three kinds' keys come one by one)
+        _assets_sent[0] = payload
+        _hub.publish("assets", payload)
+
+
+_assets_sent = [""]
+
+
+gamecards.listener = _publish_assets
+_publish_assets()
 
 
 def _lan_ip() -> str | None:

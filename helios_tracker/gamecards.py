@@ -27,6 +27,7 @@ import threading
 import zlib
 from dataclasses import dataclass
 from pathlib import Path
+from typing import Any
 
 from . import gamework
 from .gameicons import decode_dxt, png
@@ -70,11 +71,32 @@ class Art:
                    {int(k): v for k, v in d["ancestry"].items()})
 
 
+# Called (no arguments, any thread) when ready() may have changed: the mod publishes it ("assets") - the page asks
+# for icons only once they can be found (asked before: a 404, and a map marker gave up on it)
+listener: Any = None
+
+
+def ready() -> bool:
+    """Whether icons can be looked up: the game's files indexed (gamescan) and every kind's keys known (the first
+    players' read)."""
+    with _lock:
+        return _index is not None and all(_keys[k] for k in KINDS)
+
+
+def _changed() -> None:
+    if listener is not None:
+        try:
+            listener()
+        except Exception:  # noqa: BLE001, S110 - (the page's news: never breaks the index / the game thread)
+            pass
+
+
 def set_keys(kind: str, keys: set[str]) -> None:
     """The game's own keys for a kind (from the loaded definitions): what its icons' frames are labelled."""
     with _lock:
         _keys[kind] = {k.lower() for k in keys if k}
         _anchor.clear()
+    _changed()
 
 
 def set_index(index: dict[str, list[Art]]) -> None:
@@ -84,6 +106,7 @@ def set_index(index: dict[str, list[Art]]) -> None:
         _index = index
         _pngs.clear()
         _anchor.clear()
+    _changed()
 
 
 # region The packages: the engine's config

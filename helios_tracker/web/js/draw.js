@@ -6,7 +6,7 @@ import { FLOOR_UU, LAYERS, LAYER_COLOR, chestTier, isGear, lootLayer, nameText, 
 import { look, withAlpha } from "./look.js";
 import { missionItemWanted } from "./missions.js";
 import { settings } from "./settings.js";
-import { COLORS, areaName, arrow, bang, brackets, coin, diamond, dot, label, leader, menuBadge, respawnRing, ring, setMarkerScale, square, triangle,
+import { COLORS, areaName, arrow, bang, brackets, coin, diamond, dot, label, leader, menuBadge, respawnRing, ring, setMarkerScale, square, triangle, typeIcon,
   vitalBars } from "./shapes.js";
 import { S, findDetail, findPlayer, frame, pawnPos, trackedPawn } from "./state.js";
 import { tooltip } from "./tooltip.js";
@@ -311,8 +311,11 @@ export function draw() {
     const color = tierName === "effervescent" ? rainbowAt(now) : tierColor;
     ctx.globalAlpha = st.alpha;
     stem(p.x, p.y, sx, sy, isGear(p.c) ? color : LAYER_COLOR[layer]);
-    if (isGear(p.c)) triangle(sx, sy, (tier >= 5 ? 6.5 : 5) * st.k, color);
+    // gear: its item card's type icon (a rifle, a shield...) in its rarity's colour - the triangle until it's loaded / none
+    if (isGear(p.c)) { if (!typeIcon(sx, sy, p.wt, color, (tier >= 5 ? 13 : 11) * st.k)) triangle(sx, sy, (tier >= 5 ? 6.5 : 5) * st.k, color); }
     // a mission item: a "!" (like quest givers), as big as a legendary's triangle (6.5 px: 7 x 0.93)
+    // (their own icons - the game's PickupFlagIcon - were tried here: unreadable at map size, too detailed; the user's
+    // call - they're in the tooltip / panel instead)
     else if (layer === "pickup.mission") bang(sx, sy, LAYER_COLOR[layer], 0.93 * st.k);
     else if (layer === "pickup.cash") coin(sx, sy, LAYER_COLOR[layer], st.k); // money: a "$" disc
     else dot(sx, sy, 3.5 * st.k, LAYER_COLOR[layer]); // not gear (ammo, cash...): its kind's colour, no rarity

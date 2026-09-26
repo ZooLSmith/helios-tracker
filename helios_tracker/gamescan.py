@@ -21,7 +21,7 @@ from . import gamecards, gamefonts, gameicons, gamework
 from .tacmap import Package
 
 CACHE = Path(__file__).with_name(".cache") / "scan.json"
-VERSION = 2  # the cache's layout: another number = scanned again (2: the card arts' layers)
+VERSION = 3  # the cache's layout: another number = scanned again (2: the card arts' layers; 3: the textures)
 PAUSE = 0.003  # s slept after each decompressed block, scanning in process
 SWITCH_INTERVAL = 0.001  # s (Python's default: 0.005), scanning in process
 
@@ -33,16 +33,23 @@ def packages(cooked: Path) -> list[Path]:
     """What's scanned: the engine config's always-loaded packages (fonts, card icons: gamecards.engine_packages),
     then the classes' streaming packages (skill icons: gameicons)."""
     out = []
+    engine_set.clear()
+    engine_set.update(gamecards.engine_packages(cooked))
     for p in gamecards.engine_packages(cooked) + gameicons.icon_packages(cooked):
         if p not in out:
             out.append(p)
     return out
 
 
+engine_set: set[Path] = set()  # the always-loaded packages (packages(): their textures indexed too)
+
+
 def scan_package(path: Path) -> dict:
     """Everything the page uses from one package: {"fonts": [[name, glyphs, export, n]], "arts": [gamecards'
-    art dicts + "movie"], "icons": {path: export}}."""
-    out: dict = {"fonts": [], "arts": [], "icons": {}}
+    art dicts + "movie"], "icons": {path: export}, "textures": {path: export} - every texture of an always-loaded
+    package (a pickup's own icon, its PickupFlagIcon: served by path, gameicons.texture_by_path)}."""
+    out: dict = {"fonts": [], "arts": [], "icons": {}, "textures": {}}
+    always = path in engine_set
     pkg = Package(path)
     try:
         for i in range(len(pkg.exports)):
@@ -61,8 +68,12 @@ def scan_package(path: Path) -> dict:
                     out["arts"] += [{**art, "movie": movie} for art in gamecards.movie_arts(raw, movie.split(".")[0])]
                 except Exception:  # noqa: BLE001, S110
                     pass
-            elif cls == "Texture2D" and gameicons.ICON_PATH.fullmatch(name := pkg.path(i)):
-                out["icons"].setdefault(name.lower(), i)
+            elif cls == "Texture2D":
+                name = pkg.path(i)
+                if gameicons.ICON_PATH.fullmatch(name):
+                    out["icons"].setdefault(name.lower(), i)
+                if always:
+                    out["textures"].setdefault(name.lower(), i)
     finally:
         pkg.close()
     return out
@@ -107,7 +118,7 @@ def scan_to_cache(cooked: Path, cache: Path) -> None:
         try:
             entries[key] = {"stamp": stamp, **scan_package(path)}
         except Exception:  # noqa: BLE001 - a package that won't read: nothing from it
-            entries[key] = {"stamp": stamp, "fonts": [], "arts": [], "icons": {}}
+            entries[key] = {"stamp": stamp, "fonts": [], "arts": [], "icons": {}, "textures": {}}
     if entries != cached:
         _save_cache(cache, entries)
 
@@ -126,6 +137,7 @@ def run(cooked: Path | None) -> None:
         fonts: dict = {}
         arts: dict = {}
         icons: dict = {}
+        textures: dict = {}
         for key, entry in entries.items():
             path = Path(key)
             for name, count, idx, n in entry["fonts"]:
@@ -136,7 +148,10 @@ def run(cooked: Path | None) -> None:
                 arts.setdefault(art["label"], []).append(gamecards.Art.load(path, art))
             for icon, idx in entry["icons"].items():
                 icons.setdefault(icon, (path, idx))
+            for tex, idx in entry.get("textures", {}).items():
+                textures.setdefault(tex, (path, idx))
         gamefonts.set_catalogue(fonts)
+        gameicons.set_textures(textures)  # (before the card arts: their news - "assets" - tells about both)
         gamecards.set_index(arts)
         gameicons.set_index(icons)
         _done.set()

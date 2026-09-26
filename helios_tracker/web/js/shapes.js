@@ -1,6 +1,8 @@
 // Marker shapes and labels, in screen px on the canvas (view.js's ctx).
 import { tokenColor, tokenRaw } from "./look.js";
 import { setLayerColors } from "./model.js";
+import { S } from "./state.js";
+import { invalidate } from "./scheduler.js";
 import { ctx } from "./view.js";
 
 // Colours shared with the CSS (read once the stylesheets are in: initColors)
@@ -58,6 +60,59 @@ export function coin(x, y, fill, k = 1) { // cash: a disc with a dark "$" (the "
   ctx.textAlign = "center"; ctx.textBaseline = "middle";
   ctx.fillText("$", x, y + 0.5 * k);
   ctx.restore();
+}
+
+// The game's icons on the map, loaded once each (asked for only once the server can find them - its "assets" event:
+// the game's files indexed... before, a 404; then a missing one is missing: the caller's own marker)
+const images = new Map(); // url -> {img, ok: true loaded / false loading / null none}
+function gameImage(url, ready) {
+  if (!ready) return null;
+  let entry = images.get(url);
+  if (!entry) {
+    const img = new Image();
+    entry = { img, ok: false };
+    img.crossOrigin = "anonymous";
+    img.onload = () => { entry.ok = true; invalidate(); };
+    img.onerror = () => { entry.ok = null; };
+    img.src = url;
+    images.set(url, entry);
+  }
+  return entry.ok ? entry.img : null;
+}
+
+// Gear's type icons (the game's item card art: /cardicon/type/<key>.png, gamecards.py), tinted per colour: its white
+// fill multiplied into the rarity's colour, its black outline kept (the card's own look)
+const tintedIcons = new Map(); // "key|colour" -> a canvas
+function typeIconImage(key) {
+  return gameImage(`/cardicon/type/${encodeURIComponent(key)}.png`, S.assets.cards);
+}
+function tintedIcon(key, color) {
+  const img = typeIconImage(key);
+  if (!img) return null;
+  const id = key + "|" + color;
+  let c = tintedIcons.get(id);
+  if (!c) {
+    if (tintedIcons.size > 300) tintedIcons.clear(); // (effervescent's colour cycles: no endless cache)
+    c = document.createElement("canvas");
+    c.width = img.naturalWidth; c.height = img.naturalHeight;
+    const g = c.getContext("2d");
+    g.drawImage(img, 0, 0);
+    g.globalCompositeOperation = "multiply"; g.fillStyle = color; g.fillRect(0, 0, c.width, c.height);
+    g.globalCompositeOperation = "destination-in"; g.drawImage(img, 0, 0); // (its own shape: no colour around it)
+    tintedIcons.set(id, c);
+  }
+  return c;
+}
+
+/** Gear on the ground as its item card's type icon (a rifle, a shield...) in its rarity's colour, `h` px high (wide ones
+ *  capped); false (nothing drawn) until the icon's loaded / if the game has none - the caller draws its triangle. */
+export function typeIcon(x, y, key, color, h) {
+  if (!key || !/^[A-Za-z0-9_]+$/.test(key)) return false;
+  const c = tintedIcon(key, color);
+  if (!c || !c.width || !c.height) return false;
+  const w = Math.min(h * c.width / c.height, h * 2.4), hh = w * c.height / c.width;
+  ctx.drawImage(c, x - w / 2, y - hh / 2, w, hh);
+  return true;
 }
 
 export function triangle(x, y, r, fill) { // loot

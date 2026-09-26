@@ -20,6 +20,7 @@ import re
 from typing import Any
 
 import unrealsdk
+from unrealsdk.unreal import WeakPointer
 from mods_base import get_pc
 
 from . import gamecards
@@ -40,9 +41,34 @@ ITEM_KINDS = {  # class (or a superclass) -> kind shown by the page
 _static: dict[int, dict[str, Any]] = {}  # SkillDefinition / branch address -> names (static data)
 # Backpack items, by (address, class): they only change when picked up / sold, so each is read
 # once (equipped items are re-read: their stats include the owner's current bonuses)
-_backpack_cache: dict[tuple[int, str], dict[str, Any]] = {}
+class _ItemCache:
+    """Item records by the item object: (address, class) -> (a WeakPointer to it, its record). An entry lives as long as
+    its item: dropped, picked up, moved to the backpack - the same object, the same record; destroyed (sold, consumed,
+    gone with its level), its WeakPointer is dead - even with another object at its address since - and the entry is
+    rebuilt / swept (the user: cache them, clear the ones truly destroyed; first a blind clear past 2000 entries)."""
+
+    def __init__(self) -> None:
+        self._entries: dict[tuple[int, str], tuple[Any, dict[str, Any]]] = {}
+
+    def get(self, inv: Any) -> dict[str, Any] | None:
+        entry = self._entries.get((inv._get_address(), str(inv.Class.Name)))
+        return entry[1] if entry is not None and entry[0]() is not None else None
+
+    def put(self, inv: Any, record: dict[str, Any]) -> dict[str, Any]:
+        self._entries[(inv._get_address(), str(inv.Class.Name))] = (WeakPointer(inv), record)
+        return record
+
+    def sweep(self) -> None:
+        """Forgets the items destroyed since."""
+        for key in [k for k, (ptr, _) in self._entries.items() if ptr() is None]:
+            del self._entries[key]
+
+
+# Backpack items (and gear on the ground: the same objects, dropped): they only change when picked up / sold, so each
+# is read once (equipped items are re-read: their stats include the owner's current bonuses)
+_backpack_cache = _ItemCache()
 # Equipped items' static data (name, parts...) by the same key: only their stats are re-read
-_equipped_cache: dict[tuple[int, str], dict[str, Any]] = {}
+_equipped_cache = _ItemCache()
 # Skill trees by controller address: re-read only when the points spent change
 _skills_cache: dict[int, tuple[Any, dict[str, Any]]] = {}
 _grids: dict[tuple[str, int], list[dict[str, Any]]] = {}  # branch grids (static per class)
@@ -57,6 +83,35 @@ def _kind(inv: Any) -> str:
             return kind
         cls = cls.SuperField
     return "item"
+
+
+
+
+def card_keys(inv: Any, kind: str | None = None) -> dict[str, str]:
+    """Its item card icons' keys, the game's (gamecards.py serves them: /cardicon/<kind>/<key>.png): "mf" its
+    manufacturer's FlashLabelName ("maliwan"), "wt" a weapon's type's ScaleformFrameName ("pistol" - a property),
+    another item's type frame from the card's own IItemCardable.GetZippyFrame() ("Artifact", "comm",
+    "Customization_Head": tools/probe_zippy.txt; a call - once per definition, cached; the game calls it for a ground
+    item's card too), "el" its ElementalFrame ("shock" - an identifier: the game has no display name for it,
+    tools/probe_weapon_card2.txt). Those it has. Also for the pickups on the map (their type icon)."""
+    kind = kind or _kind(inv)
+    out: dict[str, str] = {}
+    data = try_(lambda: inv.DefinitionData)
+    if data is not None:
+        if mf := str(try_(lambda: data.ManufacturerDefinition.FlashLabelName, "") or ""):
+            out["mf"] = mf
+        if kind == "weapon" and (wt := str(try_(lambda: data.WeaponTypeDefinition.ScaleformFrameName, "") or "")):
+            out["wt"] = wt
+    if kind != "weapon":
+        definition = try_(lambda: data.ItemDefinition) if data is not None else None
+        zkey = (str(try_(lambda: inv.Class.Name, "")), definition._get_address() if definition is not None else addr(inv))
+        if zkey not in _zippy:
+            _zippy[zkey] = str(try_(lambda: inv.GetZippyFrame(), "") or "")
+        if _zippy[zkey].lower() not in ("", "none"):
+            out["wt"] = _zippy[zkey].lower()
+    if (element := try_(lambda: str(inv.ElementalFrame), "") or "").lower() not in ("", "none"):
+        out["el"] = element
+    return out
 
 
 def _num(v: Any) -> float | None:
@@ -172,29 +227,9 @@ def _item(inv: Any, equipped: bool, ctrl: Any = None) -> dict[str, Any]:
     }
     if card := _card_lines(inv, kind):
         item["card"] = card
-    # its item card icons' keys, the game's (gamecards.py serves them: /cardicon/<kind>/<key>.png): its manufacturer's
-    # FlashLabelName ("maliwan"), a weapon's type's ScaleformFrameName ("pistol" - a property), another item's
-    # type frame from the card's own IItemCardable.GetZippyFrame() ("Artifact", "comm", "Customization_Head":
-    # tools/probe_zippy.txt; a call - once per definition, cached) and its ElementalFrame (relics, grenades)
-    data = try_(lambda: inv.DefinitionData)
-    if data is not None:
-        if mf := str(try_(lambda: data.ManufacturerDefinition.FlashLabelName, "") or ""):
-            item["mf"] = mf
-        if kind == "weapon" and (wt := str(try_(lambda: data.WeaponTypeDefinition.ScaleformFrameName, "") or "")):
-            item["wt"] = wt
-    if kind != "weapon":
-        definition = try_(lambda: data.ItemDefinition) if data is not None else None
-        zkey = (str(try_(lambda: inv.Class.Name, "")), definition._get_address() if definition is not None else addr(inv))
-        if zkey not in _zippy:
-            _zippy[zkey] = str(try_(lambda: inv.GetZippyFrame(), "") or "")
-        if _zippy[zkey].lower() not in ("", "none"):
-            item["wt"] = _zippy[zkey].lower()
-        if (element := try_(lambda: str(inv.ElementalFrame), "") or "").lower() not in ("", "none"):
-            item["el"] = element
-    if kind == "weapon" and (element := try_(lambda: str(inv.ElementalFrame), "") or "").lower() not in ("", "none"):
-        # its element: the item card's frame for its icon ("shock" - an identifier: the game has no display name for
-        # it, tools/probe_weapon_card2.txt) and its damage per second (StatusEffectDamage: 76.3 on a shock pistol)
-        item["el"] = element
+    item.update(card_keys(inv, kind))
+    if kind == "weapon" and "el" in item:
+        # its element's damage per second (StatusEffectDamage: 76.3 on a shock pistol)
         item["edps"] = round(try_(lambda: float(inv.StatusEffectDamage), 0.0), 1)
         # its colour: its card line's TextColor (the page picks it); without one, the damage type's HUDDamageColor
         # (the hit markers' colour, never on a card: the fallback)
@@ -214,10 +249,8 @@ def _item(inv: Any, equipped: bool, ctrl: Any = None) -> dict[str, Any]:
 
 def _equipped_item(inv: Any) -> dict[str, Any]:
     """An equipped item: static data from the cache, stats (owner's bonuses) and slot read now."""
-    key = (inv._get_address(), str(inv.Class.Name))
-    if key not in _equipped_cache:
-        _equipped_cache[key] = _item(inv, True)
-    item = {**_equipped_cache[key], "stats": _stats(inv, _equipped_cache[key]["k"])}
+    static = _equipped_cache.get(inv) or _equipped_cache.put(inv, _item(inv, True))
+    item = {**static, "stats": _stats(inv, static["k"])}
     if item["k"] == "weapon":
         item.pop("slot", None)
         if slot := try_(lambda: int(field(inv, "QuickSelectSlot")), 0):
@@ -264,10 +297,7 @@ def _inventory(pawn: Any, player: dict[str, Any]) -> None:
         if inv is None:
             continue
         try:
-            key = (inv._get_address(), str(inv.Class.Name))
-            if key not in _backpack_cache:
-                _backpack_cache[key] = _item(inv, False)
-            backpack.append(_backpack_cache[key])
+            backpack.append(_backpack_cache.get(inv) or _backpack_cache.put(inv, _item(inv, False)))
         except Exception as ex:  # noqa: BLE001
             log_error("inspect backpack item", ex)
     player["equipped"] = equipped
@@ -278,6 +308,25 @@ def _inventory(pawn: Any, player: dict[str, Any]) -> None:
         player["slots"] = [len(backpack), slots]  # backpack slots used / available (ours: our items)
     if not player["local"] and not backpack:  # (as host) the others' items aren't sent
         player["backpackWhy"] = "notSent"
+
+
+GROUND_GEAR = {"weapon", "shield", "grenade", "classmod", "relic"}  # pickups whose item gets its card (+ customization)
+
+
+def is_gear(inv: Any) -> bool:
+    """Real gear (a weapon, shield... a skin / head): what the page shows a card for (model.js GEAR_CLASSES)."""
+    return _kind(inv) in GROUND_GEAR or "CustomizationItem" in str(inv.Class.Name)
+
+
+def ground_item(inv: Any, build: bool = True) -> tuple[dict[str, Any] | None, bool]:
+    """(a gear pickup's item record, whether it was built now). The backpack's own record: an item dropped / picked up
+    is the same object - the same address, the same record (built once, whichever came first; the page finds it by id
+    in either). Not read yet and `build` False: (None, False) - the collector builds a few per update."""
+    if (record := _backpack_cache.get(inv)) is not None:
+        return record, False
+    if not build:
+        return None, False
+    return _backpack_cache.put(inv, _item(inv, False)), True
 
 
 def _static_info(obj: Any, fn) -> dict[str, Any]:  # noqa: ANN001
@@ -700,8 +749,7 @@ def _class_name_uncached(ctrl: Any, pri: Any) -> dict[str, Any]:
 def read_players(world_info: Any, me: Any, pc: Any = None) -> list[dict[str, Any]]:
     """Every player pawn in the level, with what can be read of their gear and skills."""
     for cache in (_backpack_cache, _equipped_cache):
-        if len(cache) > 2000:  # items sold / dropped / from other levels: start over now and then
-            cache.clear()
+        cache.sweep()  # the items destroyed since (sold, used, gone with a level)
     players = []
     me_addr = addr(me) if me is not None else None
     # Who hosts: us unless we're a client (NetMode 3); then the party leader (the host's player info

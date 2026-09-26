@@ -379,6 +379,26 @@ def check_helios_tracker() -> None:  # noqa: PLR0915
     defined = {n for n, f in vars(m).items() if getattr(f, "_helios_hook", None)}
     listed = {f.__name__ for f in m.mod.hooks}
     assert defined == listed, ("hooks defined but not in build_mod(hooks=...)", sorted(defined - listed), sorted(listed - defined))
+    # "assets": what the server can serve from the game's files - the page asks for card icons only once "cards" is 1
+    # (the files indexed + every kind's keys known: before, a 404 a map marker gave up on)
+    from helios_tracker import gamecards as assets_cards  # noqa: PLC0415
+    assets_saved = (dict(assets_cards._keys), assets_cards._index)
+    assets_cards._index = None
+    for assets_kind in assets_cards.KINDS:
+        assets_cards.set_keys(assets_kind, set())
+    assert json.loads(m._hub.latest("assets"))["cards"] == 0, m._hub.latest("assets")
+    assets_cards.set_index({})
+    for assets_kind in assets_cards.KINDS:
+        assets_cards.set_keys(assets_kind, {"key"})
+    assert json.loads(m._hub.latest("assets"))["cards"] == 1, ("indexed, keys known: sent", m._hub.latest("assets"))
+    from helios_tracker import gameicons as assets_icons  # noqa: PLC0415
+    assets_textures = assets_icons._textures
+    assets_icons.set_textures({})
+    m._publish_assets()
+    assert json.loads(m._hub.latest("assets"))["textures"] == 1, ("the textures indexed: sent", m._hub.latest("assets"))
+    assets_icons._textures = assets_textures
+    assets_cards._keys.update(assets_saved[0])
+    assets_cards._index = assets_saved[1]
 
     # field(): the property looked up once per class, then read with _get_field (tools/probe_perf.txt)
     class FakeClass:
@@ -474,16 +494,17 @@ def check_helios_tracker() -> None:  # noqa: PLR0915
         PoolIdleDelayStartTime=100.0)), AfterburnerEngaged=False), 110.0) == [40.0, 100.0, 3.0], "refilling: the rate only"
     assert refill(engaged=True) == [40.0, 100.0], "boosting: no timer"
     assert refill(cur=100.0) == [100.0, 100.0], "full: no timer"
-    # A pawn's name: its balance's PlayThroughs[].DisplayName - the current playthrough's (0-based on the
-    # controller, 1-based in the entries), else the first named one; nothing: ""
+    # A pawn's name: its balance's PlayThroughs[].DisplayName - the current playthrough's (0-based on the game
+    # replication info - not the controller: it only has a function - 1-based in the entries), else the first named one;
+    # nothing: ""
     brute = types.SimpleNamespace(BalanceDefinitionState=types.SimpleNamespace(BalanceDefinition=types.SimpleNamespace(PlayThroughs=[
         types.SimpleNamespace(PlayThrough=1, DisplayName="Bruiser"), types.SimpleNamespace(PlayThrough=2, DisplayName="Badass Bruiser")])))
-    saved_get_pc = col.get_pc
-    col.get_pc = lambda **k: types.SimpleNamespace(CurrentPlaythrough=1)
+    saved_engine = col.ENGINE
+    col.ENGINE = types.SimpleNamespace(GetCurrentWorldInfo=lambda: types.SimpleNamespace(GRI=types.SimpleNamespace(CurrentPlaythrough=1)))
     tvhm = col.pawn_display_name(brute)
-    col.get_pc = lambda **k: None
+    col.ENGINE = types.SimpleNamespace(GetCurrentWorldInfo=lambda: None)
     unknown_pt = col.pawn_display_name(brute)
-    col.get_pc = saved_get_pc
+    col.ENGINE = saved_engine
     assert (tvhm, unknown_pt, col.pawn_display_name(types.SimpleNamespace())) == ("Badass Bruiser", "Bruiser", ""), (tvhm, unknown_pt)
     # The level's name as the game shows it (tools/probe_area.txt): a list per game / DLC, each knowing its maps
     lists = [types.SimpleNamespace(Name="Default__LevelDependencyList", GetFriendlyLevelNameFromMapName=lambda m: "wrong"),
@@ -575,6 +596,15 @@ def check_helios_tracker() -> None:  # noqa: PLR0915
     t = time.perf_counter()
     assert gameicons.icon_png("SharedSkillIcons_Soldier.SkillIcon-Able") == able and time.perf_counter() - t < 0.2, \
         "an icon decoded once: from the disk cache next time"
+    # A pickup's own icon (its PickupFlagIcon: an always-loaded texture, served by path): inline, and one whose pixels
+    # are in a texture file cache (.tfc: the eridium's)
+    t = time.perf_counter()
+    flag_cash = gameicons.texture_by_path("fx_shared_items.Textures.ItemCards.Credits")
+    flag_eridium = gameicons.texture_by_path("fx_shared_items.Textures.ItemCards.Eridium_Currency")
+    assert flag_cash and struct.unpack(">II", flag_cash[16:24]) == (128, 128), "the cash pickup's icon"
+    assert flag_eridium and struct.unpack(">II", flag_eridium[16:24]) == (128, 128), "the eridium's: its pixels in Textures.tfc"
+    assert gameicons.texture_by_path("fx_shared_items.Nope") is None and gameicons.texture_by_path("../server.py") is None
+    print(f"  pickup icons: {len(gameicons._textures)} textures indexed, cash / eridium (.tfc) ({time.perf_counter() - t:.2f} s)")
     # The item card icons (gamecards.py): the engine config's packages, the sprites labelled with the game's keys
     from helios_tracker import gamecards  # noqa: PLC0415
     card_packages = [p.name for p in gamecards.engine_packages(GAME_COOKED)]
@@ -975,6 +1005,73 @@ def check_helios_tracker() -> None:  # noqa: PLR0915
     # A skill's stats (tools/probe_skill_stats2.txt): GetSkillEffectPresentations(grade, ctrl, out lines) -> the
     # game's text, value, display flags; cached per (skill, grade, player level)
     from helios_tracker import inspector as insp  # noqa: PLC0415
+
+    # Pickup amounts (amounts.py: the tooltip's "$ 22", "18 rounds"), worked out from the definitions as the game has
+    # them (tools/probe_pickup_amounts2.txt): cash - its external BaseCredits slot, 10 x 1.25 x 1.12^ExpLevel (its own
+    # effect: scale 0); ammo - AmmoAmount (36 in playthrough 2, else 18) x the co-op sharing share (0.5 if cloned for it)
+    import enum  # noqa: PLC0415
+
+    from helios_tracker.amounts import pickup_amount  # noqa: PLC0415
+
+    class AmtMod(enum.IntEnum):
+        MT_Scale = 0
+        MT_PreAdd = 1
+        MT_PostAdd = 2
+
+    class AmtOp(enum.IntEnum):
+        OPERATOR_EqualTo = 0
+
+    def amt_data(const=0.0, scale=1.0, attr=None, init=None):  # noqa: ANN001, ANN202
+        return ns(BaseValueConstant=const, BaseValueScaleConstant=scale, BaseValueAttribute=attr, InitializationDefinition=init)
+
+    def amt_attr(resolver_class, **fields):  # noqa: ANN001, ANN003, ANN202
+        return ns(Class=ns(Name="AttributeDefinition"), ValueResolverChain=[ns(Class=ns(Name=resolver_class), **fields)])
+
+    def amt_formula(mult, level, power, offset):  # noqa: ANN001, ANN202
+        return ns(RandomVariance=ns(bEnabled=False), ConditionalInitialization=ns(bEnabled=False),
+                  ValueFormula=ns(bEnabled=True, Multiplier=mult, Level=level, Power=power, Offset=offset))
+
+    def amt_if(attr, const, then, default):  # noqa: ANN001, ANN202
+        return ns(bEnabled=True, DefaultBaseValue=default, ConditionalExpressionList=[ns(BaseValueIfTrue=then, Expressions=[
+            ns(AttributeOperand1=attr, ComparisonOperator=AmtOp.OPERATOR_EqualTo, AttributeOperand2=None, ConstantOperand2=const)])])
+
+    cash_calc = amt_formula(amt_data(1.0, attr=amt_attr("ConstantAttributeValueResolver", ConstantValue=1.25)),
+                            amt_data(attr=amt_attr("ConstantAttributeValueResolver", ConstantValue=1.12)),
+                            amt_data(1.0, attr=amt_attr("ObjectPropertyAttributeValueResolver", PropertyName="ExpLevel")), amt_data())
+    cash_slot_attr = amt_attr("AttributeSlotEffectAttributeValueResolver", SlotName="BaseCredits")
+    cash_def = ns(ExternalAttributeEffects=[ns(ModifierType=AmtMod.MT_PreAdd, BaseModifierValue=amt_data(0.0, 0.0, attr=cash_slot_attr))],
+                  AttributeSlotEffects=[ns(SlotName="BaseCredits", bExternalSlot=True, ModifierType=AmtMod.MT_PostAdd,
+                                           BaseModifierValue=amt_data(0.0, 10.0, init=cash_calc), PerGradeUpgrade=amt_data(0.0, 0.1, init=cash_calc))],
+                  AttributeSlotBaseGrade=amt_data(1.0), AttributeSlotUpgrades=[ns(SlotName="BaseCredits", GradeIncrease=0)])
+    cash_inv = ns(ExpLevel=5, DefinitionData=ns(ItemDefinition=cash_def))
+    assert pickup_amount(cash_inv, 1) == 23, ("cash: 22.03, rounded up as the game credits it", pickup_amount(cash_inv, 1))
+    playthrough_attr = amt_attr("PlayThroughCountAttributeValueResolver", IncludePlaythroughThree=0)
+    ammo_amount = amt_attr("ConditionalAttributeValueResolver", ValueExpressions=amt_if(playthrough_attr, 2.0, amt_data(36.0), amt_data(18.0)))
+    shared_attr = amt_attr("ObjectPropertyAttributeValueResolver", PropertyName="ClonedForSharing")
+    ammo_share = ns(RandomVariance=ns(bEnabled=False), ValueFormula=ns(bEnabled=False), ConditionalInitialization=amt_if(
+        shared_attr, 1.0, amt_data(1.0, attr=amt_attr("ConstantAttributeValueResolver", ConstantValue=0.5)), amt_data(1.0)))
+    ammo_def = ns(ExternalAttributeEffects=[ns(ModifierType=AmtMod.MT_PostAdd, BaseModifierValue=amt_data(init=amt_formula(
+        amt_data(attr=ammo_amount), amt_data(init=ammo_share), amt_data(1.0), amt_data())))], AttributeSlotEffects=[])
+    ammo_inv = ns(ExpLevel=6, ClonedForSharing=0.0, DefinitionData=ns(ItemDefinition=ammo_def))
+    ammo_amounts = [pickup_amount(ammo_inv, 1), pickup_amount(ammo_inv, 2), pickup_amount(ammo_inv, 3)]
+    assert ammo_amounts == [18, 36, 36], ("ammo by playthrough (the third counts as 2)", ammo_amounts)
+    ammo_inv.ClonedForSharing = 1.0
+    assert pickup_amount(ammo_inv, 1) == 9, ("co-op: a share", pickup_amount(ammo_inv, 1))
+    assert pickup_amount(ammo_inv, 0) is None, "no playthrough known: no amount"
+
+    # Item records by the item object (inspector._ItemCache: the backpack's, gear on the ground's - dropped / picked up,
+    # the same object, the same record): kept while it lives, not its record any more once destroyed (its WeakPointer
+    # dead - even with another object at its address since), swept then
+    cache_inv = ns(_get_address=lambda: 0x7700, Class=ns(Name="WillowWeapon"))
+    item_cache = insp._ItemCache()
+    cache_rec = item_cache.put(cache_inv, {"i": "7700", "n": "Gun"})
+    assert item_cache.get(cache_inv) is cache_rec, "kept while it lives"
+    next(iter(item_cache._entries.values()))[0].o = None  # (destroyed: its WeakPointer dead)
+    assert item_cache.get(cache_inv) is None, "destroyed: not its record any more"
+    item_cache.sweep()
+    assert not item_cache._entries, "destroyed: swept"
+    assert insp.is_gear(ns(Class=ns(Name="WillowShield", SuperField=None))), "a shield: gear (its card on the ground)"
+    assert not insp.is_gear(ns(Class=ns(Name="WillowUsableItem", SuperField=None))), "ammo, cash: not gear"
 
     calls = []
 
@@ -1540,12 +1637,12 @@ def check_helios_tracker() -> None:  # noqa: PLR0915
         res = sse.getresponse()
         assert res.headers["Content-Type"] == "text/event-stream", res.headers
         events = set()
-        while len(events) < 13:
+        while len(events) < 14:
             line = res.fp.readline().decode()
             if line.startswith("event: "):
                 events.add(line[7:].strip())
         assert events == {"level", "state", "objects", "players", "missions", "missiondefs", "missionlog", "areas", "shops",
-                          "shoptimer", "lootpools", "pickups", "pawninfo"}, events
+                          "shoptimer", "lootpools", "pickups", "pawninfo", "items"}, events
         # CORS: the project's site (its /live/ page) and local pages may read, any other site not - files and the stream
         for cors_origin, cors_ok in (("https://helios-tracker.zoolsmith.com", True), ("https://zoolsmith.github.io", True), ("http://127.0.0.1:8931", True),
                                      ("http://localhost", True), ("https://evil.example", False), ("", False)):

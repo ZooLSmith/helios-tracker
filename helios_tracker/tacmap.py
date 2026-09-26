@@ -634,7 +634,22 @@ def _texture(pkg: Package, idx: int) -> tuple[str, int, int, bytes]:
         if o + 20 > len(data):
             continue
         mips = struct.unpack_from("<i", data, o)[0]
-        flags, _count, size, _off = struct.unpack_from("<iiii", data, o + 4)
+        flags, _count, size, offset = struct.unpack_from("<iiii", data, o + 4)
+        if flags & BULK_SEPARATE_FILE and not flags & BULK_UNUSED and 0 < mips < 16 and size > 0 and o + 28 <= len(data):
+            # its pixels in the texture file cache (TextureFileCacheName + ".tfc", next to the package: the eridium
+            # pickup icon's, in Startup.upk's Textures.tfc) at `offset`, `size` bytes (LZO: a compressed chunk)
+            w, h = struct.unpack_from("<ii", data, o + 20)
+            if (w, h) != (sx, sy) or "TextureFileCacheName" not in props:
+                continue
+            cache = Path(pkg.f.name).with_name(pkg.name_value(props["TextureFileCacheName"][1]) + ".tfc")
+            with cache.open("rb") as f:
+                f.seek(offset)
+                body = f.read(size)
+            if flags & BULK_LZO:
+                body = decompress_chunk(body)
+            elif flags & BULK_ZLIB:
+                raise ValueError("zlib-compressed texture data isn't supported")
+            return fmt, w, h, body
         if not 0 < mips < 16 or size < 0 or o + 20 + size + 8 > len(data):
             continue
         if flags & (BULK_SEPARATE_FILE | BULK_UNUSED):

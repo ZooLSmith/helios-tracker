@@ -4,10 +4,10 @@ import { UU_PER_METER } from "../geo.js";
 import { num, t } from "../i18n.js";
 import { icon } from "../icons.js";
 import { isGear, nameText, rarity } from "../model.js";
-import { S, findDetail, pawnPos, trackedPawn } from "../state.js";
+import { S, findDetail, isTrackedPlayer, itemById, pawnPos, trackedPawn } from "../state.js";
 import { saveDrawer } from "./drawer.js";
 import { bindItems, renderInspector } from "./inspector.js";
-import { rarityName } from "./items.js";
+import { itemHtml, pickupAmount, pickupIconHtml, rarityName } from "./items.js";
 import { renderPlayers } from "./players.js";
 import { oddsHtml } from "./odds.js";
 import { machineStockHtml } from "./shops.js";
@@ -68,6 +68,8 @@ function kindText(kind, it) {
 // his "!" was out; the user saw it). Another floor stays out.
 const NEAR_UU = 1.5 * UU_PER_METER, NEAR_HEIGHT_UU = 3 * UU_PER_METER;
 
+const openedCards = new Set(); // ground items whose card was opened once for them (then as the user leaves it)
+
 /** Everything on the map within NEAR_UU across (and NEAR_HEIGHT_UU in height) of `it` (objects, loot, pawns, point
  *  objectives / quest givers; not itself), the closest first: [{ item, kind, d }] - the markers stacked there, one
  *  click away (the map's click picks one). */
@@ -110,8 +112,10 @@ export function renderDetail(resetScroll) {
   }
   const mission = kind === "objective" || kind === "directive";
   const back = S.detail.back ? `<button class="mback" data-detail-back title="${esc(t("shops.back"))}">${icon("back")}</button>` : "";
-  $("iwho").innerHTML = back + (mission ? nameHtml(it.objective || it.mission) : nameHtml(it));
   const gear = kind === "loot" && isGear(it.c);
+  // (gear's name in its rarity's colour, as the game's card)
+  const whoName = mission ? nameHtml(it.objective || it.mission) : nameHtml(it);
+  $("iwho").innerHTML = back + (gear ? `<span style="color:${rarity(it.q || 0)[1]}">${whoName}</span>` : whoName);
   $("isub").textContent = [kindText(kind, it), it.l && (kind !== "loot" || gear) ? t("insp.level", { n: it.l }) : ""]
     .filter(Boolean).join(" · ");
   const rows = [];
@@ -120,6 +124,7 @@ export function renderDetail(resetScroll) {
     const pos = it.fx !== undefined ? pawnPos(it, performance.now()) : it;
     rows.push([t("detail.distance"), t("unit.meters", { n: num(Math.hypot(pos.x - me.x, pos.y - me.y, pos.z - me.z) / UU_PER_METER, 0) })]);
   }
+  if (kind === "loot" && !gear && it.am) rows.push([t("detail.amount"), pickupAmount(it)]); // money / ammo: how much
   if (it.sm > 0) rows.push([t("detail.shield"), `${num(Math.round(it.s))} / ${num(Math.round(it.sm))}`]);
   if (it.m > 0) rows.push([t("detail.health"), `${num(Math.round(it.h))} / ${num(Math.round(it.m))}`]);
   if (mission) {
@@ -166,8 +171,19 @@ export function renderDetail(resetScroll) {
   // a fold (its header: the title, a count), closed until opened - remembered per object (S.itemFolds, as items')
   const fold = (key, title, count, inner) => `<div class="ifold${S.itemFolds.has(`${it.i}:${key}`) ? " open" : ""}" data-fold="${key}" ` +
     `data-id="${esc(it.i)}"><div class="ifhead">${esc(title)}<span class="ifcount">${esc(num(count))}</span></div>${inner}</div>`;
+  // gear on the ground: its item's card (stats, parts - the collector's, like a backpack's: the same item by id), open
+  // the first time it's shown; not read yet (a few per update): a note
+  let itemCard = "";
+  if (gear) {
+    const card = itemById(it.it);
+    if (card && !openedCards.has(card.i)) { openedCards.add(card.i); S.expanded.add(card.i); }
+    const level = (S.players.find(isTrackedPlayer) || {}).lvl || 0; // (above it: marked, like a backpack's)
+    itemCard = card ? itemHtml(card, level) : `<div class="note">${esc(t("detail.itemPending"))}</div>`;
+  }
   // (right under its rows: what's stacked with it - the map's click may have picked a neighbour)
-  let html = (rows.length ? kvHtml(rows) : "") + nearbyHtml(it);
+  // a pickup's own icon (the game's: cash, eridium, health, an ammo type), big, above its rows
+  const bigIcon = kind === "loot" && !gear ? pickupIconHtml(it, "dpicon") : "";
+  let html = (bigIcon ? `<div class="dpicons">${bigIcon}</div>` : "") + (rows.length ? kvHtml(rows) : "") + itemCard + nearbyHtml(it);
   // what it can hold: its chances when the collector worked them out (odds.js), else the pools' names
   const pools = it.odds && it.odds.length ? oddsHtml(it)
     : (it.loot || []).map((n) => `<div>${nameHtml({ n: String(n).replace(/^Pool_/, ""), raw: 1 })}</div>`).join("");

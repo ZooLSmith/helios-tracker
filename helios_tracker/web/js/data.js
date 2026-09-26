@@ -5,7 +5,7 @@ import { t } from "./i18n.js";
 import { objectCategory, setRarityTable } from "./model.js";
 import { invalidate } from "./scheduler.js";
 import { settings } from "./settings.js";
-import { S, findDetail, pawnPos } from "./state.js";
+import { S, findDetail, itemById, pawnPos } from "./state.js";
 import { renderCutscene } from "./ui/cutscene.js";
 import { renderDetail } from "./ui/detail.js";
 import { restoreDrawer } from "./ui/drawer.js";
@@ -53,6 +53,8 @@ export function connect() {
   onRecords("shops", "machines", onShops);
   on("shoptimer", onShopTimer);
   on("lootpools", onLootPools);
+  on("assets", onAssets);
+  onRecords("items", "items", onItems);
   onRecords("pickups", "pickups", onPickups);
   onRecords("pawninfo", "pawns", onPawnInfo);
 }
@@ -98,7 +100,7 @@ function onLevel(level) {
   invalidate();
   const changed = !S.level || S.level.id !== level.id;
   if (changed) {
-    S.images = []; S.fogBlob = null; S.pawns.clear(); S.pawnInfo = {}; S.pickups = []; S.objects = []; S.areas = []; S.fogSeen = null; S.explored = false; S.fitted = false; S.fallback = null;
+    S.images = []; S.fogBlob = null; S.pawns.clear(); S.pawnInfo = {}; S.groundItems = new Map(); S.pickups = []; S.objects = []; S.areas = []; S.fogSeen = null; S.explored = false; S.fitted = false; S.fallback = null;
     S.players = []; renderPlayers(); renderInspector();
     S.missions = { tracked: null, markers: [] }; renderMission();
     S.shops = null; S.shopTimer = null; renderShops();
@@ -244,7 +246,28 @@ function onPickups(msg) {
   if (!S.level || msg.level !== S.level.id) return;
   S.pickups = msg.pickups;
   closeIfGone();
+  refreshLootDetail();
   invalidate();
+}
+
+/** The gear pickups' items (their cards: stats, parts - built by the collector a few per update, sent once each). */
+function onItems(msg) {
+  if (!S.level || msg.level !== S.level.id) return;
+  S.groundItems = new Map(msg.items.map((it) => [it.i, it]));
+  refreshLootDetail();
+}
+
+// The drawer shows a pickup: again when its record changed (records are new objects only when they change: keyed) - its
+// item's card came in, it rolled (its distance)
+let lootShown = null;
+function refreshLootDetail() {
+  if (!S.detail || S.detail.kind !== "loot") { lootShown = null; return; }
+  const found = findDetail();
+  if (!found) return;
+  const card = itemById(found.item.it);
+  if (found.item === lootShown?.item && card === lootShown?.card) return;
+  lootShown = { item: found.item, card };
+  renderDetail();
 }
 
 /** The pawns' descriptions (kind, name, level, max health / shield - sent when they change); the pawns on the map get them at once (a
@@ -318,6 +341,13 @@ function onShops(msg) {
   if (S.shopView) renderShopsView();
   if (S.detail) renderDetail(); // (a machine's panel: its stock's count)
   restoreDrawer("shops");
+}
+
+/** What the server can serve from the game's files now (__init__.py: the item card icons once indexed and their keys
+ *  known) - the map's gear icons wait for it. */
+function onAssets(msg) {
+  S.assets = msg;
+  invalidate();
 }
 
 /** The pools the containers' loot odds reach (static game data, not per level: only ever grows). */
