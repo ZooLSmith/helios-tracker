@@ -111,7 +111,7 @@ function onLevel(level) {
   const gameChanged = (S.level?.game || "") !== (level.game || "");
   S.level = level;
   if (gameChanged) renderLayers(); // (a game's own layers: the Pre-Sequel's oxygen - model.js layerInGame)
-  if (level.rarity) setRarityTable(level.rarity);
+  if (level.rarity) setRarityTable(level.rarity, level.game); // (tiers by colour entry: each game's own table)
   renderLevel();
   renderMessage();
   if (level.status === "ready" && !wasReady) loadImages(level);

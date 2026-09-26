@@ -19,6 +19,11 @@ const COMMON = ["names", "nameSize", "size", "floors", "range"]; // (the panel's
 // them in game), by colour entry; an entry without one shows its number ("Rarity 503") in its colour.
 const TIER_BY_ENTRY = { 0: "misc", 1: "common", 2: "uncommon", 3: "rare", 4: "epic", 5: "legendary", 6: "etech",
   7: "legendary", 12: "pearl", 13: "seraph", 17: "effervescent" };
+// The Pre-Sequel's table (its Startup.upk GD_Globals.General.Globals RarityLevelColors, offline): 19 entries - 505 one
+// (entry 17: BL2 has none, its 506 there), 506 entry 18; 501's pink (entry 13, BL2's Seraph's) is its Glitch; no
+// pearlescent, no effervescent (the user) - 500 / 505 / 506 unnamed ("Rarity 500")
+const TIER_BY_ENTRY_TPS = { 0: "misc", 1: "common", 2: "uncommon", 3: "rare", 4: "epic", 5: "legendary", 6: "etech",
+  7: "legendary", 13: "glitch" };
 // Before the game's table (or without it): the usual levels, in the game's colours
 const RARITY = {
   0: ["misc", "#cdc1af"], 1: ["common", "#ffffff"], 2: ["uncommon", "#3dd20b"], 3: ["rare", "#3c8eff"],
@@ -26,13 +31,17 @@ const RARITY = {
   501: ["seraph", "#ff9ab8"], 506: ["effervescent", "#f2ffa1"],
 };
 let gameRarity = {}; // "level" -> [colour entry, "#rrggbb"]
-export function setRarityTable(table) { gameRarity = table && typeof table === "object" ? table : {}; }
+let rarityGame = ""; // the game the table is from (the level's "game": "bl2", "tps")
+export function setRarityTable(table, game = "") {
+  gameRarity = table && typeof table === "object" ? table : {};
+  rarityGame = game || "";
+}
 export function rarity(q) {
   const game = gameRarity[String(q)];
-  if (game) return [TIER_BY_ENTRY[game[0]] || "unknown", game[1]];
+  if (game) return [(rarityGame === "tps" ? TIER_BY_ENTRY_TPS : TIER_BY_ENTRY)[game[0]] || "unknown", game[1]];
   return RARITY[q] || (q > 500 ? ["pearl", RARITY[500][1]] : ["unknown", "#e0e0e0"]);
 }
-const RARITY_COLOR = Object.fromEntries(Object.values(RARITY));
+const RARITY_COLOR = { ...Object.fromEntries(Object.values(RARITY)), glitch: "#ff9ab8" }; // (Glitch: 501's, the Pre-Sequel's)
 
 // The effervescent rarity's rainbow (the game's RARITY_Rainbow) at a time (ms, the page's clock): its hue goes round
 // once per cycle - the drawer's name (drawer.css, 3 s) and the map's markers in step. Called per frame drawn only
@@ -46,7 +55,11 @@ export function rainbowAt(ms) {
 export const LAYER_GROUPS = ["characters", "loot", "missions", "services", "places", "map"]; // ("world" before: split, too generic)
 
 // Gear on the ground: a layer per rarity (misc: rarity 0 and unknown levels), in the Gear folder
-const LOOT_RARITIES = ["common", "uncommon", "rare", "epic", "legendary", "etech", "pearl", "seraph", "effervescent", "misc"];
+const LOOT_RARITIES = ["common", "uncommon", "rare", "epic", "legendary", "etech", "pearl", "seraph", "glitch", "effervescent", "misc"];
+// a rarity's layer in one game only: BL2's pearlescent, Seraph, effervescent; the Pre-Sequel's Glitch - and its E-tech
+// gear in the Legendary layer (its one E-tech item: the Monster Trap, a mission grenade mod - the user; the item
+// keeps its own rarity: name, colour)
+const RARITY_GAME = { pearl: "bl2", seraph: "bl2", effervescent: "bl2", glitch: "tps", etech: "bl2" };
 // Other pickups: a layer per kind (the collector's "pk", from the game's inventory card; "mission": a
 // mission item - ECHO logs, objects an objective asks for - in the objectives' green), in the Pickups
 // folder; anything else (other currencies...) is "other"
@@ -62,7 +75,8 @@ export const LAYERS = [
   { id: "npc", group: "characters", on: true, settings: COMMON },
   { id: "vehicle", group: "characters", on: true, settings: COMMON },
   { id: "gear", group: "loot", folder: true, settings: [] },
-  ...LOOT_RARITIES.map((r) => ({ id: "loot." + r, group: "loot", parent: "gear", legacy: "loot", rarity: r, color: RARITY_COLOR[r], on: true, settings: COMMON })),
+  ...LOOT_RARITIES.map((r) => ({ id: "loot." + r, group: "loot", parent: "gear", legacy: "loot", rarity: r, color: RARITY_COLOR[r], on: true, settings: COMMON,
+    ...(RARITY_GAME[r] ? { game: RARITY_GAME[r] } : {}) })),
   // not gear: no real rarity (made-up levels, for their colour in game)
   { id: "pickups", group: "loot", folder: true, settings: [] },
   // (Other last: the buffs before it)
@@ -125,6 +139,7 @@ export const layerNameKey = (l) => (l.rarity ? "rarity." + l.rarity : "layer." +
 export function lootLayer(p) {
   if (!isGear(p.c)) return "pickup." + (PICKUP_KINDS.includes(p.pk) ? p.pk : "other");
   const [key] = rarity(p.q || 0);
+  if (key === "etech" && rarityGame === "tps") return "loot.legendary"; // (the Pre-Sequel: E-tech in the Legendary layer)
   return LOOT_RARITIES.includes(key) ? "loot." + key : "loot.misc";
 }
 

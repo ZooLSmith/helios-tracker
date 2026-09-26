@@ -204,6 +204,7 @@ export default {
   "rarity.legendary": "Légendaire",
   "rarity.etech": "E-tech",
   "rarity.seraph": "Séraphin",
+  "rarity.glitch": "Glitch",
   "rarity.effervescent": "Effervescent",
   "rarity.pearl": "Nacré",
   "rarity.unknown": "Rareté {n}",
