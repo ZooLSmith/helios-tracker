@@ -639,7 +639,7 @@ def element_of(damage_type: Any, ctrl: Any = None) -> dict[str, str]:
 
 # Behaviours that hand an interactive object's own loot out (its Loot / balance's lists): a container's
 _LOOT_GIVERS = {"Behavior_AttachItems", "Behavior_DropItems", "Behavior_SpawnLootAroundPoint", "Behavior_SpawnLootAtPoints"}
-_buffs: dict[int, bool] = {}  # object definition address -> a buff (buff_info), static
+_buffs: dict[int, int] = {}  # object definition address -> 2 skill + own item, 1 skill, 0 neither (buff_info), static
 
 
 def _behavior_classes(definition: Any) -> set[str]:
@@ -652,15 +652,19 @@ def _behavior_classes(definition: Any) -> set[str]:
     return found
 
 
-def buff_info(definition: Any) -> bool:
-    """A buff you use, not a container: its behaviours activate a skill (Behavior_ActivateSkill) and none hands its own
-    loot out (_LOOT_GIVERS) - the Pre-Sequel's Moxxtails (their balances list EpicChestRedLoot, never dropped), BL2's
-    Tiny Tina shrines; Isaiah's strongbox activates one too but drops its loot: a container. Per definition, once."""
+def buff_info(definition: Any, lootable: bool = False) -> bool:
+    """A buff you use, not a container: its behaviours activate a skill (Behavior_ActivateSkill), none hands its own
+    loot out (_LOOT_GIVERS), and it spawns an item of its own (Behavior_SpawnItems: the Pre-Sequel's Moxxtails' drink -
+    all 8, the Ammo one's balance with no loot list) or has loot (`lootable`: a leftover chest list, never dropped - the
+    Moxxtails', BL2's Tiny Tina shrines': 6 of 7, the Ammo shrine none). Isaiah's strongbox activates one too but drops
+    its loot: a container; the other skill objects (a switch console, the Space Hurps, BL2's whiskey barrel...) spawn
+    nothing, have no loot. Per definition, once (the behaviours; `lootable` on top)."""
     key = definition._get_address()
     if key not in _buffs:
         classes = _behavior_classes(definition)
-        _buffs[key] = "Behavior_ActivateSkill" in classes and not classes & _LOOT_GIVERS
-    return _buffs[key]
+        skill = "Behavior_ActivateSkill" in classes and not classes & _LOOT_GIVERS
+        _buffs[key] = 2 if skill and "Behavior_SpawnItems" in classes else 1 if skill else 0
+    return _buffs[key] == 2 or (_buffs[key] == 1 and lootable)
 
 
 def explosion_info(definition: Any, ctrl: Any = None) -> dict[str, Any]:

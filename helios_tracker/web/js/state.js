@@ -75,6 +75,10 @@ export function isTrackedPlayer(p) {
   return named ? !p.local && p.n === target : !!p.local;
 }
 
+/** What's on sale on an interactive object: the pickup you pay for sitting on it (a Moxxtail's drink: its "on" the
+ *  object's id, its "cost" [amount, currency] - collector.py _pickup_info), or undefined. */
+export function onSale(o) { return o && o.i ? S.pickups.find((p) => p.on === o.i) : undefined; }
+
 /** An item's record by its id (its object's address): on the ground (a gear pickup's "it") or in a player's gear - the
  *  same item dropped / picked up keeps its id (and its card's open / closed state: S.expanded). */
 export function itemById(id) {

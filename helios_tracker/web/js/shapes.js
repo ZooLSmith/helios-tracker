@@ -9,7 +9,7 @@ import { ctx } from "./view.js";
 export const COLORS = {};
 const TOKENS = { bg: "bg", grid: "grid", shield: "shield", health: "health", dead: "dead", menu: "menu", objective: "objective",
   tracked: "map-tracked", playerEdge: "map-player-edge", outline: "map-outline", outlineSoft: "map-outline-soft",
-  ink: "map-ink", boss: "map-boss", turnin: "map-turnin", halo: "map-halo", barBack: "map-bar-back" };
+  ink: "map-ink", boss: "map-boss", golden: "map-golden", turnin: "map-turnin", halo: "map-halo", barBack: "map-bar-back" };
 export function initColors() {
   for (const [k, token] of Object.entries(TOKENS)) COLORS[k] = tokenColor("--" + token);
   COLORS.mapFilter = tokenRaw("--map-filter") || "none"; // (the theme's map tint: draw.js mapCanvas)

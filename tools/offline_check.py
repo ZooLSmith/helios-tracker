@@ -1799,9 +1799,12 @@ def check_helios_tracker() -> None:  # noqa: PLR0915
         return ns(_get_address=lambda: addr, BehaviorProviderDefinition=ns(BehaviorSequences=[
             ns(BehaviorData2=[ns(Behavior=ns(Class=ns(Name=c))) for c in classes])]))
     buff_kinds = [inspector.buff_info(behaviours_def(0xB11, "Behavior_ActivateSkill", "Behavior_SpawnItems")),
-                  inspector.buff_info(behaviours_def(0xB12, "Behavior_ActivateSkill", "Behavior_AttachItems")),
-                  inspector.buff_info(behaviours_def(0xB13, "Behavior_AttachItems"))]
-    assert buff_kinds == [True, False, False], ("a Moxxtail, Isaiah's strongbox, a chest", buff_kinds)
+                  inspector.buff_info(behaviours_def(0xB12, "Behavior_ActivateSkill", "Behavior_AttachItems"), True),
+                  inspector.buff_info(behaviours_def(0xB13, "Behavior_AttachItems"), True),
+                  inspector.buff_info(behaviours_def(0xB14, "Behavior_ActivateSkill"), True),
+                  inspector.buff_info(behaviours_def(0xB15, "Behavior_ActivateSkill"))]
+    assert buff_kinds == [True, False, False, True, False], \
+        ("a Moxxtail (no loot list: the Ammo one), Isaiah's strongbox, a chest, a shrine, a switch console", buff_kinds)
     assert inspector.explosion_info(ns(_get_address=lambda: 0xB02, BehaviorProviderDefinition=None), barrel_ctrl) == {}, \
         "no behaviours (the air dome generator): doesn't explode"
     fire_element = inspector.element_of(ns(DamageType=barrel_damage.DAMAGE_TYPE_Incindiary), barrel_ctrl)

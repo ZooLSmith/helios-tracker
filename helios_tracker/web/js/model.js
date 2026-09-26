@@ -166,6 +166,10 @@ export function chestTier(o) {
   return lists.some((l) => /weaponchest/i.test(l)) || pools.some((l) => /weaponchest/i.test(l)) ? 1 : 0;
 }
 
+/** The golden chest (Sanctuary's, opened with a golden key): its loot list's name, like chestTier's
+ *  (EpicChestGoldenLoot) - a big chest, drawn gold. */
+export function isGoldenChest(o) { return (o.lists || []).some((l) => /golden/i.test(l)); }
+
 /** Interactive objects -> category, from their definition / class name. */
 export function objectCategory(o) {
   // what gives oxygen (the Pre-Sequel's): an air dome's bubble (its area: collector.py _dome), its generator, a fissure

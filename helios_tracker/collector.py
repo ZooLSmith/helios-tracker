@@ -1138,16 +1138,16 @@ class Collector:
         if definition is not None and (explosion := try_(lambda: explosion_info(definition), {})):
             record.update(explosion)
         # a buff you use (the Pre-Sequel's Moxxtails, BL2's shrines: inspector.buff_info) - not a container, whatever loot
-        # list its balance has (the Moxxtails': EpicChestRedLoot, never handed out). Only one with loot (that list): the
-        # other objects activating a skill have none (a switch console, the Space Hurps, BL2's whiskey barrel, the raid
-        # bosses' ooze / orb...) - BL2's Ammo shrine neither (no list: left as it was). (Not its price: bought ones, and
-        # golden chests too (golden keys), cost something - bCostsToUse / CostsToUseAmount, 0 before they're unlocked.)
+        # list its balance has (the Moxxtails': EpicChestRedLoot, never handed out). The other objects activating a skill
+        # (a switch console, the Space Hurps, BL2's whiskey barrel, the raid bosses' ooze / orb...) spawn nothing and have
+        # no loot; BL2's Ammo shrine neither (no list: left as it was). (Not its price: bought ones, and golden chests
+        # too (golden keys), cost something - bCostsToUse / CostsToUseAmount, 0 before they're unlocked.)
         # costs something to use (its primary use: bCostsToUse[0], CostsToUseAmount[0] - the slot machines' 85 credits,
         # tools/probe_moxxtail.txt): the page's machines you pay (not a container: golden chests cost golden keys)
         if try_(lambda: io.bCostsToUse[0], 0) and (cost := try_(lambda: int(io.CostsToUseAmount[0]), 0)) > 0:
             record["cost"] = cost
         lootable = Collector._lootable(io, balance)
-        if lootable and definition is not None and try_(lambda: buff_info(definition), False):
+        if definition is not None and try_(lambda: buff_info(definition, lootable), False):
             record["buff"] = 1
         elif lootable:
             record["lootable"] = 1
@@ -1256,6 +1256,14 @@ class Collector:
                     info["am"] = amount
         if (mission := pickup_mission(inv)) is not None:
             info["ms"] = mission
+        # a pickup you pay for, sitting on an interactive object (a Moxxtail's drink, once they're on sale: bCostsToPickUp,
+        # 10 moonstones - its Base the Moxxtail, which lists it in Attached: tools/probe_moxxtail_link.txt): "on" that
+        # object (the page shows the object, with this price: [amount, its CostsToPickUpType's name])
+        if try_(lambda: bool(p.bCostsToPickUp), False) and (base := try_(lambda: p.Base)) is not None \
+                and try_(lambda: self._is(base, "WillowInteractiveObject"), False):
+            info["on"] = addr(base)
+            info["cost"] = [try_(lambda: int(p.CostsToPickUpAmount), 0),
+                            str(getattr(try_(lambda: p.CostsToPickUpType), "name", "") or "")]
         self._info[addr] = info
         return info
 

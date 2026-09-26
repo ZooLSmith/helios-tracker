@@ -21,6 +21,13 @@ export function pickupAmount(p) {
   return p.pk === "eridium" ? t("currency.eridium", { n: num(p.am) }) : p.pk === "ammo" ? t("tip.rounds", { n: num(p.am) }) : money(p.am);
 }
 
+/** A price ([amount, the game's currency enum name]: collector.py "cost") as text: "$ 85", "10 moonstones", or "". */
+export function priceText(cost) {
+  if (!cost || !cost[0]) return "";
+  const [n, cur] = cost;
+  return cur === "CURRENCY_Credits" ? money(n) : t(cur === "CURRENCY_Eridium" ? "currency.eridium" : "currency.other", { n: num(n) });
+}
+
 export function rarityName(q) {
   const [key] = rarity(q || 0);
   return t("rarity." + key, { n: q || 0 });

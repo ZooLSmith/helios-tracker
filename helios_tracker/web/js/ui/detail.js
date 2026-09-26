@@ -4,10 +4,10 @@ import { UU_PER_METER } from "../geo.js";
 import { num, t } from "../i18n.js";
 import { icon } from "../icons.js";
 import { isGear, nameText, rarity, shownHealth, shownMaxHealth } from "../model.js";
-import { S, findDetail, isTrackedPlayer, itemById, pawnPos, trackedPawn } from "../state.js";
+import { S, findDetail, isTrackedPlayer, itemById, onSale, pawnPos, trackedPawn } from "../state.js";
 import { saveDrawer } from "./drawer.js";
 import { bindItems, renderInspector } from "./inspector.js";
-import { itemHtml, pickupAmount, pickupIconHtml, rarityName } from "./items.js";
+import { itemHtml, pickupAmount, pickupIconHtml, priceText, rarityName } from "./items.js";
 import { renderPlayers } from "./players.js";
 import { oddsHtml } from "./odds.js";
 import { machineStockHtml } from "./shops.js";
@@ -165,6 +165,9 @@ export function renderDetail(resetScroll) {
     const n = shop.items.length + (shop.feat ? 1 : 0);
     rows.push([t("detail.stock"), null, `<a class="mlink" data-open-shop="${esc(shop.i)}">${esc(t("detail.stockItems", { n: num(n) }))}</a>`]);
   }
+  // something on sale on it (a Moxxtail's drink, a pickup you pay for): its price
+  const sale = kind !== "loot" ? onSale(it) : undefined;
+  if (sale && priceText(sale.cost)) rows.push([t("detail.price"), priceText(sale.cost)]);
   if (it.lootable) rows.push([t("detail.status"), t(it.looted ? "detail.looted" : "detail.unlooted")]);
   if (it.slots) rows.push([t("detail.slots"), num(it.slots)]);
   // the technical rows (its loot lists, class, definition): folded away at the bottom ("Details", like an item's - the

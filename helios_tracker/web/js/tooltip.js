@@ -5,8 +5,8 @@ import { money, t, num } from "./i18n.js";
 import { hitAt } from "./input.js";
 import { isGear, poolKinds, rainbowAt, rarity, shownHealth, shownMaxHealth } from "./model.js";
 import { settings } from "./settings.js";
-import { S, itemById, trackedPawn } from "./state.js";
-import { pickupAmount, pickupIconHtml, rarityName } from "./ui/items.js";
+import { S, itemById, onSale, trackedPawn } from "./state.js";
+import { pickupAmount, pickupIconHtml, priceText, rarityName } from "./ui/items.js";
 import { H, W, panelRects, toMap } from "./view.js";
 
 // The last frame's context: the tooltip also follows the pointer between frames (refreshTooltip: at full speed,
@@ -96,6 +96,9 @@ function renderTooltip(mePos, f) {
   }
   // money / ammo on the ground: how much it gives (the collector's, from its definition: amounts.py)
   if (best.kind === "loot" && !gear && it.am) lines.push(`<span class="tl">${esc(pickupAmount(it))}</span>`);
+  // an object with something on sale on it (a Moxxtail's drink): its price
+  const sale = best.kind !== "loot" ? onSale(it) : undefined;
+  if (sale && priceText(sale.cost)) lines.push(`<span class="tl">${esc(t("tip.price", { p: priceText(sale.cost) }))}</span>`);
   if (it.sm > 0) lines.push(`<span class="tl">${esc(t("tip.shield", { s: Math.round(it.s), m: Math.round(it.sm) }))}</span>`);
   if (it.m > 0) lines.push(`<span class="tl">${esc(t("tip.health", { h: shownHealth(it.h), m: shownMaxHealth(it.m) }))}</span>`);
   if (!card && it.xp && it.eln && !elementKey) lines.push(`<span class="tl">${esc(it.eln)}</span>`); // (an exploding object: its element's name - no icon)

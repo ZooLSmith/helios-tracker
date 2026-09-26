@@ -2,13 +2,14 @@
 // loot, pawns), each styled by its layer's settings; records what's where (S.hits) for hover /
 // click, updates the layer counts.
 import { UU_PER_METER, mapTurn, worldToMap, yawToAngle } from "./geo.js";
-import { FLOOR_UU, LAYERS, LAYER_COLOR, chestTier, isGear, lootLayer, nameText, rainbowAt, rarity } from "./model.js";
+import { FLOOR_UU, LAYERS, LAYER_COLOR, chestTier, isGear, isGoldenChest, lootLayer, nameText, rainbowAt, rarity } from "./model.js";
 import { look, withAlpha } from "./look.js";
 import { missionItemWanted } from "./missions.js";
 import { settings } from "./settings.js";
 import { COLORS, areaName, arrow, bang, bossDiamond, question, brackets, burst, chest, coin, diamond, dot, hollowDiamond, jumpMark, slotMark, vaultMark, label, leader, menuBadge, oxygenMark, respawnRing, ring, setMarkerScale, square, triangle, typeIcon,
   vitalBars } from "./shapes.js";
 import { S, findDetail, findPlayer, frame, pawnPos, trackedPawn } from "./state.js";
+const objectIds = new Set(); // (this frame's objects: a pickup on sale on one of them isn't drawn - the object is)
 import { tooltip } from "./tooltip.js";
 import { refreshPlayerInfo } from "./ui/inspector.js";
 import { updatePlayerVitals } from "./ui/players.js";
@@ -287,21 +288,23 @@ export function draw() {
     if (!visible(sx, sy)) continue;
     if (o.dome) { hits.push({ sx, sy, r: 6 * st.k, kind: o.cat, item: o }); continue; } // (a dome: its area, drawn above)
     fadeTo(st.alpha * (o.cat === "looted" ? 0.55 : 1));
-    stem(o.x, o.y, sx, sy, LAYER_COLOR[o.cat]);
+    // its colour: its layer's - an explosive its element's, the golden chest gold (a big chest, opened with a key)
+    const oColor = o.cat === "explosive" && o.ecol ? o.ecol : o.cat === "chest" && isGoldenChest(o) ? COLORS.golden : LAYER_COLOR[o.cat];
+    stem(o.x, o.y, sx, sy, oColor);
     // Containers (looted ones too, just dimmed): chests biggest, others by how many items they spawn
     const tier = chestTier(o);
     const size = st.k * (o.cat === "other" ? 2.5 : o.cat === "oxygen" ? 9 : o.cat === "explosive" ? 7.5 : o.cat === "jumppad" ? 7 : o.cat === "buff" ? 4.5 : o.cat === "slots" ? 5.8 : tier === 2 ? 7 : tier === 1 ? 5.5 : o.slots ? 2.5 + Math.min(o.slots, 4) * 0.6 : 3.5);
     if (o.cat === "oxygen") oxygenMark(sx, sy, LAYER_COLOR[o.cat], st.k); // (a generator, a fissure: a diamond, "O2")
     else if (o.cat === "jumppad") jumpMark(sx, sy, LAYER_COLOR[o.cat], st.k); // (a disc, an up chevron)
     else if (o.cat === "buff") dot(sx, sy, size, LAYER_COLOR[o.cat]); // (a buff: a disc - the pickups' dot, bigger)
-    else if (o.cat === "explosive") burst(sx, sy, o.ecol || LAYER_COLOR[o.cat], st.k); // (a burst in its element's colour: the game's)
+    else if (o.cat === "explosive") burst(sx, sy, oColor, st.k); // (a burst in its element's colour: the game's)
     else if (o.cat === "vaultsymbol") vaultMark(sx, sy, LAYER_COLOR[o.cat], st.k); // (a ring and a dot)
     else if (o.cat === "slots") slotMark(sx, sy, LAYER_COLOR[o.cat], st.k); // (a tall box, its reels' window)
-    else if (tier) chest(sx, sy, size, LAYER_COLOR[o.cat]); // (a big chest, a weapon chest - looted ones too, dimmed)
+    else if (tier) chest(sx, sy, size, oColor); // (a big chest, a weapon chest - looted ones too, dimmed)
     else square(sx, sy, size, LAYER_COLOR[o.cat]);
     // (its bars and name past its edge: the marker's own size - shapes.js drew)
     if (o.m > 0 && o.h < o.m) vitalBars(sx, sy, o, st.k); // (an object with health, hurt: its bar, as a pawn's)
-    if (st.names) label(sx, sy, nameText(o), o.cat === "explosive" && o.ecol ? o.ecol : LAYER_COLOR[o.cat], o.raw, st.ns);
+    if (st.names) label(sx, sy, nameText(o), oColor, o.raw, st.ns);
     hits.push({ sx, sy, r: size, kind: o.cat, item: o });
   }
   // quest markers: point objectives, quest givers; areas are hit-tested at their centre too. A quest
@@ -344,7 +347,10 @@ export function draw() {
   ctx.globalAlpha = 1;
   // loot: styled by its rarity's layer (gear), or the pickups' (ammo, cash...)
   const byId = logById();
+  objectIds.clear();
+  for (const o of S.objects) objectIds.add(o.i);
   for (const p of S.pickups) {
+    if (p.on && objectIds.has(p.on)) continue; // on sale on an object (a Moxxtail's drink): the object shows it, its price
     if (p.ms && !missionItemWanted(p.ms, byId)) continue; // a mission item placed ahead (its step not reached / done)
     if (offMap(p.z)) continue;
     const layer = lootLayer(p), st = style(layer, p);

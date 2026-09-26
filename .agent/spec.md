@@ -192,7 +192,7 @@ It draws nothing in game: everything it shows is on the page.
   collector's `cost`) and has no loot of its own - a tall box, its reels' window. Costing isn't "not a container": golden
   chests cost golden keys (lootable: still chests), bought Moxxtails too (buffs first).
 - **Containers**: category from the game's loot list names - an "Epic" list = **Big chests** (red
-  chests, orange-red, biggest), a "WeaponChest" list = **Weapon chests** (metal crates, bandit weapon
+  chests, orange-red, biggest), the golden chest among them drawn gold (its list EpicChestGoldenLoot: opened with a key), a "WeaponChest" list = **Weapon chests** (metal crates, bandit weapon
   chests, amber), else Containers sized by item slots (most items one opening spawns). **Looted**
   (the "Opened" animation's bit of SimpleAnimState + no longer usable - notes.md; checked round robin every second) =
   their own dimmed layer, off
@@ -235,9 +235,11 @@ It draws nothing in game: everything it shows is on the page.
   unknown), **Pickups** (not gear, a layer per kind: Ammo, Cash, Eridium, Health, Mission items (WillowMissionItem: ECHO logs, objective items; the objectives' green), Other - the collector's
   `pk`, from the item definition's inventory card `Presentation`, resolved once per definition:
   see notes; eridium not probed yet, so Other; and **Shrines** ("Moxxtails" in the Pre-Sequel; the layer id `buff`): interactive objects you use for a bonus for a while - the
-  Pre-Sequel's Moxxtails, BL2's shrines: their behaviours activate a skill and none hands their own loot out, and they have loot (a leftover
-  chest list: other skill objects have none), a pink disc;
-  never containers, whatever loot list their balance has), **Containers** (Big chests, Weapon
+  Pre-Sequel's Moxxtails, BL2's shrines: their behaviours activate a skill and none hands their own loot out, and they spawn an item of
+  their own (the Moxxtails' drink) or have loot (a leftover chest list: other skill objects have neither), a pink disc;
+  never containers, whatever loot list their balance has; once on sale, a Moxxtail's drink - a pickup you pay for, its
+  Base the Moxxtail: the collector's `on` / `cost` - isn't drawn, its price in the Moxxtail's tooltip and Details),
+  **Containers** (Big chests, Weapon
   chests, Other containers, Looted). Per-layer
   settings (`model.js` `LAYER_SETTINGS`, which apply per layer in `LAYERS[].settings`, in the panel's order):
   Names (its Name size slider on the same row, no label: 50-200 %, the labels' text; a name starts past its

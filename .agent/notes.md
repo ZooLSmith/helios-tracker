@@ -595,10 +595,17 @@ Southern Shelf's `_P` alone: 404 `StaticMesh`, 4131 `StaticMeshComponent`, 11 `T
   them (not unlocked yet: bought later - GD_Moxxtails.Misc.Init_MoxxtailCost), golden chests cost golden keys, the slot
   machine 85 credits (tools/probe_moxxtail.txt). Some real containers have no loot behaviour of their own either (the
   Dice chest, meteorite loot piles, Claptrap's stash): not a test for "container". The rule also needs loot (that
-  leftover list): the other objects activating a skill have none - the Pre-Sequel's IO_ComputerConsole_A, IO_ScreenFX,
+  leftover list) or an item of its own (Behavior_SpawnItems: the Moxxtails' drink - the Ammo Moxxtail's balance has no
+  loot list, the only one of the 8; nothing else activating a skill spawns anything): the other objects activating a
+  skill have neither - the Pre-Sequel's IO_ComputerConsole_A, IO_ScreenFX,
   IO_SpaceHurp / IO_InnerHull_SpaceHurpManager, BL2's whiskey barrel (Wedding Day), the Splinter Group's pizza, the
   raids' worm ooze / shaman orb, a test spike trap. BL2's shrines: 6 of 7 carry a list (the Ammo shrine none: not a
   buff on the page), and every one's balance DefaultDisplayName is "Health Shrine" (the game's copy-paste).
+- **Moxxtails on sale** (unlocked): each spawns its drink, a WillowPickup of a GD_Moxxtails.Pickups.PickupDummy_*
+  (UsableItemDefinition, no name: the page's "Usable Item"), bought - bCostsToPickUp, CostsToPickUpType CURRENCY_Eridium
+  (moonstones), CostsToPickUpAmount 10 (the only pickups that cost: tools/probe_moxxtail_pickup.txt). Tied to its
+  Moxxtail both ways: the pickup's Base = the Moxxtail's WillowInteractiveObject, the Moxxtail's Attached = [the pickup]
+  (tools/probe_moxxtail_link.txt, all 8). The page shows the Moxxtail with the drink's price, not the drink.
 - **What explodes**: its definition's behaviours hold a Behavior_Explode (BehaviorProviderDefinition.BehaviorSequences[]
   .BehaviorData2[].Behavior; the Pre-Sequel's barrels: bBarrelSource, DamageFormula / DamageRadiusFormula,
   Definition an ExplosionDefinition - its DamageTypeDef the element). The air dome generator: health, no behaviours.
