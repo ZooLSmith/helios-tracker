@@ -4,5 +4,12 @@
 // automatically from the browser's languages (or the Language menu).
 import en from "./en.js";
 import fr from "./fr.js";
+import de from "./de.js";
+import it from "./it.js";
+import es from "./es.js";
+import ja from "./ja.js";
+import ko from "./ko.js";
+import zh from "./zh.js";
+import ru from "./ru.js";
 
-export default { en, fr };
+export default { en, fr, de, it, es, ja, ko, zh, ru };

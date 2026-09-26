@@ -38,7 +38,7 @@ export default {
   "layer.chest": "Grands coffres",
   "layer.weaponchest": "Coffres d'armes",
   "layer.containers": "Conteneurs",
-  "layer.container": "Autres conteneurs",
+  "layer.container": "Autres",
   "layer.vendor": "Distributeurs",
   "layer.slots": "Machines à sous",
   "layer.vaultsymbol": "Symboles de la Crypte",
