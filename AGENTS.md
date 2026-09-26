@@ -116,12 +116,16 @@ bl2-helios-tracker/
   file; the domain's DNS: a CNAME record to `zoolsmith.github.io`). It's an orphan branch
   (no history shared with `master`), checked out as a worktree at `_work/web_documentation`
   (`git worktree add _work/web_documentation documentation`; `_work/` is gitignored).
-- Handwritten HTML / CSS, no build: one folder per language (`en/`, `fr/`...) with the same file names,
-  `assets/` the shared CSS / JS / fonts / images. The languages are listed once, in
-  `assets/js/languages.js` (name + the site's UI words): the header's language dropdown and the site
-  root's choice / redirect are built from it. A new language = its folder + an entry there (+ its
-  `<link rel="alternate" hreflang>` in the pages' heads). Everything dynamic runs in the browser: the
-  search reads the pages the navigation lists, so a new page goes in every page's `<nav class="side">`.
+- Handwritten HTML / CSS, no build: one set of pages at the root (`index.html`, `install.html`...), `assets/` the
+  shared CSS / JS / fonts / images. Translated the tracker page's way: the pages hold structure only, each text a
+  key (`data-i18n="install.sdk"`, `data-i18n-label` / `-title` / `-placeholder` / `-content` for attributes), the
+  words in `assets/i18n/en.js` (every key; values are HTML) and `fr.js` (same keys), filled by `assets/js/i18n.js`.
+  The language: the visitor's pick in localStorage (`helios.site.lang`, "auto" = the browser's), switched in place.
+  A new language = a catalog + its line in `assets/i18n/index.js`; a new page = its file + its line in `site.js`'s
+  `PAGES` (the menu and the search are built from it) + its keys. An empty translation hides its element (a note
+  only one language needs). Old `/en/...`, `/fr/...` links: `404.html` redirects them.
+- Every page needs JavaScript (no text without it): what the site builds (menu, search, copy buttons) carries keys
+  too, so a language switch re-translates it; anything built from the text listens to the `i18n` event.
 - Preview: `python -m http.server` in the worktree (search needs http, not `file://`).
 - Wording follows the page's own labels (`helios_tracker/web/i18n/en.js`, `fr.js`); the mod's in-game
   options are English in both languages.
