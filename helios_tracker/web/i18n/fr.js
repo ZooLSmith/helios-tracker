@@ -54,8 +54,8 @@ export default {
   "layer.pickup.health": "Santé",
   "layer.pickup.oxygen": "Oxygène",
   "layer.oxygen": "Sources d'oxygène",
-  "oz.inAir": "Air",
-  "oz.inVacuum": "Vide",
+  "oz.inAir": "Atmosphère",
+  "oz.inVacuum": "Dans le vide", // (the game's words: "dans le vide", "dans une atmosphère" - "Vide" alone read "empty")
   "layer.pickup.mission": "Objets de mission",
   "layer.pickup.other": "Autres",
   "layer.pickup.otherTip": "Ni équipement, ni munitions, argent, éridium, santé ou objet de mission : autres monnaies…",

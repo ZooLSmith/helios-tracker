@@ -119,12 +119,9 @@ button.act:hover { border-color: var(--accent); }
 .vital.xp.on { margin-top: 3px; } /* a little apart from shield / health */
 .vital.xp .vbar { height: 16px; } /* thinner than shield / health */
 .vital.ox .vbar { height: 16px; } /* the Oz meter: as thin as the XP bar */
-/* its row: the bar, then in air / in a vacuum on its right (players.js) */
-.oxrow { display: flex; align-items: center; gap: 6px; }
-.oxrow .vital.ox { flex: 1; min-width: 0; }
-.oxrow .oxstate { flex: none; font-size: 11px; color: var(--dim); }
-.oxrow .oxstate:empty { display: none; }
-.oxrow .oxstate.vac { color: var(--text); font-weight: 600; }
+/* in air / in a vacuum, inside it on the right (players.js); a vacuum: bold */
+.vital.ox .vright { font-weight: 400; }
+.vital.ox .vright.vac { font-weight: 700; }
 .vital.ox .vnum { font-size: 11px; }
 .vital.xp .vnum { font-size: 11px; }
 /* the numbers inside the bar, left, vertically centred; a dark outline to read on any fill */

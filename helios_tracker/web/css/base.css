@@ -149,7 +149,7 @@
   --layer-pickup-eridium: #c77dff;
   --layer-pickup-health: #ff6f7d;
   --layer-oxygen: #4e6a86; /* the Pre-Sequel's oxygen sources (air domes, fissures): a dark blue-grey (the user's) */
-  --layer-pickup-oxygen: #0096c8; /* the Pre-Sequel's oxygen canisters: their definition's LootBeamColorOverride (its only two) */
+  --layer-pickup-oxygen: #4e6a86; /* the Pre-Sequel's oxygen canisters: the oxygen sources' blue-grey (the user's; their loot beam's #0096c8 before) */
   --layer-pickup-mission: var(--objective);
   --layer-pickup-other: #9aa7ad;
   --layer-containers: #e2c170;
