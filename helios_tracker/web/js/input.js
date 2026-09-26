@@ -6,7 +6,7 @@ import { saveSettings, settings } from "./settings.js";
 import { S } from "./state.js";
 import { openDetail } from "./ui/detail.js";
 import { closeInspector, openInspector } from "./ui/inspector.js";
-import { H, W, canvas, cancelSpinBack, fit, resetSpin, screenToMapDelta, spinAt, stopFollow, toMap, zoomAt } from "./view.js";
+import { H, W, canvas, fit, resetSpin, screenToMapDelta, spinAt, stopFollow, toMap, zoomAt } from "./view.js";
 
 const FOLLOW_LET_GO = 40; // px a drag goes before it stops following the player (the user: not at the first pixel)
 const TWIST_START = 10; // degrees two fingers must turn before the map turns with them
@@ -96,7 +96,6 @@ export function initInput() {
       const v = settings.view, pivot = dragFrom || cur;
       const [px, py] = toMap(pivot.x, pivot.y);
       if (!(v.rotate && v.follow)) { // (Rotate: the heading turns it)
-        cancelSpinBack();
         const deg = (cur.x - prev.x) * 0.4;
         v.spin = (v.spin + deg) % 360;
         S.view.rot += deg * Math.PI / 180; // (now: the frame sets it from the spin again)

@@ -170,7 +170,6 @@ export function refreshNorth() {
 export function spinAt(sx, sy, deg) {
   const v = settings.view;
   if (v.rotate && v.follow) return;
-  spinBack = null;
   const [mx, my] = toMap(sx, sy);
   v.spin = (v.spin + deg) % 360;
   S.view.rot += deg * Math.PI / 180; // (now: the frame sets it from the spin again)
@@ -181,32 +180,6 @@ export function spinAt(sx, sy, deg) {
   saveSettings();
   invalidateNow();
 }
-
-// Leaving Follow + Rotate: the heading's turn eased back to north around the player's point - they stay where they are
-// on screen, the map turns under them. From the frames (draw.js, before the turn is set): at the Refresh rate; "updates
-// only": at once. A turn of the user's meanwhile (a drag, a twist) ends it.
-const SPIN_BACK_S = 0.08; // its time constant (s): settled in ~0.25 s
-let spinBack = null; // {mx, my: the player's map point, last: the previous step's time}
-
-export function easeSpinBack(f) {
-  if (!spinBack) return;
-  const v = settings.view;
-  if (v.follow) { spinBack = null; return; }
-  const now = performance.now(), dt = Math.min(0.5, (now - spinBack.last) / 1000);
-  spinBack.last = now;
-  const k = v.motion ? 1 - Math.exp(-dt / SPIN_BACK_S) : 1;
-  const [x0, y0] = toScreen(spinBack.mx, spinBack.my);
-  v.spin = Math.abs(v.spin * (1 - k)) < 0.2 ? 0 : v.spin * (1 - k);
-  S.view.rot = mapTurn(f) + v.spin * Math.PI / 180;
-  const [x1, y1] = toScreen(spinBack.mx, spinBack.my); // (turned: moved - the view follows it back)
-  const [dx, dy] = screenToMapDelta(x1 - x0, y1 - y0);
-  S.view.cx += dx; S.view.cy += dy;
-  if (v.spin) invalidate();
-  else { spinBack = null; saveSettings(); }
-}
-
-/** The user turns the map: the ease back to north (leaving Follow) stops where it is. */
-export function cancelSpinBack() { spinBack = null; }
 
 /** The map back to its usual orientation (the game's map screen's): the user's turn dropped - and Rotate, if it was
  *  turning it to the heading (the compass: shown then too). */
@@ -223,18 +196,19 @@ export function resetSpin() {
 
 export function stopFollow() {
   if (!settings.view.follow) return;
-  // Rotate was turning the map to their heading: it turns back north (the user's call) - around the player, eased
-  // (easeSpinBack): dropped at once, the map swung around the screen's centre and the player (off-centre: the free
-  // area's) was thrown aside with it (the user: "the camera jumps")
+  // Rotate was turning the map to their heading: it turns back north (the user's call) at once - never eased, whatever
+  // the Refresh rate (the user: attach / detach never lerps the turn) - around the player: turned around the screen's
+  // centre, the player (off-centre: the free area's) was thrown aside with it (the user: "the camera jumps")
   const f = frame(), target = trackedPawn();
   if (settings.view.rotate && f) {
-    const deg = (S.view.rot - mapTurn(f)) * 180 / Math.PI;
-    settings.view.spin = ((deg % 360) + 540) % 360 - 180; // (where it is now, as a turn to undo)
     const p = target && target.rs !== 2 ? pawnPos(target, performance.now()) : null;
-    if (p) {
-      const [mx, my] = worldToMap(f, p.x, p.y);
-      spinBack = { mx, my, last: performance.now() };
-    } else settings.view.spin = 0;
+    const [mx, my] = p ? worldToMap(f, p.x, p.y) : [S.view.cx, S.view.cy];
+    const [x0, y0] = toScreen(mx, my);
+    settings.view.spin = 0;
+    S.view.rot = mapTurn(f);
+    const [x1, y1] = toScreen(mx, my); // (turned: moved - the view follows it back)
+    const [dx, dy] = screenToMapDelta(x1 - x0, y1 - y0);
+    S.view.cx += dx; S.view.cy += dy;
   }
   settings.view.follow = false;
   $("follow").checked = false;

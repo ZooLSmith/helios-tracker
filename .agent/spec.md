@@ -24,8 +24,8 @@ It draws nothing in game: everything it shows is on the page.
   below right, else below left / above right / above left: the first clear of the panels and the window's edges)
   (name, kind, health, distance, height difference), world X/Y by the cursor (above it; Settings Show coordinates or C, off by default). Wheel / pinch zoom,
   drag pan (following: a drag lets go of the player only past 40 px - input.js FOLLOW_LET_GO; not following: at once;
-  leaving Follow + Rotate - a drag, the box, F - turns the map back north around the player, eased from the frames:
-  they stay where they are on screen, no jump - view.js easeSpinBack).
+  leaving Follow + Rotate - a drag, the box, F - turns the map back north around the player, at once: never eased on
+  attach / detach, whatever the Refresh rate; they stay where they are on screen - view.js stopFollow).
   Settings remembered in localStorage. Areas without a map: a 10 m grid around the player.
 - **Player inspector**: "Players" list in the panel (or click a player's marker) opens a drawer with
   Gear / Backpack / Skills tabs; items show the game's localized weapon type / item name and
