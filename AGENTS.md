@@ -101,6 +101,7 @@ bl2-helios-tracker/
   files then show as rewritten in the diff (it happened to 8 files once). Scripts edit bytes (`read_bytes` /
   `write_bytes`) or open with `newline=""`; check `git diff --stat` for a file suddenly "all changed" before committing.
 - Solo repo: commit straight to `master`, no branches - and only when asked. One exception: the website.
+- **Never push** (any remote, any branch): the user pushes.
 
 ## Repositories
 
@@ -119,16 +120,20 @@ bl2-helios-tracker/
 - Handwritten HTML / CSS, no build: one set of pages at the root (`index.html`, `install.html`...), `assets/` the
   shared CSS / JS / fonts / images. Translated the tracker page's way: the pages hold structure only, each text a
   key (`data-i18n="install.sdk"`, `data-i18n-label` / `-title` / `-placeholder` / `-content` for attributes), the
-  words in `assets/i18n/en.js` (every key; values are HTML) and `fr.js` (same keys), filled by `assets/js/i18n.js`.
+  words in `assets/i18n/en.js` (every key; values are HTML) and the others (same keys), filled by `assets/js/i18n.js`.
   The language: the visitor's pick in localStorage (`helios.site.lang`, "auto" = the browser's), switched in place.
-  A new language = a catalog + its line in `assets/i18n/index.js`; a new page = its file + its line in `site.js`'s
+  The same nine languages as the page. A new language = a catalog + its line in `assets/i18n/index.js` (a new
+  script: its fonts in `site.css` - Exo 2's subset, or a `:lang()` stack of system fonts like the CJK ones); a new
+  page = its file + its line in `site.js`'s
   `PAGES` (the menu and the search are built from it) + its keys. An empty translation hides its element (a note
   only one language needs). Old `/en/...`, `/fr/...` links: `404.html` redirects them.
 - Every page needs JavaScript (no text without it): what the site builds (menu, search, copy buttons) carries keys
   too, so a language switch re-translates it; anything built from the text listens to the `i18n` event.
 - Preview: `python -m http.server` in the worktree (search needs http, not `file://`).
-- Wording follows the page's own labels (`helios_tracker/web/i18n/en.js`, `fr.js`); the mod's in-game
-  options are English in both languages.
-- Nothing extracted from the game goes on the site (fonts, map images, icons): it's public.
+- Wording follows the page's own labels (`helios_tracker/web/i18n/<code>.js`, the same language's); the mod's
+  in-game options stay English in every language.
+- Nothing extracted from the game goes on the site (fonts, map images, icons): it's public. One exception, the
+  user's call: screenshots of the mod running (the overview's previews, `assets/img/previews/`) - pictures of it in
+  use, like any mod page's, not the game's files.
 - Keep what's learned in the repo (these files, `.agent/`), not in an agent's private memory, so every
   agent and person sees it.
