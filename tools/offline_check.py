@@ -717,6 +717,14 @@ def check_helios_tracker() -> None:  # noqa: PLR0915
         print(f"  Sage_Underground_P (DLC): {img.name} {img.width}x{img.height} ({time.perf_counter() - t:.2f} s)")
     finally:
         col.cooked_dir = real_cooked
+    # A map drawn from a part of its texture (a GFx DefineSubImage, its image's id 0): the Pre-Sequel's ComFacility_P
+    tps_cooked = project.path("tps")
+    tps_facility = tps_cooked / "WillowGame" / "CookedPCConsole" / "ComFacility_P.upk" if tps_cooked else None
+    if tps_facility is not None and tps_facility.is_file():
+        (facility_img,) = load_tactical_map(tps_facility, "UI_TacticalMap_ComFacility.ComFacility_P")
+        assert (facility_img.width, facility_img.height, facility_img.crop) == (1024, 1024, (0, 0, 743, 644)), facility_img
+        print(f"  ComFacility_P (the Pre-Sequel): {facility_img.name} {facility_img.width}x{facility_img.height}, the part drawn"
+              f" {facility_img.crop}")
 
     # A level load through the collector (fake world); the map is extracted on its thread
     ns = types.SimpleNamespace

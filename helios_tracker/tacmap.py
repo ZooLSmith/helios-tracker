@@ -509,19 +509,26 @@ def _shape_bitmap(code: int, body: bytes) -> tuple[int, tuple[float, float, floa
     return None
 
 
-def parse_map_movie(raw: bytes) -> list[tuple[str, tuple[float, float, float, float]]]:
-    """[(image file name, (x0, x1, y0, y1) in movie px)] for each map image placed on the stage."""
+def parse_map_movie(raw: bytes) -> list[tuple[str, tuple[float, float, float, float], tuple[int, int, int, int] | None]]:
+    """[(image file name, (x0, x1, y0, y1) in movie px, the part of the image drawn: (x, y, w, h) px or None - all of
+    it)] for each map image placed on the stage."""
     images: dict[int, str] = {}
+    subs: dict[int, tuple[int, tuple[int, int, int, int]]] = {}  # sub-image id -> (its image's id, its rect)
     shapes: dict[int, tuple[tuple[float, float, float, float], int]] = {}
     out = []
     for code, body in _movie_tags(raw):
-        if code == 1009:  # GFx DefineExternalImage2: id u32, format, target w/h, export name, file name
-            cid = struct.unpack_from("<I", body)[0]
+        if code == 1009:  # GFx DefineExternalImage2: id (u16, then 2 bytes: 0, or 9 - the Pre-Sequel's
+            # ComFacility_P, its image id 0), format, target w/h, export name, file name
+            cid = struct.unpack_from("<H", body)[0]
             p = 10
             p += 1 + body[p]  # export name
             images[cid] = body[p + 1 : p + 1 + body[p]].decode("latin1")
+        elif code == 1008:  # GFx DefineSubImage: id, its image's id, x1 y1 x2 y2 (px, u16) - a part of an image
+            # (ComFacility_P: 743 x 644 of its 1024 x 1024 texture), what the shape shows
+            cid, image, x1, y1, x2, y2 = struct.unpack_from("<6H", body)
+            subs[cid] = (image, (x1, y1, x2 - x1, y2 - y1))
         elif code in (2, 22, 32, 83):
-            if (s := _shape_bitmap(code, body)) is not None and s[2] in images:
+            if (s := _shape_bitmap(code, body)) is not None and (s[2] in images or s[2] in subs):
                 shapes[s[0]] = (s[1], s[2])
         elif code == 26:  # PlaceObject2
             flags = body[0]
@@ -535,7 +542,9 @@ def parse_map_movie(raw: bytes) -> list[tuple[str, tuple[float, float, float, fl
             if flags & 0x04:
                 sx, sy, tx, ty = _matrix(_Bits(body, 5))
             (x0, x1, y0, y1), bmp = shapes[cid]
-            out.append((images[bmp], (x0 * sx + tx, x1 * sx + tx, y0 * sy + ty, y1 * sy + ty)))
+            image, crop = subs[bmp] if bmp in subs else (bmp, None)
+            if image in images:
+                out.append((images[image], (x0 * sx + tx, x1 * sx + tx, y0 * sy + ty, y1 * sy + ty), crop))
     return out
 
 
@@ -613,6 +622,7 @@ class MapImage:
     height: int
     data: bytes  # top mip, as stored
     bounds: tuple[float, float, float, float]  # x0, x1, y0, y1 in movie px
+    crop: tuple[int, int, int, int] | None = None  # the part drawn in bounds (x, y, w, h px: a sub-image), None all
 
 
 BULK_SEPARATE_FILE = 0x01
@@ -761,13 +771,13 @@ def load_tactical_map(package_file: Path, movie_path: str) -> list[MapImage]:
         raw = _movie_raw(pkg, idx)
         movie_pkg = movie_path.rpartition(".")[0]
         out = []
-        for file_name, bounds in parse_map_movie(raw):
+        for file_name, bounds, crop in parse_map_movie(raw):
             stem = file_name.rpartition(".")[0] or file_name
             tex = pkg.find(f"{movie_pkg}.{stem}", "Texture2D")
             if tex is None:
                 raise FileNotFoundError(f"texture {movie_pkg}.{stem} not in {package_file.name}")
             fmt, w, h, body = _texture(pkg, tex)
-            out.append(MapImage(stem, fmt, w, h, body, bounds))
+            out.append(MapImage(stem, fmt, w, h, body, bounds, crop))
         return out
     finally:
         pkg.close()

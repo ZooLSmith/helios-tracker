@@ -601,6 +601,10 @@ Southern Shelf's `_P` alone: 404 `StaticMesh`, 4131 `StaticMeshComponent`, 11 `T
   IO_SpaceHurp / IO_InnerHull_SpaceHurpManager, BL2's whiskey barrel (Wedding Day), the Splinter Group's pizza, the
   raids' worm ooze / shaman orb, a test spike trap. BL2's shrines: 6 of 7 carry a list (the Ammo shrine none: not a
   buff on the page), and every one's balance DefaultDisplayName is "Health Shrine" (the game's copy-paste).
+- **Tactical map movies drawing a part of their texture**: the Pre-Sequel's ComFacility_P ("No map for this area"
+  before): its DefineExternalImage2 (1009) id 0 (its first 4 bytes 00 00 09 00 - the id a u16, not a u32: other maps'
+  01 00 00 00), then a GFx DefineSubImage (1008: id, image id, x1 y1 x2 y2 px) - 743 x 644 of its 1024 x 1024 texture
+  - which the shape fills with. tacmap.parse_map_movie: the crop, the page draws that part.
 - **Moxxtails on sale** (unlocked): each spawns its drink, a WillowPickup of a GD_Moxxtails.Pickups.PickupDummy_*
   (UsableItemDefinition, no name: the page's "Usable Item"), bought - bCostsToPickUp, CostsToPickUpType CURRENCY_Eridium
   (moonstones), CostsToPickUpAmount 10 (the only pickups that cost: tools/probe_moxxtail_pickup.txt). Tied to its

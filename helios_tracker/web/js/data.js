@@ -164,9 +164,11 @@ async function loadTexture(img) {
   if (!res.ok) throw new Error(res.status + " " + res.statusText);
   const data = new Uint8Array(await res.arrayBuffer());
   const rgba = decodeTexture(img.format, img.width, img.height, data);
+  // a sub-image (its movie draws a part of the texture: "crop" [x, y, w, h] px - the Pre-Sequel's ComFacility_P): that part
+  const [cx, cy, cw, ch] = img.crop || [0, 0, img.width, img.height];
   const c = document.createElement("canvas");
-  c.width = img.width; c.height = img.height;
-  c.getContext("2d").putImageData(new ImageData(rgba, img.width, img.height), 0, 0);
+  c.width = cw; c.height = ch;
+  c.getContext("2d").putImageData(new ImageData(rgba, img.width, img.height), -cx, -cy);
   return { canvas: c, bounds: img.bounds };
 }
 

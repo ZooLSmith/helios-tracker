@@ -508,6 +508,8 @@ class Collector:
             level["raw"] = 1  # a made-up name (the page marks it)
         if vol is None or movie is None:
             level["status"] = "none"
+            log(f"no map for {name}: its map info {try_(lambda: info._path_name()) if info is not None else None},"
+                f" TacticalMapVolume {vol is not None}, TacticalMapMovie {movie is not None}")
         else:
             bounds = vol.BrushComponent.Bounds
             c = bounds.Origin
@@ -571,10 +573,13 @@ class Collector:
                 "width": img.width,
                 "height": img.height,
                 "bounds": img.bounds,
+                **({"crop": img.crop} if img.crop else {}),  # (a sub-image: the part of it drawn in bounds)
             }
             for n, img in enumerate(images)
         ]
         level["status"] = "ready" if images else "none"
+        if not images:
+            log(f"no map for {map_name}: {movie} in {package} held no image")
         self._set_level(level)
 
     # endregion
@@ -1261,7 +1266,7 @@ class Collector:
         # object (the page shows the object, with this price: [amount, its CostsToPickUpType's name])
         if try_(lambda: bool(p.bCostsToPickUp), False) and (base := try_(lambda: p.Base)) is not None \
                 and try_(lambda: self._is(base, "WillowInteractiveObject"), False):
-            info["on"] = addr(base)
+            info["on"] = f"{base._get_address():x}"  # (its id, as the object's record's "i": `addr` here is the pickup's)
             info["cost"] = [try_(lambda: int(p.CostsToPickUpAmount), 0),
                             str(getattr(try_(lambda: p.CostsToPickUpType), "name", "") or "")]
         self._info[addr] = info
