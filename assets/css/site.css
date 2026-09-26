@@ -13,6 +13,13 @@
 @font-face { font-family: "Big Shoulders Display"; font-weight: 800; font-display: swap;
   src: url("../fonts/big-shoulders-display-latin-ext-800.woff2") format("woff2");
   unicode-range: U+0100-02AF, U+0304, U+0308, U+0329, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF; }
+/* The text: Exo 2 (SIL OFL, assets/fonts/OFL-Exo2.txt; one variable font, 400-700), latin and latin-ext */
+@font-face { font-family: "Exo 2"; font-weight: 400 700; font-display: swap;
+  src: url("../fonts/exo-2-latin.woff2") format("woff2");
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD; }
+@font-face { font-family: "Exo 2"; font-weight: 400 700; font-display: swap;
+  src: url("../fonts/exo-2-latin-ext.woff2") format("woff2");
+  unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF; }
 
 :root {
   color-scheme: dark;
@@ -34,7 +41,17 @@
   --dim: color-mix(in srgb, var(--text) 62%, var(--muted));
   --on-accent: #16130a;
   --link: color-mix(in srgb, var(--accent) 80%, var(--text));
-  --title-text: var(--accent); /* the title ("ELIOS TRACKER"), like the tracker's panel header */
+  /* the title: its letters a vertical gradient, its "H" the "Helios H" font's colours (a theme: its own
+     @font-palette-values) - the tracker's panel title */
+  --title-top: #fef900;
+  --title-bottom: #d69900;
+  --logo-palette: normal;
+  /* depth (nothing flat): the page titles in the title's gradient, the section titles white fading to the tint (a blue by default), a
+     surface lit from the top (--sheen: a control's gloss), a highlight glowing in from its accent edge */
+  --grad-h1: linear-gradient(var(--title-top), var(--title-bottom));
+  --grad-h2: linear-gradient(var(--text-bright) 25%, color-mix(in srgb, var(--tint) 55%, var(--text-bright)));
+  --grad-surface: linear-gradient(color-mix(in srgb, var(--tint) 22%, var(--bg)), var(--card));
+  --grad-lit: linear-gradient(90deg, color-mix(in srgb, var(--accent) 16%, var(--card)), var(--card) 65%);
   /* the map's markers (the tracker's layer colours) */
   --m-player: color-mix(in srgb, var(--text) 36%, #fff);
   --m-tracked: #ffcc33;
@@ -43,10 +60,18 @@
   --m-vehicle: #c08bff;
   --m-objective: #7cf58a;
   --ok: #5fd35f; /* a done / ready state: the tracker's "live" green */
-  --m-giver: #ffd23f;
+  --m-giver: #fecb0d; /* the tracker's --layer-giver: the game's yellow "!" */
+  --m-turnin: #00f800; /* its --map-turnin: the game's green "?", a mission to hand in */
+  --m-halo: rgba(5, 10, 14, .9); /* the tracker's --map-halo: the disc under a giver's "!" */
+  --m-ink: #1a1200; /* its --map-ink: the "!"'s outline */
   --m-chest: #ff6b2c;
+  --m-explosive: #e0703a; /* the tracker's --layer-explosive (on the map: each in its element's colour) */
+  --m-slots: #5aa9ff; /* its --layer-slots */
+  --m-oxygen: #4e6a86; /* its --layer-oxygen */
   --m-container: #e2c170;
-  --m-cash: #6fd46f;
+  --m-eridium: #c77dff; /* its --layer-pickup-eridium */
+  --m-moonstone: #4bf2be; /* its --layer-pickup-eridium-tps: the Pre-Sequel's moonstones, the game's colour */
+  --m-cash: #ffe36e; /* the tracker's --layer-pickup-cash: a pale gold, its "$" disc */
   --outline: rgba(0, 0, 0, .75);
   --scroll: var(--tint); /* scrollbars: the tracker's - a muted tint, brighter on hover */
   --scroll-hover: color-mix(in srgb, var(--text) 21%, var(--muted));
@@ -54,20 +79,38 @@
   --sheen: linear-gradient(to bottom, rgba(255, 255, 255, .10), rgba(255, 255, 255, 0) 45%, rgba(0, 0, 0, .14));
   /* type */
   --font-head: "Big Shoulders Display", "Bahnschrift", "Arial Narrow", sans-serif;
-  --font-body: "Segoe UI", system-ui, -apple-system, "Helvetica Neue", sans-serif;
+  --font-body: "Exo 2", "Segoe UI", system-ui, -apple-system, "Helvetica Neue", sans-serif; /* (the game's WillowBody's look:
+     rounded squares - the closest open font) */
   --font-code: "Cascadia Mono", "Consolas", ui-monospace, monospace;
   --measure: 70ch;
   --top-h: 3.4rem; /* the top bar's height (its band in the root's background: the same) */
   --nav-w: 15rem;
 }
+/* The tracker's themes (its css/themes.css: the same inputs, title colours and logo palettes) */
 /* Hyperion: mustard, cream, black */
 :root[data-theme="hyperion"] {
   --bg: #0d0c06; --tint: #5c4c08; --muted: #5a5540; --text: #e6dec4; --accent: #d9c23a; --panel-edge: #7a6608;
+  --title-top: #f2dc4a; --title-bottom: #b39616; --logo-palette: --helios-hyperion;
 }
+@font-palette-values --helios-hyperion { font-family: "Helios H"; override-colors: 2 #f2dc4a, 3 #b39616; }
 /* Vladof: deep red and gold */
 :root[data-theme="vladof"] {
   --bg: #0e0909; --tint: #4a1a1b; --muted: #5a4a48; --text: #e8ddd3; --accent: #d9b44a; --panel-edge: #7a2023;
+  --title-top: #f0c85a; --title-bottom: #b3261e; --logo-palette: --helios-vladof;
 }
+@font-palette-values --helios-vladof { font-family: "Helios H"; override-colors: 0 #0d3a4a, 1 #5cd3f2, 2 #f0c85a, 3 #b3261e; }
+/* Dahl: olive drab, field green, khaki */
+:root[data-theme="dahl"] {
+  --bg: #0b0d07; --tint: #3f4420; --muted: #50594a; --text: #e2e3cf; --accent: #9cc255; --panel-edge: #525826;
+  --title-top: #b8d468; --title-bottom: #5f7d2c; --logo-palette: --helios-dahl;
+}
+@font-palette-values --helios-dahl { font-family: "Helios H"; override-colors: 0 #14200a, 1 #9dff5a, 2 #c6ec5c, 3 #3f7a1a; }
+/* Eridian: violet, magenta, pink, a cold blue */
+:root[data-theme="eridian"] {
+  --bg: #0c0814; --tint: #2f114b; --muted: #56587a; --text: #dfe4f0; --accent: #79a7eb; --panel-edge: #4f5a96;
+  --title-top: #e98cb4; --title-bottom: #79a7eb; --logo-palette: --helios-eridian;
+}
+@font-palette-values --helios-eridian { font-family: "Helios H"; override-colors: 0 #2f114b, 1 #e04ee8, 2 #e98cb4, 3 #79a7eb; }
 
 *, *::before, *::after { box-sizing: border-box; }
 /* The tracker's thin scrollbars: Chrome / Edge / Safari, then Firefox */
@@ -89,8 +132,10 @@ html:has(.page), html:has(.page) body { height: 100%; overflow: hidden; }
   overflow-y: auto; scrollbar-gutter: stable both-edges; scroll-padding-top: 1rem; outline: none;
 }
 body {
-  margin: 0; min-height: 100vh; display: flex; flex-direction: column; background: var(--bg); color: var(--text);
-  font: 1rem/1.6 var(--font-body);
+  margin: 0; min-height: 100vh; display: flex; flex-direction: column; color: var(--text);
+  /* the tint glowing faintly from above the page (fixed: the content scrolls in .page) */
+  background: radial-gradient(ellipse 90% 55% at 50% -12%, color-mix(in srgb, var(--tint) 34%, transparent), transparent 70%) var(--bg);
+  font: 500 1rem/1.6 var(--font-body); /* (500: the game's text is heavy) */
   -webkit-text-size-adjust: 100%;
 }
 img, svg { display: block; max-width: 100%; }
@@ -102,20 +147,31 @@ a:hover { color: var(--text-bright); }
 .skip { position: absolute; left: -999px; top: 0; z-index: 20; padding: .5rem 1rem; background: var(--accent); color: var(--on-accent); }
 .skip:focus { left: 1rem; }
 
-/* The logo's "H": the drawing as a mask, filled with the title's colour (so it follows the theme exactly), a
-   darker edge for its outline */
-.logo {
-  display: inline-block; flex: none; aspect-ratio: 118 / 192; background: var(--title-text);
-  -webkit-mask: url("../img/logo.png") center / contain no-repeat; mask: url("../img/logo.png") center / contain no-repeat;
-  filter: drop-shadow(0 0 .6px color-mix(in srgb, var(--title-text) 45%, #000));
+/* The title (.brand, .wordmark: <span class="h">H</span><span>ELIOS TRACKER</span>) - the tracker's: its "H" the
+   logo, the "Helios H" font (a font of one letter, ours: assets/fonts/, the tracker's web/fonts/), which draws its
+   own gradient and eye (COLR v1: palette 0 the eye's inside, 1 the pupil, 2 / 3 the gradient's top / bottom - a
+   theme: --logo-palette); without COLR v1 (Safari) the one-colour H under the letters' gradient. Firefox: its
+   -gecko builds (it fakes bold sideways only). */
+@font-face { font-family: "Helios H"; font-weight: 700; unicode-range: U+0048; font-display: swap;
+  src: url("../fonts/helios-h-gradient.woff2") format("woff2") tech(color-COLRv1),
+    url("../fonts/helios-h-mono.woff2") format("woff2"); }
+@supports (-moz-appearance: none) {
+  @font-face { font-family: "Helios H"; font-weight: 700; unicode-range: U+0048; font-display: swap;
+    src: url("../fonts/helios-h-gradient-gecko.woff2") format("woff2") tech(color-COLRv1),
+      url("../fonts/helios-h-mono-gecko.woff2") format("woff2"); }
 }
+.brand > span, .wordmark > span { background: linear-gradient(var(--title-top), var(--title-bottom));
+  -webkit-background-clip: text; background-clip: text; color: transparent; }
+.brand > .h, .wordmark > .h { font-family: "Helios H", var(--font-head); font-palette: var(--logo-palette); }
+@supports font-tech(color-COLRv1) { .brand > .h, .wordmark > .h { background: none; color: var(--title-bottom); } }
 
 /* ---- top bar ---- */
 .top {
   position: relative; z-index: 10; flex: none;
   display: flex; align-items: center; gap: 1rem; height: var(--top-h); padding: 0 1.25rem;
-  background: var(--panel);
+  background: linear-gradient(var(--card), var(--panel));
   border-bottom: 1px solid var(--panel-edge);
+  box-shadow: 0 1px 0 color-mix(in srgb, var(--panel-edge) 40%, transparent), 0 6px 18px rgba(0, 0, 0, .35);
 }
 /* the game's scanlines, going up (the tracker's skill trees: a 2 px line every 5 px, 8 px/s) - under the bar's
    content; still with prefers-reduced-motion */
@@ -125,14 +181,10 @@ a:hover { color: var(--text-bright); }
   animation: scan-up .625s steps(5) infinite; /* 1 px at a time: 8 px/s */
 }
 @keyframes scan-up { from { background-position: 0 0; } to { background-position: 0 -5px; } }
-.brand { display: flex; align-items: flex-end; gap: .15rem; color: var(--title-text); text-decoration: none; line-height: 1; }
-.brand .logo { height: 1.9rem; }
-.brand span { font: 800 1.35rem/1 var(--font-head); letter-spacing: .02em; padding-bottom: .05rem; }
-.brand:hover { color: color-mix(in srgb, var(--title-text) 80%, #fff); }
-.brand:hover .logo { background: color-mix(in srgb, var(--title-text) 80%, #fff); }
+.brand { display: flex; align-items: baseline; text-decoration: none; line-height: 1; white-space: nowrap; }
+.brand span { font: 800 1.35rem/1 var(--font-head); letter-spacing: .02em; }
+.brand:hover > span { filter: brightness(1.2); }
 .top-tools { margin-left: auto; display: flex; align-items: center; gap: .75rem; }
-.lang { font-size: .9rem; color: var(--dim); text-decoration: none; padding: .3rem .55rem; border: 1px solid var(--divider); border-radius: 3px; }
-.lang:hover { color: var(--text-bright); border-color: var(--panel-edge); }
 /* the page menu's button: small screens only (the drawer: @media below) */
 .top .nav-toggle { display: none; flex: none; }
 .nav-shade { display: none; }
@@ -140,13 +192,13 @@ a:hover { color: var(--text-bright); }
 .menu { position: relative; }
 .icon-button {
   display: grid; place-items: center; width: 2.1rem; height: 2.1rem; padding: 0; cursor: pointer;
-  color: var(--dim); background: var(--control); border: 1px solid var(--divider); border-radius: 3px;
+  color: var(--dim); background: var(--control) var(--sheen); border: 1px solid var(--divider); border-radius: 3px;
 }
 .icon-button:hover, .icon-button[aria-expanded="true"] { color: var(--text-bright); border-color: var(--panel-edge); }
 .icon-button .icon { width: 1.1rem; height: 1.1rem; }
 .menu-list {
   position: absolute; right: 0; top: calc(100% + .35rem); z-index: 5; min-width: 9rem; margin: 0; padding: .3rem;
-  list-style: none; background: var(--panel); border: 1px solid var(--panel-edge); border-radius: 4px;
+  list-style: none; background: linear-gradient(var(--card), var(--panel) 60%); border: 1px solid var(--panel-edge); border-radius: 4px;
   box-shadow: 0 10px 30px rgba(0, 0, 0, .5);
 }
 .menu-list[hidden] { display: none; }
@@ -163,7 +215,7 @@ a:hover { color: var(--text-bright); }
 /* ---- search (site.js builds it; nothing without JS) ---- */
 .search { position: relative; }
 .search input {
-  width: 16rem; font: inherit; font-size: .92rem; color: var(--text); background: var(--control);
+  width: 16rem; font: inherit; font-size: .92rem; color: var(--text); background: linear-gradient(var(--panel), var(--control));
   border: 1px solid var(--divider); border-radius: 3px; padding: .35rem .6rem;
 }
 .search input::placeholder { color: var(--dim); }
@@ -171,7 +223,7 @@ a:hover { color: var(--text-bright); }
 .search-results {
   position: absolute; right: 0; top: calc(100% + .35rem); width: min(30rem, 92vw); max-height: 70vh; overflow: auto; scrollbar-gutter: stable;
   margin: 0; padding: .3rem; list-style: none;
-  background: var(--panel); border: 1px solid var(--panel-edge); border-radius: 4px;
+  background: linear-gradient(var(--card), var(--panel) 40%); border: 1px solid var(--panel-edge); border-radius: 4px;
   box-shadow: 0 10px 30px rgba(0, 0, 0, .5);
 }
 .search-results[hidden] { display: none; }
@@ -190,14 +242,21 @@ a:hover { color: var(--text-bright); }
 .side h2:first-child { margin-top: 0; }
 .side ul { margin: 0; padding: 0; list-style: none; }
 .side a { display: block; padding: .28rem .7rem .28rem 1rem; border-left: 2px solid transparent; color: var(--text); text-decoration: none; }
-.side a:hover { color: var(--text-bright); background: var(--card); }
-.side a[aria-current="page"] { border-left-color: var(--accent); color: var(--text-bright); background: var(--card); }
+.side a:hover { color: var(--text-bright); background: linear-gradient(90deg, var(--card), transparent); }
+.side a[aria-current="page"] { border-left-color: var(--accent); color: var(--text-bright); background: var(--grad-lit); }
 
 main { min-width: 0; }
 .doc { max-width: var(--measure); }
 .doc > :first-child { margin-top: 0; }
 
 h1, h2, h3 { color: var(--text-bright); text-wrap: balance; }
+/* the gradient through the letters (its box: the text's, not the h2's rule above it) */
+h1, h2 { -webkit-background-clip: text; background-clip: text; background-origin: content-box; -webkit-text-fill-color: transparent; }
+h1 { background-image: var(--grad-h1); }
+h2 { background-image: var(--grad-h2); }
+h1 .anchor, h2 .anchor { -webkit-text-fill-color: currentColor; }
+.wordmark { background-image: none; } /* (its letters and H: their own gradients - .brand's rules) */
+.wordmark > span { -webkit-text-fill-color: currentColor; }
 h1 { font: 800 clamp(2.3rem, 5vw, 3.1rem)/1.02 var(--font-head); margin: 0 0 .9rem; letter-spacing: .005em; }
 h2 { font: 700 1.85rem/1.1 var(--font-head); margin: 2rem 0 .7rem; padding-top: .9rem; border-top: 1px solid var(--divider); letter-spacing: .01em; }
 h3 { font: 600 1.12rem/1.35 var(--font-body); margin: 1.5rem 0 .4rem; }
@@ -205,7 +264,12 @@ h3 { font: 600 1.12rem/1.35 var(--font-body); margin: 1.5rem 0 .4rem; }
 p, ul, ol, dl { margin: 0 0 1rem; }
 p, li, figcaption { text-wrap: pretty; } /* no one-word last lines */
 li + li { margin-top: .3rem; }
-strong { color: var(--text-bright); font-weight: 600; }
+strong { color: var(--text-bright); font-weight: 700; }
+/* a game's name in the text ("Borderlands 2"): the title's letters - its display font, its gradient, all caps like
+   the games' logos - on one line (the text stays as written: search, copy) */
+.game { font: 800 1.08em/1 var(--font-head); letter-spacing: .03em; text-transform: uppercase; white-space: nowrap;
+  background: linear-gradient(var(--title-top), var(--title-bottom)); -webkit-background-clip: text; background-clip: text;
+  -webkit-text-fill-color: transparent; }
 .anchor { margin-left: .4rem; color: var(--divider); text-decoration: none; font-weight: 400; opacity: 0; }
 h2:hover .anchor, h3:hover .anchor, .anchor:focus { opacity: 1; }
 .anchor:hover { color: var(--accent); }
@@ -215,11 +279,11 @@ code, kbd { font: .88em/1.4 var(--font-code); }
 :not(pre) > code { padding: .08em .35em; background: var(--card); border: 1px solid var(--divider); border-radius: 3px; overflow-wrap: anywhere; }
 kbd { padding: .05em .4em; background: var(--control); border: 1px solid var(--panel-edge); border-bottom-width: 2px; border-radius: 3px; color: var(--text-bright); }
 .code { position: relative; margin: 0 0 1.1rem; }
-.code pre { margin: 0; padding: .85rem 4.6rem .85rem 1rem; /* (the right: the Copy button's room) */ overflow-x: auto; background: var(--panel); border: 1px solid var(--divider); border-left: 3px solid var(--panel-edge); border-radius: 3px; }
+.code pre { margin: 0; padding: .85rem 4.6rem .85rem 1rem; /* (the right: the Copy button's room) */ overflow-x: auto; background: linear-gradient(var(--panel), color-mix(in srgb, var(--panel) 70%, #000)); border: 1px solid var(--divider); border-left: 3px solid var(--panel-edge); border-radius: 3px; }
 .code pre code { font-size: .9rem; color: var(--text-bright); }
 .copy {
   position: absolute; top: .45rem; right: .45rem; font: inherit; font-size: .78rem; color: var(--dim);
-  background: var(--control); border: 1px solid var(--divider); border-radius: 3px; padding: .15rem .5rem; cursor: pointer;
+  background: var(--control) var(--sheen); border: 1px solid var(--divider); border-radius: 3px; padding: .15rem .5rem; cursor: pointer;
 }
 .copy:hover { color: var(--text-bright); border-color: var(--panel-edge); }
 
@@ -236,9 +300,9 @@ kbd { padding: .05em .4em; background: var(--control); border: 1px solid var(--p
 .steps h3 { margin: 0 0 .35rem; }
 
 /* ---- notes ---- */
-.note { margin: 0 0 1.2rem; padding: .75rem 1rem; background: var(--card); border-left: 3px solid var(--accent); border-radius: 0 3px 3px 0; }
+.note { margin: 0 0 1.2rem; padding: .75rem 1rem; background: var(--grad-lit); border-left: 3px solid var(--accent); border-radius: 0 3px 3px 0; }
 .note > :last-child { margin-bottom: 0; }
-.note.warn { border-left-color: var(--m-chest); }
+.note.warn { border-left-color: var(--m-chest); background: linear-gradient(90deg, color-mix(in srgb, var(--m-chest) 14%, var(--card)), var(--card) 65%); }
 
 /* ---- buttons ---- */
 .actions { display: flex; flex-wrap: wrap; gap: .7rem; margin: 1.2rem 0 0; }
@@ -259,19 +323,28 @@ kbd { padding: .05em .4em; background: var(--control); border: 1px solid var(--p
 
 /* ---- home: the hero ---- */
 .hero { margin: 0 0 1rem; }
-.wordmark { display: flex; align-items: flex-end; gap: .2rem; margin: 0 0 1.2rem; line-height: .8; }
-.wordmark .logo { height: clamp(2.9rem, 5.6vw, 4.7rem); }
-.wordmark span { white-space: nowrap; font: 800 clamp(2.3rem, 4.4vw, 3.7rem)/.8 var(--font-head); color: var(--title-text); letter-spacing: .01em; }
+.wordmark { display: flex; align-items: baseline; margin: 0 0 1.2rem; line-height: 1; white-space: nowrap; }
+.wordmark span { font: 800 clamp(2.3rem, 4.4vw, 3.7rem)/1 var(--font-head); letter-spacing: .01em; }
 .hero .lead { max-width: 44rem; }
 
-/* ---- home: the legend (what each marker is) ---- */
-.legend { display: grid; grid-template-columns: repeat(auto-fill, minmax(15.5rem, 1fr)); gap: .2rem 1.5rem; margin: 1rem 0 1.4rem; padding: 0; list-style: none; }
-.legend li { display: grid; grid-template-columns: 1.6rem 1fr; gap: .7rem; align-items: start; margin: 0; padding: .45rem 0; border-bottom: 1px solid var(--divider); }
-.legend svg { width: 1.6rem; height: 1.6rem; margin-top: .05rem; overflow: visible; }
-.legend b { display: block; color: var(--text-bright); font-weight: 600; }
-.legend span { display: block; font-size: .9rem; color: var(--dim); }
-
 .wide { max-width: none; }
+
+/* ---- home: cards - the features (.cards) and what each marker is (.legend): an icon, a title, a line or two ---- */
+.cards, .legend { display: grid; grid-template-columns: repeat(auto-fill, minmax(16rem, 1fr)); gap: .75rem; margin: 1rem 0 1.4rem; padding: 0; list-style: none; }
+.cards li, .legend li {
+  display: grid; grid-template-columns: 1.35rem 1fr; gap: .75rem; align-items: start; margin: 0; padding: .85rem 1rem .9rem;
+  /* muted: barely off the page, lit a little from the top (the text and icon carry them) */
+  background: linear-gradient(color-mix(in srgb, var(--tint) 11%, var(--bg)), color-mix(in srgb, var(--tint) 4%, var(--bg)));
+  border: 1px solid color-mix(in srgb, var(--divider) 70%, transparent);
+  border-top: 1px solid color-mix(in srgb, var(--panel-edge) 55%, var(--bg)); border-radius: 4px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, .14);
+}
+.cards .icon { width: 1.35rem; height: 1.35rem; margin-top: .1rem; color: var(--accent); }
+.cards b, .legend b { display: block; margin-bottom: .2rem; color: var(--text-bright); font-weight: 700; }
+.cards span, .legend span { display: block; font-size: .92rem; line-height: 1.5; color: var(--dim); }
+/* (the legend's icons: each marker's own shape, a little bigger than the features' icons) */
+.legend li { grid-template-columns: 1.6rem 1fr; }
+.legend svg { width: 1.6rem; height: 1.6rem; margin-top: .05rem; overflow: visible; }
 
 /* ---- the questionnaire (share.html): with JS, one step at a time ---- */
 .js .quiz .step, .js .quiz .before { display: none; }
@@ -285,22 +358,23 @@ kbd { padding: .05em .4em; background: var(--control); border: 1px solid var(--p
 .answers a {
   flex: 1; display: flex; align-items: center; min-height: 5.5rem; padding: 1rem 1.1rem;
   font-size: 1.05rem; font-weight: 700; line-height: 1.3; color: var(--text-bright); text-decoration: none;
-  background: var(--card) var(--sheen); border: 1px solid var(--divider); border-top: 3px solid var(--panel-edge); border-radius: 4px;
+  background: var(--sheen), var(--grad-surface); border: 1px solid var(--divider); border-top: 3px solid var(--panel-edge); border-radius: 4px;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, .25);
 }
 .answers a { gap: .85rem; }
 .answers .icon { flex: none; width: 1.7rem; height: 1.7rem; color: var(--dim); transition: color .15s; }
 .answers a:hover .icon, .answers a:focus-visible .icon { color: var(--accent); }
-.answers a:hover, .answers a:focus-visible { background-color: var(--hover); border-top-color: var(--accent); color: var(--text-bright); }
+.answers a:hover, .answers a:focus-visible { background: var(--sheen), linear-gradient(color-mix(in srgb, var(--accent) 12%, var(--hover)), var(--hover)); border-top-color: var(--accent); color: var(--text-bright); }
 /* the answers so far: chips (each goes back to that point), then Start over */
 .trail { display: flex; flex-wrap: wrap; align-items: center; gap: .4rem; margin: 0 0 .4rem; }
 .trail[hidden] { display: none; }
 .trail .chip {
   padding: .2rem .6rem; font-size: .85rem; color: var(--text); text-decoration: none;
-  background: var(--control); border: 1px solid var(--divider); border-radius: 999px;
+  background: var(--control) var(--sheen); border: 1px solid var(--divider); border-radius: 999px;
 }
 .trail .chip:hover { color: var(--text-bright); border-color: var(--panel-edge); }
 .trail .restart { margin-left: .4rem; font-size: .85rem; }
-.quiz .before { margin-top: 1.4rem; padding: .8rem 1rem; background: var(--card); border-left: 3px solid var(--m-chest); border-radius: 0 3px 3px 0; }
+.quiz .before { margin-top: 1.4rem; padding: .8rem 1rem; background: linear-gradient(90deg, color-mix(in srgb, var(--m-chest) 14%, var(--card)), var(--card) 65%); border-left: 3px solid var(--m-chest); border-radius: 0 3px 3px 0; }
 .quiz .before h3 { margin: 0 0 .4rem; }
 .quiz .before ul { margin: 0; }
 
@@ -353,10 +427,11 @@ kbd { padding: .05em .4em; background: var(--control); border: 1px solid var(--p
 .foot > div { max-width: 76rem; margin: 0 auto; padding: 1rem 0; border-top: 1px solid var(--divider); display: flex; flex-wrap: wrap; gap: .5rem 2rem; justify-content: space-between; }
 .foot p { margin: 0; }
 
-/* ---- the language picker (site root) ---- */
-.pick { min-height: 100vh; display: grid; place-content: center; gap: 1.5rem; padding: 1.5rem; text-align: center; }
-.pick .wordmark { justify-content: center; }
-.pick .actions { justify-content: center; margin: 0; }
+/* ---- translations (js/i18n.js): the page shows once its text is in (html.i18n) - or after 2 s whatever happens,
+   so a script that failed still leaves the frame; a key whose translation is empty is hidden ---- */
+html.js:not(.i18n) body { visibility: hidden; animation: i18n-late 0s 2s forwards; }
+@keyframes i18n-late { to { visibility: visible; } }
+.i18n-empty { display: none !important; }
 
 /* ---- small screens ---- */
 @media (max-width: 50rem) {
@@ -385,7 +460,6 @@ kbd { padding: .05em .4em; background: var(--control); border: 1px solid var(--p
   .top-tools { display: contents; }
   .brand { margin-right: auto; }
   .brand span { font-size: 1.2rem; }
-  .brand .logo { height: 1.7rem; }
   .top::after { content: ""; order: 1; flex-basis: 100%; height: 0; } /* the rows' break */
   .js .top .nav-toggle { order: 2; }
   .search { order: 3; flex: 1 1 0; min-width: 0; }

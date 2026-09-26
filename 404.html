@@ -1,0 +1,47 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<!-- GitHub Pages' page for any address with no file, at whatever depth: every link from the site's root -->
+<base href="/">
+<script>
+  // The site had a folder per language (/en/install.html, /fr/...): an old link goes to the page, in its language
+  const old = location.pathname.match(/^\/(en|fr)(?:\/(.*))?$/);
+  if (old) {
+    try { localStorage.setItem("helios.site.lang", old[1]); } catch { /* the browser's language, then */ }
+    location.replace("/" + (old[2] || "") + location.search + location.hash);
+  }
+</script>
+<title data-i18n="notfound.title"></title>
+<meta name="robots" content="noindex">
+<link rel="icon" href="assets/img/favicon.png">
+<link rel="stylesheet" href="assets/css/site.css">
+<script>document.documentElement.classList.add("js"); try { const t = localStorage.getItem("helios.site.theme"); if (t && t !== "default") document.documentElement.dataset.theme = t; } catch {}</script>
+<script type="module" src="assets/js/site.js"></script>
+</head>
+<body>
+<a class="skip" href="#content" data-i18n="ui.skip"></a>
+<header class="top">
+  <a class="brand" href="index.html" data-i18n-label="ui.home"><span class="h">H</span><span>ELIOS TRACKER</span></a>
+  <div class="top-tools"></div>
+</header>
+
+<div class="page" tabindex="-1">
+<div class="shell">
+  <nav class="side" id="pages" data-i18n-label="ui.pages"></nav>
+
+  <main id="content" class="doc">
+    <h1 data-i18n="notfound.h"></h1>
+    <p class="lead" data-i18n="notfound.text"></p>
+  </main>
+</div>
+
+<footer class="foot">
+  <div>
+    <p data-i18n="foot.legal"></p>
+  </div>
+</footer>
+</div>
+</body>
+</html>

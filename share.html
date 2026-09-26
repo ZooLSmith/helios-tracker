@@ -1,0 +1,226 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title data-i18n="share.title"></title>
+<meta name="description" data-i18n-content="share.description">
+<link rel="icon" href="assets/img/favicon.png">
+<link rel="stylesheet" href="assets/css/site.css">
+<script>document.documentElement.classList.add("js"); try { const t = localStorage.getItem("helios.site.theme"); if (t && t !== "default") document.documentElement.dataset.theme = t; } catch {}</script>
+<script type="module" src="assets/js/site.js"></script>
+</head>
+<body>
+<a class="skip" href="#content" data-i18n="ui.skip"></a>
+<header class="top">
+  <a class="brand" href="index.html" data-i18n-label="ui.home"><span class="h">H</span><span>ELIOS TRACKER</span></a>
+  <div class="top-tools"></div>
+</header>
+
+<div class="page" tabindex="-1">
+<div class="shell">
+  <nav class="side" id="pages" data-i18n-label="ui.pages"></nav>
+
+  <main id="content" class="doc">
+    <h1 data-i18n="share.h"></h1>
+    <p class="lead" data-i18n="share.lead"></p>
+    <div class="quiz" data-start="who">
+      <section class="step question" id="q-who" data-step="q:who">
+        <h2 data-i18n="share.who"></h2>
+        <ul class="answers">
+          <li><a href="#r-this-pc" data-key="pc" data-next="r:this-pc" data-i18n="share.who.pc"></a></li>
+          <li><a href="#r-lan" data-key="home" data-next="r:lan" data-i18n="share.who.home"></a></li>
+          <li><a href="#r-overlay" data-key="overlay" data-next="r:overlay" data-i18n="share.who.overlay"></a></li>
+          <li><a href="#r-obs" data-key="stream" data-next="r:obs" data-i18n="share.who.stream"></a></li>
+          <li><a href="#q-whom" data-key="elsewhere" data-next="q:whom" data-i18n="share.who.elsewhere"></a></li>
+        </ul>
+      </section>
+      <section class="step question" id="q-whom" data-step="q:whom">
+        <h2 data-i18n="share.whom"></h2>
+        <ul class="answers">
+          <li><a href="#q-domain" data-key="friends" data-next="q:domain" data-i18n="share.whom.friends"></a></li>
+          <li><a href="#q-domain" data-key="upto50" data-next="q:domain" data-i18n="share.whom.upto50"></a></li>
+          <li><a href="#r-more" data-key="more" data-next="r:more" data-i18n="share.whom.more"></a></li>
+        </ul>
+      </section>
+      <section class="step question" id="q-domain" data-step="q:domain">
+        <h2 data-i18n="share.domain"></h2>
+        <ul class="answers">
+          <li><a href="#r-cloudflare" data-key="domain" data-next="r:cloudflare" data-i18n="share.domain.domain"></a></li>
+          <li><a href="#r-funnel" data-key="account" data-next="r:funnel" data-i18n="share.domain.account"></a></li>
+          <li><a href="#r-quick" data-key="no-account" data-next="r:quick" data-i18n="share.domain.none"></a></li>
+        </ul>
+      </section>
+      <section class="step result" id="r-this-pc" data-step="r:this-pc">
+        <h2 data-i18n="share.pc"></h2>
+        <p data-i18n="share.pcText"></p>
+        <div class="code"><pre><code>http://localhost:8777/</code></pre></div>
+        <p data-i18n="share.pcSee"></p>
+      </section>
+      <section class="step result" id="r-lan" data-step="r:lan">
+        <h2 data-i18n="share.lan"></h2>
+        <p data-i18n="share.lanText"></p>
+        <ol class="steps">
+          <li>
+            <h3 id="lan-allow" data-i18n="share.lan.allow"></h3>
+            <p data-i18n="share.lan.allowText"></p>
+          </li>
+          <li>
+            <h3 id="lan-address" data-i18n="share.lan.address"></h3>
+            <p data-i18n="share.lan.addressText"></p>
+          </li>
+          <li>
+            <h3 id="lan-open" data-i18n="share.lan.open"></h3>
+            <p data-i18n="share.lan.openText"></p>
+          </li>
+        </ol>
+        <h3 id="lan-firewall" data-i18n="share.lan.firewall"></h3>
+        <p data-i18n="share.lan.firewallText"></p>
+      </section>
+      <section class="step result" id="r-overlay" data-step="r:overlay">
+        <h2 data-i18n="share.overlay"></h2>
+        <p data-i18n="share.overlayText"></p>
+        <p data-i18n="share.overlayZoom"></p>
+      </section>
+      <section class="step result" id="r-obs" data-step="r:obs">
+        <h2 data-i18n="share.obs"></h2>
+        <p data-i18n="share.obsText"></p>
+        <ol class="steps">
+          <li>
+            <h3 id="obs-source" data-i18n="share.obs.source"></h3>
+            <p data-i18n="share.obs.sourceText"></p>
+          </li>
+          <li>
+            <h3 id="obs-interact" data-i18n="share.obs.interact"></h3>
+            <p data-i18n="share.obs.interactText"></p>
+          </li>
+          <li>
+            <h3 id="obs-see-through" data-i18n="share.obs.seeThrough"></h3>
+            <p data-i18n="share.obs.seeThroughText"></p>
+          </li>
+        </ol>
+        <p data-i18n="share.obs.settings"></p>
+      </section>
+      <section class="step result" id="r-funnel" data-step="r:funnel" data-internet="">
+        <h2 data-i18n="share.funnel"></h2>
+        <p data-i18n="share.funnelText"></p>
+        <ol class="steps">
+          <li>
+            <h3 id="funnel-install" data-i18n="share.funnel.install"></h3>
+            <p data-i18n="share.funnel.installText"></p>
+          </li>
+          <li>
+            <h3 id="funnel-run" data-i18n="share.funnel.run"></h3>
+            <p data-i18n="share.funnel.runText"></p>
+            <div class="code"><pre><code>tailscale funnel 8777</code></pre></div>
+          </li>
+          <li>
+            <h3 id="funnel-share" data-i18n="share.funnel.share"></h3>
+            <p data-i18n="share.funnel.shareText"></p>
+          </li>
+        </ol>
+        <p data-i18n="share.funnel.details"></p>
+        <details class="extra" id="funnel-autoexec">
+          <summary data-i18n="share.autoexec"></summary>
+          <ol>
+            <li data-i18n="share.autoexec.file"></li>
+            <li><span data-i18n="share.autoexec.paste"></span>
+              <div class="code"><pre><code>tailscale funnel $env:HELIOS_PORT</code></pre></div></li>
+            <li data-i18n="share.autoexec.done"></li>
+          </ol>
+        </details>
+      </section>
+      <section class="step result" id="r-cloudflare" data-step="r:cloudflare" data-internet="">
+        <h2 data-i18n="share.cloudflare"></h2>
+        <p data-i18n="share.cloudflareText"></p>
+        <ol class="steps">
+          <li>
+            <h3 id="cloudflare-install" data-i18n="share.cloudflared"></h3>
+            <p data-i18n="share.cloudflaredText"></p>
+          </li>
+          <li>
+            <h3 id="cloudflare-create" data-i18n="share.cloudflare.create"></h3>
+            <p data-i18n="share.cloudflare.createText"></p>
+          </li>
+          <li>
+            <h3 id="cloudflare-run" data-i18n="share.cloudflare.run"></h3>
+            <p data-i18n="share.cloudflare.runText"></p>
+            <div class="code"><pre><code data-i18n="share.cloudflare.cmd"></code></pre></div>
+          </li>
+          <li>
+            <h3 id="cloudflare-share" data-i18n="share.cloudflare.share"></h3>
+            <p data-i18n="share.cloudflare.shareText"></p>
+          </li>
+        </ol>
+        <p data-i18n="share.cloudflare.details"></p>
+        <details class="extra" id="cloudflare-autoexec">
+          <summary data-i18n="share.autoexec"></summary>
+          <ol>
+            <li data-i18n="share.autoexec.file"></li>
+            <li><span data-i18n="share.autoexec.paste"></span>
+              <div class="code"><pre><code data-i18n="share.cloudflare.autoexecCmd"></code></pre></div></li>
+            <li data-i18n="share.cloudflare.autoexecDone"></li>
+          </ol>
+        </details>
+      </section>
+      <section class="step result" id="r-quick" data-step="r:quick" data-internet="">
+        <h2 data-i18n="share.quick"></h2>
+        <p data-i18n="share.quickText"></p>
+        <ol class="steps">
+          <li>
+            <h3 id="quick-install" data-i18n="share.cloudflared"></h3>
+            <p data-i18n="share.cloudflaredText"></p>
+          </li>
+          <li>
+            <h3 id="quick-run" data-i18n="share.quick.run"></h3>
+            <p data-i18n="share.quick.runText"></p>
+            <div class="code"><pre><code>cloudflared tunnel --url http://127.0.0.1:8777</code></pre></div>
+          </li>
+          <li>
+            <h3 id="quick-share" data-i18n="share.quick.share"></h3>
+            <p data-i18n="share.quick.shareText"></p>
+            <div class="live-maker" data-live-maker>
+              <label class="live-in"><span data-i18n="share.quick.address"></span> <input type="url" data-i18n-placeholder="share.quick.placeholder" autocomplete="off" spellcheck="false"></label>
+              <div class="live-out" hidden><a class="live-link" target="_blank" rel="noopener"></a><button type="button" class="live-copy" data-i18n="ui.copy"></button></div>
+            </div>
+          </li>
+        </ol>
+        <p data-i18n="share.quick.limits"></p>
+        <ul>
+          <li data-i18n="share.quick.changes"></li>
+          <li data-i18n="share.quick.bursts"></li>
+        </ul>
+        <details class="extra" id="quick-ssh">
+          <summary data-i18n="share.ssh"></summary>
+          <p data-i18n="share.sshText"></p>
+          <div class="code"><pre><code>ssh -R 80:127.0.0.1:8777 nokey@localhost.run</code></pre></div>
+          <p data-i18n="share.sshNote"></p>
+        </details>
+      </section>
+      <section class="step result" id="r-more" data-step="r:more">
+        <h2 data-i18n="share.more"></h2>
+        <p data-i18n="share.moreText"></p>
+        <p data-i18n="share.moreRelay"></p>
+      </section>
+      <section class="before" id="before-sharing">
+        <h3 data-i18n="share.before"></h3>
+        <ul>
+          <li data-i18n="share.before.anyone"></li>
+          <li data-i18n="share.before.stop"></li>
+          <li data-i18n="share.before.lan"></li>
+          <li data-when="friends" data-i18n="share.before.router"></li>
+          <li data-i18n="share.before.upload"></li>
+        </ul>
+      </section>
+    </div>
+  </main>
+</div>
+
+<footer class="foot">
+  <div>
+    <p data-i18n="foot.legal"></p>
+  </div>
+</footer>
+</div>
+</body>
+</html>

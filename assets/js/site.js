@@ -1,12 +1,15 @@
-// The site's extras, all at runtime (the pages work without them): search, theme, copy buttons, heading links.
-// Search: the pages are the ones the navigation lists (.side a) - fetched and indexed by section on the first
-// search, in the browser; nothing is generated beforehand.
+// The site, at runtime: its text (i18n.js: the pages hold keys, the catalogs the words), the page menu, search,
+// language and theme, copy buttons, heading links. What it builds carries keys too (data-i18n...), so a language
+// switch re-translates everything in place, like the tracker page.
+// Search: the pages are PAGES - fetched, translated and indexed by section on the first search, in the browser;
+// nothing is generated beforehand.
 
-import { LANGUAGES, remember, ui } from "./languages.js";
+import { CATALOG, applyI18n, langPref, setLanguage, t } from "./i18n.js";
 
-const LANG = document.documentElement.lang.toLowerCase().split("-")[0];
-const STR = ui(LANG);
-const THEMES = [["default", "ECHO-2"], ["hyperion", "Hyperion"], ["vladof", "Vladof"]];
+// The site's pages, in the menu's order: [file, its menu label's key]. A new page: here, and its keys in the catalogs.
+const PAGES = [["index.html", "nav.index"], ["install.html", "nav.install"], ["share.html", "nav.share"],
+  ["troubleshooting.html", "nav.troubleshooting"]];
+const THEMES = [["default", "ECHO-2"], ["hyperion", "Hyperion"], ["vladof", "Vladof"], ["dahl", "Dahl"], ["eridian", "Eridian"]]; // (the tracker's)
 const THEME_KEY = "helios.site.theme";
 
 // ---- icon menus (language, theme): a button with an icon, a small list of choices under it ----
@@ -23,7 +26,8 @@ const ICONS = {
 };
 const svg = (name) => `<svg class="icon" viewBox="0 0 12 12" aria-hidden="true">${ICONS[name]}</svg>`;
 
-// items: [{value, text, lang?}]; onPick(value) - the menu closes, the checked item follows the pick
+// label: its key; items: [{value, text | textKey, lang?}]; onPick(value) - the menu closes, the checked item
+// follows the pick
 function iconMenu({ icon, label, items, current, onPick }) {
   const wrap = document.createElement("div");
   wrap.className = "menu";
@@ -31,14 +35,13 @@ function iconMenu({ icon, label, items, current, onPick }) {
   button.type = "button";
   button.className = "icon-button";
   button.innerHTML = svg(icon);
-  button.setAttribute("aria-label", label);
-  button.title = label;
+  button.dataset.i18nLabel = button.dataset.i18nTitle = label;
   button.setAttribute("aria-haspopup", "menu");
   button.setAttribute("aria-expanded", "false");
   const list = document.createElement("ul");
   list.className = "menu-list";
   list.setAttribute("role", "menu");
-  list.setAttribute("aria-label", label);
+  list.dataset.i18nLabel = label;
   list.hidden = true;
   const entries = items.map((item) => {
     const li = document.createElement("li");
@@ -49,7 +52,10 @@ function iconMenu({ icon, label, items, current, onPick }) {
     b.setAttribute("aria-checked", String(item.value === current));
     if (item.lang) b.lang = item.lang;
     b.innerHTML = svg("check");
-    b.append(item.text);
+    const text = document.createElement("span");
+    if (item.textKey) text.dataset.i18n = item.textKey;
+    else text.textContent = item.text;
+    b.append(text);
     b.addEventListener("click", () => {
       for (const e of entries) e.setAttribute("aria-checked", String(e === b));
       close(true);
@@ -87,14 +93,14 @@ function iconMenu({ icon, label, items, current, onPick }) {
   return wrap;
 }
 
-// ---- theme (the tracker's own three) ----
+// ---- theme (the tracker's own) ----
 
 function initTheme() {
   const tools = document.querySelector(".top-tools");
   if (!tools) return;
   const current = document.documentElement.dataset.theme || "default";
   tools.append(iconMenu({
-    icon: "theme", label: STR.theme, current,
+    icon: "theme", label: "ui.theme", current,
     items: THEMES.map(([value, text]) => ({ value, text })),
     onPick(id) {
       if (id === "default") delete document.documentElement.dataset.theme;
@@ -111,12 +117,12 @@ function initCopy() {
     const button = document.createElement("button");
     button.type = "button";
     button.className = "copy";
-    button.textContent = STR.copy;
+    button.dataset.i18n = "ui.copy";
     button.addEventListener("click", async () => {
       try {
         await navigator.clipboard.writeText(pre.innerText.trimEnd());
-        button.textContent = STR.copied;
-        setTimeout(() => { button.textContent = STR.copy; }, 1500);
+        button.textContent = t("ui.copied");
+        setTimeout(() => { button.textContent = t("ui.copy"); }, 1500);
       } catch { /* no clipboard (http, old browser): the text is still selectable */ }
     });
     pre.parentElement.append(button);
@@ -131,7 +137,7 @@ function initAnchors() {
     a.className = "anchor";
     a.href = "#" + h.id;
     a.textContent = "#";
-    a.setAttribute("aria-label", STR.link);
+    a.dataset.i18nLabel = "ui.link";
     h.append(a);
   }
 }
@@ -187,14 +193,17 @@ function sections(doc, url) {
   return out;
 }
 
-let indexPromise = null;
+let indexPromise = null; // (in the page's language: rebuilt after a switch)
+document.addEventListener("i18n", () => { indexPromise = null; });
 function buildIndex() {
   indexPromise ??= (async () => {
-    const pages = [...new Set([...document.querySelectorAll(".side a[href]")].map((a) => a.href.split("#")[0]))];
-    const results = await Promise.all(pages.map(async (url) => {
+    const results = await Promise.all(PAGES.map(async ([file]) => {
+      const url = new URL(file, document.baseURI).href;
       const res = await fetch(url);
       if (!res.ok) return [];
-      return sections(new DOMParser().parseFromString(await res.text(), "text/html"), url);
+      const doc = new DOMParser().parseFromString(await res.text(), "text/html");
+      applyI18n(doc);
+      return sections(doc, url);
     }));
     return results.flat();
   })();
@@ -257,14 +266,14 @@ function snippet(s, terms) {
 
 function initSearch() {
   const tools = document.querySelector(".top-tools");
-  if (!tools || !document.querySelector(".side a[href]")) return;
+  if (!tools) return;
   const box = document.createElement("div");
   box.className = "search";
   box.setAttribute("role", "search");
   const input = document.createElement("input");
   input.type = "search";
-  input.placeholder = STR.placeholder;
-  input.setAttribute("aria-label", STR.search);
+  input.dataset.i18nPlaceholder = "ui.placeholder";
+  input.dataset.i18nLabel = "ui.search";
   input.setAttribute("aria-controls", "search-results");
   input.setAttribute("aria-expanded", "false");
   input.autocomplete = "off";
@@ -301,16 +310,16 @@ function initSearch() {
     if (!query) { close(); return; }
     let index;
     try {
-      if (!indexPromise) message(STR.loading);
+      if (!indexPromise) message(t("ui.loading"));
       index = await buildIndex();
     } catch {
       indexPromise = null;
-      message(STR.offline);
+      message(t("ui.offline"));
       return;
     }
     if (input.value.trim() !== query) return; // typed on meanwhile
     const hits = search(index, query);
-    if (!hits.length) { message(`${STR.none} “${query}”`); return; }
+    if (!hits.length) { message(t("ui.none", { query })); return; }
     list.replaceChildren();
     for (const { s, terms } of hits) {
       const li = document.createElement("li");
@@ -352,42 +361,45 @@ function initSearch() {
     if (e.key === "/" && !typing && !e.ctrlKey && !e.metaKey && !e.altKey) { e.preventDefault(); input.focus(); }
   });
   document.addEventListener("click", (e) => { if (!box.contains(e.target)) close(); });
+  document.addEventListener("i18n", close); // (its results: in the language before)
 }
 
-// ---- language: an icon menu of languages.js's list (the page's static link, to the site's language choice, is
-// its no-JS fallback) - the same page in the picked language, else that language's home page ----
+// ---- language: Auto (the browser's) or one of the catalogs, each named in its own language - the page
+// re-translated in place (i18n.js setLanguage) ----
 
 function initLanguage() {
-  const link = document.querySelector("a.lang");
   const tools = document.querySelector(".top-tools");
   if (!tools) return;
-  // this page's path inside its language's folder ("install.html", "dev/probes.html")
-  const parts = location.pathname.split("/");
-  const at = parts.lastIndexOf(LANG);
-  if (at === -1) return;
-  const root = parts.slice(0, at).join("/") + "/";
-  const page = parts.slice(at + 1).join("/") || "index.html";
-  const menu = iconMenu({
-    icon: "language", label: STR.language, current: LANG,
-    items: LANGUAGES.map((l) => ({ value: l.code, text: l.name, lang: l.code })),
-    async onPick(code) {
-      if (code === LANG) return;
-      remember(code);
-      let target = `${root}${code}/${page}`;
-      try {
-        const res = await fetch(target, { method: "HEAD" });
-        if (!res.ok) target = `${root}${code}/`;
-      } catch { /* offline check failed: try the page anyway */ }
-      location.href = target + location.search + location.hash; // (?path=: the questionnaire's answers)
-    },
-  });
-  if (link) link.replaceWith(menu);
-  else tools.append(menu);
+  tools.append(iconMenu({
+    icon: "language", label: "ui.language", current: langPref,
+    items: [{ value: "auto", textKey: "lang.auto" },
+      ...Object.entries(CATALOG).map(([code, c]) => ({ value: code, text: c["lang.name"], lang: code }))],
+    onPick: setLanguage,
+  }));
+}
+
+// ---- the page menu (.side): PAGES, this one marked ----
+
+function initPages() {
+  const side = document.querySelector(".side");
+  if (!side) return;
+  const here = location.pathname.split("/").pop() || "index.html";
+  const ul = document.createElement("ul");
+  for (const [file, key] of PAGES) {
+    const li = document.createElement("li");
+    const a = document.createElement("a");
+    a.href = file;
+    a.dataset.i18n = key;
+    if (file === here) a.setAttribute("aria-current", "page");
+    li.append(a);
+    ul.append(li);
+  }
+  side.replaceChildren(ul);
 }
 
 // ---- the questionnaire (share.html): one step at a time, the answers' keys as the URL's path
 // (?path=elsewhere/upto50/account) - Back / Forward walk it, a link reopens it, the language switch keeps it. The
-// steps are the page's HTML (each language's own text; without JS they read as a tree of links). ----
+// steps are the page's HTML, their words the catalogs' (the trail follows a language switch). ----
 
 // The questionnaire's answer icons (12 x 12, currentColor), by answer key
 const ANSWER_ICONS = {
@@ -413,7 +425,7 @@ function initQuiz() {
   const start = "q:" + quiz.dataset.start;
   const trail = document.createElement("nav");
   trail.className = "trail";
-  trail.setAttribute("aria-label", quiz.dataset.soFar);
+  trail.dataset.i18nLabel = "share.soFar";
   quiz.prepend(trail);
   for (const s of steps.values()) s.querySelector("h2").tabIndex = -1;
   // each answer's icon, by its key (the cards: the same in every language)
@@ -459,7 +471,7 @@ function initQuiz() {
     return true;
   }
 
-  function render(focus) {
+  function render(focus, scroll = true) {
     const { taken, at } = walk(keysFromUrl());
     const step = steps.get(at) || steps.get(start);
     for (const s of steps.values()) s.classList.toggle("current", s === step);
@@ -484,13 +496,13 @@ function initQuiz() {
       const again = document.createElement("a");
       again.className = "restart";
       again.href = href([]);
-      again.textContent = quiz.dataset.restart;
+      again.textContent = t("share.restart");
       again.addEventListener("click", (e) => { e.preventDefault(); go([]); });
       trail.append(again);
     }
     trail.hidden = !taken.length;
     if (focus) step.querySelector("h2").focus();
-    else if (location.hash) {
+    else if (scroll && location.hash) {
       const target = document.getElementById(decodeURIComponent(location.hash.slice(1)));
       if (target?.tagName === "DETAILS") target.open = true; // (a link to a folded extra: open it)
       target?.scrollIntoView();
@@ -508,6 +520,7 @@ function initQuiz() {
     go([...walk(keysFromUrl()).taken.map((t) => t.key), a.dataset.key]);
   });
   addEventListener("popstate", () => render(false));
+  document.addEventListener("i18n", () => render(false, false)); // (the trail: its answers' words)
   addEventListener("hashchange", () => { if (fromHash()) render(false); });
   if (!keysFromUrl().length) fromHash();
   render(false);
@@ -521,15 +534,13 @@ function initLiveMaker() {
   document.querySelectorAll("[data-live-maker]").forEach((box, n) => {
     const input = box.querySelector("input"), out = box.querySelector(".live-out");
     const link = out.querySelector(".live-link"), copy = out.querySelector(".live-copy");
-    copy.textContent = STR.copy;
     copy.addEventListener("click", async () => {
       try {
         await navigator.clipboard.writeText(link.href);
-        copy.textContent = STR.copied;
-        setTimeout(() => { copy.textContent = STR.copy; }, 1500);
+        copy.textContent = t("ui.copied");
+        setTimeout(() => { copy.textContent = t("ui.copy"); }, 1500);
       } catch { /* no clipboard: the link can still be selected */ }
     });
-    box.querySelector(".nojs").hidden = true;
     const err = document.createElement("p");
     err.className = "live-err";
     err.id = `live-err-${n}`;
@@ -537,11 +548,14 @@ function initLiveMaker() {
     err.hidden = true;
     input.closest("label").after(err);
     input.setAttribute("aria-describedby", err.id);
-    const show = (message) => {
-      err.textContent = message || "";
-      err.hidden = !message;
-      input.setAttribute("aria-invalid", String(!!message));
+    let shown = ""; // (the message's key: said again in the new language after a switch)
+    const show = (key) => {
+      shown = key;
+      err.textContent = key ? t(key) : "";
+      err.hidden = !key;
+      input.setAttribute("aria-invalid", String(!!key));
     };
+    document.addEventListener("i18n", () => show(shown));
     input.addEventListener("input", () => {
       let text = input.value.trim();
       out.hidden = true;
@@ -549,8 +563,8 @@ function initLiveMaker() {
       const at = text.match(/[?&]at=([^&#\s]+)/); // a site link pasted back: its tunnel's address
       if (at) text = decodeURIComponent(at[1]);
       const host = text.replace(/^[a-z]+:\/\//i, "").replace(/[/?#].*$/, "");
-      if (LOCAL.test(host)) { show(STR.linkLocal); return; }
-      if (!/^[a-z0-9]([a-z0-9-]*[a-z0-9])?(\.[a-z0-9]([a-z0-9-]*[a-z0-9])?)*\.[a-z]{2,}(:\d{1,5})?$/i.test(host)) { show(STR.linkBad); return; }
+      if (LOCAL.test(host)) { show("share.linkLocal"); return; }
+      if (!/^[a-z0-9]([a-z0-9-]*[a-z0-9])?(\.[a-z0-9]([a-z0-9-]*[a-z0-9])?)*\.[a-z]{2,}(:\d{1,5})?$/i.test(host)) { show("share.linkBad"); return; }
       show("");
       link.href = link.textContent = `${location.origin}/live/?at=${host}`;
       out.hidden = false;
@@ -569,8 +583,7 @@ function initNav() {
   button.type = "button";
   button.className = "icon-button nav-toggle";
   button.innerHTML = svg("menu");
-  button.setAttribute("aria-label", STR.pages);
-  button.title = STR.pages;
+  button.dataset.i18nLabel = button.dataset.i18nTitle = "ui.pages";
   button.setAttribute("aria-controls", side.id);
   button.setAttribute("aria-expanded", "false");
   const shade = document.createElement("div");
@@ -599,6 +612,7 @@ function initScroller() {
   if (page && (!document.activeElement || document.activeElement === document.body)) page.focus({ preventScroll: true });
 }
 
+initPages();
 initScroller();
 initNav();
 initQuiz();
@@ -608,3 +622,4 @@ initLanguage();
 initTheme();
 initCopy();
 initAnchors();
+applyI18n(); // (last: what the site built carries keys too)
