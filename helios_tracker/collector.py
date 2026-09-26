@@ -378,6 +378,8 @@ class Collector:
         self._skills = SkillReader()  # every player's action skill, timed effects, melee cooldown
         self._state_n = 0
         self._info: dict[int, dict[str, Any]] = {}  # per-actor cached name/kind, by address
+        # pawns the game has had as its boss (GRI.BossPawn, the boss bar's) this level: (level id, address)
+        self._boss_pawns: set[tuple[Any, int]] = set()
         self._pools_sent: tuple[int, int] | None = None  # (lootodds.version, POOLS' size) when last sent (None: send it)
         # Interactive objects don't move or get renamed: each record is built once per level
         self._object_records: dict[tuple[int, str], dict[str, Any] | None] = {}
@@ -1180,10 +1182,31 @@ class Collector:
             name = named(pawn_display_name(pawn), def_name(try_(lambda: pawn.AIClass)), str(pawn.Class.Name))
             self._note_giver(addr, pawn, try_(lambda: pawn.MissionDirectives))  # the missions it gives / takes back
         info = {"i": f"{addr:x}", "k": kind, **name}
+        # a boss: its AI class says so (AIClassDefinition.bBoss - both games: few - the Pre-Sequel's 7 of 266), or the game
+        # has had it as the boss of a boss bar this level (GRI.BossPawn: Deadlift - _note_boss)
+        if kind not in ("me", "player", "vehicle") and ((self.level_id, addr) in self._boss_pawns
+                                                         or try_(lambda: bool(pawn.AIClass.bBoss), False)):
+            info["boss"] = 1
         if level := exp_level(pawn):  # re-read at each scan (enemies can level up)
             info["l"] = level
         self._info[addr] = info
         return info
+
+    def _note_boss(self, wi: Any) -> None:
+        """The boss bar's pawn (WillowGameReplicationInfo.BossPawn while bHasBossBar - replicated: a co-op client's too):
+        a boss for the rest of the level - AIClassDefinition.bBoss marks only a few (not Deadlift, the Pre-Sequel's).
+        Its cached description flagged at once (the pawninfo payload sends it)."""
+        gri = try_(lambda: wi.GRI)
+        if gri is None or not try_(lambda: bool(field(gri, "bHasBossBar")), False):
+            return
+        boss = try_(lambda: field(gri, "BossPawn"))
+        if boss is None:
+            return
+        key = try_(lambda: boss._get_address(), 0)
+        if key and (self.level_id, key) not in self._boss_pawns:
+            self._boss_pawns.add((self.level_id, key))
+            if (info := self._info.get(key)) is not None:
+                info["boss"] = 1
 
     def _is_gear(self, inv: Any) -> bool:
         """inspector.is_gear, per item class (cached by its address)."""
@@ -1237,6 +1260,7 @@ class Collector:
         self._skills.update(pc, world_now, now)
         self._check_scene(pc, wi, now)
         all_cinematic = try_(lambda: bool(field(wi.GRI, "bAllInCinematicMode")), False)  # every player in a cutscene
+        self._note_boss(wi)
         t_skills = time.perf_counter()
         players = []  # player pawns seen this update (the skill reader forgets the others)
         pawns = []

@@ -59,6 +59,7 @@ const detailLink = (at) => `<a class="mlink" data-open-detail="${esc(at.item.i)}
 
 /** What a map thing is, as its panel's header says it: a pickup's rarity and class, else its kind ("Big chest"). */
 function kindText(kind, it) {
+  if (it.boss) return t("tip.boss"); // (its AI class's bBoss)
   if (kind !== "loot") return t("tip." + kind, null, kind);
   return (isGear(it.c) ? rarityName(it.q) + " · " : "") + nameText({ n: String(it.c || "Pickup"), raw: 1 });
 }

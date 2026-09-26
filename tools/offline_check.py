@@ -1070,6 +1070,15 @@ def check_helios_tracker() -> None:  # noqa: PLR0915
                                                         _path_name=lambda: "GD_Co_AirDome.InteractiveObjects.IO_OxygenCracks")})
     oxygen_rec = col.Collector._object_record(oxygen_io)
     assert oxygen_rec["n"] == "Oxygen Source" and "raw" not in oxygen_rec, oxygen_rec
+    # a boss: the boss bar's pawn (GRI.BossPawn while bHasBossBar - Deadlift: its AI class has no bBoss), kept for the level
+    boss_gri = ns(bHasBossBar=False, BossPawn=ns(_get_address=lambda: 0xB055))
+    c._note_boss(ns(GRI=boss_gri))
+    assert (c.level_id, 0xB055) not in c._boss_pawns, "no boss bar: no boss"
+    boss_gri.bHasBossBar = True
+    c._info[0xB055] = {"i": "b055", "k": "enemy", "n": "Deadlift"}
+    c._note_boss(ns(GRI=boss_gri))
+    assert (c.level_id, 0xB055) in c._boss_pawns and c._info[0xB055].get("boss") == 1, ("the boss bar's pawn", c._info[0xB055])
+    c._info.pop(0xB055)
     # the areas: the game's names (none for a fog of war only one), the ones uncovered (pc.DiscoveredWorldAreas)
     areas = json.loads(hub.latest("areas"))["areas"]
     assert areas == [{"k": "southernshelf_pwda_4", "x": 100, "y": -200, "z": 30, "r": 4644, "n": "Wreck Of The Ice Sickle"},
@@ -1714,8 +1723,25 @@ def check_helios_tracker() -> None:  # noqa: PLR0915
     accuracy_pres.bValueRemappingEnabled = False
     assert inspector._accuracy(None, 4.0, 4.0) is None, "no remapping: no accuracy"
     inspector._accuracy_pres.clear()
+    # an unset name reads "None" - not a name (the Pre-Sequel's WT_Tediore_Laser has no Typename; the others "Laser")
+    assert inspector._localized(ns(PartName="", Typename="None", ItemName="", Grades=[]), 0) == "", "an unset Typename"
+    assert inspector._localized(ns(PartName="", Typename="Laser"), 0) == "Laser"
+    # ...its name then the game's other weapon types' of the same WeaponType (not the full-named vehicle guns)
+    weapon_types = enum.IntEnum("EWeaponType", ["WT_Pistol", "WT_Laser"], start=0)
+    real_find_all_types = inspector.unrealsdk.find_all
+    inspector.unrealsdk.find_all = lambda name, exact=True: [
+        ns(WeaponType=weapon_types.WT_Laser, Typename="Laser", bTypeNameIsFullName=False),
+        ns(WeaponType=weapon_types.WT_Laser, Typename="Laser", bTypeNameIsFullName=False),
+        ns(WeaponType=weapon_types.WT_Laser, Typename="Moon Buggy Light Laser", bTypeNameIsFullName=True),
+        ns(WeaponType=weapon_types.WT_Laser, Typename="None", bTypeNameIsFullName=False)] if name == "WeaponTypeDefinition" else []
+    inspector._type_names = None
+    tediore_type = inspector._type_name(ns(WeaponType=weapon_types.WT_Laser, Typename="None"))
+    assert tediore_type == "Laser", ("its WeaponType's name, from the game's others", tediore_type)
+    inspector.unrealsdk.find_all, inspector._type_names = real_find_all_types, None
     # What explodes (a barrel): its definition's behaviours hold a Behavior_Explode, its element its explosion's damage type
     # (element_of); the frame: learned from a weapon's ElementalFrame ("fire" for Incendiary), else the enum's name
+    saved_frames = dict(inspector._element_frames)  # (the real .cache's, loaded at import: not in these checks)
+    inspector._element_frames.clear()
     barrel_damage = enum.IntEnum("EDamageType", ["DAMAGE_TYPE_Normal", "DAMAGE_TYPE_Incindiary", "DAMAGE_TYPE_Ice"], start=0)  # (the game's spelling)
     barrel_ctrl = ns(Localize=lambda section, key, package: {"Ice": "cryo", "Incendiary": "incendiary"}.get(key, "?INT?"))
     def barrel_def(addr: int, damage) -> types.SimpleNamespace:  # noqa: ANN001
@@ -1737,6 +1763,8 @@ def check_helios_tracker() -> None:  # noqa: PLR0915
     assert json.loads(inspector.FRAMES_FILE.read_text(encoding="utf-8")) == {"DAMAGE_TYPE_Incindiary": "fire"}, "remembered"
     inspector.FRAMES_FILE = frames_file
     frames_tmp.cleanup()
+    inspector._element_frames.clear()
+    inspector._element_frames.update(saved_frames)
     fire_after = inspector.element_of(ns(DamageType=barrel_damage.DAMAGE_TYPE_Incindiary), barrel_ctrl).get("el")
     assert (fire_before, fire_after) == ("fire", "fire"), ("the game's typo's frame, then the one learned from its items", fire_before, fire_after)
     inspector._element_frames.clear()

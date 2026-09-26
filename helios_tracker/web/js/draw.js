@@ -6,7 +6,7 @@ import { FLOOR_UU, LAYERS, LAYER_COLOR, chestTier, isGear, lootLayer, nameText, 
 import { look, withAlpha } from "./look.js";
 import { missionItemWanted } from "./missions.js";
 import { settings } from "./settings.js";
-import { COLORS, areaName, arrow, bang, brackets, burst, chest, coin, diamond, dot, jumpMark, label, leader, menuBadge, oxygenMark, respawnRing, ring, setMarkerScale, square, triangle, typeIcon,
+import { COLORS, areaName, arrow, bang, bossDiamond, brackets, burst, chest, coin, diamond, dot, jumpMark, label, leader, menuBadge, oxygenMark, respawnRing, ring, setMarkerScale, square, triangle, typeIcon,
   vitalBars } from "./shapes.js";
 import { S, findDetail, findPlayer, frame, pawnPos, trackedPawn } from "./state.js";
 import { tooltip } from "./tooltip.js";
@@ -279,8 +279,9 @@ export function draw() {
       dot(sx, sy, 1.6 * st.k, LAYER_COLOR[o.cat]);
     } else if (tier) chest(sx, sy, size, LAYER_COLOR[o.cat]); // (a big chest, a weapon chest - looted ones too, dimmed)
     else square(sx, sy, size, LAYER_COLOR[o.cat]);
-    if (o.m > 0 && o.h < o.m) vitalBars(sx, sy, o, st.k); // (an object with health, hurt: its bar, as a pawn's)
-    if (st.names) label(sx, sy, nameText(o), o.cat === "explosive" && o.ecol ? o.ecol : LAYER_COLOR[o.cat], o.raw, st.ns);
+    const halfW = tier && o.cat !== "oxygen" && o.cat !== "explosive" && o.cat !== "jumppad" ? size * 1.35 : size; // (a chest: wide)
+    if (o.m > 0 && o.h < o.m) vitalBars(sx, sy, o, st.k, size); // (an object with health, hurt: its bar, as a pawn's)
+    if (st.names) label(sx, sy, nameText(o), o.cat === "explosive" && o.ecol ? o.ecol : LAYER_COLOR[o.cat], o.raw, st.ns, halfW);
     hits.push({ sx, sy, r: size, kind: o.cat, item: o });
   }
   // quest markers: point objectives, quest givers; areas are hit-tested at their centre too. A quest
@@ -375,12 +376,14 @@ export function draw() {
     }
     else if (p.k === "vehicle") square(sx, sy, 5 * st.k, LAYER_COLOR.vehicle);
     else {
-      if (p.k === "enemy") diamond(sx, sy, 5 * st.k, LAYER_COLOR.enemy); // like the game's minimap
+      if (p.k === "enemy" && p.boss) bossDiamond(sx, sy, 8 * st.k, LAYER_COLOR.enemy); // a boss: bigger, a gold outline
+      else if (p.k === "enemy") diamond(sx, sy, 5 * st.k, LAYER_COLOR.enemy); // like the game's minimap
       else ring(sx, sy, 4.5 * st.k, LAYER_COLOR[p.k], st.k); // NPCs: a hollow ring (pickups are dots, mission items a filled "!")
-      if (hurt) vitalBars(sx, sy, { ...p, h: pos.h, s: pos.s }, st.k);
+      if (hurt) vitalBars(sx, sy, { ...p, h: pos.h, s: pos.s }, st.k, p.boss ? 9.5 * st.k : 0); // (a boss: under its diamond)
     }
-    if (st.names) label(sx, sy, nameText(p), p === tracked ? COLORS.tracked : LAYER_COLOR[layer], p.raw, st.ns);
-    hits.push({ sx, sy, r: 6 * st.k, kind: p.k, item: p, pos });
+    // (a boss: named even with the layer's names off)
+    if (st.names || p.boss) label(sx, sy, nameText(p), p === tracked ? COLORS.tracked : LAYER_COLOR[layer], p.raw, st.ns, p.boss ? 9.5 * st.k : 0);
+    hits.push({ sx, sy, r: (p.boss ? 9 : 6) * st.k, kind: p.k, item: p, pos });
   }
   drawGivers(); // (no pawn above the NPCs)
   ctx.globalAlpha = 1;

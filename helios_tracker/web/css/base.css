@@ -135,6 +135,7 @@
   --map-outline: rgba(0, 0, 0, .8);
   --map-outline-soft: rgba(0, 0, 0, .6);
   --map-ink: #1a1200;
+  --map-boss: #c9a54a; /* a boss's outline (its AI class's bBoss, the boss bar's pawn): a muted gold */
   --map-halo: rgba(5, 10, 14, .9);
   --map-bar-back: rgba(0, 0, 0, .7);
   /* the map's layers (their markers, names and Layers tab icons; not the rarities: the game's) */

@@ -78,6 +78,7 @@ function renderTooltip(mePos, f) {
     : best.kind === "loot" ? (gear ? esc(rarityName(it.q)) + " · " : "") + classHtml(it.c || "Pickup")
     : best.kind === "other" ? classHtml(it.c)
     : (best.kind === "me" || best.kind === "player") && S.players.some((p) => p.i === it.i && p.host) ? esc(t("tip.host"))
+    : it.boss ? esc(t("tip.boss")) // (its AI class's bBoss)
     : esc(t("tip." + best.kind, null, best.kind));
   lines.push(`<span class="tl">${kindHtml}</span>`);
   if (it.ms) lines.push(`<span class="tl">${esc(t(it.ms.k === "gives" ? "tip.givesMission" : "tip.forMission", { n: it.ms.n }))}</span>`);

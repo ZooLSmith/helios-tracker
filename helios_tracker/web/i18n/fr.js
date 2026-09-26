@@ -125,6 +125,7 @@ export default {
   "tip.host": "Joueur · hôte",
   "tip.player": "Joueur",
   "tip.enemy": "Ennemi",
+  "tip.boss": "Boss",
   "tip.npc": "PNJ / allié",
   "tip.vehicle": "Véhicule",
   "tip.other": "Objet",

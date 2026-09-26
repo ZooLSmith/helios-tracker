@@ -244,13 +244,35 @@ def _localized(obj: Any, grade: int) -> str:
     """
     for prop in ("PartName", "Typename", "ItemName"):
         text = try_(lambda p=prop: str(getattr(obj, p)), "")
-        if text:
+        if text and text != "None":  # ("None": an unset name, not a name - the Pre-Sequel's Tediore laser type has none)
             return text
     grades = try_(lambda: list(obj.Grades), [])
     if grades:
         grade_data = grades[grade] if 0 <= grade < len(grades) else grades[0]
         return try_(lambda: str(grade_data.DisplayName), "")
     return ""
+
+
+_type_names: dict[str, str] | None = None  # WeaponType enum name -> the name the game's weapon types give it
+
+
+def _type_name(weapon_type_def: Any) -> str:
+    """A weapon type definition with no Typename of its own (the Pre-Sequel's WT_Tediore_Laser - the other makers' lasers:
+    "Laser"): the name the game's other weapon types of the same WeaponType give (WT_Laser), from the loaded
+    WeaponTypeDefinitions - the ones not named in full (bTypeNameIsFullName: a vehicle's gun, "Moon Buggy Light Laser")
+    - the most common; read once. "" if none."""
+    global _type_names  # noqa: PLW0603
+    if _type_names is None:
+        counts: dict[str, dict[str, int]] = {}
+        for d in try_(lambda: list(unrealsdk.find_all("WeaponTypeDefinition", exact=False)), []) or []:
+            if try_(lambda d=d: bool(d.bTypeNameIsFullName), False):
+                continue
+            enum = _enum_name(try_(lambda d=d: d.WeaponType, ""))
+            text = str(try_(lambda d=d: d.Typename, "") or "")
+            if enum and text and text != "None":
+                counts.setdefault(enum, {})[text] = counts.setdefault(enum, {}).get(text, 0) + 1
+        _type_names = {enum: max(names, key=names.get) for enum, names in counts.items()}
+    return _type_names.get(_enum_name(try_(lambda: weapon_type_def.WeaponType, "")), "")
 
 
 def _parts(inv: Any, item: dict[str, Any]) -> list[list[str]]:
@@ -278,6 +300,8 @@ def _parts(inv: Any, item: dict[str, Any]) -> list[list[str]]:
         group = try_(lambda o=obj: str(o.Outer.Name), "")
         text = _localized(obj, grade) if slot in ("WeaponType", "Item", "Manufacturer", "Prefix", "Title",
                                                    "PrefixItemName", "TitleItemName") else ""
+        if slot == "WeaponType" and not text:  # (no name of its own: its weapon type's, from the game's others)
+            text = try_(lambda o=obj: _type_name(o), "") or ""
         if slot in ("WeaponType", "Item") and text:
             item["type"] = text
         elif slot == "Manufacturer" and text:

@@ -126,6 +126,7 @@ export default {
   "tip.host": "Player · host",
   "tip.player": "Player",
   "tip.enemy": "Enemy",
+  "tip.boss": "Boss",
   "tip.npc": "NPC / ally",
   "tip.vehicle": "Vehicle",
   "tip.other": "Object",

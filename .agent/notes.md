@@ -595,6 +595,24 @@ Southern Shelf's `_P` alone: 404 `StaticMesh`, 4131 `StaticMeshComponent`, 11 `T
   order (ice, shock, fire, corrosive, explosive, amp, none): no index to go by. Before the fix fire weapons had no
   element name on the page either.
 
+## A weapon type without a name (offline packages, the Pre-Sequel, 2026-09-26)
+
+- Every laser weapon type has Typename "Laser" but the Pre-Sequel's WT_Tediore_Laser: none (its ScaleformFrameName
+  "Laser": its icon works). An unset name reads "None" - `_localized` took it for a name (the page: "None"); now it's
+  no name. Then `_type_name`: the name the game's other loaded weapon types of the same WeaponType give (WT_Laser:
+  Dahl / Hyperion / Maliwan, Startup.upk; not the full-named vehicle guns), the most common - "Laser". An exception
+  to "a thing's own name only" (AGENTS.md), the user's call (2026-09-26: offered "Laser ?", "Weapon" or this) - not a
+  precedent for other names.
+
+## Bosses (offline packages + in game, the Pre-Sequel, 2026-09-26)
+
+- `AIClassDefinition.bBoss` (both games) marks only a few: the Pre-Sequel's 7 of 266 AI classes (CharClass_ColZ,
+  _ColZMech, _FBCBig..., _Kelly, _MetaGuardian) - not Deadlift (CharClass_SpacemanDeadlift), a boss in game (its boss
+  bar). The boss bar's own data: `WillowGameReplicationInfo.BossPawn` / `BossName` / `BossLevel` / `bHasBossBar` /
+  `ReplicatedBossHealth` / `ReplicatedBossShield` (replicated: a co-op client's too) - set while the bar is up.
+  collector.py: a boss = bBoss, or a pawn that's been the BossPawn this level (`_note_boss`, kept per level). Before
+  its fight starts (no bar yet) a boss without bBoss isn't known. Also: `WillowAIPawn.IsBoss()` (native; not called).
+
 ## Backlog
 
 - **Mission log cost** (user, 2026-09-23: 20-40 ms often) - (1) and (3) DONE, to measure in game; (2) if still needed:

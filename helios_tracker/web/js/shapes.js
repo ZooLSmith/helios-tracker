@@ -9,7 +9,7 @@ import { ctx } from "./view.js";
 export const COLORS = {};
 const TOKENS = { bg: "bg", grid: "grid", shield: "shield", health: "health", dead: "dead", menu: "menu", objective: "objective",
   tracked: "map-tracked", playerEdge: "map-player-edge", outline: "map-outline", outlineSoft: "map-outline-soft",
-  ink: "map-ink", halo: "map-halo", barBack: "map-bar-back" };
+  ink: "map-ink", boss: "map-boss", halo: "map-halo", barBack: "map-bar-back" };
 export function initColors() {
   for (const [k, token] of Object.entries(TOKENS)) COLORS[k] = tokenColor("--" + token);
   COLORS.mapFilter = tokenRaw("--map-filter") || "none"; // (the theme's map tint: draw.js mapCanvas)
@@ -43,6 +43,16 @@ export function diamond(x, y, r, fill) {
   ctx.beginPath(); ctx.moveTo(x, y - r); ctx.lineTo(x + r, y); ctx.lineTo(x, y + r); ctx.lineTo(x - r, y); ctx.closePath();
   ctx.fillStyle = fill; ctx.fill();
   ctx.lineWidth = 1; ctx.strokeStyle = COLORS.outline; ctx.stroke();
+}
+
+/** A boss (its AI class's bBoss): the enemy's diamond, bigger, a gold outline around it. */
+export function bossDiamond(x, y, r, fill) {
+  diamond(x, y, r, fill);
+  const g = 1.5; // (its outline close around it, thin and a little see-through: part of the marker, not a frame)
+  ctx.beginPath(); ctx.moveTo(x, y - r - g); ctx.lineTo(x + r + g, y); ctx.lineTo(x, y + r + g); ctx.lineTo(x - r - g, y); ctx.closePath();
+  const a = ctx.globalAlpha;
+  ctx.globalAlpha = a * 0.8; ctx.lineWidth = 1.3; ctx.strokeStyle = COLORS.boss; ctx.stroke();
+  ctx.globalAlpha = a;
 }
 
 export function bang(x, y, fill, k = 1) { // quest giver / turn-in: a "!" badge (k: size factor)
@@ -179,10 +189,12 @@ export function setMarkerScale(s) { markerScale = s; }
 
 // raw: a made-up name ending in " ?", the "?" drawn dimmer; k: its layer's Name size (the text only: it stays by
 // its marker)
-export function label(x, y, text, color, raw, k = 1) {
+/** A marker's name, right of it. `r`: the marker's half-width (px, drawn) when it's bigger than the usual ~5 - the
+ *  label then starts past its edge (a boss's diamond, a chest, the O2 diamond...). */
+export function label(x, y, text, color, raw, k = 1, r = 0) {
   const main = raw ? text.slice(0, -2) : text, s = markerScale;
   ctx.font = `600 ${11 * s * k}px 'Segoe UI', system-ui, sans-serif`;
-  x += 8 * s - 8; y += 4 * s - 4 + (k - 1) * 4 * s; // (the offsets below: 8 right, 4 down, at 100 %; bigger text: lower)
+  x += Math.max(8 * s, r + 3) - 8; y += 4 * s - 4 + (k - 1) * 4 * s; // (the offsets below: 8 right, 4 down, at 100 %; bigger text: lower)
   ctx.lineWidth = 3 * Math.max(0.6, k); ctx.strokeStyle = COLORS.halo; ctx.fillStyle = color;
   ctx.strokeText(main, x + 8, y + 4); ctx.fillText(main, x + 8, y + 4);
   if (!raw) return;
@@ -241,12 +253,13 @@ export function menuBadge(x, y, k = 1) { // a player in a menu: a "..." pill at 
   for (let i = 0; i < 3; i++) { ctx.beginPath(); ctx.arc(bx + w * (i + 1) / 4, by + h / 2, 1.1 * k, 0, Math.PI * 2); ctx.fill(); }
 }
 
-export function vitalBars(x, y, p, k = 1) { // health, and the shield above it when there is one (k: the marker's size)
+export function vitalBars(x, y, p, k = 1, r = 0) { // health, and the shield above it when there is one (k: the marker's size;
+  // r: its half-height, px drawn, when bigger than usual - the bars then just under its edge)
   const w = 16 * k, bh = 2 * k, gap = 3 * k, clamp = (v) => Math.max(0, Math.min(1, v));
   const bars = [];
   if (p.sm > 0) bars.push([COLORS.shield, clamp(p.s / p.sm)]);
   if (p.m > 0) bars.push([COLORS.health, clamp(p.h / p.m)]);
-  let top = y + 7 * k;
+  let top = y + Math.max(7 * k, r + 2);
   ctx.fillStyle = COLORS.barBack; ctx.fillRect(x - w / 2 - 1, top - 1, w + 2, bars.length * gap + 1);
   for (const [color, frac] of bars) {
     ctx.fillStyle = color; ctx.fillRect(x - w / 2, top, w * frac, bh);
