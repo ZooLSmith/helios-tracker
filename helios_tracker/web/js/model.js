@@ -84,6 +84,8 @@ export const LAYERS = [
   // the level's areas (the game's discovery areas, tools/probe_discovery.txt): their names, the ones not
   // discovered yet dimmed; the fog of war: the game's fog pieces over the areas not discovered (its count)
   { id: "area", group: "world", on: true, settings: ["size", "opacity"] },
+  // the Pre-Sequel's jump pads (and geysers): the class OzPlayerJumpPad
+  { id: "jumppad", group: "world", on: true, game: "tps", settings: COMMON },
   // what explodes (barrels...: both games) - in its element's colour, its health under it when hurt
   { id: "explosive", group: "world", on: true, settings: COMMON },
   // what gives oxygen (the Pre-Sequel's): air domes (their breathable area - on: filled; off, their generator's button
@@ -147,16 +149,20 @@ const GEAR_CLASSES = ["WillowWeapon", "WillowShield", "WillowGrenadeMod", "Willo
 export function isGear(cls) { return GEAR_CLASSES.some((g) => String(cls || "").startsWith(g)); }
 
 /** Chest tier from the game's loot list names: 2 = an "Epic" list (the red chests: EpicChestRedLoot),
- *  1 = a "WeaponChest" one (metal crates, bandit weapon chests: WeaponChestWhiteLoot...), 0 = none. */
+ *  1 = a "WeaponChest" one (metal crates, bandit weapon chests: WeaponChestWhiteLoot...), 0 = none - or, a
+ *  container with its loot on itself (no list: the Pre-Sequel's Dahl "Last Requests" chest), its pools' names the
+ *  same way (Pool_EpicChest_Weapons_LongGuns...: 2; Pool_WeaponChest...: 1). */
 export function chestTier(o) {
-  const lists = o.lists || [];
-  return lists.some((l) => /epic/i.test(l)) ? 2 : lists.some((l) => /weaponchest/i.test(l)) ? 1 : 0;
+  const lists = o.lists || [], pools = o.loot || [];
+  if (lists.some((l) => /epic/i.test(l)) || pools.some((l) => /epicchest/i.test(l))) return 2;
+  return lists.some((l) => /weaponchest/i.test(l)) || pools.some((l) => /weaponchest/i.test(l)) ? 1 : 0;
 }
 
 /** Interactive objects -> category, from their definition / class name. */
 export function objectCategory(o) {
   // what gives oxygen (the Pre-Sequel's): an air dome's bubble (its area: collector.py _dome), its generator, a fissure
   if (o.dome || o.dg || o.o2) return "oxygen";
+  if (o.c === "OzPlayerJumpPad") return "jumppad"; // the Pre-Sequel's jump pads and geysers: their own class
   if (o.xp) return "explosive"; // it explodes (its behaviours: a Behavior_Explode - collector.py, inspector.explosion_info)
   if (o.looted) return "looted";
   // The game's loot lists are named by tier: an "Epic" one (EpicChestRedLoot...) = a chest

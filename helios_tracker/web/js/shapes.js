@@ -76,6 +76,16 @@ export function burst(x, y, fill, k = 1) { // what explodes (a barrel): a 6-spik
   ctx.restore();
 }
 
+export function jumpMark(x, y, fill, k = 1) { // a jump pad (the Pre-Sequel's): a disc with a white up chevron
+  const r = 7 * k;
+  ctx.save();
+  ctx.beginPath(); ctx.arc(x, y, r, 0, Math.PI * 2);
+  ctx.fillStyle = fill; ctx.fill(); ctx.lineWidth = 1.2; ctx.strokeStyle = COLORS.ink; ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(x - 3.6 * k, y + 1.8 * k); ctx.lineTo(x, y - 2.4 * k); ctx.lineTo(x + 3.6 * k, y + 1.8 * k);
+  ctx.lineWidth = 2 * k; ctx.lineCap = "round"; ctx.lineJoin = "round"; ctx.strokeStyle = "#fff"; ctx.stroke();
+  ctx.restore();
+}
+
 export function oxygenMark(x, y, fill, k = 1) { // an oxygen source (the Pre-Sequel's): a diamond with a white "O2"
   const r = 9 * k;
   ctx.save();
@@ -151,6 +161,16 @@ export function triangle(x, y, r, fill) { // loot
 export function square(x, y, r, fill) {
   ctx.fillStyle = fill; ctx.fillRect(x - r, y - r, 2 * r, 2 * r);
   ctx.lineWidth = 1; ctx.strokeStyle = COLORS.outline; ctx.strokeRect(x - r, y - r, 2 * r, 2 * r);
+}
+
+/** A chest (the big ones, the weapon chests): a wide box, its lid a line near the top, a latch on it - `r` its half
+ *  height, like square()'s. */
+export function chest(x, y, r, fill) {
+  const w = r * 1.35, top = y - r, lid = y - r * 0.3;
+  ctx.fillStyle = fill; ctx.fillRect(x - w, top, 2 * w, 2 * r);
+  ctx.lineWidth = 1; ctx.strokeStyle = COLORS.outline; ctx.strokeRect(x - w, top, 2 * w, 2 * r);
+  ctx.beginPath(); ctx.moveTo(x - w, lid); ctx.lineTo(x + w, lid); ctx.strokeStyle = COLORS.ink; ctx.lineWidth = 1; ctx.stroke();
+  ctx.beginPath(); ctx.arc(x, lid, Math.max(1.1, r * 0.22), 0, Math.PI * 2); ctx.fillStyle = COLORS.ink; ctx.fill();
 }
 
 // The global marker size (Settings: Map markers): the labels' font and offset follow it (set per frame)

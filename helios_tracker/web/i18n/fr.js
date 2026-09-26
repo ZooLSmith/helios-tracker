@@ -55,6 +55,7 @@ export default {
   "layer.pickup.oxygen": "Oxygène",
   "layer.oxygen": "Sources d'oxygène",
   "layer.explosive": "Explosifs",
+  "layer.jumppad": "Plateformes de saut",
   "detail.element": "Élément",
   "oz.inAir": "Atmosphère",
   "oz.inVacuum": "Dans le vide", // (the game's words: "dans le vide", "dans une atmosphère" - "Vide" alone read "empty")
@@ -135,6 +136,7 @@ export default {
   "tip.station": "Station",
   "tip.looted": "Pillé",
   "tip.explosive": "Explosif",
+  "tip.jumppad": "Plateforme de saut",
   "tip.oxygen": "Source d'oxygène",
   "tip.shield": "Bouclier {s} / {m}",
   "tip.contents": "Peut contenir :",

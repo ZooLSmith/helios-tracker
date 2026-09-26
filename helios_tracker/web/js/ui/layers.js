@@ -30,10 +30,16 @@ function layerIcon(l) {
     vehicle: `<rect x="1.5" y="1.5" width="9" height="9" fill="${c}" ${o}/>`,
     objective: `<polygon points="6,1 11,6 6,11 1,6" fill="${c}" ${o}/><circle cx="6" cy="6" r="1.5" style="fill: var(--map-ink)"/>`,
     gear: triangle,
-    chest: `<rect x="0.5" y="0.5" width="11" height="11" fill="${c}" ${o}/>`,
-    weaponchest: `<rect x="1.5" y="1.5" width="9" height="9" fill="${c}" ${o}/>`,
+    // chests: the map's box, its lid line, its latch
+    chest: `<rect x="0.5" y="2" width="11" height="8" fill="${c}" ${o}/><line x1="0.5" y1="4.8" x2="11.5" y2="4.8" ` +
+      `style="stroke: var(--map-ink)" stroke-width="1"/><circle cx="6" cy="4.8" r="1.1" style="fill: var(--map-ink)"/>`,
+    weaponchest: `<rect x="1.5" y="3" width="9" height="6.5" fill="${c}" ${o}/><line x1="1.5" y1="5.2" x2="10.5" y2="5.2" ` +
+      `style="stroke: var(--map-ink)" stroke-width="1"/><circle cx="6" cy="5.2" r=".9" style="fill: var(--map-ink)"/>`,
     other: `<rect x="3.5" y="3.5" width="5" height="5" fill="${c}" ${o}/>`,
     vaultsymbol: `<circle cx="6" cy="6" r="4" fill="none" stroke="${c}" stroke-width="2"/><circle cx="6" cy="6" r="1.4" fill="${c}"/>`,
+    // a jump pad: the map's disc with an up chevron
+    jumppad: `<circle cx="6" cy="6" r="5.4" fill="${c}" ${o}/><polyline points="3.3,7.3 6,4.4 8.7,7.3" fill="none" ` +
+      `stroke="#fff" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>`,
     // what explodes: the map's burst
     explosive: `<polygon points="6.00,0.40 7.40,3.58 10.85,3.20 8.80,6.00 10.85,8.80 7.40,8.42 6.00,11.60 4.60,8.42 1.15,8.80 3.20,6.00 1.15,3.20 4.60,3.58" fill="${c}" ${o} stroke-linejoin="round"/>`,
     // an oxygen source: the map's diamond with a white "O2"

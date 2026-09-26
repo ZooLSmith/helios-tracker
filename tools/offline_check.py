@@ -286,7 +286,10 @@ const vaultCat = objectCategory({ d: "IO_VaultRoy", n: "Vault Roy", c: "WillowIn
   + "," + objectCategory({ d: "InteractiveObj_HyperionAmmo", n: "Ammo", c: "WillowInteractiveObject", lootable: 1, lists: ["AmmoCrateLoot_Hyp"] })
   + "," + objectCategory({ d: "IO_AirDome_Bubble_On", n: "AirDome Bubble On", raw: 1, c: "WillowInteractiveObject", dome: [1687, 0] })
   + "," + objectCategory({ d: "IO_AirDome_Generator_On", n: "Air Dome Generator", c: "WillowInteractiveObject", dg: 1 })
-  + "," + objectCategory({ d: "IO_OxygenCracks", n: "Oxygen Source", c: "WillowInteractiveObject", o2: 1 });
+  + "," + objectCategory({ d: "IO_OxygenCracks", n: "Oxygen Source", c: "WillowInteractiveObject", o2: 1 })
+  + "," + objectCategory({ d: "IO_Geysers_Vertical", n: "Geysers Vertical", raw: 1, c: "OzPlayerJumpPad" })
+  + "," + objectCategory({ d: "InteractiveObj_DahlEpic_LastRequests", c: "WillowInteractiveObject", lootable: 1, slots: 15,
+    loot: ["Pool_EpicChest_Weapons_LongGuns", "Pool_Chest_Ammo"] }); // (no loot list: its pools say a big chest)
 // The map's click / hover pick (input.js hitAt): what the pointer is ON wins over a nearer-layer marker merely close by
 // (a chest under the pointer, a pickup 10 px off: the chest); both under it: the layer (an item on its chest: the item);
 // on none: the nearest centre
@@ -1991,7 +1994,7 @@ def check_helios_tracker() -> None:  # noqa: PLR0915
                                                                    {"bg": 100, "map": 0, "panel": 20, "ui": 200, "marker": 50}, "rgba(11, 17, 22, 0.4)"), lk
     assert mis["variantWords"] == ["OZ KITS", "3 moonstones", "WEAPONS", "RELICS"], ("the Pre-Sequel's words", mis["variantWords"])
     assert mis["healthShown"] == "107,107,100,100", ("health rounded down, as the game's HUD; the max the same", mis["healthShown"])
-    assert mis["vaultCat"] == "vaultsymbol,station,container,oxygen,oxygen,oxygen", \
+    assert mis["vaultCat"] == "vaultsymbol,station,container,oxygen,oxygen,oxygen,jumppad,chest", \
         ("a vault symbol: its own layer; Catch-A-Ride: a station; anything with loot a container (the Pre-Sequel's"
          " Hyperion ammo crate: no container word in its name)", mis["vaultCat"])
     delta_want = json.loads(delta_hub.latest("objs"))
