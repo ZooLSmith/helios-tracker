@@ -125,14 +125,21 @@ bl2-helios-tracker/
   The same nine languages as the page. A new language = a catalog + its line in `assets/i18n/index.js` (a new
   script: its fonts in `site.css` - Exo 2's subset, or a `:lang()` stack of system fonts like the CJK ones); a new
   page = its file + its line in `site.js`'s
-  `PAGES` (the menu and the search are built from it) + its keys. An empty translation hides its element (a note
+  `PAGES` (the bar's links, the footer's and the search are built from it) + its keys. No menu to open: the pages
+  are a few words each in the top bar, a row of their own on small screens. An empty translation hides its element (a note
   only one language needs). Old `/en/...`, `/fr/...` links: `404.html` redirects them.
-- Every page needs JavaScript (no text without it): what the site builds (menu, search, copy buttons) carries keys
+- Search keywords, never shown: a heading's `data-search="kw.xxx"` names a catalog key (words, commas), matched like
+  the heading. The language's and the English ones both count, so a `kw.*` key missing from a catalog is fine (the
+  one exception to "same keys").
+- Every page needs JavaScript (no text without it): what the site builds (the pages' links, search, copy buttons) carries keys
   too, so a language switch re-translates it; anything built from the text listens to the `i18n` event.
 - Link previews (Discord, X...): each page's head has Open Graph tags and its `<title>` / description in English,
   written out (the bots run no JavaScript; the script still swaps them for the visitor's language) - a page's title
   or description changed in `en.js`: change them there too. The image: `assets/img/og.jpg` (1200 x 630).
-- Preview: `python -m http.server` in the worktree (search needs http, not `file://`).
+- Links without `.html` (`install`, `share?path=home`, the home `./`): GitHub Pages serves `/install` as
+  `install.html`. Preview: `python tools/site_preview.py` (does the same; `python -m http.server` doesn't).
+- The home page (`body.home`): the bar as on every page (its logo too: one that comes and goes jars), its hero one action (Install, GitHub beside it);
+  the other pages are the bar's links, and the questionnaire linked from "Where to open it".
 - Wording follows the page's own labels (`helios_tracker/web/i18n/<code>.js`, the same language's); the mod's
   in-game options stay English in every language.
 - Nothing extracted from the game goes on the site (fonts, map images, icons): it's public. One exception, the
