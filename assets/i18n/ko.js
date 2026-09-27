@@ -7,7 +7,6 @@ export default {
   "ui.skip": "본문으로 건너뛰기",
   "ui.home": "Helios Tracker, 홈",
   "ui.language": "언어",
-  "ui.pages": "페이지",
   "ui.theme": "테마",
   "ui.search": "검색",
   "ui.placeholder": "문서 검색  ( / )",
@@ -17,9 +16,9 @@ export default {
   "ui.copy": "복사",
   "ui.copied": "복사됨",
   "ui.link": "이 섹션으로 연결되는 링크",
-  "nav.index": "소개",
+  "ui.pages": "페이지",
   "nav.install": "설치",
-  "nav.share": "열기 및 공유",
+  "nav.share": "접속",
   "nav.troubleshooting": "문제 해결",
   "foot.legal": "Helios Tracker는 팬이 만든 모드로, Gearbox Software나 2K가 만들거나 보증한 것이 아닙니다. Borderlands와 그 명칭은 해당 회사의 소유입니다.",
 
@@ -78,7 +77,7 @@ export default {
   "index.more.themes": "테마",
   "index.more.themesText": "다섯 가지 색상 테마, 지도도 그에 맞게 물듭니다.",
   "index.more.coop": "협동",
-  "index.more.coopText": "한 명만 있으면 됩니다 (<a href=\"install.html#coop\">호스트가 가장 좋음</a>).",
+  "index.more.coopText": "한 명만 있으면 됩니다 (<a href=\"install#coop\">호스트가 가장 좋음</a>).",
   "index.more.language": "내 언어로",
   "index.more.languageText": "페이지는 9개 언어로. 게임 이름은 게임 언어로.",
 
@@ -86,11 +85,14 @@ export default {
   "index.where.screen": "보조 모니터",
   "index.where.screenText": "게임 PC의 아무 브라우저에서.",
   "index.where.phone": "휴대폰이나 태블릿",
-  "index.where.phoneText": "집 네트워크에서: <a href=\"share.html?path=home\">방법</a>.",
+  "index.where.phoneText": "집 네트워크에서: <a href=\"share?path=home\">방법</a>.",
   "index.where.obs": "OBS",
-  "index.where.obsText": "투명한 배경으로: <a href=\"share.html?path=stream\">방법</a>.",
+  "index.where.obsText": "투명한 배경으로: <a href=\"share?path=stream\">방법</a>.",
   "index.where.overlay": "Steam 오버레이",
-  "index.where.overlayText": "게임 화면 위에서: <a href=\"share.html?path=overlay\">방법</a>.",
+  "index.where.overlayText": "게임 화면 위에서: <a href=\"share?path=overlay\">방법</a>.",
+  "index.where.friends": "다른 곳에 있는 친구",
+  "index.where.friendsText": "인터넷으로, 각자의 브라우저에서: <a href=\"share?path=elsewhere\">방법</a>.",
+  "index.where.all": "지도를 열거나 공유하는 모든 방법 →",
 
   "index.assets": "내 게임에서 만들어집니다",
   "index.assetsText": "다운로드에는 게임 파일이 없습니다: 플레이하는 동안 모드가 내 게임에서 읽어 옵니다.",
@@ -135,10 +137,10 @@ export default {
   "install.coopSkills": "스킬, 대기 시간, 미션 보상은 내 것만 나옵니다.",
   "install.coopMap": "지도에는 호스트의 게임이 내 게임과 공유하는 것이 나옵니다.",
   "install.next": "다른 방법으로 열기",
-  "install.next.home": "<a href=\"share.html?path=home\">로컬 네트워크에서</a>: 휴대폰, 태블릿, 다른 PC",
-  "install.next.obs": "<a href=\"share.html?path=stream\">OBS에서</a>, 투명한 배경으로",
-  "install.next.overlay": "<a href=\"share.html?path=overlay\">Steam 오버레이에서</a>",
-  "install.next.help": "지도가 열리지 않으면 <a href=\"troubleshooting.html\">문제 해결</a>을 보세요.",
+  "install.next.home": "<a href=\"share?path=home\">로컬 네트워크에서</a>: 휴대폰, 태블릿, 다른 PC",
+  "install.next.obs": "<a href=\"share?path=stream\">OBS에서</a>, 투명한 배경으로",
+  "install.next.overlay": "<a href=\"share?path=overlay\">Steam 오버레이에서</a>",
+  "install.next.help": "지도가 열리지 않으면 <a href=\"troubleshooting\">문제 해결</a>을 보세요.",
   "install.update": "업데이트 또는 제거",
   "install.updateText": "업데이트하려면 <code>helios_tracker.sdkmod</code>를 새 파일로 바꾸고 게임을 다시 시작하세요. 제거하려면 파일을 지우세요. 모드 옵션은 <code>sdk_mods\\settings</code>에 따로 저장됩니다.",
 
@@ -169,7 +171,7 @@ export default {
 
   "share.pc": "이 PC에서 열기",
   "share.pcText": "모드 옵션에서 <strong>Open Map in Browser</strong>를 누르거나, 게임 PC의 아무 브라우저에서 이 주소로 가세요:",
-  "share.pcSee": "<a href=\"install.html#open\">설치</a>를 보세요.",
+  "share.pcSee": "<a href=\"install#open\">설치</a>를 보세요.",
 
   "share.lan": "로컬 네트워크",
   "share.lanText": "게임 PC와 같은 네트워크에 있는 기기라면 지도를 열 수 있습니다: 휴대폰, 태블릿, 다른 PC. 집 네트워크 밖으로는 아무것도 나가지 않습니다.",
@@ -183,7 +185,7 @@ export default {
   "share.lan.firewallText": "Windows가 게임의 방화벽 통과를 허용할지 물어볼 수 있습니다: 개인 네트워크에서 허용하세요. 이전에 거부했다면 다른 기기가 연결할 수 없습니다: <strong>Windows Defender 방화벽</strong>, <strong>Windows Defender 방화벽을 통해 앱 또는 기능 허용</strong>에서 게임을 허용하세요.",
 
   "share.overlay": "Steam 오버레이",
-  "share.overlayText": "게임 중에 <kbd>Shift</kbd>+<kbd>Tab</kbd>을 누르고 <strong>웹 브라우저</strong>를 열어 <code>http://localhost:8777/</code>로 가세요.",
+  "share.overlayText": "게임 중에 <kbd>Shift</kbd>+<kbd>Tab</kbd>을 누르고 <strong>웹 브라우저</strong>를 열어 다음 주소로 가세요:",
   "share.overlayZoom": "오버레이의 브라우저에는 확대 기능이 없습니다: 대신 페이지 <strong>설정</strong>의 <strong>패널</strong> 아래 <strong>크기</strong>를 쓰세요.",
 
   "share.obs": "OBS 오버레이",
@@ -261,7 +263,7 @@ export default {
   "trouble.port": "포트가 사용 중인가요?",
   "trouble.portText": "지도는 포트 8777을 씁니다. 다른 프로그램이 이미 쓰고 있으면 서버가 시작되지 않습니다: 모드 옵션에서 <strong>Port</strong>를 바꾸면 서버가 곧바로 새 포트로 다시 시작됩니다. 북마크와 OBS 소스도 맞게 바꾸세요.",
   "trouble.device": "다른 기기에서 여나요?",
-  "trouble.deviceText": "<strong>Allow LAN Access</strong>가 켜져 있는지, 기기가 같은 네트워크에 있는지, 방화벽이 게임을 허용하는지 확인하세요: <a href=\"share.html?path=home\">로컬 네트워크</a>를 보세요.",
+  "trouble.deviceText": "<strong>Allow LAN Access</strong>가 켜져 있는지, 기기가 같은 네트워크에 있는지, 방화벽이 게임을 허용하는지 확인하세요: <a href=\"share?path=home\">로컬 네트워크</a>를 보세요.",
   "trouble.translation": "번역이 틀렸나요?",
   "trouble.translationText": "이 사이트나 지도 페이지에서 틀리거나 어색하거나 빠진 말이 있으면, 언어와 페이지, 올바른 표현을 적어 <a href=\"https://github.com/ZooLSmith/helios-tracker/issues/new\">이슈를 만들어</a> 주세요. 게임 속 이름(아이템, 스킬, 장소)은 게임에서 그대로 가져오며, 모드 옵션은 일부러 영어입니다.",
   "trouble.help": "그래도 안 되나요?",
@@ -270,5 +272,5 @@ export default {
   // ---- 404.html ----
   "notfound.title": "페이지를 찾을 수 없음 | Helios Tracker",
   "notfound.h": "페이지를 찾을 수 없음",
-  "notfound.text": "여기에는 페이지가 없습니다. <a href=\"index.html\">소개</a>나 메뉴에서 모든 페이지를 볼 수 있습니다.",
+  "notfound.text": "여기에는 페이지가 없습니다. <a href=\"./\">소개</a>나 메뉴에서 모든 페이지를 볼 수 있습니다.",
 };

@@ -7,7 +7,6 @@ export default {
   "ui.skip": "Zum Inhalt springen",
   "ui.home": "Helios Tracker, Startseite",
   "ui.language": "Sprache",
-  "ui.pages": "Seiten",
   "ui.theme": "Theme",
   "ui.search": "Suchen",
   "ui.placeholder": "Doku durchsuchen  ( / )",
@@ -17,9 +16,9 @@ export default {
   "ui.copy": "Kopieren",
   "ui.copied": "Kopiert",
   "ui.link": "Link zu diesem Abschnitt",
-  "nav.index": "Überblick",
+  "ui.pages": "Seiten",
   "nav.install": "Installation",
-  "nav.share": "Öffnen oder teilen",
+  "nav.share": "Zugriff",
   "nav.troubleshooting": "Fehlerbehebung",
   "foot.legal": "Helios Tracker ist eine Fan-Mod, weder von Gearbox Software noch von 2K gemacht oder unterstützt. Borderlands und seine Namen gehören ihnen.",
 
@@ -78,7 +77,7 @@ export default {
   "index.more.themes": "Themes",
   "index.more.themesText": "Fünf Farb-Themes, die Karte passend eingefärbt.",
   "index.more.coop": "Koop",
-  "index.more.coopText": "Nur ein Spieler braucht sie (<a href=\"install.html#coop\">am besten der Host</a>).",
+  "index.more.coopText": "Nur ein Spieler braucht sie (<a href=\"install#coop\">am besten der Host</a>).",
   "index.more.language": "Deine Sprache",
   "index.more.languageText": "Die Seite in neun Sprachen; Spielnamen in der Sprache des Spiels.",
 
@@ -86,11 +85,14 @@ export default {
   "index.where.screen": "Ein zweiter Bildschirm",
   "index.where.screenText": "Jeder Browser auf dem Gaming-PC.",
   "index.where.phone": "Ein Handy oder Tablet",
-  "index.where.phoneText": "In deinem Heimnetz: <a href=\"share.html?path=home\">so geht's</a>.",
+  "index.where.phoneText": "In deinem Heimnetz: <a href=\"share?path=home\">so geht's</a>.",
   "index.where.obs": "OBS",
-  "index.where.obsText": "Mit transparentem Hintergrund: <a href=\"share.html?path=stream\">so geht's</a>.",
+  "index.where.obsText": "Mit transparentem Hintergrund: <a href=\"share?path=stream\">so geht's</a>.",
   "index.where.overlay": "Das Steam-Overlay",
-  "index.where.overlayText": "Über dem Spiel selbst: <a href=\"share.html?path=overlay\">so geht's</a>.",
+  "index.where.overlayText": "Über dem Spiel selbst: <a href=\"share?path=overlay\">so geht's</a>.",
+  "index.where.friends": "Freunde, woanders",
+  "index.where.friendsText": "Übers Internet, in ihrem eigenen Browser: <a href=\"share?path=elsewhere\">so geht's</a>.",
+  "index.where.all": "Alle Wege, die Karte zu öffnen oder zu teilen →",
 
   "index.assets": "Aus deinem eigenen Spiel gebaut",
   "index.assetsText": "Der Download enthält keine Spieldateien: die Mod liest sie aus deinem Spiel, während du spielst.",
@@ -135,10 +137,10 @@ export default {
   "install.coopSkills": "Skills, Abklingzeiten und Missionsbelohnungen sind nur deine;",
   "install.coopMap": "die Karte zeigt, was das Spiel des Hosts mit deinem teilt.",
   "install.next": "Andere Wege, sie zu öffnen",
-  "install.next.home": "<a href=\"share.html?path=home\">In deinem lokalen Netzwerk</a>: ein Handy, ein Tablet, ein anderer PC",
-  "install.next.obs": "<a href=\"share.html?path=stream\">In OBS</a>, mit transparentem Hintergrund",
-  "install.next.overlay": "<a href=\"share.html?path=overlay\">Im Steam-Overlay</a>",
-  "install.next.help": "Wenn sich die Karte nicht öffnet, siehe <a href=\"troubleshooting.html\">Fehlerbehebung</a>.",
+  "install.next.home": "<a href=\"share?path=home\">In deinem lokalen Netzwerk</a>: ein Handy, ein Tablet, ein anderer PC",
+  "install.next.obs": "<a href=\"share?path=stream\">In OBS</a>, mit transparentem Hintergrund",
+  "install.next.overlay": "<a href=\"share?path=overlay\">Im Steam-Overlay</a>",
+  "install.next.help": "Wenn sich die Karte nicht öffnet, siehe <a href=\"troubleshooting\">Fehlerbehebung</a>.",
   "install.update": "Aktualisieren oder entfernen",
   "install.updateText": "Zum Aktualisieren ersetze <code>helios_tracker.sdkmod</code> durch die neue und starte das Spiel neu. Zum Entfernen lösche die Datei. Die Optionen der Mod werden getrennt gespeichert, in <code>sdk_mods\\settings</code>.",
 
@@ -169,7 +171,7 @@ export default {
 
   "share.pc": "Auf diesem PC öffnen",
   "share.pcText": "Drück in den Optionen der Mod auf <strong>Open Map in Browser</strong> oder geh in einem beliebigen Browser auf dem Gaming-PC zu dieser Adresse:",
-  "share.pcSee": "Siehe <a href=\"install.html#open\">Installation</a>.",
+  "share.pcSee": "Siehe <a href=\"install#open\">Installation</a>.",
 
   "share.lan": "Dein lokales Netzwerk",
   "share.lanText": "Jedes Gerät im selben Netzwerk wie der Gaming-PC kann die Karte öffnen: ein Handy, ein Tablet, ein anderer PC. Nichts verlässt dein Heimnetz.",
@@ -183,7 +185,7 @@ export default {
   "share.lan.firewallText": "Windows fragt vielleicht, ob das Spiel durch die Firewall darf: erlaube es in privaten Netzwerken. Hast du vorher Nein gesagt, kann sich das andere Gerät nicht verbinden: erlaube das Spiel unter <strong>Windows Defender Firewall</strong>, <strong>Eine App oder ein Feature durch die Windows Defender Firewall zulassen</strong>.",
 
   "share.overlay": "Das Steam-Overlay",
-  "share.overlayText": "Drück im Spiel <kbd>Umschalt</kbd>+<kbd>Tab</kbd>, öffne den <strong>Webbrowser</strong> und geh zu <code>http://localhost:8777/</code>.",
+  "share.overlayText": "Drück im Spiel <kbd>Umschalt</kbd>+<kbd>Tab</kbd>, öffne den <strong>Webbrowser</strong> und geh zu dieser Adresse:",
   "share.overlayZoom": "Der Browser des Overlays hat keinen Zoom: nutze stattdessen die <strong>Größe</strong> unter <strong>Panels</strong> in den <strong>Optionen</strong> der Seite.",
 
   "share.obs": "Ein OBS-Overlay",
@@ -261,7 +263,7 @@ export default {
   "trouble.port": "Ist der Port belegt?",
   "trouble.portText": "Die Karte nutzt Port 8777. Belegt ihn schon ein anderes Programm, kann der Server nicht starten: ändere <strong>Port</strong> in den Optionen der Mod, und der Server startet sofort auf dem neuen neu. Pass deine Lesezeichen und OBS-Quellen an.",
   "trouble.device": "Von einem anderen Gerät?",
-  "trouble.deviceText": "Prüfe, ob <strong>Allow LAN Access</strong> an ist, das Gerät im selben Netzwerk ist und die Firewall das Spiel durchlässt: siehe <a href=\"share.html?path=home\">dein lokales Netzwerk</a>.",
+  "trouble.deviceText": "Prüfe, ob <strong>Allow LAN Access</strong> an ist, das Gerät im selben Netzwerk ist und die Firewall das Spiel durchlässt: siehe <a href=\"share?path=home\">dein lokales Netzwerk</a>.",
   "trouble.translation": "Eine Übersetzung ist falsch?",
   "trouble.translationText": "Falsche, holprige oder fehlende Wörter, auf dieser Seite oder auf der Seite der Karte: <a href=\"https://github.com/ZooLSmith/helios-tracker/issues/new\">eröffne ein Issue</a> mit der Sprache, der Seite und dem, was dort stehen sollte. Namen aus dem Spiel (Gegenstände, Skills, Orte) kommen aus dem Spiel selbst, und die Optionen der Mod sind absichtlich auf Englisch.",
   "trouble.help": "Kommst du nicht weiter?",
@@ -270,5 +272,5 @@ export default {
   // ---- 404.html ----
   "notfound.title": "Seite nicht gefunden | Helios Tracker",
   "notfound.h": "Seite nicht gefunden",
-  "notfound.text": "Hier gibt es keine Seite. Der <a href=\"index.html\">Überblick</a> oder das Menü haben alle.",
+  "notfound.text": "Hier gibt es keine Seite. Der <a href=\"./\">Überblick</a> oder das Menü haben alle.",
 };

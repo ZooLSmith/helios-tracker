@@ -7,7 +7,6 @@ export default {
   "ui.skip": "Перейти к содержимому",
   "ui.home": "Helios Tracker, главная",
   "ui.language": "Язык",
-  "ui.pages": "Страницы",
   "ui.theme": "Тема",
   "ui.search": "Поиск",
   "ui.placeholder": "Поиск  ( / )",
@@ -17,9 +16,9 @@ export default {
   "ui.copy": "Копировать",
   "ui.copied": "Скопировано",
   "ui.link": "Ссылка на этот раздел",
-  "nav.index": "Обзор",
+  "ui.pages": "Страницы",
   "nav.install": "Установка",
-  "nav.share": "Открыть или поделиться",
+  "nav.share": "Доступ",
   "nav.troubleshooting": "Решение проблем",
   "foot.legal": "Helios Tracker — фанатский мод, не созданный и не одобренный Gearbox Software или 2K. Borderlands и её названия принадлежат им.",
 
@@ -78,7 +77,7 @@ export default {
   "index.more.themes": "Темы",
   "index.more.themesText": "Пять цветовых тем, карта окрашена под них.",
   "index.more.coop": "Кооператив",
-  "index.more.coopText": "Мод нужен только одному игроку (<a href=\"install.html#coop\">лучше всего хосту</a>).",
+  "index.more.coopText": "Мод нужен только одному игроку (<a href=\"install#coop\">лучше всего хосту</a>).",
   "index.more.language": "Ваш язык",
   "index.more.languageText": "Страница на девяти языках; названия из игры — на языке игры.",
 
@@ -86,11 +85,14 @@ export default {
   "index.where.screen": "Второй экран",
   "index.where.screenText": "Любой браузер на игровом ПК.",
   "index.where.phone": "Телефон или планшет",
-  "index.where.phoneText": "В домашней сети: <a href=\"share.html?path=home\">как</a>.",
+  "index.where.phoneText": "В домашней сети: <a href=\"share?path=home\">как</a>.",
   "index.where.obs": "OBS",
-  "index.where.obsText": "С прозрачным фоном: <a href=\"share.html?path=stream\">как</a>.",
+  "index.where.obsText": "С прозрачным фоном: <a href=\"share?path=stream\">как</a>.",
   "index.where.overlay": "Оверлей Steam",
-  "index.where.overlayText": "Поверх самой игры: <a href=\"share.html?path=overlay\">как</a>.",
+  "index.where.overlayText": "Поверх самой игры: <a href=\"share?path=overlay\">как</a>.",
+  "index.where.friends": "Друзья в других местах",
+  "index.where.friendsText": "Через интернет, в своих браузерах: <a href=\"share?path=elsewhere\">как</a>.",
+  "index.where.all": "Все способы открыть карту или поделиться ею →",
 
   "index.assets": "Из вашей собственной игры",
   "index.assetsText": "В загрузке нет файлов игры: мод читает их из вашей игры, пока вы играете.",
@@ -135,10 +137,10 @@ export default {
   "install.coopSkills": "навыки, восстановление и награды за задания — только ваши;",
   "install.coopMap": "карта показывает то, чем игра хоста делится с вашей.",
   "install.next": "Другие способы открыть",
-  "install.next.home": "<a href=\"share.html?path=home\">В локальной сети</a>: телефон, планшет, другой ПК",
-  "install.next.obs": "<a href=\"share.html?path=stream\">В OBS</a>, с прозрачным фоном",
-  "install.next.overlay": "<a href=\"share.html?path=overlay\">В оверлее Steam</a>",
-  "install.next.help": "Если карта не открывается, см. <a href=\"troubleshooting.html\">Решение проблем</a>.",
+  "install.next.home": "<a href=\"share?path=home\">В локальной сети</a>: телефон, планшет, другой ПК",
+  "install.next.obs": "<a href=\"share?path=stream\">В OBS</a>, с прозрачным фоном",
+  "install.next.overlay": "<a href=\"share?path=overlay\">В оверлее Steam</a>",
+  "install.next.help": "Если карта не открывается, см. <a href=\"troubleshooting\">Решение проблем</a>.",
   "install.update": "Обновление и удаление",
   "install.updateText": "Чтобы обновить, замените <code>helios_tracker.sdkmod</code> новым и перезапустите игру. Чтобы удалить, удалите файл. Настройки мода хранятся отдельно, в <code>sdk_mods\\settings</code>.",
 
@@ -169,7 +171,7 @@ export default {
 
   "share.pc": "Открыть на этом ПК",
   "share.pcText": "В настройках мода нажмите <strong>Open Map in Browser</strong> или откройте этот адрес в любом браузере на игровом ПК:",
-  "share.pcSee": "См. <a href=\"install.html#open\">Установка</a>.",
+  "share.pcSee": "См. <a href=\"install#open\">Установка</a>.",
 
   "share.lan": "Локальная сеть",
   "share.lanText": "Любое устройство в той же сети, что и игровой ПК, может открыть карту: телефон, планшет, другой ПК. Ничего не выходит за пределы домашней сети.",
@@ -183,7 +185,7 @@ export default {
   "share.lan.firewallText": "Windows может спросить, пропускать ли игру через брандмауэр: разрешите для частных сетей. Если раньше вы отказали, другое устройство не сможет подключиться: разрешите игру в <strong>Брандмауэре Защитника Windows</strong>, <strong>Разрешение взаимодействия с приложением или компонентом</strong>.",
 
   "share.overlay": "Оверлей Steam",
-  "share.overlayText": "Нажмите <kbd>Shift</kbd>+<kbd>Tab</kbd> в игре, откройте <strong>Веб-браузер</strong> и перейдите на <code>http://localhost:8777/</code>.",
+  "share.overlayText": "Нажмите <kbd>Shift</kbd>+<kbd>Tab</kbd> в игре, откройте <strong>Веб-браузер</strong> и перейдите по этому адресу:",
   "share.overlayZoom": "В браузере оверлея нет масштаба: используйте <strong>Размер</strong> в разделе <strong>Панели</strong> в <strong>Настройках</strong> страницы.",
 
   "share.obs": "Оверлей в OBS",
@@ -261,7 +263,7 @@ export default {
   "trouble.port": "Порт занят?",
   "trouble.portText": "Карта использует порт 8777. Если его уже занимает другая программа, сервер не запустится: измените <strong>Port</strong> в настройках мода, и сервер сразу перезапустится на новом. Обновите закладки и источники OBS.",
   "trouble.device": "С другого устройства?",
-  "trouble.deviceText": "Проверьте, что <strong>Allow LAN Access</strong> включён, устройство в той же сети, а брандмауэр пропускает игру: см. <a href=\"share.html?path=home\">локальная сеть</a>.",
+  "trouble.deviceText": "Проверьте, что <strong>Allow LAN Access</strong> включён, устройство в той же сети, а брандмауэр пропускает игру: см. <a href=\"share?path=home\">локальная сеть</a>.",
   "trouble.translation": "Ошибка в переводе?",
   "trouble.translationText": "Неверные, неуклюжие или пропущенные слова на этом сайте или на странице карты: <a href=\"https://github.com/ZooLSmith/helios-tracker/issues/new\">создайте issue</a>, указав язык, страницу и как должно быть. Названия из игры (предметы, навыки, места) берутся из самой игры, а опции мода нарочно на английском.",
   "trouble.help": "Всё ещё не работает?",
@@ -270,5 +272,5 @@ export default {
   // ---- 404.html ----
   "notfound.title": "Страница не найдена | Helios Tracker",
   "notfound.h": "Страница не найдена",
-  "notfound.text": "Здесь нет страницы. Все страницы есть в <a href=\"index.html\">обзоре</a> или в меню.",
+  "notfound.text": "Здесь нет страницы. Все страницы есть в <a href=\"./\">обзоре</a> или в меню.",
 };

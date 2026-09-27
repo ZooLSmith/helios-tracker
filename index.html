@@ -22,24 +22,22 @@
 <script>document.documentElement.classList.add("js"); try { const t = localStorage.getItem("helios.site.theme"); if (t && t !== "default") document.documentElement.dataset.theme = t; } catch {}</script>
 <script type="module" src="assets/js/site.js"></script>
 </head>
-<body>
+<body class="home">
 <a class="skip" href="#content" data-i18n="ui.skip"></a>
 <header class="top">
-  <a class="brand" href="index.html" data-i18n-label="ui.home"><span class="h">H</span><span>ELIOS TRACKER</span></a>
+  <a class="brand" href="./" data-i18n-label="ui.home"><span class="h">H</span><span>ELIOS TRACKER</span></a>
   <div class="top-tools"></div>
 </header>
 
 <div class="page" tabindex="-1">
 <div class="shell">
-  <nav class="side" id="pages" data-i18n-label="ui.pages"></nav>
-
   <main id="content">
     <section class="hero">
       <h1 class="wordmark" aria-label="Helios Tracker"><span class="h">H</span><span>ELIOS TRACKER</span></h1>
       <p class="lead" data-i18n="index.lead"></p>
       <p data-i18n="index.lead2"></p>
       <div class="actions">
-        <a class="button primary" href="install.html" data-i18n="index.install"></a>
+        <a class="button primary" href="install" data-i18n="index.install"></a>
         <a class="button" href="https://github.com/ZooLSmith/helios-tracker" data-i18n="index.source"></a>
       </div>
     </section>
@@ -104,7 +102,9 @@
         <li><svg class="icon" viewBox="0 0 12 12" aria-hidden="true"><rect x="3.3" y="1" width="5.4" height="10" rx=".9" fill="none" stroke="currentColor" stroke-width="1.1" stroke-linecap="round" stroke-linejoin="round"/><path d="M5.3 9.1h1.4" fill="none" stroke="currentColor" stroke-width="1.1" stroke-linecap="round" stroke-linejoin="round"/></svg><div><b data-i18n="index.where.phone"></b><span data-i18n="index.where.phoneText"></span></div></li>
         <li><svg class="icon" viewBox="0 0 12 12" aria-hidden="true"><circle cx="6" cy="6" r="1.2" fill="currentColor"/><path d="M4 4a2.9 2.9 0 0 0 0 4M8 4a2.9 2.9 0 0 1 0 4M2.3 2.3a5.3 5.3 0 0 0 0 7.4M9.7 2.3a5.3 5.3 0 0 1 0 7.4" fill="none" stroke="currentColor" stroke-width="1.1" stroke-linecap="round" stroke-linejoin="round"/></svg><div><b data-i18n="index.where.obs"></b><span data-i18n="index.where.obsText"></span></div></li>
         <li><svg class="icon" viewBox="0 0 12 12" aria-hidden="true"><rect x="1.4" y="1.8" width="6.8" height="5" rx=".6" fill="none" stroke="currentColor" stroke-width="1.1" stroke-linecap="round" stroke-linejoin="round"/><rect x="3.8" y="5.2" width="6.8" height="5" rx=".6" fill="none" stroke="currentColor" stroke-width="1.1" stroke-linecap="round" stroke-linejoin="round" style="fill: currentColor; fill-opacity: .18"/></svg><div><b data-i18n="index.where.overlay"></b><span data-i18n="index.where.overlayText"></span></div></li>
+        <li><svg class="icon" viewBox="0 0 12 12" aria-hidden="true"><circle cx="6" cy="6" r="4.8" fill="none" stroke="currentColor" stroke-width="1.1" stroke-linecap="round" stroke-linejoin="round"/><ellipse cx="6" cy="6" rx="2.1" ry="4.8" fill="none" stroke="currentColor" stroke-width="1.1" stroke-linecap="round" stroke-linejoin="round"/><path d="M1.4 4.4h9.2M1.4 7.6h9.2" fill="none" stroke="currentColor" stroke-width="1.1" stroke-linecap="round" stroke-linejoin="round"/></svg><div><b data-i18n="index.where.friends"></b><span data-i18n="index.where.friendsText"></span></div></li>
       </ul>
+      <p class="more-link"><a href="share" data-i18n="index.where.all"></a></p>
 
       <h2 id="assets" data-i18n="index.assets"></h2>
       <p data-i18n="index.assetsText"></p>

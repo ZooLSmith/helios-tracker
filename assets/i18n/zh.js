@@ -7,7 +7,6 @@ export default {
   "ui.skip": "跳到內容",
   "ui.home": "Helios Tracker，首頁",
   "ui.language": "語言",
-  "ui.pages": "頁面",
   "ui.theme": "主題",
   "ui.search": "搜尋",
   "ui.placeholder": "搜尋文件  ( / )",
@@ -17,9 +16,9 @@ export default {
   "ui.copy": "複製",
   "ui.copied": "已複製",
   "ui.link": "連結到此段落",
-  "nav.index": "概覽",
+  "ui.pages": "頁面",
   "nav.install": "安裝",
-  "nav.share": "開啟或分享",
+  "nav.share": "開啟方式",
   "nav.troubleshooting": "疑難排解",
   "foot.legal": "Helios Tracker 是玩家自製的模組，並非由 Gearbox Software 或 2K 製作或認可。Borderlands 及其名稱屬於他們所有。",
 
@@ -78,7 +77,7 @@ export default {
   "index.more.themes": "主題",
   "index.more.themesText": "五種色彩主題，地圖也隨之上色。",
   "index.more.coop": "合作",
-  "index.more.coopText": "只需一位玩家安裝（<a href=\"install.html#coop\">最好是主機</a>）。",
+  "index.more.coopText": "只需一位玩家安裝（<a href=\"install#coop\">最好是主機</a>）。",
   "index.more.language": "你的語言",
   "index.more.languageText": "頁面提供九種語言；遊戲名稱使用遊戲的語言。",
 
@@ -86,11 +85,14 @@ export default {
   "index.where.screen": "第二螢幕",
   "index.where.screenText": "遊戲電腦上的任何瀏覽器。",
   "index.where.phone": "手機或平板",
-  "index.where.phoneText": "在你的家用網路上：<a href=\"share.html?path=home\">做法</a>。",
+  "index.where.phoneText": "在你的家用網路上：<a href=\"share?path=home\">做法</a>。",
   "index.where.obs": "OBS",
-  "index.where.obsText": "搭配透明背景：<a href=\"share.html?path=stream\">做法</a>。",
+  "index.where.obsText": "搭配透明背景：<a href=\"share?path=stream\">做法</a>。",
   "index.where.overlay": "Steam 內嵌介面",
-  "index.where.overlayText": "直接疊在遊戲上：<a href=\"share.html?path=overlay\">做法</a>。",
+  "index.where.overlayText": "直接疊在遊戲上：<a href=\"share?path=overlay\">做法</a>。",
+  "index.where.friends": "其他地方的朋友",
+  "index.where.friendsText": "透過網際網路，用他們自己的瀏覽器：<a href=\"share?path=elsewhere\">做法</a>。",
+  "index.where.all": "開啟或分享地圖的所有方式 →",
 
   "index.assets": "取自你自己的遊戲",
   "index.assetsText": "下載的檔案不含任何遊戲檔案：模組會在你遊玩時從你的遊戲讀取。",
@@ -135,10 +137,10 @@ export default {
   "install.coopSkills": "技能、冷卻時間和任務獎勵只有你自己的；",
   "install.coopMap": "地圖顯示主機的遊戲與你分享的內容。",
   "install.next": "其他開啟方式",
-  "install.next.home": "<a href=\"share.html?path=home\">在你的區域網路上</a>：手機、平板、另一台電腦",
-  "install.next.obs": "<a href=\"share.html?path=stream\">在 OBS 中</a>，搭配透明背景",
-  "install.next.overlay": "<a href=\"share.html?path=overlay\">在 Steam 內嵌介面中</a>",
-  "install.next.help": "如果地圖打不開，請參閱<a href=\"troubleshooting.html\">疑難排解</a>。",
+  "install.next.home": "<a href=\"share?path=home\">在你的區域網路上</a>：手機、平板、另一台電腦",
+  "install.next.obs": "<a href=\"share?path=stream\">在 OBS 中</a>，搭配透明背景",
+  "install.next.overlay": "<a href=\"share?path=overlay\">在 Steam 內嵌介面中</a>",
+  "install.next.help": "如果地圖打不開，請參閱<a href=\"troubleshooting\">疑難排解</a>。",
   "install.update": "更新或移除",
   "install.updateText": "要更新，用新的 <code>helios_tracker.sdkmod</code> 取代舊的並重新啟動遊戲。要移除，刪除該檔案即可。模組的選項另外儲存在 <code>sdk_mods\\settings</code>。",
 
@@ -169,7 +171,7 @@ export default {
 
   "share.pc": "在這台電腦上開啟",
   "share.pcText": "在模組的選項中按 <strong>Open Map in Browser</strong>，或在遊戲電腦的任何瀏覽器中前往這個網址：",
-  "share.pcSee": "請參閱<a href=\"install.html#open\">安裝</a>。",
+  "share.pcSee": "請參閱<a href=\"install#open\">安裝</a>。",
 
   "share.lan": "你的區域網路",
   "share.lanText": "與遊戲電腦在同一網路上的任何裝置都能開啟地圖：手機、平板、另一台電腦。資料不會離開你的家用網路。",
@@ -183,7 +185,7 @@ export default {
   "share.lan.firewallText": "Windows 可能會詢問是否讓遊戲通過防火牆：請在私人網路上允許。如果你之前拒絕了，另一台裝置就無法連線：請在 <strong>Windows Defender 防火牆</strong>的<strong>允許應用程式通過防火牆</strong>中允許遊戲。",
 
   "share.overlay": "Steam 內嵌介面",
-  "share.overlayText": "在遊戲中按 <kbd>Shift</kbd>+<kbd>Tab</kbd>，開啟<strong>網頁瀏覽器</strong>，前往 <code>http://localhost:8777/</code>。",
+  "share.overlayText": "在遊戲中按 <kbd>Shift</kbd>+<kbd>Tab</kbd>，開啟<strong>網頁瀏覽器</strong>，前往以下網址：",
   "share.overlayZoom": "內嵌介面的瀏覽器沒有縮放功能：請改用頁面<strong>設定</strong>中<strong>面板</strong>下方的<strong>大小</strong>。",
 
   "share.obs": "OBS 疊加層",
@@ -261,7 +263,7 @@ export default {
   "trouble.port": "連接埠被占用了嗎？",
   "trouble.portText": "地圖使用連接埠 8777。如果另一個程式已占用它，伺服器就無法啟動：在模組的選項中更改 <strong>Port</strong>，伺服器會立即在新的連接埠上重新啟動。記得同步更新你的書籤和 OBS 來源。",
   "trouble.device": "從另一台裝置？",
-  "trouble.deviceText": "確認 <strong>Allow LAN Access</strong> 已開啟、裝置在同一網路上，且防火牆允許遊戲通過：請參閱<a href=\"share.html?path=home\">你的區域網路</a>。",
+  "trouble.deviceText": "確認 <strong>Allow LAN Access</strong> 已開啟、裝置在同一網路上，且防火牆允許遊戲通過：請參閱<a href=\"share?path=home\">你的區域網路</a>。",
   "trouble.translation": "翻譯有誤？",
   "trouble.translationText": "在本網站或地圖頁面上發現錯誤、不通順或缺漏的文字時，請<a href=\"https://github.com/ZooLSmith/helios-tracker/issues/new\">建立 issue</a>，並附上語言、頁面和正確的說法。遊戲中的名稱（物品、技能、地點）直接來自遊戲本身，而模組的選項刻意保留英文。",
   "trouble.help": "還是不行？",
@@ -270,5 +272,5 @@ export default {
   // ---- 404.html ----
   "notfound.title": "找不到頁面 | Helios Tracker",
   "notfound.h": "找不到頁面",
-  "notfound.text": "這裡沒有頁面。<a href=\"index.html\">概覽</a>或選單中列出了所有頁面。",
+  "notfound.text": "這裡沒有頁面。<a href=\"./\">概覽</a>或選單中列出了所有頁面。",
 };

@@ -7,7 +7,6 @@ export default {
   "ui.skip": "本文へスキップ",
   "ui.home": "Helios Tracker、ホーム",
   "ui.language": "言語",
-  "ui.pages": "ページ",
   "ui.theme": "テーマ",
   "ui.search": "検索",
   "ui.placeholder": "ドキュメントを検索  ( / )",
@@ -17,9 +16,9 @@ export default {
   "ui.copy": "コピー",
   "ui.copied": "コピー済み",
   "ui.link": "このセクションへのリンク",
-  "nav.index": "概要",
+  "ui.pages": "ページ",
   "nav.install": "インストール",
-  "nav.share": "開く・共有する",
+  "nav.share": "アクセス",
   "nav.troubleshooting": "トラブルシューティング",
   "foot.legal": "Helios Tracker はファンが作った MOD で、Gearbox Software および 2K が作成・承認したものではありません。Borderlands とその名称は両社に帰属します。",
 
@@ -78,7 +77,7 @@ export default {
   "index.more.themes": "テーマ",
   "index.more.themesText": "5 つの配色テーマ。マップもそれに合わせて色づけ。",
   "index.more.coop": "Co-op",
-  "index.more.coopText": "必要なのは 1 人だけ（<a href=\"install.html#coop\">ホストが最適</a>）。",
+  "index.more.coopText": "必要なのは 1 人だけ（<a href=\"install#coop\">ホストが最適</a>）。",
   "index.more.language": "あなたの言語で",
   "index.more.languageText": "ページは 9 言語に対応。ゲームの名称はゲームの言語で。",
 
@@ -86,11 +85,14 @@ export default {
   "index.where.screen": "セカンドモニター",
   "index.where.screenText": "ゲーム PC の任意のブラウザーで。",
   "index.where.phone": "スマートフォンやタブレット",
-  "index.where.phoneText": "自宅のネットワークで：<a href=\"share.html?path=home\">方法</a>。",
+  "index.where.phoneText": "自宅のネットワークで：<a href=\"share?path=home\">方法</a>。",
   "index.where.obs": "OBS",
-  "index.where.obsText": "背景を透過して：<a href=\"share.html?path=stream\">方法</a>。",
+  "index.where.obsText": "背景を透過して：<a href=\"share?path=stream\">方法</a>。",
   "index.where.overlay": "Steam オーバーレイ",
-  "index.where.overlayText": "ゲームの上に重ねて：<a href=\"share.html?path=overlay\">方法</a>。",
+  "index.where.overlayText": "ゲームの上に重ねて：<a href=\"share?path=overlay\">方法</a>。",
+  "index.where.friends": "離れた場所の友達",
+  "index.where.friendsText": "インターネット経由で、自分のブラウザーで：<a href=\"share?path=elsewhere\">方法</a>。",
+  "index.where.all": "マップを開く・共有するすべての方法 →",
 
   "index.assets": "あなたのゲームから作られます",
   "index.assetsText": "ダウンロードにゲームファイルは含まれません：MOD がプレイ中にあなたのゲームから読み取ります。",
@@ -135,10 +137,10 @@ export default {
   "install.coopSkills": "スキル、クールダウン、ミッション報酬は自分の分だけです。",
   "install.coopMap": "マップには、ホストのゲームがあなたのゲームと共有するものが表示されます。",
   "install.next": "その他の開き方",
-  "install.next.home": "<a href=\"share.html?path=home\">ローカルネットワークで</a>：スマートフォン、タブレット、別の PC",
-  "install.next.obs": "<a href=\"share.html?path=stream\">OBS で</a>、背景を透過して",
-  "install.next.overlay": "<a href=\"share.html?path=overlay\">Steam オーバーレイで</a>",
-  "install.next.help": "マップが開かないときは<a href=\"troubleshooting.html\">トラブルシューティング</a>を参照してください。",
+  "install.next.home": "<a href=\"share?path=home\">ローカルネットワークで</a>：スマートフォン、タブレット、別の PC",
+  "install.next.obs": "<a href=\"share?path=stream\">OBS で</a>、背景を透過して",
+  "install.next.overlay": "<a href=\"share?path=overlay\">Steam オーバーレイで</a>",
+  "install.next.help": "マップが開かないときは<a href=\"troubleshooting\">トラブルシューティング</a>を参照してください。",
   "install.update": "更新・削除",
   "install.updateText": "更新するには <code>helios_tracker.sdkmod</code> を新しいものに置き換えて、ゲームを再起動します。削除するにはファイルを消します。MOD のオプションは別に <code>sdk_mods\\settings</code> に保存されています。",
 
@@ -169,7 +171,7 @@ export default {
 
   "share.pc": "この PC で開く",
   "share.pcText": "MOD のオプションで <strong>Open Map in Browser</strong> を押すか、ゲーム PC の任意のブラウザーで次のアドレスを開きます：",
-  "share.pcSee": "<a href=\"install.html#open\">インストール</a>を参照してください。",
+  "share.pcSee": "<a href=\"install#open\">インストール</a>を参照してください。",
 
   "share.lan": "ローカルネットワーク",
   "share.lanText": "ゲーム PC と同じネットワークにある端末なら、スマートフォン、タブレット、別の PC でマップを開けます。自宅のネットワークの外には何も出ません。",
@@ -183,7 +185,7 @@ export default {
   "share.lan.firewallText": "Windows がゲームにファイアウォールの通過を許可するか尋ねることがあります：プライベート ネットワークで許可してください。以前に拒否していた場合、別の端末は接続できません：<strong>Windows Defender ファイアウォール</strong>の<strong>ファイアウォールを介したアプリまたは機能を許可</strong>でゲームを許可してください。",
 
   "share.overlay": "Steam オーバーレイ",
-  "share.overlayText": "ゲーム中に <kbd>Shift</kbd>+<kbd>Tab</kbd> を押し、<strong>ウェブブラウザ</strong>を開いて <code>http://localhost:8777/</code> に移動します。",
+  "share.overlayText": "ゲーム中に <kbd>Shift</kbd>+<kbd>Tab</kbd> を押し、<strong>ウェブブラウザ</strong>を開いて次のアドレスに移動します：",
   "share.overlayZoom": "オーバーレイのブラウザーにはズームがありません：代わりにページの<strong>設定</strong>の<strong>パネル</strong>にある<strong>サイズ</strong>を使ってください。",
 
   "share.obs": "OBS のオーバーレイ",
@@ -261,7 +263,7 @@ export default {
   "trouble.port": "ポートが使われていませんか？",
   "trouble.portText": "マップはポート 8777 を使います。別のプログラムがすでに使っているとサーバーは起動できません：MOD のオプションで <strong>Port</strong> を変えると、サーバーはすぐに新しいポートで再起動します。ブックマークや OBS のソースも合わせて更新してください。",
   "trouble.device": "別の端末からですか？",
-  "trouble.deviceText": "<strong>Allow LAN Access</strong> がオンか、端末が同じネットワークにあるか、ファイアウォールがゲームを通しているかを確認してください：<a href=\"share.html?path=home\">ローカルネットワーク</a>を参照。",
+  "trouble.deviceText": "<strong>Allow LAN Access</strong> がオンか、端末が同じネットワークにあるか、ファイアウォールがゲームを通しているかを確認してください：<a href=\"share?path=home\">ローカルネットワーク</a>を参照。",
   "trouble.translation": "翻訳がおかしい？",
   "trouble.translationText": "このサイトやマップのページで、誤訳・不自然な表現・未翻訳の言葉を見つけたら、言語・ページ・正しい表現を添えて<a href=\"https://github.com/ZooLSmith/helios-tracker/issues/new\">Issue を作成</a>してください。ゲーム内の名前（アイテム、スキル、場所）はゲーム自体から取得しており、Mod のオプションは意図的に英語です。",
   "trouble.help": "それでも解決しない？",
@@ -270,5 +272,5 @@ export default {
   // ---- 404.html ----
   "notfound.title": "ページが見つかりません | Helios Tracker",
   "notfound.h": "ページが見つかりません",
-  "notfound.text": "ここにはページがありません。すべてのページは<a href=\"index.html\">概要</a>かメニューにあります。",
+  "notfound.text": "ここにはページがありません。すべてのページは<a href=\"./\">概要</a>かメニューにあります。",
 };

@@ -8,7 +8,6 @@ export default {
   "ui.skip": "Skip to content",
   "ui.home": "Helios Tracker, home",
   "ui.language": "Language",
-  "ui.pages": "Pages",
   "ui.theme": "Theme",
   "ui.search": "Search",
   "ui.placeholder": "Search the docs  ( / )",
@@ -18,9 +17,9 @@ export default {
   "ui.copy": "Copy",
   "ui.copied": "Copied",
   "ui.link": "Link to this section",
-  "nav.index": "Overview",
+  "ui.pages": "Pages",
   "nav.install": "Install",
-  "nav.share": "Open or share",
+  "nav.share": "Access",
   "nav.troubleshooting": "Troubleshooting",
   "foot.legal": "Helios Tracker is a fan-made mod, not made or endorsed by Gearbox Software or 2K. Borderlands and its names belong to them.",
 
@@ -79,7 +78,7 @@ export default {
   "index.more.themes": "Themes",
   "index.more.themesText": "Five colour themes, the map tinted to match.",
   "index.more.coop": "Co-op",
-  "index.more.coopText": "Only one player needs it (<a href=\"install.html#coop\">best on the host</a>).",
+  "index.more.coopText": "Only one player needs it (<a href=\"install#coop\">best on the host</a>).",
   "index.more.language": "Your language",
   "index.more.languageText": "The page in nine languages; game names in the game's language.",
 
@@ -87,11 +86,14 @@ export default {
   "index.where.screen": "A second screen",
   "index.where.screenText": "Any browser on the gaming PC.",
   "index.where.phone": "A phone or tablet",
-  "index.where.phoneText": "On your home network: <a href=\"share.html?path=home\">how</a>.",
+  "index.where.phoneText": "On your home network: <a href=\"share?path=home\">how</a>.",
   "index.where.obs": "OBS",
-  "index.where.obsText": "With a see-through background: <a href=\"share.html?path=stream\">how</a>.",
+  "index.where.obsText": "With a see-through background: <a href=\"share?path=stream\">how</a>.",
   "index.where.overlay": "The Steam overlay",
-  "index.where.overlayText": "Over the game itself: <a href=\"share.html?path=overlay\">how</a>.",
+  "index.where.overlayText": "Over the game itself: <a href=\"share?path=overlay\">how</a>.",
+  "index.where.friends": "Friends, elsewhere",
+  "index.where.friendsText": "Over the internet, in their own browser: <a href=\"share?path=elsewhere\">how</a>.",
+  "index.where.all": "Every way to open or share the map →",
 
   "index.assets": "Built from your own game",
   "index.assetsText": "The download holds no game files: the mod reads them from your game as you play.",
@@ -136,10 +138,10 @@ export default {
   "install.coopSkills": "skills, cooldowns and mission rewards are yours only;",
   "install.coopMap": "the map shows what the host's game shares with yours.",
   "install.next": "Other ways to open it",
-  "install.next.home": "<a href=\"share.html?path=home\">On your local network</a>: a phone, a tablet, another PC",
-  "install.next.obs": "<a href=\"share.html?path=stream\">In OBS</a>, with a see-through background",
-  "install.next.overlay": "<a href=\"share.html?path=overlay\">In the Steam overlay</a>",
-  "install.next.help": "If the map won't open, see <a href=\"troubleshooting.html\">Troubleshooting</a>.",
+  "install.next.home": "<a href=\"share?path=home\">On your local network</a>: a phone, a tablet, another PC",
+  "install.next.obs": "<a href=\"share?path=stream\">In OBS</a>, with a see-through background",
+  "install.next.overlay": "<a href=\"share?path=overlay\">In the Steam overlay</a>",
+  "install.next.help": "If the map won't open, see <a href=\"troubleshooting\">Troubleshooting</a>.",
   "install.update": "Updating or removing it",
   "install.updateText": "To update, replace <code>helios_tracker.sdkmod</code> with the new one and restart the game. To remove it, delete the file. The mod's options are saved apart, in <code>sdk_mods\\settings</code>.",
 
@@ -170,7 +172,7 @@ export default {
 
   "share.pc": "Open it on this PC",
   "share.pcText": "In the mod's options, press <strong>Open Map in Browser</strong>, or go to this address in any browser on the gaming PC:",
-  "share.pcSee": "See <a href=\"install.html#open\">Install</a>.",
+  "share.pcSee": "See <a href=\"install#open\">Install</a>.",
 
   "share.lan": "Your local network",
   "share.lanText": "Any device on the same network as the gaming PC can open the map: a phone, a tablet, another PC. Nothing leaves your home network.",
@@ -184,7 +186,7 @@ export default {
   "share.lan.firewallText": "Windows may ask whether to let the game through its firewall: allow it on private networks. If you said no before, the other device can't connect: allow the game in <strong>Windows Defender Firewall</strong>, <strong>Allow an app through firewall</strong>.",
 
   "share.overlay": "The Steam overlay",
-  "share.overlayText": "Press <kbd>Shift</kbd>+<kbd>Tab</kbd> in game, open the <strong>Web browser</strong> and go to <code>http://localhost:8777/</code>.",
+  "share.overlayText": "Press <kbd>Shift</kbd>+<kbd>Tab</kbd> in game, open the <strong>Web browser</strong> and go to this address:",
   "share.overlayZoom": "The overlay's browser has no zoom: use the <strong>Size</strong> under <strong>Panels</strong> in the page's <strong>Settings</strong> instead.",
 
   "share.obs": "An OBS overlay",
@@ -262,14 +264,26 @@ export default {
   "trouble.port": "Is the port taken?",
   "trouble.portText": "The map uses port 8777. If another program already has it, the server can't start: change <strong>Port</strong> in the mod's options, and the server restarts at once on the new one. Update your bookmarks and OBS sources to match.",
   "trouble.device": "From another device?",
-  "trouble.deviceText": "Check that <strong>Allow LAN Access</strong> is on, the device is on the same network, and the firewall lets the game through: see <a href=\"share.html?path=home\">your local network</a>.",
+  "trouble.deviceText": "Check that <strong>Allow LAN Access</strong> is on, the device is on the same network, and the firewall lets the game through: see <a href=\"share?path=home\">your local network</a>.",
   "trouble.translation": "A translation is wrong?",
   "trouble.translationText": "Wrong, clumsy or missing words, on this site or on the map's page: <a href=\"https://github.com/ZooLSmith/helios-tracker/issues/new\">open an issue</a> with the language, the page and what it should say. Names from the game (items, skills, places) come from the game itself, and the mod's options are in English on purpose.",
   "trouble.help": "Still stuck?",
   "trouble.helpText": "Everything the mod prints also goes to <code>Binaries\\Win32\\Plugins\\unrealsdk.log</code> in the game's folder: its last lines usually say what went wrong.",
 
+  // ---- search keywords: never shown, the search matches them like the heading that names them
+  // (data-search; the English ones count in every language: a missing key is fine) ----
+  "kw.sdk": "mod manager, python sdk, unrealsdk, sdk_mods, requirements",
+  "kw.coop": "multiplayer, host, client, friends, online",
+  "kw.update": "uninstall, remove, delete, upgrade, new version, settings",
+  "kw.lan": "phone, tablet, mobile, ipad, iphone, android, wifi, ip address, lan",
+  "kw.overlay": "steam overlay, shift tab, in-game browser",
+  "kw.obs": "stream, streaming, twitch, youtube, streamlabs, browser source, transparent",
+  "kw.internet": "internet, friends, remote, public link, tunnel, cloudflare",
+  "kw.port": "8777, port in use, address in use, error, won't open, not loading",
+  "kw.log": "log, logs, crash, error, bug, issue",
+
   // ---- 404.html ----
   "notfound.title": "Page not found | Helios Tracker",
   "notfound.h": "Page not found",
-  "notfound.text": "There's no page here. The <a href=\"index.html\">overview</a> or the menu has them all.",
+  "notfound.text": "There's no page here. The <a href=\"./\">overview</a> or the menu has them all.",
 };

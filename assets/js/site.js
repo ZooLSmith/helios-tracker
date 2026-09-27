@@ -1,4 +1,4 @@
-// The site, at runtime: its text (i18n.js: the pages hold keys, the catalogs the words), the page menu, search,
+// The site, at runtime: its text (i18n.js: the pages hold keys, the catalogs the words), search,
 // language and theme, copy buttons, heading links. What it builds carries keys too (data-i18n...), so a language
 // switch re-translates everything in place, like the tracker page.
 // Search: the pages are PAGES - fetched, translated and indexed by section on the first search, in the browser;
@@ -6,8 +6,10 @@
 
 import { CATALOG, applyI18n, langPref, setLanguage, t } from "./i18n.js";
 
-// The site's pages, in the menu's order: [file, its menu label's key]. A new page: here, and its keys in the catalogs.
-const PAGES = [["index.html", "nav.index"], ["install.html", "nav.install"], ["share.html", "nav.share"],
+// The site's pages: [file, its label's key] - the bar's links and the footer's (the home: the logo), the search.
+// The links without .html (GitHub Pages serves /install as install.html). A new page: here, and its keys in the
+// catalogs.
+const PAGES = [["index.html", null], ["install.html", "nav.install"], ["share.html", "nav.share"],
   ["troubleshooting.html", "nav.troubleshooting"]];
 const THEMES = [["default", "ECHO-2"], ["hyperion", "Hyperion"], ["vladof", "Vladof"], ["dahl", "Dahl"], ["eridian", "Eridian"]]; // (the tracker's)
 const THEME_KEY = "helios.site.theme";
@@ -21,7 +23,8 @@ const ICONS = {
     `<path d="M1.4 4.4h9.2M1.4 7.6h9.2" stroke="currentColor" stroke-width="1.1"/>`,
   theme: `<circle cx="6" cy="6" r="4.8" fill="none" stroke="currentColor" stroke-width="1.1"/>` +
     `<path d="M6 1.2a4.8 4.8 0 0 0 0 9.6Z" fill="currentColor"/>`,
-  menu: `<path d="M1.8 3.2h8.4M1.8 6h8.4M1.8 8.8h8.4" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/>`,
+  search: `<circle cx="5.2" cy="5.2" r="3.6" fill="none" stroke="currentColor" stroke-width="1.2"/>` +
+    `<path d="M7.9 7.9 10.6 10.6" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/>`,
   check: `<path d="M2.4 6.4 4.9 8.9 9.7 3.4" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>`,
 };
 const svg = (name) => `<svg class="icon" viewBox="0 0 12 12" aria-hidden="true">${ICONS[name]}</svg>`;
@@ -161,7 +164,15 @@ function foldMapped(text) {
 
 const SKIP = new Set(["SCRIPT", "STYLE", "NAV", "CANVAS", "SVG", "BUTTON", "NOSCRIPT"]);
 
-// A page's sections: {url, id, page, title, text}, split at its h1 / h2 / h3
+// A heading's search keywords (data-search: a catalog key, never shown): the page's language's and the English
+// ones (people type English words - "overlay", "stream" - in every language)
+function keywords(key) {
+  if (!key) return "";
+  const here = t(key), en = CATALOG.en[key] ?? "";
+  return here === key ? en : here === en ? here : here + " " + en;
+}
+
+// A page's sections: {url, id, page, title, text, keys}, split at its h1 / h2 / h3
 function sections(doc, url) {
   const main = doc.querySelector("main");
   if (!main) return [];
@@ -170,7 +181,8 @@ function sections(doc, url) {
   const out = [];
   let cur = null;
   const start = (h) => {
-    cur = { url, id: h.id || "", page, title: (h.getAttribute?.("aria-label") || h.textContent).replace(/#$/, "").trim(), text: "" };
+    cur = { url, id: h.id || "", page, title: (h.getAttribute?.("aria-label") || h.textContent).replace(/#$/, "").trim(), text: "",
+      keys: keywords(h.dataset?.search) };
     out.push(cur);
   };
   const walker = doc.createTreeWalker(main, NodeFilter.SHOW_ELEMENT | NodeFilter.SHOW_TEXT, {
@@ -188,7 +200,7 @@ function sections(doc, url) {
   for (const s of out) {
     s.text = s.text.replace(/\s+/g, " ").trim();
     s.body = foldMapped(s.text);
-    s.head = fold(s.title + " " + s.page);
+    s.head = fold(s.title + " " + s.page + " " + s.keys);
   }
   return out;
 }
@@ -284,6 +296,21 @@ function initSearch() {
   list.hidden = true;
   box.append(input, list);
   tools.prepend(box);
+  // small screens: the box folded into a button, opening it over the bar's first row (site.css: .search-open)
+  const top = document.querySelector(".top");
+  const toggle = document.createElement("button");
+  toggle.type = "button";
+  toggle.className = "icon-button search-toggle";
+  toggle.innerHTML = svg("search");
+  toggle.dataset.i18nLabel = toggle.dataset.i18nTitle = "ui.search";
+  toggle.setAttribute("aria-expanded", "false");
+  box.after(toggle);
+  const fold = (open) => {
+    top?.classList.toggle("search-open", open);
+    toggle.setAttribute("aria-expanded", String(open));
+    if (open) input.focus();
+  };
+  toggle.addEventListener("click", () => fold(true));
 
   let selected = -1;
   let timer = 0;
@@ -324,7 +351,7 @@ function initSearch() {
     for (const { s, terms } of hits) {
       const li = document.createElement("li");
       const a = document.createElement("a");
-      a.href = s.url + (s.id ? "#" + s.id : "");
+      a.href = s.url.replace(/(?:index)?\.html$/, "") + (s.id ? "#" + s.id : ""); // (the links: no .html)
       a.setAttribute("role", "option");
       const title = document.createElement("span");
       title.className = "title";
@@ -354,13 +381,13 @@ function initSearch() {
     else if (e.key === "Enter") {
       const target = links()[Math.max(selected, 0)];
       if (target) { e.preventDefault(); close(); location.href = target.href; }
-    } else if (e.key === "Escape") { close(); input.blur(); }
+    } else if (e.key === "Escape") { close(); input.blur(); fold(false); }
   });
   document.addEventListener("keydown", (e) => {
     const typing = /^(INPUT|TEXTAREA|SELECT)$/.test(document.activeElement?.nodeName) || document.activeElement?.isContentEditable;
     if (e.key === "/" && !typing && !e.ctrlKey && !e.metaKey && !e.altKey) { e.preventDefault(); input.focus(); }
   });
-  document.addEventListener("click", (e) => { if (!box.contains(e.target)) close(); });
+  document.addEventListener("click", (e) => { if (!box.contains(e.target) && !toggle.contains(e.target)) { close(); fold(false); } });
   document.addEventListener("i18n", close); // (its results: in the language before)
 }
 
@@ -378,23 +405,41 @@ function initLanguage() {
   }));
 }
 
-// ---- the page menu (.side): PAGES, this one marked ----
+// ---- the pages' links: in the bar (after the logo) and the footer, this one marked ----
 
 function initPages() {
-  const side = document.querySelector(".side");
-  if (!side) return;
-  const here = location.pathname.split("/").pop() || "index.html";
-  const ul = document.createElement("ul");
-  for (const [file, key] of PAGES) {
-    const li = document.createElement("li");
-    const a = document.createElement("a");
-    a.href = file;
-    a.dataset.i18n = key;
-    if (file === here) a.setAttribute("aria-current", "page");
-    li.append(a);
-    ul.append(li);
+  const here = (location.pathname.split("/").pop() || "index").replace(/\.html$/, "");
+  const list = (className) => {
+    const ul = document.createElement("ul");
+    if (className) ul.className = className;
+    for (const [file, key] of PAGES) {
+      if (!key) continue;
+      const li = document.createElement("li");
+      const a = document.createElement("a");
+      a.href = file.replace(/\.html$/, "");
+      a.dataset.i18n = key;
+      if (a.getAttribute("href") === here) a.setAttribute("aria-current", "page");
+      li.append(a);
+      ul.append(li);
+    }
+    return ul;
+  };
+  const brand = document.querySelector(".top .brand");
+  if (brand) {
+    const nav = document.createElement("nav");
+    nav.className = "top-nav";
+    nav.dataset.i18nLabel = "ui.pages";
+    nav.append(list(""));
+    brand.after(nav);
   }
-  side.replaceChildren(ul);
+  const foot = document.querySelector(".foot > div");
+  if (foot) {
+    const links = list("foot-links");
+    const li = document.createElement("li");
+    li.innerHTML = '<a href="https://github.com/ZooLSmith/helios-tracker" data-i18n="index.source"></a>';
+    links.append(li);
+    foot.append(links);
+  }
 }
 
 // ---- the questionnaire (share.html): one step at a time, the answers' keys as the URL's path
@@ -685,39 +730,6 @@ function initReelMotion(reel) {
   run();
 }
 
-// ---- small screens: the page menu (.side) as a drawer, opened by a button at the left of the top bar (CSS shows
-// the button and makes .side a drawer only on small screens, only with JS: html.js) ----
-
-function initNav() {
-  const side = document.querySelector(".side");
-  const top = document.querySelector(".top");
-  if (!side || !top) return;
-  const button = document.createElement("button");
-  button.type = "button";
-  button.className = "icon-button nav-toggle";
-  button.innerHTML = svg("menu");
-  button.dataset.i18nLabel = button.dataset.i18nTitle = "ui.pages";
-  button.setAttribute("aria-controls", side.id);
-  button.setAttribute("aria-expanded", "false");
-  const shade = document.createElement("div");
-  shade.className = "nav-shade";
-  side.tabIndex = -1;
-  const set = (open, refocus) => {
-    document.documentElement.classList.toggle("nav-open", open);
-    button.setAttribute("aria-expanded", String(open));
-    if (open) side.focus(); // (Tab then goes through its links)
-    else if (refocus) button.focus();
-  };
-  button.addEventListener("click", () => set(!document.documentElement.classList.contains("nav-open"), false));
-  shade.addEventListener("click", () => set(false, false));
-  side.addEventListener("click", (e) => { if (e.target.closest("a")) set(false, false); });
-  document.addEventListener("keydown", (e) => {
-    if (e.key === "Escape" && document.documentElement.classList.contains("nav-open")) set(false, true);
-  });
-  top.prepend(button);
-  document.body.append(shade);
-}
-
 // ---- the scroller: focused on load, so the keyboard scrolls it (the page itself doesn't scroll) ----
 
 function initScroller() {
@@ -728,7 +740,6 @@ function initScroller() {
 initPages();
 initPreviews();
 initScroller();
-initNav();
 initQuiz();
 initLiveMaker();
 initSearch();

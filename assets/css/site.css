@@ -90,7 +90,6 @@
   --font-code: "Cascadia Mono", "Consolas", ui-monospace, monospace;
   --measure: 70ch;
   --top-h: 3.4rem; /* the top bar's height (its band in the root's background: the same) */
-  --nav-w: 15rem;
 }
 /* The tracker's themes (its css/themes.css: the same inputs, title colours and logo palettes) */
 /* Hyperion: mustard, cream, black */
@@ -200,10 +199,13 @@ a:hover { color: var(--text-bright); }
 .brand { display: flex; align-items: baseline; text-decoration: none; line-height: 1; white-space: nowrap; }
 .brand span { font: 800 1.35rem/1 var(--font-head); letter-spacing: .02em; }
 .brand:hover > span { filter: brightness(1.2); }
+/* the pages, in the bar: a few words each (three pages: no menu to open), this one underlined */
+.top-nav ul { display: flex; flex-wrap: wrap; gap: 0 .3rem; margin: 0; padding: 0; list-style: none; }
+.top-nav a { display: block; padding: .35rem .55rem; border-bottom: 2px solid transparent; color: var(--text); text-decoration: none; font-weight: 600; font-size: .95rem; }
+.top-nav li { margin: 0; } /* (the text's li + li spacing would lower all but the first) */
+.top-nav a:hover { color: var(--text-bright); }
+.top-nav a[aria-current="page"] { color: var(--text-bright); border-bottom-color: var(--accent); }
 .top-tools { margin-left: auto; display: flex; align-items: center; gap: .75rem; }
-/* the page menu's button: small screens only (the drawer: @media below) */
-.top .nav-toggle { display: none; flex: none; }
-.nav-shade { display: none; }
 /* the icon menus (language, theme): a square button, its list under it */
 .menu { position: relative; }
 .icon-button {
@@ -212,6 +214,7 @@ a:hover { color: var(--text-bright); }
 }
 .icon-button:hover, .icon-button[aria-expanded="true"] { color: var(--text-bright); border-color: var(--panel-edge); }
 .icon-button .icon { width: 1.1rem; height: 1.1rem; }
+.search-toggle { display: none; } /* (small screens only: the search folded, @media below) */
 .menu-list {
   position: absolute; right: 0; top: calc(100% + .35rem); z-index: 5; min-width: 9rem; margin: 0; padding: .3rem;
   list-style: none; background: linear-gradient(var(--card), var(--panel) 60%); border: 1px solid var(--panel-edge); border-radius: 4px;
@@ -252,14 +255,7 @@ a:hover { color: var(--text-bright); }
 .search-results .empty { padding: .6rem .7rem; color: var(--dim); font-size: .9rem; }
 
 /* ---- page frame: nav + content ---- */
-.shell { flex: 1 0 auto; width: 100%; display: grid; grid-template-columns: var(--nav-w) minmax(0, 1fr); gap: 3rem; max-width: 76rem; margin: 0 auto; padding: 1.5rem 1.25rem 2.5rem; }
-.side { position: sticky; top: 1.5rem; align-self: start; max-height: calc(100dvh - var(--top-h) - 3rem); overflow: auto; scrollbar-gutter: stable; font-size: .95rem; }
-.side h2 { border: 0; padding: 0; margin: .9rem 0 .15rem; font: 700 1.05rem/1.2 var(--font-head); letter-spacing: .03em; color: var(--dim); }
-.side h2:first-child { margin-top: 0; }
-.side ul { margin: 0; padding: 0; list-style: none; }
-.side a { display: block; padding: .28rem .7rem .28rem 1rem; border-left: 2px solid transparent; color: var(--text); text-decoration: none; }
-.side a:hover { color: var(--text-bright); background: linear-gradient(90deg, var(--card), transparent); }
-.side a[aria-current="page"] { border-left-color: var(--accent); color: var(--text-bright); background: var(--grad-lit); }
+.shell { flex: 1 0 auto; width: 100%; display: grid; grid-template-columns: minmax(0, 1fr); max-width: 61rem; /* (the text's width, as beside the old page menu) */ margin: 0 auto; padding: 1.5rem 1.25rem 2.5rem; }
 
 main { min-width: 0; }
 .doc { max-width: var(--measure); }
@@ -475,6 +471,12 @@ kbd { padding: .05em .4em; background: var(--control); border: 1px solid var(--p
 .foot { padding: 0 1.25rem; font-size: .85rem; color: var(--dim); }
 .foot > div { max-width: 76rem; margin: 0 auto; padding: 1rem 0; border-top: 1px solid var(--divider); display: flex; flex-wrap: wrap; gap: .5rem 2rem; justify-content: space-between; }
 .foot p { margin: 0; }
+.foot-links { display: flex; flex-wrap: wrap; gap: .3rem 1.2rem; margin: 0; padding: 0; list-style: none; }
+.foot-links li { margin: 0; } /* (the text's li + li spacing: as in the bar) */
+.foot-links a { color: var(--dim); }
+.foot-links a:hover { color: var(--text-bright); }
+/* the home's link to the questionnaire, under "Where to open it" */
+.more-link { margin: -.4rem 0 1.4rem; font-weight: 600; }
 
 /* ---- translations (js/i18n.js): the page shows once its text is in (html.i18n) - or after 2 s whatever happens,
    so a script that failed still leaves the frame; a key whose translation is empty is hidden ---- */
@@ -484,34 +486,18 @@ html.js:not(.i18n) body { visibility: hidden; animation: i18n-late 0s 2s forward
 
 /* ---- small screens ---- */
 @media (max-width: 50rem) {
-  .shell { grid-template-columns: minmax(0, 1fr); gap: 1.2rem; padding-top: 1.2rem; }
-  /* without JS: the menu in rows above the content */
-  html:not(.js) .side { position: static; max-height: none; display: flex; flex-wrap: wrap; gap: .2rem 1.4rem; padding-bottom: 1rem; border-bottom: 1px solid var(--divider); }
-  html:not(.js) .side h2 { width: 100%; margin: .6rem 0 0; }
-  html:not(.js) .side ul { display: flex; flex-wrap: wrap; gap: 0 .4rem; }
-  html:not(.js) .side li + li { margin-top: 0; } /* (a row: the lists' spacing between items would lift the first) */
-  html:not(.js) .side a { border-left: 0; border-bottom: 2px solid transparent; padding: .2rem .45rem; }
-  html:not(.js) .side a[aria-current="page"] { border-bottom-color: var(--accent); }
-  /* with JS: a drawer from the left, opened by the top bar's menu button */
-  .js .top .nav-toggle { display: grid; height: auto; align-self: stretch; }
-  .js .side {
-    position: fixed; top: 0; bottom: 0; left: 0; z-index: 30; width: min(18rem, 85vw); max-height: none;
-    align-self: stretch; overflow-y: auto; /* (the desktop menu's align-self: start would shrink it to its links) */
-    padding: 1.2rem 1.25rem; background: var(--panel); border-right: 1px solid var(--panel-edge);
-    box-shadow: 10px 0 30px rgba(0, 0, 0, .5); transform: translateX(-105%); visibility: hidden;
-    transition: transform .2s ease, visibility 0s .2s; outline: none;
-  }
-  .nav-open .side { transform: none; visibility: visible; transition: transform .2s ease; }
-  .nav-shade { display: block; position: fixed; inset: 0; z-index: 25; background: rgba(0, 0, 0, .5); opacity: 0; pointer-events: none; transition: opacity .2s; }
-  .nav-open .nav-shade { opacity: 1; pointer-events: auto; }
-  /* the bar in rows: the logo and the dropdowns, then the search on a row of its own (never squeezed) */
-  .top { height: auto; flex-wrap: wrap; gap: .5rem .6rem; padding: .5rem 1rem; }
-  .top-tools { display: contents; }
+  .shell { padding-top: 1.2rem; }
+  /* the bar in two rows: the logo and the buttons (the search folded into one), then the pages' links */
+  .top { height: auto; flex-wrap: wrap; gap: .1rem .6rem; padding: .45rem 1rem .1rem; }
+  .top .top-tools { display: contents; }
   .brand { margin-right: auto; }
   .brand span { font-size: 1.2rem; }
-  .top::after { content: ""; order: 1; flex-basis: 100%; height: 0; } /* the rows' break */
-  .js .top .nav-toggle { order: 2; }
-  .search { order: 3; flex: 1 1 0; min-width: 0; }
+  .top-nav { order: 2; flex-basis: calc(100% + .55rem); margin-left: -.55rem; } /* (a row of its own, its first word lined up) */
+  .top-nav a { padding: .3rem .55rem; }
+  .top .search { display: none; }
+  .top .search-toggle { display: grid; }
+  /* the search opened: over the first row, the whole width */
+  .top.search-open .search { display: block; position: absolute; top: .45rem; left: 1rem; right: 1rem; z-index: 2; }
   .search input { width: 100%; }
   .search-results { right: auto; left: 0; width: 100%; }
 }
