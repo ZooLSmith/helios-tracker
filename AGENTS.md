@@ -125,7 +125,7 @@ bl2-helios-tracker/
   The same nine languages as the page. A new language = a catalog + its line in `assets/i18n/index.js` (a new
   script: its fonts in `site.css` - Exo 2's subset, or a `:lang()` stack of system fonts like the CJK ones); a new
   page = its file + its line in `site.js`'s
-  `PAGES` (the bar's links, the footer's and the search are built from it) + its keys. No menu to open: the pages
+  `PAGES` (the bar's links and the search are built from it) + its keys. No menu to open: the pages
   are a few words each in the top bar, a row of their own on small screens. An empty translation hides its element (a note
   only one language needs). Old `/en/...`, `/fr/...` links: `404.html` redirects them.
 - Search keywords, never shown: a heading's `data-search="kw.xxx"` names a catalog key (words, commas), matched like
