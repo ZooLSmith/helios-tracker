@@ -6,7 +6,7 @@
 
 import { CATALOG, applyI18n, langPref, setLanguage, t } from "./i18n.js";
 
-// The site's pages: [file, its label's key] - the bar's links and the footer's (the home: the logo), the search.
+// The site's pages: [file, its label's key] - the bar's links (the home: the logo), the search.
 // The links without .html (GitHub Pages serves /install as install.html). A new page: here, and its keys in the
 // catalogs.
 const PAGES = [["index.html", null], ["install.html", "nav.install"], ["share.html", "nav.share"],
@@ -405,7 +405,7 @@ function initLanguage() {
   }));
 }
 
-// ---- the pages' links: in the bar (after the logo) and the footer, this one marked ----
+// ---- the pages' links: in the bar (after the logo), this one marked ----
 
 function initPages() {
   const here = (location.pathname.split("/").pop() || "index").replace(/\.html$/, "");
@@ -431,14 +431,6 @@ function initPages() {
     nav.dataset.i18nLabel = "ui.pages";
     nav.append(list(""));
     brand.after(nav);
-  }
-  const foot = document.querySelector(".foot > div");
-  if (foot) {
-    const links = list("foot-links");
-    const li = document.createElement("li");
-    li.innerHTML = '<a href="https://github.com/ZooLSmith/helios-tracker" data-i18n="index.source"></a>';
-    links.append(li);
-    foot.append(links);
   }
 }
 

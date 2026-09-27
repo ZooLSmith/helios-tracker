@@ -471,10 +471,8 @@ kbd { padding: .05em .4em; background: var(--control); border: 1px solid var(--p
 .foot { padding: 0 1.25rem; font-size: .85rem; color: var(--dim); }
 .foot > div { max-width: 76rem; margin: 0 auto; padding: 1rem 0; border-top: 1px solid var(--divider); display: flex; flex-wrap: wrap; gap: .5rem 2rem; justify-content: space-between; }
 .foot p { margin: 0; }
-.foot-links { display: flex; flex-wrap: wrap; gap: .3rem 1.2rem; margin: 0; padding: 0; list-style: none; }
-.foot-links li { margin: 0; } /* (the text's li + li spacing: as in the bar) */
-.foot-links a { color: var(--dim); }
-.foot-links a:hover { color: var(--text-bright); }
+.foot-source { color: var(--dim); }
+.foot-source:hover { color: var(--text-bright); }
 /* the home's link to the questionnaire, under "Where to open it" */
 .more-link { margin: -.4rem 0 1.4rem; font-weight: 600; }
 
