@@ -631,7 +631,7 @@ class Collector:
         replicated one (PlayerReplicationInfo.OxygenPool: a co-op client's view of the others) - a pool reference
         whose Data (OzOxygenResourcePool) has CurrentValue / MaxValue (tools/probe_tps2.txt: 100 / 100). None without
         one (BL2) or a max of 0."""
-        for ref in (try_(lambda: field(pawn, "OxygenPool")), try_(lambda: field(pawn, "PlayerReplicationInfo").OxygenPool)):
+        for ref in (try_(lambda: field(pawn, "OxygenPool")), try_(lambda: field(field(pawn, "PlayerReplicationInfo"), "OxygenPool"))):
             data = try_(lambda r=ref: r.Data) if ref is not None else None
             top = try_(lambda d=data: float(d.MaxValue), 0.0) if data is not None else 0.0
             if top > 0:
@@ -1418,14 +1418,15 @@ class Collector:
                 del self._pickups[key]
                 continue
             try:
-                if field(p, "bDeleteMe") or field(p, "bHidden"):
+                get = reader(p)  # (its class looked up once for the reads: see the pawns')
+                if get("bDeleteMe") or get("bHidden"):
                     continue
-                loc = field(p, "Location")
+                loc = get("Location")
                 pickup = {**self._pickup_info(p), "x": round(loc.X), "y": round(loc.Y), "z": round(loc.Z)}
                 # Gear: its item's record (its card: stats, parts - the page's panel when it's clicked; the backpack's
                 # own, by the item's address: dropped / picked up, the same item) - built a few per update (function
                 # calls: a boss's loot pile over a few updates); its type / element icons' keys on the map marker
-                inv = try_(lambda p=p: field(p, "Inventory"))
+                inv = try_(lambda get=get: get("Inventory"))
                 if inv is not None and self._is_gear(inv):
                     item, built = try_(lambda inv=inv: ground_item(inv, budget > 0), (None, False))
                     budget -= built

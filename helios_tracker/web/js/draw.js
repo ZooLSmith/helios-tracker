@@ -58,14 +58,17 @@ function drawSelection(f, now, tracked, mePos, hits, place) {
 // the level's median object height first made a chest at your feet on a walkway stand tall and read "same height").
 // The map moves up and down with them. Nobody tracked (or respawning where the game doesn't say): the level's typical
 // ground - the median height of its objects (chests, crates: mostly on the ground).
+// Fallen off the map (still a real actor): not shown - below the game's KillZ (it destroys what goes under). Not the
+// tactical map volume's box (level.zmin / zmax): its height means nothing to the game - the Wildlife Exploitation
+// Preserve's is 2.5 m thick, 14 m above where you walk, and hid every object and pickup there.
+const offMap = (z) => z != null && S.level && S.level.killz != null && z < S.level.killz;
 let groundFor = null, groundAt = null;
 function groundZ(now) {
   const me = trackedPawn();
   if (me && me.rs !== 2) { const z = pawnPos(me, now).z; if (z != null) return z; }
   if (groundFor !== S.objects) {
     groundFor = S.objects;
-    const zmin = S.level && S.level.zmin != null ? S.level.zmin : -Infinity; // (fallen off the map: not the ground)
-    const zs = S.objects.map((o) => o.z).filter((z) => z != null && z >= zmin).sort((a, b) => a - b);
+    const zs = S.objects.map((o) => o.z).filter((z) => z != null && !offMap(z)).sort((a, b) => a - b); // (fallen: not the ground)
     groundAt = zs.length ? zs[zs.length >> 1] : null;
   }
   return groundAt ?? 0;
@@ -263,8 +266,6 @@ export function draw() {
   fadeTo(1);
 
   // interactive objects
-  // Below the level's mapped volume: fallen off the map (still a real actor): not shown
-  const offMap = (z) => S.level && S.level.zmin != null && z < S.level.zmin;
   // the air domes' areas (the Pre-Sequel's): on the plane at their height (3D: an ellipse), under every marker - on:
   // filled, off (their generator's button not pushed yet): a dashed outline
   for (const o of S.objects) {

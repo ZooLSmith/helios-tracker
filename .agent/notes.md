@@ -682,6 +682,25 @@ Southern Shelf's `_P` alone: 404 `StaticMesh`, 4131 `StaticMeshComponent`, 11 `T
 
 ## Backlog
 
+- **Game-thread spikes, not reproduced** (the log, co-op host with 3 others, Wildlife Exploitation Preserve, 2026-09-30):
+  "players" (every 2 s, usually 10-18 ms) once 557 ms, "state.pickups" up to 135 ms, "state.pawns" 102 ms, "scan
+  objects" 132 ms - none in two 20 s runs of tools/probe_profile.py (state and players both wrapped). A guess, not
+  checked: item cards built when loot rains (ground_item, ITEMS_PER_UPDATE), or Python's GC. Fixed meanwhile: failed
+  property lookups cached (util._prop - the Pre-Sequel's OxygenPool looked up in BL2 every update, 12 % of the state
+  update), the pickups read through reader(): the state update 6.0 -> 4.8 ms on average (174 updates / 20 s).
+
+- **The Electrical Fuse Box is a switch, not an explosive** (tools/probe_io.txt, Wildlife Exploitation Preserve,
+  2026-09-30; GD_ElectricFence.InteractiveObjects.IO_ElectricalFenceBox, BL2) - TO FIX: the page draws it as a shock
+  explosive (inspector.py explosion_info: any Behavior_Explode). Its definition's sequence Active: OnUsedBy (pressed)
+  and OnHealthDepleted (shot out) run the same chain - Behavior_CustomEvent (the fence off), ChangeUsability,
+  ChangeAllegiance, ChangeInstanceDataSwitch x2; OnHealthDepleted puts a Behavior_Explode first whose DamageFormula,
+  DamageRadiusFormula and MomentumFormula are all 0 (constant 0, no attribute / initialization): an effect only
+  (Explosion_ElectricalBox, DmgType_Shock_Impact_NoDoT). Its definition: bCanBeKilled False, Allegiance
+  Allegiance_ExplosiveBarrel (the barrels' own: not a test either), MaxHealth from Init_BaseInteractiveObjectHealth.
+  Shot out it reads Health 0 (max 203 here) and the page drops it as killed ("kd"), though it stays. The likely
+  rule: an explosive's Behavior_Explode does damage (DamageFormula / DamageRadiusFormula not 0) - check a barrel's
+  formulas first (the Pre-Sequel's: DamageFormula / DamageRadiusFormula set). Then a category for switches?
+
 - **Mission log cost** (user, 2026-09-23: 20-40 ms often) - (1) and (3) DONE, to measure in game; (2) if still needed:
   the full pass reads ~10 properties for each of ~290 entries in one tick. Plan: (1) read per entry
   only what can change - not started: status + bHeardKickoff; done: status only (progress final);

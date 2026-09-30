@@ -108,6 +108,22 @@ def clear_fields() -> None:
     _fields.clear()
 
 
+def _prop(cls: Any, props: dict[str, Any], name: str) -> Any:
+    """The class's property `name`, looked up once - a missing one too: remembered as its error, raised again each
+    time (BL2 has none of the Pre-Sequel's OxygenPool: its lookup through the class chain, ~100 us, ran for every
+    player on every update - 12 % of the state update, tools/probe_profile.txt)."""
+    prop = props.get(name)
+    if prop is None:
+        try:
+            prop = cls._find(name)
+        except Exception as ex:  # noqa: BLE001
+            prop = ex
+        props[name] = prop
+    if isinstance(prop, Exception):
+        raise type(prop)(*prop.args)
+    return prop
+
+
 def reader(obj: Any) -> Any:
     """field() bound to one object: `get = reader(pawn); get("Location")`. Its class and the class's properties
     looked up once for all the reads - field()'s own overhead (obj.Class, its address, the cache key) was a third of
@@ -121,10 +137,7 @@ def reader(obj: Any) -> Any:
         props = _fields[cls_key] = {}
 
     def read(name: str) -> Any:
-        prop = props.get(name)
-        if prop is None:
-            prop = props[name] = cls._find(name)
-        return get(obj, prop)
+        return get(obj, _prop(cls, props, name))
 
     return read
 
@@ -141,10 +154,7 @@ def field(obj: Any, name: str) -> Any:
     props = _fields.get(cls_key := cls._get_address())
     if props is None:
         props = _fields[cls_key] = {}
-    prop = props.get(name)
-    if prop is None:
-        prop = props[name] = cls._find(name)
-    return get(obj, prop)
+    return get(obj, _prop(cls, props, name))
 
 
 def call_str(fn) -> str:  # noqa: ANN001
