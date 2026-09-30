@@ -281,7 +281,11 @@ export function draw() {
     ctx.setLineDash(on ? [] : [6, 4]); ctx.lineWidth = 1.5; ctx.strokeStyle = LAYER_COLOR.oxygen; ctx.stroke(); ctx.setLineDash([]);
   }
   ctx.globalAlpha = 1;
-  for (const o of S.objects) {
+  // the bigger containers over the smaller ones where they overlap (and clicked: the last drawn, input.js hitAt): the
+  // big chests last, then the weapon chests, the others by how many items they spawn - the rest first, in their order
+  const bySize = [[], [], [], [], [], [], []];
+  for (const o of S.objects) { const t = chestTier(o); bySize[t ? 4 + t : Math.min(o.slots || 0, 4)].push(o); }
+  for (const o of bySize.flat()) {
     if (offMap(o.z) || o.kd) continue; // (killed: an exploded barrel's wreck - collector.py _killed)
     const st = style(o.cat, o);
     if (!st) continue;
@@ -295,7 +299,7 @@ export function draw() {
     stem(o.x, o.y, sx, sy, oColor);
     // Containers (looted ones too, just dimmed): chests biggest, others by how many items they spawn
     const tier = chestTier(o);
-    const size = st.k * (o.cat === "other" ? 2.5 : o.cat === "oxygen" ? 9 : o.cat === "explosive" ? 7.5 : o.cat === "jumppad" ? 7 : o.cat === "buff" ? 4.5 : o.cat === "slots" ? 5.8 : tier === 2 ? 7 : tier === 1 ? 5.5 : o.slots ? 2.5 + Math.min(o.slots, 4) * 0.6 : 3.5);
+    const size = st.k * (o.cat === "other" ? 2.5 : o.cat === "oxygen" ? 9 : o.cat === "explosive" ? 7.5 : o.cat === "jumppad" ? 7 : o.cat === "buff" ? 4.5 : o.cat === "slots" ? 5.8 : tier === 2 ? 7 : tier === 1 ? 5.5 : o.slots ? 2.5 + Math.min(o.slots, 4) * 0.4 : 3.5);
     if (o.cat === "oxygen") oxygenMark(sx, sy, LAYER_COLOR[o.cat], st.k); // (a generator, a fissure: a diamond, "O2")
     else if (o.cat === "jumppad") jumpMark(sx, sy, LAYER_COLOR[o.cat], st.k); // (a disc, an up chevron)
     else if (o.cat === "buff") dot(sx, sy, size, LAYER_COLOR[o.cat]); // (a buff: a disc - the pickups' dot, bigger)

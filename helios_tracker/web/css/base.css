@@ -121,8 +121,8 @@
   --fill-boost: color-mix(in srgb, var(--boost) 55%, var(--fill-base));
   /* a mission's level vs the player's (the game's difficulty thresholds) */
   --diff-impossible: var(--bad);
-  --diff-hard: #ff9a3c;
-  --diff-tough: #ffd23f;
+  --diff-hard: #ff7440;
+  --diff-tough: #ff9a3c;
   --diff-normal: var(--text-bright);
   --diff-trivial: var(--dim);
   /* the map (canvas: shapes.js initColors) - the tracked player, marker outlines, the dark glyph on a light
