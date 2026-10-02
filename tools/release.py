@@ -2,7 +2,7 @@
 # reads (updater.RELEASES_API: the latest release, its tag vX.Y.Z = the pyproject's version, the asset by name).
 #   python tools/release.py                      checks + builds + verifies, then says what it would publish
 #   python tools/release.py --publish [--notes "What's new"]   ... and publishes it (gh release create)
-# Checks: on master, nothing uncommitted (the build packs the working tree), master pushed to the public repo (the
+# Checks: on master, nothing uncommitted in helios_tracker/ (the build packs its working tree), master pushed to the public repo (the
 # release's tag goes on that very commit there), the version newer than the latest release, its tag not taken.
 # Needs gh, logged in (gh auth login).
 # Bump helios_tracker/pyproject.toml's version (and commit) before each release.
@@ -10,6 +10,7 @@ import json
 import subprocess
 import sys
 import tomllib
+import zipfile
 import types
 
 import build_sdkmod
@@ -44,8 +45,23 @@ def latest_release() -> tuple[int, ...] | None:
     return updater.parse_version(json.loads(answer.stdout)["tag_name"])
 
 
+def nexus_zip(sdkmod: "project.Path", version_text: str) -> "project.Path":
+    """helios_tracker-X.Y.Z.zip beside the .sdkmod: it and README.txt (tools/nexus_readme.txt, {version} filled) - what
+    .github/workflows/nexus.yml uploads (it calls this: python tools/release.py --nexus-zip <sdkmod> <version>)."""
+    out = sdkmod.with_name(f"helios_tracker-{version_text}.zip")
+    readme = (project.ROOT / "tools" / "nexus_readme.txt").read_text(encoding="utf-8").replace("{version}", version_text)
+    with zipfile.ZipFile(out, "w", zipfile.ZIP_DEFLATED) as z:
+        z.write(sdkmod, ASSET)
+        z.writestr("README.txt", readme.replace("\r\n", "\n").replace("\n", "\r\n"))  # (Notepad-friendly)
+    return out
+
+
 def main() -> None:
     args = sys.argv[1:]
+    if "--nexus-zip" in args:  # (the Nexus workflow: the released .sdkmod zipped the same way)
+        i = args.index("--nexus-zip")
+        print(nexus_zip(project.Path(args[i + 1]).resolve(), args[i + 2]))
+        return
     publish = "--publish" in args
     notes = args[args.index("--notes") + 1] if "--notes" in args else ""
 
@@ -58,8 +74,8 @@ def main() -> None:
 
     if (branch := run("git", "branch", "--show-current").stdout.strip()) != "master":
         fail(f"on {branch!r}: releases come from master")
-    if dirty := run("git", "status", "--porcelain").stdout.strip():
-        fail(f"uncommitted changes (the build packs the working tree): commit or set them aside first\n{dirty}")
+    if dirty := run("git", "status", "--porcelain", "--", build_sdkmod.PACKAGE).stdout.strip():
+        fail(f"uncommitted changes in the mod (the build packs its working tree): commit them first\n{dirty}")
     if run("gh", "--version", check=False).returncode != 0:
         fail("gh (GitHub's CLI) not found: https://cli.github.com, then gh auth login")
     head = run("git", "rev-parse", "HEAD").stdout.strip()
@@ -76,6 +92,8 @@ def main() -> None:
     updater.verify(out, version)  # (what every player's updater checks before installing it)
     commit = run("git", "rev-parse", "--short", "HEAD").stdout.strip()
     print(f"{tag}: {out.name} built from {commit}, verified")
+    nexus = nexus_zip(out, version_text)
+    print(f"for Nexus Mods (it takes archives - the first upload by hand; then .github/workflows/nexus.yml): {nexus}")
 
     command = ["gh", "release", "create", tag, str(out), "--repo", PUBLIC_REPO, "--target", head,
                "--title", f"Helios Tracker {tag}", "--notes", notes or f"Helios Tracker {tag}."]

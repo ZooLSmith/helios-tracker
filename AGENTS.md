@@ -21,6 +21,7 @@ updater speaks through the game's own UI (its dialog box, its bottom-left messag
 bl2-helios-tracker/
 ├── AGENTS.md                             # this file (CLAUDE.md: a pointer to it, for Claude Code)
 ├── README.md, LICENSE                    # the public repo's front page; GPL-3.0
+├── .github/workflows/nexus.yml           # each GitHub release uploaded to Nexus Mods
 ├── project.example.json                  # template of project.json: this machine's paths
 ├── .agent/                               # everything for agents / devs (never in the mod folder):
 │   ├── spec.md                           #   the mod's spec
@@ -107,7 +108,9 @@ bl2-helios-tracker/
   version, commit, push `master` (both remotes), then `python tools/release.py` (checks, builds, verifies; says what
   it would publish) and
   `--publish [--notes "..."]`: a GitHub release of the public repo, tag `vX.Y.Z` = the version, the `.sdkmod`
-  attached - what the mod's updater reads. Agents run it without `--publish` only.
+  attached - what the mod's updater reads. Agents run it without `--publish` only. Each published release also
+  goes to Nexus Mods (`.github/workflows/nexus.yml`, the official upload action: the `.sdkmod` zipped, a new
+  version of the mod's file - its secret / variables in the public repo's settings, see the workflow's header).
 - Never scan the whole drive; scope searches to this project or the game folder.
 - Edit scripts containing backslash escapes must be written to a file first: shell heredocs (even
   quoted ones, through some agent shells) can turn `\\` into `\`, which once wrote NUL bytes into a
@@ -142,7 +145,7 @@ bl2-helios-tracker/
   The same nine languages as the page. A new language = a catalog + its line in `assets/i18n/index.js` (a new
   script: its fonts in `site.css` - Exo 2's subset, or a `:lang()` stack of system fonts like the CJK ones); a new
   page = its file + its line in `site.js`'s
-  `PAGES` (the bar's links and the search are built from it) + its keys. No menu to open: the pages
+  `PAGES` (the bar's links and the search are built from it) + its line in `sitemap.xml` + its keys. No menu to open: the pages
   are a few words each in the top bar, a row of their own on small screens. An empty translation hides its element (a note
   only one language needs). Old `/en/...`, `/fr/...` links: `404.html` redirects them.
 - Search keywords, never shown: a heading's `data-search="kw.xxx"` names a catalog key (words, commas), matched like
@@ -153,10 +156,13 @@ bl2-helios-tracker/
 - Link previews (Discord, X...): each page's head has Open Graph tags and its `<title>` / description in English,
   written out (the bots run no JavaScript; the script still swaps them for the visitor's language) - a page's title
   or description changed in `en.js`: change them there too. The image: `assets/img/og.jpg` (1200 x 630).
+- Search engines: each page's head has its canonical address (`<link rel="canonical">`, the one without `.html`), the
+  home's a WebSite JSON-LD (the site's name in results); `sitemap.xml` lists the pages, `robots.txt` points to it
+  (and keeps `/live/` out). The icons: `favicon.png` (64) and `favicon-192.png` (Google wants a multiple of 48 px).
 - Links without `.html` (`install`, `share?path=home`, the home `./`): GitHub Pages serves `/install` as
   `install.html`. Preview: `python tools/site_preview.py` (does the same; `python -m http.server` doesn't).
 - The home page (`body.home`): the bar as on every page (its logo too: one that comes and goes jars), its hero one action (Install, GitHub beside it);
-  the other pages are the bar's links, and the questionnaire linked from "Where to open it".
+  the other pages are the bar's links, and the questionnaire linked from "Where to view it".
 - Wording follows the page's own labels (`helios_tracker/web/i18n/<code>.js`, the same language's); the mod's
   in-game options by their names in the game's language (`helios_tracker/i18n.py`, the same language's).
 - Nothing extracted from the game goes on the site (fonts, map images, icons): it's public. One exception, the

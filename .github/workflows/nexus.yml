@@ -1,0 +1,65 @@
+# Each GitHub release (tools/release.py) also goes to Nexus Mods: its helios_tracker.sdkmod, zipped with a README.txt
+# (Nexus takes archives; release.py's nexus_zip, as for a hand upload), uploaded as a new version of the mod's file.
+# Needs, in the public repo's settings (Secrets and variables -> Actions):
+#   secret   NEXUSMODS_API_KEY   https://www.nexusmods.com/settings/api-keys
+#   variable NEXUS_FILE_ID       the file to add versions to: the mod page's Files tab -> the file's Advanced -> API
+#                                "File ID" (8070462; not its short unique id)
+#   variable NEXUS_MOD_ID        the mod, for the changelog (the release's notes): the same panel's "Unique Mod ID"
+#                                (1838246003366 = game 428 << 32 | 678) - not the page's number, 678
+# The first file is uploaded by hand on the mod page (it's what gives the file ID); until NEXUS_FILE_ID is set, this
+# skips. A failed upload: Actions -> this workflow -> Run workflow, with the release's tag.
+name: Upload to Nexus Mods
+
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Release tag to upload (vX.Y.Z)
+        required: true
+
+permissions:
+  contents: read
+
+jobs:
+  nexus:
+    if: vars.NEXUS_FILE_ID != ''
+    runs-on: ubuntu-latest
+    env:
+      TAG: ${{ github.event.release.tag_name || inputs.tag }}
+    steps:
+      # The tools from master, not the release's tag: the .sdkmod comes from the release itself, and an older tag's
+      # release.py may predate --nexus-zip (v0.1.0's does).
+      - name: Check out master (the tools)
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+        with:
+          ref: master
+
+      - name: Python 3.14 (the mod's: release.py imports its updater)
+        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97  # v7.0.0
+        with:
+          python-version: "3.14"
+
+      - name: Get the release's .sdkmod, zipped with its README (tools/release.py, as for a hand upload)
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release download "$TAG" --repo "$GITHUB_REPOSITORY" --pattern helios_tracker.sdkmod --dir _work/nexus
+          version="${TAG#v}"
+          python tools/release.py --nexus-zip _work/nexus/helios_tracker.sdkmod "$version"
+          echo "VERSION=$version" >> "$GITHUB_ENV"
+
+      - name: Upload to Nexus Mods
+        uses: Nexus-Mods/upload-action@c96019556046053aa26044b44396cd38929daf23  # v1.0.0-beta.10
+        with:
+          api_key: ${{ secrets.NEXUSMODS_API_KEY }}
+          file_id: ${{ vars.NEXUS_FILE_ID }}
+          filename: _work/nexus/helios_tracker-${{ env.VERSION }}.zip
+          version: ${{ env.VERSION }}
+          display_name: Helios Tracker
+          description: Drop helios_tracker.sdkmod into your game's sdk_mods folder (needs the Python SDK).
+          archive_existing_version: true
+          update_mod_version: true
+          mod_id: ${{ vars.NEXUS_MOD_ID }}
+          changelog: ${{ vars.NEXUS_MOD_ID != '' && github.event.release.body || '' }}
