@@ -2346,12 +2346,48 @@ def check_updater() -> None:
     print("  updater: a newer release downloaded, verified and swapped in; older / mismatched / folder install left alone; an open options menu follows a reload")
 
 
+def check_ingame_text() -> None:
+    """i18n.py, the in-game text (options, the updater's boxes): the page's nine languages, every key in each, the same
+    {placeholders} as English; the game's language picks the catalog (unknown: English)."""
+    import string  # noqa: PLC0415
+
+    from helios_tracker import i18n  # noqa: PLC0415
+
+    page_langs = sorted(f.stem for f in (ROOT / "helios_tracker" / "web" / "i18n").glob("*.js") if f.stem != "index")
+    assert sorted(i18n.TEXT) == page_langs, ("the page's languages", sorted(i18n.TEXT), page_langs)
+    assert sorted(i18n.GAME_LANGS.values()) == page_langs, "every language reachable from a game language"
+
+    def holes(text: str) -> set[str]:
+        return {name for _, name, _, _ in string.Formatter().parse(text) if name}
+
+    english = i18n.TEXT["en"]
+    for lang, catalog in i18n.TEXT.items():
+        assert catalog.keys() == english.keys(), (lang, sorted(catalog.keys() ^ english.keys()))
+        for key, text in catalog.items():
+            assert text.strip(), (lang, key, "empty")
+            assert holes(text) == holes(english[key]), (lang, key, holes(text), holes(english[key]))
+    try:
+        i18n.set_game_language("FRA")
+        assert i18n.language() == "fr" and i18n.t("update.ok") == "OK"
+        assert i18n.t("update.latest", ours="v1.2.3") == "Vous avez la dernière version (v1.2.3)."
+        i18n.set_game_language("TWN")
+        assert i18n.t("update.cancel") == "取消"
+        i18n.set_game_language("XYZ")
+        assert i18n.language() == "en", "unknown: English"
+        i18n.set_game_language("")
+        assert i18n.t("check.name") == "Check for Updates"
+    finally:
+        i18n.set_game_language("")
+    print(f"  in-game text: {len(i18n.TEXT)} languages x {len(english)} keys, placeholders matching English")
+
+
 def main() -> None:
     _install_fakes()
     check_helios_tracker()
     check_script()
     check_sdkmod()
     check_updater()
+    check_ingame_text()
     print("OK")
 
 

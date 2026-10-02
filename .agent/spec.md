@@ -310,6 +310,11 @@ bottom-left message).
   `data-i18n` / `data-i18n-title`, JS uses `t("key", {vars})` (English fallback, numbers formatted
   per language). Language: browser's, or the Language menu. Python sends codes / raw numbers, never
   UI text; game strings (item, skill, level names) stay as the game gives them.
+- **In-game text** (`i18n.py`): the mod's options (names, descriptions), its description in the mod menu and the
+  updater's boxes / messages, in the game's language (`GetLanguage` read at load, `GAME_LANGS` = the page's mapping;
+  no setting: unknown -> English), the page's nine languages, `t("key", name=value)`; every language has every key
+  with English's `{placeholders}` (offline_check). The options' identifiers stay English (settings file, follow_menu).
+  Logs stay English.
 - Co-op: client side - works on clients too, showing what the host replicates to them.
 - Page tech: plain HTML + native ES modules, no build, no external requests (see "The page" below).
   If the HTML panels get painful, Preact + htm (vendored, no build) would only replace `js/ui/`.
@@ -342,7 +347,7 @@ bottom-left message).
   restart, mod disable, or the game exiting ends it along with its children.
 - `updater.py`: updates from the public repo's latest GitHub release (tag `vX.Y.Z`, `helios_tracker.sdkmod`
   attached; publishing them - CI or a script - isn't set up yet). **Only from a `.sdkmod`** (`can_install`): a folder
-  install - the dev junction - never checks, its update options hidden. **Automatic Updates** (on: a check once a
+  install - the dev junction - never checks, its update options hidden. **Automatic Updates** (off by default; on: a check once a
   day at enable, `next_update_check` a hidden option; with a dev source - `update_source.txt` - at every enable): a newer one downloaded, verified, swapped in and reloaded at
   once (`_reload_soon`: a one-shot hook on `WillowGameViewportClient:Tick`, not from our PostRender hook - the reload
   removes it), then said by the new module in the game's bottom-left message (`ui_utils.show_coop_message`, hidden

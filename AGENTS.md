@@ -150,7 +150,7 @@ bl2-helios-tracker/
 - The home page (`body.home`): the bar as on every page (its logo too: one that comes and goes jars), its hero one action (Install, GitHub beside it);
   the other pages are the bar's links, and the questionnaire linked from "Where to open it".
 - Wording follows the page's own labels (`helios_tracker/web/i18n/<code>.js`, the same language's); the mod's
-  in-game options stay English in every language.
+  in-game options by their names in the game's language (`helios_tracker/i18n.py`, the same language's).
 - Nothing extracted from the game goes on the site (fonts, map images, icons): it's public. One exception, the
   user's call: screenshots of the mod running (the overview's previews, `assets/img/previews/`) - pictures of it in
   use, like any mod page's, not the game's files.

@@ -25,12 +25,14 @@ from unrealsdk.hooks import Type, add_hook, remove_hook
 from unrealsdk.unreal import BoundFunction, UObject, WrappedStruct
 
 from .collector import Collector, cooked_dir, game_language
-from . import gamecards, gamefonts, gameicons, gamescan, gamework, updater
+from . import gamecards, gamefonts, gameicons, gamescan, gamework, i18n, updater
 from .script import start_script
 from .server import Hub, TrackerServer
+from .i18n import t
 from .util import log, log_error, start_log
 
 start_log()
+i18n.set_game_language(game_language())  # (the in-game text: options, the updater's boxes)
 
 _STALE = "_helios_tracker_server"  # sys attribute: the running server, across module reloads
 _STALE_SCRIPT = "_helios_tracker_script"  # same for the running autoexec.ps1
@@ -54,19 +56,15 @@ port = SliderOption(
     value=8777,
     min_value=1024,
     max_value=65535,
-    display_name="Port",
-    description="Port of the local web server: the page is at http://localhost:<port>/. Applied when you leave this menu.",
+    display_name=t("port.name"),
+    description=t("port.desc"),
     on_change_while_enabled=_on_port,
 )
 lan = BoolOption(
     "lan",
     value=False,
-    display_name="Allow LAN Access",
-    description=(
-        "Also serve the map to other devices on your network (a phone, a tablet, another PC)."
-        " Windows may ask to let the game through its firewall."
-        " Off: only this PC can open it."
-    ),
+    display_name=t("lan.name"),
+    description=t("lan.desc"),
     on_change_while_enabled=_on_lan,
 )
 rate = SliderOption(
@@ -74,11 +72,8 @@ rate = SliderOption(
     value=10,
     min_value=1,
     max_value=30,
-    display_name="Tick Rate",  # (was "Updates Per Second": read as the mod's own updates, next to Check for Updates)
-    description=(
-        "How many times per second the mod reads the game and sends it to the page (the page smooths movement in"
-        " between). Lower: lighter on the game and on your upload when sharing the map."
-    ),
+    display_name=t("rate.name"),  # (was "Updates Per Second": read as the mod's own updates, next to Check for Updates)
+    description=t("rate.desc"),
 )
 
 
@@ -98,9 +93,10 @@ def _open_page(_opt: Any) -> None:
 
 
 open_page = ButtonOption(
-    "Open Map in Browser",
+    "Open Map in Browser",  # (the identifier: English in every language - follow_menu matches on it)
+    display_name=t("open.name"),
     on_press=_open_page,
-    description="Opens the live map in your default browser (the mod must be enabled).",
+    description=t("open.desc"),
 )
 
 # endregion
@@ -169,8 +165,8 @@ def _progress(text: str) -> None:
             _check_cancelled[0] = True
             _progress_box[0] = None
 
-        box = OptionBox(title="Helios Tracker", message=text, buttons=[OptionBoxButton("Cancel")], on_select=cancel,
-                        on_cancel=cancel)
+        box = OptionBox(title=t("box.title"), message=text, buttons=[OptionBoxButton(t("update.cancel"))],
+                        on_select=cancel, on_cancel=cancel)
         box.show()
         _progress_box[0] = box
 
@@ -198,7 +194,7 @@ def _dialog(title: str, message: str, buttons: list[str], on_pick: Any = None, c
     _on_game_thread(show)
 
 
-DOWNLOAD, NOT_NOW = "Download and Install", "Not Now"
+DOWNLOAD, NOT_NOW = t("update.download"), t("update.notNow")
 
 
 def _offer(release: updater.Release) -> None:
@@ -208,12 +204,12 @@ def _offer(release: updater.Release) -> None:
         if choice != DOWNLOAD:
             return
         _check_cancelled[0] = False
-        text = f"Downloading Helios Tracker {release.tag}..."
+        text = t("update.downloading", tag=release.tag)
         _progress(text)
         _start_thread(_download_update, text, release)
 
-    _dialog("Helios Tracker Update", f"Helios Tracker {release.tag} is available (you have {_ours()}).",
-            [DOWNLOAD, NOT_NOW], pick, check_answer=True)
+    _dialog(t("box.updateTitle"), t("update.available", tag=release.tag, ours=_ours()), [DOWNLOAD, NOT_NOW], pick,
+            check_answer=True)
 
 
 def _download_update(release: updater.Release) -> None:
@@ -228,7 +224,8 @@ def _download_update(release: updater.Release) -> None:
         _on_game_thread(lambda: _offer_reload(release.version, check_answer=True))
     except Exception as ex:  # noqa: BLE001
         log(f"update {release.tag} not installed: {ex}")
-        _dialog("Helios Tracker", f"{release.tag} couldn't be installed:\n{ex}", ["OK"], check_answer=True)
+        _dialog(t("box.title"), t("update.installFailed", tag=release.tag, error=ex), [t("update.ok")],
+                check_answer=True)
     finally:
         _update_busy[0], _answer_wanted[0] = False, False
 
@@ -239,14 +236,14 @@ def _start_thread(target: Any, text: str, *args: Any) -> None:
 
 
 def _tag(version: tuple[int, ...] | None) -> str:
-    return "v" + ".".join(map(str, version)) if version else "an unknown version"
+    return "v" + ".".join(map(str, version)) if version else t("update.unknownVersion")
 
 
 def _ours() -> str:
     return _tag(updater.RUNNING)
 
 
-RELOAD_NOW, LATER = "Reload Now", "Later"
+RELOAD_NOW, LATER = t("update.reloadNow"), t("update.later")
 
 
 def _offer_reload(installed: tuple[int, ...], check_answer: bool = False) -> None:
@@ -256,8 +253,8 @@ def _offer_reload(installed: tuple[int, ...], check_answer: bool = False) -> Non
         if choice == RELOAD_NOW:
             updater.reload_mod()
 
-    _dialog("Helios Tracker Update", f"Helios Tracker {_tag(installed)} is installed: it runs from the next game start"
-            f" (this session runs {_ours()}).", [RELOAD_NOW, LATER], pick, check_answer=check_answer)
+    _dialog(t("box.updateTitle"), t("update.installed", tag=_tag(installed), ours=_ours()), [RELOAD_NOW, LATER], pick,
+            check_answer=check_answer)
 
 
 def _check_update(auto: bool) -> None:
@@ -269,13 +266,13 @@ def _check_update(auto: bool) -> None:
         if release is None:
             log("Helios Tracker is up to date")
             if not auto:
-                _dialog("Helios Tracker", f"You have the latest version ({_ours()}).", ["OK"], check_answer=True)
+                _dialog(t("box.title"), t("update.latest", ours=_ours()), [t("update.ok")], check_answer=True)
             return
         log(f"Helios Tracker {release.tag} is available: {release.page}")
         if not auto:
             _on_game_thread(lambda: _offer(release))
             return
-        _busy_text[0] = f"Downloading Helios Tracker {release.tag}..."
+        _busy_text[0] = t("update.downloading", tag=release.tag)
         updater.apply(updater.download(release))
         log(f"Helios Tracker {release.tag} installed")
         if _answer_wanted[0]:  # (pressed during the download)
@@ -285,7 +282,7 @@ def _check_update(auto: bool) -> None:
     except Exception as ex:  # noqa: BLE001 - offline, GitHub down, a bad release: next time
         log(f"update check failed: {ex}")
         if not auto or _answer_wanted[0]:
-            _dialog("Helios Tracker", f"Couldn't check for updates:\n{ex}", ["OK"], check_answer=True)
+            _dialog(t("box.title"), t("update.checkFailed", error=ex), [t("update.ok")], check_answer=True)
     finally:
         _update_busy[0], _answer_wanted[0] = False, False
 
@@ -298,11 +295,11 @@ def _start_check(auto: bool) -> None:
             _offer_reload(installed)
             return
         _check_cancelled[0] = False  # (pressed again after a Cancel: the running check's answer wanted again)
-        _progress(_busy_text[0] if _update_busy[0] else "Checking for updates...")
+        _progress(_busy_text[0] if _update_busy[0] else t("update.checking"))
         _answer_wanted[0] = True
     if _update_busy[0]:
         return
-    _start_thread(_check_update, "Checking for updates...", auto)
+    _start_thread(_check_update, t("update.checking"), auto)
 
 
 # The automatic path reloads by itself: from a one-shot hook on another function (the queue drains in our PostRender
@@ -328,7 +325,7 @@ def _announce_update() -> None:
     """At enable: the automatic path's reload just ran this module - said in the bottom-left message."""
     if (tag := getattr(sys, _UPDATED, None)) is not None:
         delattr(sys, _UPDATED)
-        _toast(f"Helios Tracker updated to {tag}")
+        _toast(t("update.updated", tag=tag))
 
 
 def _auto_update() -> None:
@@ -346,18 +343,16 @@ def _auto_update() -> None:
 
 auto_update = BoolOption(
     "auto_update",
-    value=True,
-    display_name="Automatic Updates",
-    description=(
-        "Once a day, looks for a new version of Helios Tracker on GitHub, installs it and reloads the mod with it."
-        " Off: only when you press Check for Updates."
-    ),
+    value=False,  # (off by default: the player turns it on)
+    display_name=t("auto.name"),
+    description=t("auto.desc"),
     is_hidden=not updater.can_install(),
 )
 update_button = ButtonOption(
     "Check for Updates",
+    display_name=t("check.name"),
     on_press=lambda _: _start_check(auto=False),
-    description="Looks for a new version of Helios Tracker now, and asks before installing it.",
+    description=t("check.desc"),
     is_hidden=not updater.can_install(),
 )
 next_update_check = HiddenOption("next_update_check", 0.0)  # time.time() of the next automatic check
@@ -610,6 +605,7 @@ def on_object_destroyed(obj: UObject, args: WrappedStruct, ret: Any, func: Bound
 # endregion
 
 mod = build_mod(
+    description=t("mod.desc"),
     on_enable=_on_enable,
     on_disable=_on_disable,
     hooks=[on_post_render, on_bink_movie, on_pickup_spawn, on_object_spawn, on_object_balance, on_object_destroyed,

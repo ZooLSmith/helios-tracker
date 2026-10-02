@@ -110,8 +110,8 @@ _language: list[str] = []
 def game_language() -> str:
     """The game's language (Core.Object's static GetLanguage: "INT", "FRA", "RUS"... - the game thread only: read
     the first time), "" unknown: the page's language by default, its fonts' library (gamefonts.font_library)."""
-    if not _language:
-        _language.append(try_(lambda: str(unrealsdk.find_class("Object").ClassDefaultObject.GetLanguage()), "") or "")
+    if not _language or not _language[0]:  # (an empty read - the mod loading early - tried again next time)
+        _language[:] = [try_(lambda: str(unrealsdk.find_class("Object").ClassDefaultObject.GetLanguage()), "") or ""]
     return _language[0]
 
 
