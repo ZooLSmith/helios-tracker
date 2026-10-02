@@ -100,6 +100,8 @@ export default {
   "view.followLowTip": "Dove sta il giocatore seguito: 0 % al centro, di più lo sposta più in basso sullo schermo - più mappa visibile sopra di lui",
   "view.threeD": "Inclina",
   "view.threeDTip": "Inclina la mappa, indicatori alla loro altezza (T). Trascina col destro o Maiusc+trascina: ruotarla e inclinarla",
+  "view.heightScale": "Altezze",
+  "view.heightScaleTip": "Inclinata: quanto i segnalini stanno sopra o sotto la mappa - 100 % come nel gioco, di più separa i piani, 0 % piatta",
   "view.coords": "Coordinate",
   "view.northTip": "Raddrizza la mappa (N)",
   "view.motion": "FREQUENZA DI AGGIORNAMENTO",

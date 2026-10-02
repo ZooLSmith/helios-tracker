@@ -9,7 +9,7 @@ import { icon } from "../icons.js";
 import { invalidate } from "../scheduler.js";
 import { saveSettings, settings } from "../settings.js";
 import { S } from "../state.js";
-import { centerOnTarget, followLow, resetSpin, stopFollow } from "../view.js";
+import { centerOnTarget, followLow, heightK, resetSpin, stopFollow } from "../view.js";
 import { renderInspector } from "./inspector.js";
 import { renderLayers } from "./layers.js";
 import { renderMission } from "./mission.js";
@@ -39,11 +39,12 @@ export function renderTargets() { // "Who": the mod's player ("me"), then the ot
   box.value = target;
 }
 
-/** Rotate and Lower only mean something while following: grayed out otherwise. */
-export function syncRotate() {
-  for (const id of ["rotate", "followLow"]) {
+/** The settings that only mean something with another on, grayed out otherwise: Rotate and Lower while following,
+ *  Heights tilted. */
+export function syncOff() {
+  for (const [id, on] of [["rotate", "follow"], ["followLow", "follow"], ["heightScale", "threeD"]]) {
     const el = $(id);
-    el.disabled = !settings.view.follow;
+    el.disabled = !settings.view[on];
     el.closest(".row, .cset").classList.toggle("off", el.disabled);
   }
 }
@@ -96,8 +97,13 @@ export function initPanel() {
   const lowBox = $("followLow"), showLow = () => { $("followLowVal").textContent = t("unit.percent", { n: followLow() }); };
   lowBox.value = followLow(); showLow();
   lowBox.oninput = () => { settings.view.followLow = +lowBox.value; saveSettings(); showLow(); invalidate(); };
-  syncRotate();
-  $("follow").addEventListener("change", syncRotate);
+  // Heights: the 3D view's, stretched or flattened (view.js heightK)
+  const hBox = $("heightScale"), showH = () => { $("heightScaleVal").textContent = t("unit.percent", { n: Math.round(heightK() * 100) }); };
+  hBox.value = Math.round(heightK() * 100); showH();
+  hBox.oninput = () => { settings.view.heightScale = +hBox.value; saveSettings(); showH(); invalidate(); };
+  syncOff();
+  $("follow").addEventListener("change", syncOff);
+  $("threeD").addEventListener("change", syncOff);
   renderMotion();
   $("motion").onchange = (e) => {
     const v = e.target.value;

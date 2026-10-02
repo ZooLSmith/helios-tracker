@@ -100,6 +100,8 @@ export default {
   "view.followLowTip": "跟隨的玩家位置：0 % 為置中，數值越高越靠畫面下方 - 上方可見更多地圖",
   "view.threeD": "傾斜",
   "view.threeDTip": "傾斜地圖，標記位於其高度 (T)。右鍵拖曳或 Shift+拖曳：旋轉並傾斜",
+  "view.heightScale": "高度",
+  "view.heightScaleTip": "傾斜時：標記離地圖上下多遠 - 100 % 與遊戲相同，越高樓層分得越開，0 % 為平面",
   "view.coords": "座標",
   "view.northTip": "將地圖轉回 (N)",
   "view.motion": "更新頻率",

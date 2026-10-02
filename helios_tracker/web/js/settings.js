@@ -27,6 +27,7 @@ export function defaults() {
       // above). Right-drag / Shift+drag turns the map (spin, degrees, on top of its own turn - 2D or tilted: the compass
       // button / N turns it back) and, tilted, tilts it
       threeD: false, tilt3d: 50, spin: 0,
+      heightScale: 100, // tilted: the heights (markers above / below the plane) stretched, % (0-200: view.js)
       coords: false, // the world X / Y by the cursor (tooltip.js)
       target: "me", // "Who": "me" (the host) or a player's name
       // Movement: 0 = only redraw on a change (markers jump), a number = interpolated at most that

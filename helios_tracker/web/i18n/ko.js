@@ -100,6 +100,8 @@ export default {
   "view.followLowTip": "따라가는 플레이어의 위치: 0 %는 가운데, 높일수록 화면 아래로 - 위쪽 지도가 더 많이 보입니다",
   "view.threeD": "기울이기",
   "view.threeDTip": "지도를 기울여 마커를 높이대로 표시 (T). 오른쪽 드래그 또는 Shift+드래그: 회전 및 기울이기",
+  "view.heightScale": "높이",
+  "view.heightScaleTip": "기울였을 때: 마커가 지도 위아래로 떨어지는 정도 - 100 %는 게임 그대로, 높일수록 층이 벌어지고 0 %는 평평",
   "view.coords": "좌표",
   "view.northTip": "지도 방향 되돌리기 (N)",
   "view.motion": "새로 고침 빈도",

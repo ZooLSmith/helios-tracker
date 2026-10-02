@@ -100,6 +100,8 @@ export default {
   "view.followLowTip": "Wo der verfolgte Spieler sitzt: 0 % mittig, höher setzt ihn weiter nach unten - mehr Karte über ihm sichtbar",
   "view.threeD": "Neigen",
   "view.threeDTip": "Neigt die Karte, Markierungen auf ihrer Höhe (T). Rechts ziehen oder Umschalt+Ziehen: drehen und neigen",
+  "view.heightScale": "Höhen",
+  "view.heightScaleTip": "Geneigt: wie weit Markierungen über oder unter der Karte stehen - 100 % wie im Spiel, mehr zieht Stockwerke auseinander, 0 % flach",
   "view.coords": "Koordinaten",
   "view.northTip": "Karte zurückdrehen (N)",
   "view.motion": "BILDRATE",

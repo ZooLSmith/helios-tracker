@@ -4,7 +4,7 @@ import { largestFreeRect, mapTurn, worldToMap } from "./geo.js";
 import { invalidate, invalidateNow } from "./scheduler.js";
 import { saveSettings, settings } from "./settings.js";
 import { S, frame, pawnPos, trackedPawn } from "./state.js";
-import { syncRotate } from "./ui/panel.js";
+import { syncOff } from "./ui/panel.js";
 
 export let canvas = null, ctx = null;
 /** The context the shapes draw on (draw.js's marker layers: faded markers on one, the others on another). */
@@ -100,6 +100,9 @@ export function fit(keepZoom = false) { // keepZoom: only re-centre (a level cha
   invalidate();
 }
 
+/** Map's Heights setting (the 3D view's heights stretched): a factor, 1 = as in the world, 0 = flat. */
+export const heightK = () => Math.max(0, Math.min(200, settings.view.heightScale ?? 100)) / 100;
+
 /** Who's Lower setting, % of the free area's half-height (0 = its centre). */
 export const followLow = () => Math.max(0, Math.min(90, +settings.view.followLow || 0));
 
@@ -123,7 +126,7 @@ export function centerOnTarget() {
   // The player at that screen offset: the view centre is that far from them (on the map, turned; in the 3D view their
   // marker is lifted by their height above the map's plane - the plane point under them sits that much lower)
   const [mx, my] = worldToMap(f, p.x, p.y);
-  const lift = (p.z - S.view.ground) / f.upp * Math.sin(S.view.tilt) * S.view.zoom;
+  const lift = (p.z - S.view.ground) / f.upp * heightK() * Math.sin(S.view.tilt) * S.view.zoom;
   const [dx, dy] = screenToMapDelta(followOffset.x, followOffset.y + lift);
   S.view.cx = mx - dx; S.view.cy = my - dy;
 }
@@ -219,5 +222,5 @@ export function stopFollow() {
   settings.view.follow = false;
   $("follow").checked = false;
   saveSettings();
-  syncRotate();
+  syncOff();
 }

@@ -296,7 +296,9 @@ bottom-left message).
   lifted by their height above the map's plane - the tracked player's height, the tooltips' "x m above / below" origin
   (nobody tracked: the level's typical ground, the median height of its objects) - with a stem down to it; quest areas as ellipses on the plane; toScreen(mx, my, h), toMap on the plane: pan / zoom / clicks
   / coordinates / the fog unchanged. The floors / walls from the level's collision were tried and parked on the
-  `experimental/map_3d` branch, private: design.md), Coordinates (C: was "Show coordinates"); **Panels**: Theme (ECHO-2 - the
+  `experimental/map_3d` branch, private: design.md), Coordinates (C: was "Show coordinates"), Heights (a slider,
+  `view.heightScale`, 0-200 %: the tilted view's heights stretched - floors apart - or flattened, view.js heightK; grayed
+  out without Tilt); **Panels**: Theme (ECHO-2 - the
   default, id "default" -, Hyperion, Vladof, Dahl, Eridian:
   `css/themes.css` sets base.css's tokens under `<html data-theme>`; the canvas' colours read again on a change), their
   opacity, their size 70-200 %; **Refresh rate** (was "Movement": the page's redraws - markers, bars, their patterns):

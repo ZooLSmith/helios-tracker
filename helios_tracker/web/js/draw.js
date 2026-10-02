@@ -15,7 +15,7 @@ import { tooltip } from "./tooltip.js";
 import { refreshPlayerInfo } from "./ui/inspector.js";
 import { updatePlayerVitals } from "./ui/players.js";
 import { refreshShops } from "./ui/shops.js";
-import { H, W, centerOnTarget, ctx, dpr, fit, refreshNorth, setCtx, toScreen } from "./view.js";
+import { H, W, centerOnTarget, ctx, dpr, fit, heightK, refreshNorth, setCtx, toScreen } from "./view.js";
 
 /** The mission log by mission id (mission items check their mission): rebuilt only when the log changes. */
 let byIdFor = null, byIdMap = null;
@@ -217,7 +217,8 @@ export function draw() {
   const questShown = (mk) => mk.tracked || !L.objective.trackedOnly;
   const objColor = LAYER_COLOR.objective;
   // Where a thing shows on screen: its map point, lifted by its height above the map's plane in the 3D view
-  const place = (x, y, z) => toScreen(...worldToMap(f, x, y), threeD && z != null ? (z - S.view.ground) / f.upp : 0);
+  const hk = heightK(); // (Map: Heights - stretched or flattened)
+  const place = (x, y, z) => toScreen(...worldToMap(f, x, y), threeD && z != null ? (z - S.view.ground) / f.upp * hk : 0);
   // The 3D view: a thin stem from the map's plane up (or down) to a marker, a dot where it meets the plane - its height
   // reads at a glance (drawn under the marker)
   const stem = (x, y, sx, sy, color) => {

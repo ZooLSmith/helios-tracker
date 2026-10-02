@@ -100,6 +100,8 @@ export default {
   "view.followLowTip": "Où se trouve le joueur suivi : 0 % au centre, plus haut le place plus bas à l'écran - plus de carte visible au-dessus de lui",
   "view.threeD": "Inclinaison",
   "view.threeDTip": "Incline la carte, les marqueurs à leur hauteur (T). Clic droit glissé ou Maj+glisser : la tourner et l'incliner",
+  "view.heightScale": "Hauteurs",
+  "view.heightScaleTip": "Carte inclinée : à quelle distance les repères se tiennent au-dessus ou au-dessous de la carte - 100 % comme dans le jeu, plus écarte les étages, 0 % à plat",
   "view.coords": "Coordonnées",
   "view.northTip": "Remettre la carte droite (N)",
   "view.motion": "FRÉQUENCE D'AFFICHAGE",

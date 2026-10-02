@@ -100,6 +100,8 @@ export default {
   "view.followLowTip": "追従中のプレイヤーの位置: 0 % で中央、値を上げるほど画面の下へ - その上のマップがより広く見えます",
   "view.threeD": "傾き",
   "view.threeDTip": "マップを傾け、マーカーを高さに表示 (T)。右ドラッグか Shift+ドラッグ: 回転と傾き",
+  "view.heightScale": "高さ",
+  "view.heightScaleTip": "傾斜時: マーカーがマップの上下にどれだけ離れるか - 100 % でゲーム通り、上げるほど階層が離れ、0 % で平ら",
   "view.coords": "座標",
   "view.northTip": "マップの向きを戻す (N)",
   "view.motion": "更新頻度",

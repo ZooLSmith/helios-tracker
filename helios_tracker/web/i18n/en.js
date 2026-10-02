@@ -101,6 +101,8 @@ export default {
   "view.followLowTip": "Where the followed player sits: 0 % centered, higher puts them further down the screen - more of the map seen above them",
   "view.threeD": "Tilt",
   "view.threeDTip": "Tilt the map, markers at their height (T). Right-drag or Shift+drag: turn and tilt it",
+  "view.heightScale": "Heights",
+  "view.heightScaleTip": "Tilted: how far markers stand above or below the map - 100 % as in the game, more stretches floors apart, 0 % flat",
   "view.coords": "Coordinates",
   "view.northTip": "Turn the map back (N)",
   "view.motion": "REFRESH RATE",
