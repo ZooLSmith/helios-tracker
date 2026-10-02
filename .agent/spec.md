@@ -5,7 +5,8 @@ page shows the game's own map image (the map screen's) with players, enemies, NP
 and interactive objects on it, with zoom / pan. Read the root `AGENTS.md` first. File names here are the mod's, under `helios_tracker/`
 (`tools/...`: the repo's).
 
-It draws nothing in game: everything it shows is on the page.
+It draws nothing in game: everything it shows is on the page (the updater excepted: the game's own dialog box and
+bottom-left message).
 
 ## Spec
 
@@ -326,6 +327,29 @@ It draws nothing in game: everything it shows is on the page.
   `sdk_mods/helios_tracker.autoexec.ps1` beside the mod (the players' place: a `.sdkmod` is a zip). It gets
   `HELIOS_PORT`, runs hidden, and its output goes to `autoexec.log` / `helios_tracker.autoexec.log` beside it. It sits in a kill-on-close job object: server stop, port / LAN
   restart, mod disable, or the game exiting ends it along with its children.
+- `updater.py`: updates from the public repo's latest GitHub release (tag `vX.Y.Z`, `helios_tracker.sdkmod`
+  attached; publishing them - CI or a script - isn't set up yet). **Only from a `.sdkmod`** (`can_install`): a folder
+  install - the dev junction - never checks, its update options hidden. **Automatic Updates** (on: a check once a
+  day at enable, `next_update_check` a hidden option): a newer one downloaded, verified, swapped in, running from the
+  next start - said by the game's bottom-left message (`ui_utils.show_coop_message`, hidden after 8 s). **Check for
+  Updates** (always that: the menu draws an option's name once, no live relabelling - a relabelling button did the
+  next step unseen) opens the game's dialog box (`ui_utils.OptionBox`): "Checking for updates..." (Cancel: the answer
+  dropped, a download deleted), "Downloading vX...", then the answer - each box replacing the last (an open box's
+  text can't be changed through ui_utils). A newer one: asked first - Download and Install / Not Now (nothing
+  downloaded before) -, then "Downloading vX..." (downloaded, verified, swapped in), then Reload Now / Later; up to date or failed: a box saying so. Installed but not running
+  yet (`updater.pending()`: the file's version > `RUNNING`, read at import): the button skips the check and offers
+  Reload Now / Later. After a reload the open menu must show the new mod's options (`updater.follow_menu`): its
+  old button queued its boxes in the old module, whose hook no longer drained them - nothing showed (first blamed
+  on the press's release reaching the box: a 0.2-0.6 s hold before each box, dropped). The open menu's description (its
+  header's version) stays the old one until left: willow2_mod_menu writes it into the list's items when filling the
+  screen - left as is (cosmetic; the dialogs say which version runs). Pressed while one runs: the waiting box says what it's doing (`_busy_text`), and
+  it answers with the dialogs - an automatic one too, then not installing on its own (`_answer_wanted`). The checks run in a thread;
+  what they show is queued for the game thread (`_ui_queue`, drained by `on_post_render`). Download: into
+  `.helios_tracker/` (`helios_tracker.sdkmod.new`), verified (one `helios_tracker/` root, its `__init__.py`, its
+  pyproject's version = the tag's); apply: `os.replace` over the `.sdkmod`, retried up to 5 s (Windows refuses while
+  the page's files are read out of it). The file isn't locked otherwise; the reload = `reload.py`'s steps +
+  `importlib.invalidate_caches()` (the zip importer's index: a replaced `.sdkmod` has new offsets), from the dialog's
+  button (ui_utils' hook, not ours). Dev: `.helios_tracker/update_source.txt` = another URL (`tools/fake_release.py`).
 - `skills.py`: the players' skills (action skill, timed effects, melee cooldown), per update.
 - `shops.py`: the vending machines' stock, prices and the restock timer (`shops` / `shoptimer`), every 2 s.
 - `util.py`: shared helpers (`try_`, `call_str`, `def_name`, `addr`, `log_error`, `field`).
@@ -437,3 +461,5 @@ image placed at its shape's bounds in movie px; yaw 0 = up, clockwise
 - Release: `tools/build_sdkmod.py` (`_work/dist/helios_tracker.sdkmod`: the package's git files, not `reload.py`;
   `.cache/` and logs are gitignored, so never in it). `tools/use_sdkmod.bat` runs it in the game in place of the
   junction, `tools/use_dev.bat` goes back (see the root `AGENTS.md`).
+- Updates: `python tools/fake_release.py [0.2.0]` serves a release of the working tree (version patched) the way
+  GitHub's API does and points the game's updater at it until Ctrl+C.

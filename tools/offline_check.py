@@ -58,7 +58,7 @@ def _install_fakes() -> None:
         def __init__(self, identifier, children=(), **kw):  # noqa: ANN001, ANN003, ANN204
             super().__init__(identifier, None, children=children, **kw)
 
-    mb.BoolOption = mb.SliderOption = mb.SpinnerOption = mb.DropdownOption = mb.ButtonOption = Opt
+    mb.BoolOption = mb.SliderOption = mb.SpinnerOption = mb.DropdownOption = mb.ButtonOption = mb.HiddenOption = Opt
     mb.NestedOption = mb.GroupedOption = Nested
     def fake_hook(*a, **k):  # marks what it decorates: every hook must be in build_mod's list (checked)
         def mark(f):
@@ -111,6 +111,10 @@ def _install_fakes() -> None:
     mb.get_pc = lambda **k: PC()
     mb.ENGINE = types.SimpleNamespace(GetCurrentWorldInfo=lambda: None)
     sys.modules["mods_base"] = mb
+    uu = types.ModuleType("ui_utils")  # (the updater's dialog / bottom-left message: game UI, nothing to run here)
+    uu.OptionBox = uu.OptionBoxButton = lambda *a, **k: types.SimpleNamespace(show=lambda *a: None, **k)
+    uu.show_coop_message = uu.hide_coop_message = lambda *a: None
+    sys.modules["ui_utils"] = uu
 
 
 # endregion
@@ -2193,11 +2197,128 @@ def check_sdkmod() -> None:
     print("  .sdkmod: page files read out of the zip, logs / caches in sdk_mods/.helios_tracker/")
 
 
+def check_updater() -> None:
+    """updater.py against a local stand-in for GitHub's releases API (tools/fake_release.py's format): a newer release
+    found, downloaded, verified and swapped in for the .sdkmod; an older one ignored; a release whose zip says another
+    version refused (ours untouched); a folder install never replaced."""
+    import json  # noqa: PLC0415
+    import re  # noqa: PLC0415
+    import tempfile  # noqa: PLC0415
+    import threading  # noqa: PLC0415
+    import zipfile  # noqa: PLC0415
+    from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer  # noqa: PLC0415
+
+    import build_sdkmod  # noqa: PLC0415
+    from helios_tracker import paths, updater  # noqa: PLC0415
+
+    served: dict[str, bytes] = {}
+
+    class ReleaseHandler(BaseHTTPRequestHandler):
+        def do_GET(self) -> None:  # noqa: N802
+            body = served.get(self.path)
+            self.send_response(200 if body is not None else 404)
+            self.end_headers()
+            self.wfile.write(body or b"")
+
+        def log_message(self, *a: object) -> None:
+            pass
+
+    release_server = ThreadingHTTPServer(("127.0.0.1", 0), ReleaseHandler)
+    threading.Thread(target=release_server.serve_forever, daemon=True).start()
+    base = f"http://127.0.0.1:{release_server.server_address[1]}"
+
+    def publish(tag: str, zip_version: str) -> None:
+        served["/latest"] = json.dumps({"tag_name": tag, "html_url": f"{base}/page", "assets": [
+            {"name": "helios_tracker.sdkmod", "browser_download_url": f"{base}/dl/{tag}"}]}).encode()
+        served[f"/dl/{tag}"] = build_sdkmod.build(Path(upd_tmp) / f"{tag}.sdkmod", zip_version, quiet=True).read_bytes()
+
+    def installed_version() -> str:
+        with zipfile.ZipFile(upd_sdkmod) as z:
+            return re.search(r'version = "(.*)"', z.read("helios_tracker/pyproject.toml").decode())[1]
+
+    saved = paths.SDKMOD, paths.DATA, updater.SOURCE_OVERRIDE, updater.current_version
+    with tempfile.TemporaryDirectory() as upd_tmp:
+        upd_sdk_mods = Path(upd_tmp) / "sdk_mods"
+        upd_sdkmod = build_sdkmod.build(upd_sdk_mods / "helios_tracker.sdkmod", "0.1.0", quiet=True)
+        paths.SDKMOD, paths.DATA = upd_sdkmod, upd_sdk_mods / ".helios_tracker"
+        updater.SOURCE_OVERRIDE = paths.DATA / "update_source.txt"
+        updater.current_version = lambda: (0, 1, 0)
+        try:
+            assert updater.source() == updater.RELEASES_API, "GitHub without the dev override"
+            paths.DATA.mkdir(parents=True)
+            updater.SOURCE_OVERRIDE.write_text(f"{base}/latest\n", encoding="utf-8")
+            publish("v0.0.9", "0.0.9")
+            assert updater.check() is None, "older: nothing to do"
+            publish("v0.1.1", "0.1.2")  # its zip says another version: refused
+            upd_bad = updater.check()
+            assert upd_bad is not None and upd_bad.version == (0, 1, 1), upd_bad
+            try:
+                updater.install(upd_bad)
+                raise AssertionError("a zip of another version installed")
+            except ValueError:
+                pass
+            assert installed_version() == "0.1.0" and not list(paths.DATA.glob("*.download")), "ours untouched"
+            publish("v0.2.0", "0.2.0")
+            upd_new = updater.check()
+            assert upd_new is not None and upd_new.tag == "v0.2.0" and upd_new.page == f"{base}/page", upd_new
+            assert updater.install(upd_new) == upd_sdkmod and installed_version() == "0.2.0", "swapped in"
+            assert not (paths.DATA / updater.STAGED).exists(), "the download moved in, not left behind"
+            upd_running = updater.RUNNING
+            updater.RUNNING, updater.current_version = (0, 1, 0), lambda: (0, 2, 0)
+            assert updater.pending() == (0, 2, 0), "installed for the next start: a reload runs it"
+            updater.RUNNING = (0, 2, 0)
+            assert updater.pending() is None, "running it already"
+            updater.RUNNING = upd_running
+            paths.SDKMOD = None
+            assert not updater.can_install(), "a folder install: never replaced"
+        finally:
+            paths.SDKMOD, paths.DATA, updater.SOURCE_OVERRIDE, updater.current_version = saved
+            release_server.shutdown()
+    assert updater.parse_version("v1.2.3") == (1, 2, 3) and updater.parse_version("1.2") is None
+    import helios_tracker as upd_mod  # noqa: PLC0415 - imported from the repo: a folder install
+    assert upd_mod.update_button.is_hidden and upd_mod.auto_update.is_hidden, "folder install: no update options"
+    upd_mod._start_check(auto=False)
+    assert not upd_mod._update_busy[0], "folder install: never checks"
+    assert updater.current_version() is not None, "ours read from the package's pyproject"
+    # Reload Now is pressed in the mod's options menu, still open after it: switched to the new mod's options
+    # (willow2_mod_menu's provider stack, faked; else its buttons call into the old module - nothing happened)
+    class MenuOption:
+        def __init__(self, identifier: str, children: tuple = ()) -> None:
+            self.identifier, self.children = identifier, children
+
+    class MenuMod:
+        def __init__(self) -> None:
+            self.opts = (MenuOption("port"), MenuOption("Check for Updates"))
+            self.group = MenuOption("Options", self.opts)
+
+        def iter_display_options(self) -> object:
+            yield MenuOption("Options", self.opts)
+
+    menu_old, menu_new, menu_extra = MenuMod(), MenuMod(), MenuOption("Enabled")  # (Enabled: the menu's own, kept)
+    menu_provider = types.SimpleNamespace(mod=menu_old, options=(menu_extra, menu_old.group),
+                                          drawn_options=[menu_extra, menu_old.group, *menu_old.opts])
+    menu_other = types.SimpleNamespace(mod=object(), options=(), drawn_options=[MenuOption("port")])
+    menu_fake = types.ModuleType("willow2_mod_menu")
+    menu_fake.options_menu = types.SimpleNamespace(data_provider_stack=[menu_other, menu_provider])
+    sys.modules["willow2_mod_menu"] = menu_fake
+    try:
+        updater.follow_menu(menu_old, menu_new)
+    finally:
+        del sys.modules["willow2_mod_menu"]
+    assert menu_provider.mod is menu_new and menu_provider.drawn_options[2:] == list(menu_new.opts), menu_provider
+    assert menu_provider.drawn_options[0] is menu_extra and menu_provider.drawn_options[1] is not menu_old.group
+    assert menu_provider.options[1].identifier == "Options" and menu_provider.options[1] is not menu_old.group
+    assert menu_other.drawn_options[0] not in menu_new.opts, "another mod's menu: untouched"
+    updater.follow_menu(menu_old, menu_new)  # (no willow2_mod_menu: nothing done, nothing raised)
+    print("  updater: a newer release downloaded, verified and swapped in; older / mismatched / folder install left alone; an open options menu follows a reload")
+
+
 def main() -> None:
     _install_fakes()
     check_helios_tracker()
     check_script()
     check_sdkmod()
+    check_updater()
     print("OK")
 
 

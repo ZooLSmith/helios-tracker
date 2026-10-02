@@ -7,6 +7,7 @@
 #   python tools/build_sdkmod.py dev       back to the junction: the .sdkmod removed, the junction renamed back
 #                                          (or linked again: link_mod.py)
 # Add "tps" for the Pre-Sequel (project.json's tps). Double-clickable: tools/use_sdkmod.bat, tools/use_dev.bat.
+import re
 import shutil
 import subprocess
 import sys
@@ -17,15 +18,11 @@ import project
 PACKAGE = "helios_tracker"
 DEV_FILES = {"reload.py"}  # (logs, .cache/, autoexec scripts: gitignored, so never listed)
 
-args = sys.argv[1:]
-key = "tps" if "tps" in args else "game"
-action = next((a for a in args if a in ("install", "dev")), "build")
-
-
-def build() -> "project.Path":
+def build(out: "project.Path | None" = None, version: str | None = None, quiet: bool = False) -> "project.Path":
+    """The .sdkmod (default: _work/dist/); `version`: its pyproject's instead (tools/fake_release.py's test releases)."""
     listed = subprocess.run(["git", "ls-files", "-z", "--cached", "--others", "--exclude-standard", PACKAGE], cwd=project.ROOT, capture_output=True, check=True)
     names = sorted(n for n in listed.stdout.decode("utf-8").split("\0") if n)
-    out = project.ROOT / "_work" / "dist" / f"{PACKAGE}.sdkmod"
+    out = out or project.ROOT / "_work" / "dist" / f"{PACKAGE}.sdkmod"
     out.parent.mkdir(parents=True, exist_ok=True)
     count = 0
     with zipfile.ZipFile(out, "w", zipfile.ZIP_DEFLATED, compresslevel=9) as z:
@@ -36,21 +33,35 @@ def build() -> "project.Path":
             src = project.ROOT / name
             if not src.is_file():  # (deleted in the working tree, not committed yet)
                 continue
-            z.write(src, name)
+            if version and rel == "pyproject.toml":
+                text = src.read_text(encoding="utf-8")
+                z.writestr(name, re.sub(r'(?m)^version = ".*"$', f'version = "{version}"', text, count=1))
+            else:
+                z.write(src, name)
             count += 1
-    print(f"{out} ({count} files, {out.stat().st_size // 1024} KB)")
+    if not quiet:
+        print(f"{out} ({count} files, {out.stat().st_size // 1024} KB)")
     return out
 
 
-def sdk_mods() -> "project.Path":
+def sdk_mods(key: str) -> "project.Path":
     game = project.require(project.path(key), f"The game ({key})")
     return project.require(game / "sdk_mods", "sdk_mods (install the Python SDK first)")
 
 
-if action == "build":
-    build()
-elif action == "install":
-    mods = sdk_mods()
+def main() -> None:
+    args = sys.argv[1:]
+    key = "tps" if "tps" in args else "game"
+    action = next((a for a in args if a in ("install", "dev")), "build")
+    if action == "build":
+        build()
+    elif action == "install":
+        install(sdk_mods(key))
+    elif action == "dev":
+        dev(sdk_mods(key), key)
+
+
+def install(mods: "project.Path") -> None:
     folder, parked = mods / PACKAGE, mods / f".{PACKAGE}_dev"
     if folder.exists() or folder.is_junction():
         if not folder.is_junction():
@@ -61,8 +72,9 @@ elif action == "install":
         print(f"parked the junction: {parked}")
     shutil.copyfile(build(), mods / f"{PACKAGE}.sdkmod")
     print(f"installed {mods / f'{PACKAGE}.sdkmod'} - restart the game ('python tools/build_sdkmod.py dev' to go back)")
-elif action == "dev":
-    mods = sdk_mods()
+
+
+def dev(mods: "project.Path", key: str) -> None:
     folder, parked = mods / PACKAGE, mods / f".{PACKAGE}_dev"
     (mods / f"{PACKAGE}.sdkmod").unlink(missing_ok=True)
     if parked.is_junction() and not (folder.exists() or folder.is_junction()):
@@ -71,3 +83,7 @@ elif action == "dev":
     elif not folder.is_junction():  # (never parked, or removed): linked again
         subprocess.run([sys.executable, str(project.ROOT / "tools" / "link_mod.py"), key], check=True)
     print("restart the game")
+
+
+if __name__ == "__main__":
+    main()

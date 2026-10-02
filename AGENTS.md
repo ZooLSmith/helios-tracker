@@ -12,7 +12,8 @@ Machine paths live in `project.json` (repo root, gitignored; from `project.examp
 hard-code one. What needs a path names its key; `<game>` in the docs is `game.path`, `<repo>` this
 repo's root.
 
-Helios Tracker draws nothing in game: everything it shows is on the page.
+Helios Tracker draws nothing in game: everything it shows is on the page. The one exception, the user's call: the
+updater speaks through the game's own UI (its dialog box, its bottom-left message - `ui_utils`), never drawn by us.
 
 ## Layout
 
@@ -44,7 +45,10 @@ bl2-helios-tracker/
 - In game: `pyexec helios_tracker/reload.py`. Page edits only need a browser refresh.
 - As players run it: `tools/use_sdkmod.bat` builds `_work/dist/helios_tracker.sdkmod` (`tools/build_sdkmod.py`) and
   puts it in `sdk_mods`, the junction parked as `.helios_tracker_dev` (a folder beats a `.sdkmod`; dot names are skipped);
-  `tools/use_dev.bat` goes back to the junction. Restart the game after either.
+  `tools/use_dev.bat` goes back to the junction. Restart the game after either - or, the game running, reload: the
+  `.sdkmod` has no `reload.py`, so `pyexec .helios_tracker_dev/reload.py`.
+- Updater: `python tools/fake_release.py` - a local stand-in for GitHub's releases (the working tree, version + 1);
+  then the mod's options: Check for Updates -> the dialog. Only from a `.sdkmod`: the junction never updates.
 - Probes: `py exec(open(r"<repo>\tools\probes\probe_<name>.py").read())`, output to
   `tools/probes/probe_<name>.txt` (found through the mod's junction: `sys.modules["helios_tracker"]`'s real path).
 - Offline tools that read game files take the game from `project.json` via `tools/project.py`

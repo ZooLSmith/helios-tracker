@@ -8,6 +8,7 @@ with players, enemies, NPCs, vehicles, loot and interactive objects on it, live,
 - tacmap.py:    reads the map images from the game's packages on disk (background thread)
 - server.py:    HTTP + Server-Sent Events, stdlib only, never touches UObjects
 - script.py:    runs the user's optional autoexec.ps1 alongside the server (a tunnel...)
+- updater.py:   the latest GitHub release's .sdkmod: checked, swapped in, reloaded
 - web/:          the page: index.html + ES modules (js/), stylesheets (css/), translations (i18n/)
 """
 
@@ -18,12 +19,13 @@ import threading
 import time
 from typing import Any
 
-from mods_base import BoolOption, ButtonOption, SliderOption, build_mod, hook
+from mods_base import BoolOption, ButtonOption, HiddenOption, SliderOption, build_mod, hook
+from ui_utils import OptionBox, OptionBoxButton, hide_coop_message, show_coop_message
 from unrealsdk.hooks import Type
 from unrealsdk.unreal import BoundFunction, UObject, WrappedStruct
 
 from .collector import Collector, cooked_dir, game_language
-from . import gamecards, gamefonts, gameicons, gamescan, gamework
+from . import gamecards, gamefonts, gameicons, gamescan, gamework, updater
 from .script import start_script
 from .server import Hub, TrackerServer
 from .util import log, log_error, start_log
@@ -83,6 +85,236 @@ open_page = ButtonOption(
     on_press=lambda _: os.startfile(_url()),  # type: ignore  # noqa: S606
     description="Opens the live map in your default browser (the mod must be enabled).",
 )
+
+# endregion
+# region Updates
+# Only from a .sdkmod (updater.can_install): a folder install - the dev junction - never checks, its options hidden.
+# The menu draws an option's name once (no live relabelling): the button only ever checks, the game's own dialog box
+# (ui_utils.OptionBox) shows it - "Checking for updates..." (Cancel), then the answer; a newer one: asked first
+# (Download and Install / Not Now: nothing downloaded before), "Downloading vX...", then Reload Now / Later - each box
+# replacing the last (an open box's text can't be changed through ui_utils) - and the bottom-left message
+# (show_coop_message) says what the automatic path did.
+# The checks run in a thread; what they show goes through _ui_queue, drained on the game thread by on_post_render.
+
+UPDATE_EVERY = 24 * 3600  # s between automatic checks
+TOAST_FOR = 8.0  # s the bottom-left message stays
+_update_busy = [False]  # a check / download running
+_busy_text = [""]  # what it's doing, for the waiting box ("Checking for updates...", "Downloading vX...")
+_answer_wanted = [False]  # the button pressed while it runs: it answers with the dialogs (an automatic one too)
+_ui_queue: list[Any] = []  # callables for the game thread
+_toast_until = [0.0]
+_progress_box: list[Any] = [None]  # the open "Checking..." / "Downloading..." box
+_check_cancelled = [False]  # its Cancel: the check's answer dropped (a download deleted)
+
+
+def _on_game_thread(fn: Any) -> None:
+    _ui_queue.append(fn)
+
+
+def _toast(text: str) -> None:
+    def show() -> None:
+        show_coop_message(text)
+        _toast_until[0] = time.monotonic() + TOAST_FOR
+
+    _on_game_thread(show)
+
+
+def _drain_ui(now: float) -> None:
+    """Game thread, every frame (on_post_render): the queued dialogs / messages, the message's timeout."""
+    while _ui_queue:
+        try:
+            _ui_queue.pop(0)()
+        except Exception as ex:  # noqa: BLE001
+            log_error("update dialog", ex)
+    if _toast_until[0] and now > _toast_until[0]:
+        _toast_until[0] = 0.0
+        try:
+            hide_coop_message()
+        except Exception as ex:  # noqa: BLE001
+            log_error("update message", ex)
+
+
+def _close_progress() -> None:
+    box, _progress_box[0] = _progress_box[0], None
+    if box is not None and box.is_showing():
+        box.hide()
+
+
+def _progress(text: str) -> None:
+    """The manual check's waiting box (its only button: Cancel)."""
+
+    def show() -> None:
+        if _check_cancelled[0] or _ui_queue:  # (its answer already queued behind it: no box opened and shut at once)
+            return
+        _close_progress()
+
+        def cancel(*_: Any) -> None:
+            _check_cancelled[0] = True
+            _progress_box[0] = None
+
+        box = OptionBox(title="Helios Tracker", message=text, buttons=[OptionBoxButton("Cancel")], on_select=cancel,
+                        on_cancel=cancel)
+        box.show()
+        _progress_box[0] = box
+
+    _on_game_thread(show)
+
+
+def _dialog(title: str, message: str, buttons: list[str], on_pick: Any = None, check_answer: bool = False) -> None:
+    """A box replacing the waiting one; `check_answer`: dropped if that one was cancelled (on_pick(None) then)."""
+
+    def show() -> None:
+        if check_answer and _check_cancelled[0]:
+            if on_pick is not None:
+                on_pick(None)
+            return
+        _close_progress()
+        choices = [OptionBoxButton(name) for name in buttons]
+
+        def picked(_box: Any, button: Any) -> None:
+            if on_pick is not None:
+                on_pick(button.name)
+
+        OptionBox(title=title, message=message, buttons=choices, on_select=picked,
+                  on_cancel=lambda _box: on_pick and on_pick(None)).show()
+
+    _on_game_thread(show)
+
+
+DOWNLOAD, NOT_NOW = "Download and Install", "Not Now"
+
+
+def _offer(release: updater.Release) -> None:
+    """A newer release found: asked first - nothing downloaded before Download and Install."""
+
+    def pick(choice: str | None) -> None:
+        if choice != DOWNLOAD:
+            return
+        _check_cancelled[0] = False
+        text = f"Downloading Helios Tracker {release.tag}..."
+        _progress(text)
+        _start_thread(_download_update, text, release)
+
+    _dialog("Helios Tracker Update", f"Helios Tracker {release.tag} is available (you have {_ours()}).",
+            [DOWNLOAD, NOT_NOW], pick, check_answer=True)
+
+
+def _download_update(release: updater.Release) -> None:
+    """A thread: downloaded, verified, swapped in (unless cancelled meanwhile), then the reload offered."""
+    try:
+        staged = updater.download(release)
+        if _check_cancelled[0]:
+            updater.discard()
+            return
+        updater.apply(staged)
+        log(f"Helios Tracker {release.tag} installed")
+        _on_game_thread(lambda: _offer_reload(release.version, check_answer=True))
+    except Exception as ex:  # noqa: BLE001
+        log(f"update {release.tag} not installed: {ex}")
+        _dialog("Helios Tracker", f"{release.tag} couldn't be installed:\n{ex}", ["OK"], check_answer=True)
+    finally:
+        _update_busy[0], _answer_wanted[0] = False, False
+
+
+def _start_thread(target: Any, text: str, *args: Any) -> None:
+    _update_busy[0], _busy_text[0] = True, text
+    threading.Thread(target=target, args=args, name="helios_tracker update", daemon=True).start()
+
+
+def _tag(version: tuple[int, ...] | None) -> str:
+    return "v" + ".".join(map(str, version)) if version else "an unknown version"
+
+
+def _ours() -> str:
+    return _tag(updater.RUNNING)
+
+
+RELOAD_NOW, LATER = "Reload Now", "Later"
+
+
+def _offer_reload(installed: tuple[int, ...], check_answer: bool = False) -> None:
+    """Installed, not running yet: the reload (its button: ui_utils' hook, outside ours - the reload's place)."""
+
+    def pick(choice: str | None) -> None:
+        if choice == RELOAD_NOW:
+            updater.reload_mod()
+
+    _dialog("Helios Tracker Update", f"Helios Tracker {_tag(installed)} is installed: it runs from the next game start"
+            f" (this session runs {_ours()}).", [RELOAD_NOW, LATER], pick, check_answer=check_answer)
+
+
+def _check_update(auto: bool) -> None:
+    """A thread: the latest release; newer -> offered (the button) or downloaded and installed (automatic - unless the
+    button was pressed meanwhile: then answered like the button's)."""
+    try:
+        release = updater.check()
+        auto = auto and not _answer_wanted[0]
+        if release is None:
+            log("Helios Tracker is up to date")
+            if not auto:
+                _dialog("Helios Tracker", f"You have the latest version ({_ours()}).", ["OK"], check_answer=True)
+            return
+        log(f"Helios Tracker {release.tag} is available: {release.page}")
+        if not auto:
+            _on_game_thread(lambda: _offer(release))
+            return
+        _busy_text[0] = f"Downloading Helios Tracker {release.tag}..."
+        updater.apply(updater.download(release))
+        log(f"Helios Tracker {release.tag} installed: it runs from the next game start")
+        if _answer_wanted[0]:  # (pressed during the download)
+            _on_game_thread(lambda: _offer_reload(release.version, check_answer=True))
+        else:
+            _toast(f"Helios Tracker {release.tag} installed: it runs from the next game start")
+    except Exception as ex:  # noqa: BLE001 - offline, GitHub down, a bad release: next time
+        log(f"update check failed: {ex}")
+        if not auto or _answer_wanted[0]:
+            _dialog("Helios Tracker", f"Couldn't check for updates:\n{ex}", ["OK"], check_answer=True)
+    finally:
+        _update_busy[0], _answer_wanted[0] = False, False
+
+
+def _start_check(auto: bool) -> None:
+    if not updater.can_install():
+        return
+    if not auto:
+        if (installed := updater.pending()) is not None:
+            _offer_reload(installed)
+            return
+        _check_cancelled[0] = False  # (pressed again after a Cancel: the running check's answer wanted again)
+        _progress(_busy_text[0] if _update_busy[0] else "Checking for updates...")
+        _answer_wanted[0] = True
+    if _update_busy[0]:
+        return
+    _start_thread(_check_update, "Checking for updates...", auto)
+
+
+def _auto_update() -> None:
+    """At enable: a check once a day, when the option's on."""
+    if not updater.can_install() or not auto_update.value or time.time() < float(next_update_check.value or 0):
+        return
+    next_update_check.value = time.time() + UPDATE_EVERY
+    if (built := globals().get("mod")) is not None and hasattr(built, "save_settings"):  # (enable can come first)
+        built.save_settings()
+    _start_check(auto=True)
+
+
+auto_update = BoolOption(
+    "auto_update",
+    value=True,
+    display_name="Automatic Updates",
+    description=(
+        "Once a day, looks for a new version of Helios Tracker on GitHub and installs it: it runs from the next game"
+        " start. Off: only when you press Check for Updates."
+    ),
+    is_hidden=not updater.can_install(),
+)
+update_button = ButtonOption(
+    "Check for Updates",
+    on_press=lambda _: _start_check(auto=False),
+    description="Looks for a new version of Helios Tracker now, and asks before installing it.",
+    is_hidden=not updater.can_install(),
+)
+next_update_check = HiddenOption("next_update_check", 0.0)  # time.time() of the next automatic check
 
 # endregion
 # region Server lifecycle
@@ -184,6 +416,7 @@ _collector.on_page = lambda: _scan_game_files()
 def _on_enable() -> None:
     _collector.reset()
     _start()
+    _auto_update()
 
 
 def _on_disable() -> None:
@@ -213,6 +446,8 @@ _next = [0.0]
 @hook("WillowGame.WillowGameViewportClient:PostRender", Type.POST)
 def on_post_render(obj: UObject, args: WrappedStruct, ret: Any, func: BoundFunction) -> None:  # noqa: ARG001
     now = time.monotonic()
+    if _ui_queue or _toast_until[0]:
+        _drain_ui(now)
     if now < _next[0]:
         return
     _collector.rate = max(1.0, float(rate.value))
@@ -291,5 +526,5 @@ mod = build_mod(
     on_disable=_on_disable,
     hooks=[on_post_render, on_bink_movie, on_pickup_spawn, on_object_spawn, on_object_balance, on_object_destroyed,
            on_set_usability, on_change_usability],
-    options=[open_page, port, lan, rate],
+    options=[open_page, port, lan, rate, auto_update, update_button, next_update_check],
 )
