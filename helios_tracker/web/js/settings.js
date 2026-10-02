@@ -22,6 +22,7 @@ export function defaults() {
     view: {
       zoom: 0, // 0: never zoomed, fit the map
       follow: false, rotate: false,
+      followLow: 0, // following: the player that far below the free area's centre, % of its half-height (0-90: view.js)
       // Tilt (a checkbox, "threeD"): the map tilted (an orthographic camera), markers at their height (tilt3d, 0 = from
       // above). Right-drag / Shift+drag turns the map (spin, degrees, on top of its own turn - 2D or tilted: the compass
       // button / N turns it back) and, tilted, tilts it

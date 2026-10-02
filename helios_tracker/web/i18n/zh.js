@@ -96,6 +96,8 @@ export default {
   "who.player": "玩家",
   "who.host": "{name}（主機）",
   "view.rotate": "旋轉",
+  "view.followLow": "下移",
+  "view.followLowTip": "跟隨的玩家位置：0 % 為置中，數值越高越靠畫面下方 - 上方可見更多地圖",
   "view.threeD": "傾斜",
   "view.threeDTip": "傾斜地圖，標記位於其高度 (T)。右鍵拖曳或 Shift+拖曳：旋轉並傾斜",
   "view.coords": "座標",

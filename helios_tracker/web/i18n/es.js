@@ -96,6 +96,8 @@ export default {
   "who.player": "Jugador",
   "who.host": "{name} (anfitrión)",
   "view.rotate": "Girar",
+  "view.followLow": "Más abajo",
+  "view.followLowTip": "Dónde queda el jugador seguido: 0 % centrado, más lo baja en la pantalla - se ve más mapa por encima",
   "view.threeD": "Inclinar",
   "view.threeDTip": "Inclina el mapa, los marcadores a su altura (T). Arrastrar con clic derecho o Mayús+arrastrar: girarlo e inclinarlo",
   "view.coords": "Coordenadas",

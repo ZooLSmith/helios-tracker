@@ -96,6 +96,8 @@ export default {
   "who.player": "플레이어",
   "who.host": "{name} (호스트)",
   "view.rotate": "회전",
+  "view.followLow": "아래로",
+  "view.followLowTip": "따라가는 플레이어의 위치: 0 %는 가운데, 높일수록 화면 아래로 - 위쪽 지도가 더 많이 보입니다",
   "view.threeD": "기울이기",
   "view.threeDTip": "지도를 기울여 마커를 높이대로 표시 (T). 오른쪽 드래그 또는 Shift+드래그: 회전 및 기울이기",
   "view.coords": "좌표",

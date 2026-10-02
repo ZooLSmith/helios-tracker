@@ -100,6 +100,9 @@ export function fit(keepZoom = false) { // keepZoom: only re-centre (a level cha
   invalidate();
 }
 
+/** Who's Lower setting, % of the free area's half-height (0 = its centre). */
+export const followLow = () => Math.max(0, Math.min(90, +settings.view.followLow || 0));
+
 export function centerOnTarget() {
   const f = frame(), target = trackedPawn(); // the "Who" player, else the host
   if (!f || !target) return;
@@ -108,6 +111,7 @@ export function centerOnTarget() {
   // Eased towards the free area's centre (a panel opening glides the map over, no jump), by time -
   // in the frames the Movement setting draws anyway (never asks for more): "updates only" jumps
   const goal = freeCenter ? { x: freeCenter.x - W / 2, y: freeCenter.y - H / 2 } : { x: 0, y: 0 };
+  goal.y += (freeRect ? freeRect.h : H) / 2 * followLow() / 100; // (Who: Lower - more of the map seen above them)
   const now = performance.now(), dt = Math.min(0.5, (now - lastGlide) / 1000);
   lastGlide = now;
   const k = settings.view.motion ? 1 - Math.exp(-dt / GLIDE_S) : 1;

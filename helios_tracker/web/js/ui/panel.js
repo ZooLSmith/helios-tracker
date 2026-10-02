@@ -9,7 +9,7 @@ import { icon } from "../icons.js";
 import { invalidate } from "../scheduler.js";
 import { saveSettings, settings } from "../settings.js";
 import { S } from "../state.js";
-import { centerOnTarget, resetSpin, stopFollow } from "../view.js";
+import { centerOnTarget, followLow, resetSpin, stopFollow } from "../view.js";
 import { renderInspector } from "./inspector.js";
 import { renderLayers } from "./layers.js";
 import { renderMission } from "./mission.js";
@@ -39,11 +39,13 @@ export function renderTargets() { // "Who": the mod's player ("me"), then the ot
   box.value = target;
 }
 
-/** Rotate only means something while following: greyed out otherwise. */
+/** Rotate and Lower only mean something while following: grayed out otherwise. */
 export function syncRotate() {
-  const box = $("rotate");
-  box.disabled = !settings.view.follow;
-  box.closest("label").classList.toggle("off", box.disabled);
+  for (const id of ["rotate", "followLow"]) {
+    const el = $(id);
+    el.disabled = !settings.view.follow;
+    el.closest(".row, .cset").classList.toggle("off", el.disabled);
+  }
 }
 
 const TO_TOP_AFTER = 150; // px down a tab's content before the "back to top" button shows
@@ -90,6 +92,10 @@ export function initPanel() {
   bindBox("follow", "follow"); bindBox("rotate", "rotate"); bindBox("threeD", "threeD"); bindBox("coords-on", "coords");
   bindBox("smoothMap", "smoothMap");
   $("north").onclick = resetSpin; // (the compass on the map: shown once it's turned, or turning with the heading)
+  // Lower: where the followed player sits, down from the free area's centre (view.js centerOnTarget: eased there)
+  const lowBox = $("followLow"), showLow = () => { $("followLowVal").textContent = t("unit.percent", { n: followLow() }); };
+  lowBox.value = followLow(); showLow();
+  lowBox.oninput = () => { settings.view.followLow = +lowBox.value; saveSettings(); showLow(); invalidate(); };
   syncRotate();
   $("follow").addEventListener("change", syncRotate);
   renderMotion();

@@ -96,6 +96,8 @@ export default {
   "who.player": "Spieler",
   "who.host": "{name} (Host)",
   "view.rotate": "Drehen",
+  "view.followLow": "Tiefer",
+  "view.followLowTip": "Wo der verfolgte Spieler sitzt: 0 % mittig, höher setzt ihn weiter nach unten - mehr Karte über ihm sichtbar",
   "view.threeD": "Neigen",
   "view.threeDTip": "Neigt die Karte, Markierungen auf ihrer Höhe (T). Rechts ziehen oder Umschalt+Ziehen: drehen und neigen",
   "view.coords": "Koordinaten",

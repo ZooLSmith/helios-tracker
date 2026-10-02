@@ -96,6 +96,8 @@ export default {
   "who.player": "Giocatore",
   "who.host": "{name} (host)",
   "view.rotate": "Ruota",
+  "view.followLow": "Più in basso",
+  "view.followLowTip": "Dove sta il giocatore seguito: 0 % al centro, di più lo sposta più in basso sullo schermo - più mappa visibile sopra di lui",
   "view.threeD": "Inclina",
   "view.threeDTip": "Inclina la mappa, indicatori alla loro altezza (T). Trascina col destro o Maiusc+trascina: ruotarla e inclinarla",
   "view.coords": "Coordinate",

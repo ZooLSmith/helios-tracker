@@ -37,6 +37,7 @@ h3 { font-size: 11px; letter-spacing: .1em; color: var(--dim); margin: 12px 0 4p
 label.row { display: flex; align-items: center; gap: 8px; padding: 2px 0; cursor: pointer; }
 label.row input { margin: 0; accent-color: var(--accent); }
 label.row.off { opacity: .45; cursor: default; } /* a setting that does nothing right now (Rotate without Follow) */
+.cset.off { opacity: .45; } /* (a slider: Lower without Follow) */
 .sw { width: 12px; height: 12px; flex: none; display: flex; } /* the layer's marker shape (SVG) */
 .count { margin-left: auto; color: var(--dim); font-variant-numeric: tabular-nums; }
 /* Layers tab: categories, a row per layer, its settings panel under it */

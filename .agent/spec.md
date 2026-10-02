@@ -285,7 +285,9 @@ bottom-left message).
   game paused, the connection lost); the mission list's filters always unfolded (their chevron gone); the left panel
   keeps the top 45 %.
 - **Settings tab**, grouped by what it changes: **Who** (host / a player, saved by name) + Follow (F) / Rotate (R: map
-  turns to their heading; only while following, greyed out otherwise) - the Fit map button gone (the 0 key still fits it); **Map**: Colours (the theme's tint,
+  turns to their heading; only while following, greyed out otherwise) / Lower (a slider, `view.followLow`, 0-90 % of
+  the free area's half-height: the followed player that far below its centre - drive-mode style, more seen ahead with
+  Rotate; grayed out like Rotate) - the Fit map button gone (the 0 key still fits it); **Map**: Colours (the theme's tint,
   or the game's blue whatever the theme: `view.mapColors`), Smooth (a checkbox, `view.smoothMap`, on by default: the map
   images smoothed at any zoom; off, their texels as squares - zoomed out, thin lines dropped; the fog follows;
   better upscalers tried and dropped: design.md), Background / Map opacity (`look.js`; 0 % background: in OBS

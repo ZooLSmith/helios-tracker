@@ -96,6 +96,8 @@ export default {
   "who.player": "プレイヤー",
   "who.host": "{name}（ホスト）",
   "view.rotate": "回転",
+  "view.followLow": "下寄せ",
+  "view.followLowTip": "追従中のプレイヤーの位置: 0 % で中央、値を上げるほど画面の下へ - その上のマップがより広く見えます",
   "view.threeD": "傾き",
   "view.threeDTip": "マップを傾け、マーカーを高さに表示 (T)。右ドラッグか Shift+ドラッグ: 回転と傾き",
   "view.coords": "座標",

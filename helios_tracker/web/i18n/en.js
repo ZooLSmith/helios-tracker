@@ -97,6 +97,8 @@ export default {
   "who.player": "Player",
   "who.host": "{name} (host)",
   "view.rotate": "Rotate",
+  "view.followLow": "Lower",
+  "view.followLowTip": "Where the followed player sits: 0 % centered, higher puts them further down the screen - more of the map seen above them",
   "view.threeD": "Tilt",
   "view.threeDTip": "Tilt the map, markers at their height (T). Right-drag or Shift+drag: turn and tilt it",
   "view.coords": "Coordinates",

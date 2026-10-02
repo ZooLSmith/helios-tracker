@@ -96,6 +96,8 @@ export default {
   "who.player": "Joueur",
   "who.host": "{name} (hôte)",
   "view.rotate": "Pivoter",
+  "view.followLow": "Plus bas",
+  "view.followLowTip": "Où se trouve le joueur suivi : 0 % au centre, plus haut le place plus bas à l'écran - plus de carte visible au-dessus de lui",
   "view.threeD": "Inclinaison",
   "view.threeDTip": "Incline la carte, les marqueurs à leur hauteur (T). Clic droit glissé ou Maj+glisser : la tourner et l'incliner",
   "view.coords": "Coordonnées",
