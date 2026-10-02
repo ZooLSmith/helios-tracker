@@ -154,3 +154,22 @@ notes.md "The Pre-Sequel's rarity table"; a mission's objective order - notes.md
 - **Containers**: the page guessed an object's category from its name (chest, crate, box...): TPS's Hyperion ammo
   crate (`InteractiveObj_HyperionAmmo`, loot list AmmoCrateLoot_Hyp) came out "other". Anything with loot (the
   collector's `lootable`) is now a container, whatever its name (model.js objectCategory).
+- **Slam switches** (the user found one, 2026-10-02; the Pre-Sequel's packages scanned offline - tacmap.Package, every
+  export named like a switch / slam / lever / button, 2026-10-03): 5 definitions, one family -
+  GD_GravitySlamSwitch.InteractiveObjects.IO_GravitySlamSwitch (Moonsurface, Outlands, Stanton's Liver, the Wreck, R&D
+  Facility, Claptastic Voyage's right cluster), IO_GravitySlam_MoonShack (Moon), GD_EridianSlaughterData...
+  IO_Pet_GravitySlamSwitch (the Holodome), GD_Ma_RightBrainCluster_Data...IO_Ma_CorruptionSlamSwitch /
+  IO_Ma_AntiVirusNodeSlamSwitch (Claptastic Voyage). **What they share** (not their names): DefaultHitRegionDefinition
+  gd_co_motivationdata.HitRegion.HR_GravitySlammer (the slam is damage: bCanTakeDirectDamage, Allegiance
+  Allegiance_ExplosiveBarrel - BL2's fuse box's too), and a Behavior_CustomEvent GravitySlam_Used. Slammed, their
+  behaviours: ChangeAllegiance -> Allegiance_Player, ChangeUsability, ChangeInstanceDataSwitch Light_Switch, the
+  targetable unregistered - the state to read in game (the allegiance?), not probed yet. No Behavior_Explode: not drawn
+  as explosives. **Names**: two balances, DefaultDisplayName "Gravity Slam Switch" (BD_GravitySlamSwitch), "Corruption
+  Slam Switch" (BD_Ma_CorruptionSlamSwitch) - the collector reads them; the other three have none (a "?" guess, unless
+  placed with one). On the page: "other" (model.js objectCategory).
+- **The other switches** (both games): buttons, levers, switches on one template - GD_GenericSwitches.InteractiveObjects
+  (GenericButton, GenericButtonHyperion, GenericFloorLever, GenericSwitch; BL2's DLCs their own copies,
+  GD_<Dlc>_GenericSwitches) and the missions' own (ClaypigeonSwitch, Vent_Button, IO_BookLever...; BL2: ~45 in all).
+  What they share: Behavior_CustomEvent Enabled_Used / Locked_Used / EnabledGlowing_Used / LockedGlowing_Used (the
+  switch's state machine: enabled or locked, glowing or not). The engine's WillowInteractiveSwitch class: no placed
+  instance in either game (its default object only).

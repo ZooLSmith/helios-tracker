@@ -284,9 +284,14 @@ export function draw() {
   }
   ctx.globalAlpha = 1;
   // the bigger containers over the smaller ones where they overlap (and clicked: the last drawn, input.js hitAt): the
-  // big chests last, then the weapon chests, the others by how many items they spawn - the rest first, in their order
-  const bySize = [[], [], [], [], [], [], []];
-  for (const o of S.objects) { const t = chestTier(o); bySize[t ? 4 + t : Math.min(o.slots || 0, 4)].push(o); }
+  // big chests last, then the weapon chests, the others by how many items they spawn - the rest first, in their order;
+  // the jump pads over the objects without loot (a geyser is nearly always an oxygen source too, at the same spot: the
+  // pad's the one you'd look for - the user), under the containers
+  const bySize = [[], [], [], [], [], [], [], []];
+  for (const o of S.objects) {
+    const t = chestTier(o), slots = Math.min(o.slots || 0, 4);
+    bySize[o.cat === "jumppad" ? 1 : t ? 5 + t : slots ? slots + 1 : 0].push(o);
+  }
   for (const o of bySize.flat()) {
     if (offMap(o.z) || o.kd) continue; // (killed: an exploded barrel's wreck - collector.py _killed)
     const st = style(o.cat, o);
