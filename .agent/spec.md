@@ -22,8 +22,8 @@ bottom-left message).
   amounts.py), vehicles purple, loot = its item card's type icon (a rifle, a shield... the game's art, its white fill in the rarity's
   colour; a triangle until loaded / without one) - clicked, its item's card (stats, parts: the backpack's own record,
   by the item's address - dropped / picked up, the same item), objects = squares by category). Follow me (F), fit (0),
-  **Smooth movement** (on: interpolates between updates, redraws every frame; off: markers jump,
-  frames are only requested on a change - data, view, input - for weak / integrated GPUs), tooltip (by the cursor -
+  the Refresh rate (Settings, below: smooth interpolates between updates; "updates only" requests frames only on a
+  change - data, view, input - for weak / integrated GPUs), tooltip (by the cursor -
   below right, else below left / above right / above left: the first clear of the panels and the window's edges)
   (name, kind, health, distance, height difference), world X/Y by the cursor (above it; Settings Show coordinates or C, off by default). Wheel / pinch zoom,
   drag pan (following: a drag lets go of the player only past 40 px - input.js FOLLOW_LET_GO; not following: at once;
@@ -32,8 +32,8 @@ bottom-left message).
   Settings remembered in localStorage. Areas without a map: a 10 m grid around the player.
 - **Player inspector**: "Players" list in the panel (or click a player's marker) opens a drawer with
   Gear / Backpack / Skills tabs; items show the game's localized weapon type / item name and
-  manufacturer, and expand to stats, rarity (name + `RarityLevel`; names confirmed in game, colours
-  still ours - the game's table and the gear-only loot filter are in the backlog), parts (labelled by role, localized names where the game has them)
+  manufacturer, and expand to stats, rarity (name + `RarityLevel`; names ours, confirmed in game; colours the
+  game's, sent with the level - notes "Rarity: the game's"), parts (labelled by role, localized names where the game has them)
   and class. Map objects use the game's display name (balance `DefaultDisplayName`). The local player is
   labelled "Host" (the player running the tracker). Missing data (co-op client: other players'
   inventories / skill trees) shows a reason instead.
@@ -99,7 +99,8 @@ bottom-left message).
   selected player; a 5th goal, **Finish first**: picked-up missions, the furthest below the player
   first. GameStage / bGameStageLocked: two property reads per not-done mission per full pass.
 - **Shops** (`shops.py`, see notes "Vending machines": each machine has its own stock, the timer is the game's):
-  the `shops` payload (the level's machines: name = the vending menu's title, the game's; kind; position; stock
+  the `shops` payload (the level's machines: name = what the game's map shows on hover, else the vending menu's
+  title - the game's either way; kind; position; stock
   and item of the day as inspector item records, "v" = the machine's price, `GetSellingPriceForInventory`) when it
   changes, `shoptimer` ({left, rate, paused?}: `WorldInfo.Game`, else the replicated GRI) when the page's countdown
   would be off by more than 1 s, or the game pauses / resumes (`Pauser`: its timer stands still, the page's holds; a
@@ -115,8 +116,9 @@ bottom-left message).
   "For sale" row links back to its tab. A machine's panel (clicked on the map too) shows its stock itself, as in the
   list (`machineStockHtml`; the item of the day's heading has the restock countdown at its right, like the game's
   vending screen), its loot pools ("Can contain": technical there) folded at the bottom like an item's
-  parts. Names: the vending menu's localized titles (`VendingMachineExGFxMovie` defaults:
-  `WeaponsShopTitle`... by `ShopType` - the pairing inferred from the names; not read: "Vending Machine ?"). Crazy Earl left out (no stock until opened, built per player: only his marker).
+  parts. Names: the machine's `InteractiveObjectDefinition.StatusMenuMapInfoBoxHeader` (the map's hover box), else
+  the vending menu's localized titles (`VendingMachineExGFxMovie` defaults: `WeaponsShopTitle`... by `ShopType` - the
+  pairing inferred from the names; the Pre-Sequel's still say BL2's "Dr. Zed's Meds"); neither: "Vending Machine ?". Crazy Earl left out (no stock until opened, built per player: only his marker).
 - **Info tab sections** (Mission, Shops, Players - meant to hold more of these panes): a heading row (fold chevron, title,
   what fits beside it - Shops' countdown; Players' count, folded only -, a small "All" link opening its drawer)
   whose click folds the section (`ui.closedInfo`,
@@ -241,7 +243,7 @@ bottom-left message).
   turning their layers on / off, they fold): **Gear** (a layer per rarity; `misc` = rarity 0 /
   unknown), **Pickups** (not gear, a layer per kind: Ammo, Cash, Eridium, Health, Mission items (WillowMissionItem: ECHO logs, objective items; the objectives' green), Other - the collector's
   `pk`, from the item definition's inventory card `Presentation`, resolved once per definition:
-  see notes; eridium not probed yet, so Other; and **Shrines** ("Moxxtails" in the Pre-Sequel; the layer id `buff`): interactive objects you use for a bonus for a while - the
+  see notes; and **Shrines** ("Moxxtails" in the Pre-Sequel; the layer id `buff`): interactive objects you use for a bonus for a while - the
   Pre-Sequel's Moxxtails, BL2's shrines: their behaviours activate a skill and none hands their own loot out, and they spawn an item of
   their own (the Moxxtails' drink) or have loot (a leftover chest list: other skill objects have neither), a pink disc;
   never containers, whatever loot list their balance has; once on sale, a Moxxtail's drink - a pickup you pay for, its
@@ -292,7 +294,7 @@ bottom-left message).
   lifted by their height above the map's plane - the tracked player's height, the tooltips' "x m above / below" origin
   (nobody tracked: the level's typical ground, the median height of its objects) - with a stem down to it; quest areas as ellipses on the plane; toScreen(mx, my, h), toMap on the plane: pan / zoom / clicks
   / coordinates / the fog unchanged. The floors / walls from the level's collision were tried and parked on the
-  `experimental/map_3d` branch: design.md), Coordinates (C: was "Show coordinates"); **Panels**: Theme (ECHO-2 - the
+  `experimental/map_3d` branch, private: design.md), Coordinates (C: was "Show coordinates"); **Panels**: Theme (ECHO-2 - the
   default, id "default" -, Hyperion, Vladof, Dahl, Eridian:
   `css/themes.css` sets base.css's tokens under `<html data-theme>`; the canvas' colours read again on a change), their
   opacity, their size 70-200 %; **Refresh rate** (was "Movement": the page's redraws - markers, bars, their patterns):
@@ -305,8 +307,8 @@ bottom-left message).
   layer's settings), `view`, `ui` (incl. `drawer`: what the drawer shows); validated against the defaults on load (unknown / invalid values
   dropped), the old one-key-per-setting storage migrated once.
 - **Distances**: 100 uu per metre (1 uu = 1 cm), measured (`tools/probes/probe_scale.py`).
-- **Translations**: `web/i18n/<code>.js`, one catalog per language (en, fr; listed in
-  `i18n/index.js`); static HTML uses
+- **Translations**: `web/i18n/<code>.js`, one catalog per language (nine: en, de, es, fr, it, ja, ko, ru, zh; listed
+  in `i18n/index.js`); static HTML uses
   `data-i18n` / `data-i18n-title`, JS uses `t("key", {vars})` (English fallback, numbers formatted
   per language). Language: browser's, or the Language menu. Python sends codes / raw numbers, never
   UI text; game strings (item, skill, level names) stay as the game gives them.
@@ -337,8 +339,8 @@ bottom-left message).
   Texture2D top mips (raw DXT - the page decodes them). ~0.3-0.5 s per level, cached.
 - `inspector.py` (game thread, every 2 s, only sent on change): each player pawn's gear
   (`InvManager.InventoryChain` / `ItemChain`), backpack (`InvManager.Backpack`) and skills
-  (`pawn.Controller.PlayerSkillTree`); falls back to `pawn.Weapon` when there's no InvManager.
-  Unverified in game - `tools/probes/probe_inventory.py` checks what's really there (solo / host / client).
+  (`pawn.Controller.PlayerSkillTree`); falls back to `pawn.Weapon` when there's no InvManager. Seen in game
+  solo, as a co-op host and client (what each has: notes "Player inspection, co-op client / host").
 - The collector does nothing but follow the level while no page is connected (`Hub.clients`).
 - `script.py`: an optional PowerShell script runs while the server runs (e.g. a tunnel for sharing the map on
   stream): `autoexec.ps1` in the data folder (`paths.DATA`: `sdk_mods/.helios_tracker/` beside a `.sdkmod` - the
@@ -346,7 +348,7 @@ bottom-left message).
   `HELIOS_PORT`, runs hidden, and its output goes to `autoexec.log` beside it. It sits in a kill-on-close job object: server stop, port / LAN
   restart, mod disable, or the game exiting ends it along with its children.
 - `updater.py`: updates from the public repo's latest GitHub release (tag `vX.Y.Z`, `helios_tracker.sdkmod`
-  attached; publishing them - CI or a script - isn't set up yet). **Only from a `.sdkmod`** (`can_install`): a folder
+  attached: `tools/release.py`, see Dev). **Only from a `.sdkmod`** (`can_install`): a folder
   install - the dev junction - never checks, its update options hidden. **Automatic Updates** (off by default; on: a check once a
   day at enable, `next_update_check` a hidden option; with a dev source - `update_source.txt` - at every enable): a newer one downloaded, verified, swapped in and reloaded at
   once (`_reload_soon`: a one-shot hook on `WillowGameViewportClient:Tick`, not from our PostRender hook - the reload
@@ -421,23 +423,27 @@ the mod's options in `sdk_mods/settings/helios_tracker.json` (mods_base's); the 
 ```
 index.html        markup only (data-i18n attributes); <script type="module"> calls main.js start()
 css/              base.css (colours, canvas, tooltip) · panel.css (left panel) · drawer.css (inspector)
-i18n/             en.js, fr.js (export default {key: text}) · index.js lists them
+                  · themes.css (the themes' tokens)
+img/              favicon.png · patterns/ (the bars' patterns)
+i18n/             en.js, fr.js... (export default {key: text}) · index.js lists them
 js/main.js        start(): every DOM hookup, in order
 js/state.js       S (the one state object) + queries: frame, pawnPos, targetPawn, findPlayer, findDetail
 js/settings.js    what's remembered (one object, validated, legacy migration)
-js/i18n.js        t(), num(), applyI18n(), setLanguage()
+js/i18n.js        t(), num(), applyI18n(), setLanguage()    js/dom.js  $, esc... (small DOM / HTML helpers)
 js/geo.js         world <-> map, yaw (pure)        js/dxt.js    texture decoding (pure)
 js/model.js       LAYERS / LAYER_GROUPS / LAYER_SETTINGS, rarity, names, object categories (pure)
-js/data.js        SSE /events -> S (onLevel, onState, onObjects, onPlayers, onMissions)
-js/scheduler.js   invalidate(): frame requests per the Movement setting
-js/view.js        canvas, W/H, toScreen / toMap, fit, zoom, follow
+js/data.js        SSE /events -> S (onLevel, onState, onObjects, onPlayers, onMissions...)
+js/scheduler.js   invalidate(): frame requests per the Refresh rate setting
+js/view.js        canvas, W/H, toScreen / toMap, fit, zoom, follow, turning, the compass
 js/draw.js        one frame (markers, S.hits, layer counts)  js/shapes.js  marker shapes, labels, COLORS
 js/input.js       wheel / drag / pinch / click / keys, hitAt   js/tooltip.js  hover tooltip, coordinates
+js/look.js        see-through / size settings, tokenColor    js/awake.js  the screen kept on (phones)
 js/missions.js    the mission log: states, the tree, objective states (pure)
 js/icons.js       the icons: inline SVGs (currentColor), icon(name) - no emoji / glyphs as icons
-js/ui/            panel (tabs, Settings), layers (Layers tab), status, mission (Info panel), missionlog
-                  (drawer: tree, details, back history), players, inspector, detail, items, skills,
-                  shops (Info section + drawer: the vending machines), drawer (what the drawer shows:
+js/ui/            panel (tabs, Settings), layers (Layers tab), status, mission (Info panel), cutscene (Info),
+                  missionlog (drawer: tree, details, back history), players, playerinfo (the Info tab),
+                  inspector, detail, items, skills, odds (loot odds), shops (Info section + drawer: the
+                  vending machines), hovertip (the HTML elements' tooltip), drawer (what the drawer shows:
                   remembered, restored on a refresh)
 ```
 
@@ -472,7 +478,8 @@ image placed at its shape's bounds in movie px; yaw 0 = up, clockwise
 
 ## Dev
 
-- `python tools/offline_check.py` covers it: real map extraction (Sanctuary, Southern Shelf), a
+- `python tools/offline_check.py` covers it: real map extraction (Sanctuary, Southern Shelf; the Pre-Sequel's
+  ComFacility with `project.json`'s `tps`), a
   fake level load through the collector, the server (page, image, SSE), and the page's JS under
   Node (DXT5 decode vs a reference decoder, world->map vs the probe samples).
 - In game: `pyexec helios_tracker/reload.py`; page edits only need a browser refresh.

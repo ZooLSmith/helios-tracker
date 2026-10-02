@@ -116,7 +116,7 @@ the site's origin: a crafted link can show anyone's content under `helios-tracke
 there, but it's the user's name). The fix: the page's code from the site itself, per mod version - each release
 publishes its `web/` to the `documentation` branch (`live/<version>/`), the mod answers its version (a small
 `/version` reply, with CORS), the shell loads that version's page from the site; only data comes through the tunnel.
-It fits the release tool (not written yet). Doesn't fix Cloudflare quick tunnels' ~30 s warm-up (in the data).
+A step for `tools/release.py` (it doesn't publish `web/` yet). Doesn't fix Cloudflare quick tunnels' ~30 s warm-up (in the data).
 
 ## Shop prices (the vending machines pane)
 
@@ -132,7 +132,7 @@ day's markup vs a normal item. To go with the look rework.
 ## A 3D map (an optional view)
 
 **Parked** (2026-09-26, the user: "looks grim"): the floors and walls built from the level's collision - extractor,
-worker, WebGL, see-through circle - are on the `experimental/map_3d` branch (its design.md has what was built and
+worker, WebGL, see-through circle - are on the `experimental/map_3d` branch (private: `origin` only; its design.md has what was built and
 learnt). Collision isn't the level the player sees (invisible blockers, visible walls with no collision of their own,
 clutter): each fix was another heuristic. The way on, if ever: the walls from the **visible** meshes' own geometry,
 collision kept for the walkable floors and reachability. On master stays the Tilt checkbox (the flat map tilted,
@@ -182,6 +182,3 @@ by the frames like the rest (the Refresh rate setting), redrawn only when someth
   is in game isn't known; reachability drops it anyway).
 - The Worker's reachability and simplification, and the transfer format; the WebGL renderer (hand-written or a copy of
   a small library bundled with the page).
-- Side finding for the 2D map: on 4 of the 5 levels with a `NorthOffsetInDegreesClockwise` the map image fits the
-  world unrotated, while geo.js rotates by it (notes.md, the transform section) - to confirm in game (the rotated
-  maps' probe_navwalk run does it) before changing geo.js.

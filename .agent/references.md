@@ -14,8 +14,8 @@
     `save_options`, `console_mod_menu`, `willow2_mod_menu`, `legacy_compat`, …
   - `.stubs\` — type stubs for `unrealsdk` / `pyunrealsdk` (point the IDE at this + `sdk_mods`)
   - `settings\` — per-mod JSON settings (saved option values)
-  - `ActionSkillCountdown\` — a legacy-style mod that draws text on the HUD canvas; good reference
-    for the `PostRender` + `Canvas.DrawText` technique.
+  - `.helios_tracker\` — the mod's data folder beside its `.sdkmod`; `.helios_tracker_dev` — the dev junction,
+    parked by `tools/use_sdkmod.bat`
 
 ## Installed SDK
 
@@ -89,14 +89,13 @@ build_mod()  # picks up hooks/options/keybinds defined in the module + metadata 
 - `get_pc()` → local `WillowPlayerController`.
 - Keep-alive for constructed objects: `mods_base.ObjectFlags.KEEP_ALIVE`.
 
-## HUD drawing notes
+## Canvas drawing (dev overlays only: the mod draws nothing in game)
 
-- BL2's HUD is Scaleform (GFx); mods typically overlay on the UE3 `Canvas` from `PostRender`.
+- BL2's HUD is Scaleform (GFx); an overlay draws on the UE3 `Canvas` from `PostRender` (AGENTS.md "Dev overlays").
 - `Canvas`: `SetPos`, `SetDrawColorStruct((b, g, r, a))`, `DrawText(text, cr, xscale, yscale)`,
   `DrawTile(Texture2D, XL, YL, U, V, UL, VL)`, `SizeX/SizeY`, `Font`.
 - Fonts seen used: `UI_Fonts.Font_Willowbody_18pt`, `UI_Fonts.Font_Willowhead_8pt`,
   `UI_Fonts.Font_Hud_Medium`, `EngineFonts.SmallFont`, `EngineFonts.TinyFont`.
-- Hide overlay when: no HUD movie (`pc.GetHUDMovie() is None`), menus open, in FFYL, in vehicle.
 
 ## Game data dumps (Gibbed.Borderlands2)
 

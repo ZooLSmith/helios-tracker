@@ -41,34 +41,13 @@ Least squares against world X/Y:
 => `movie x = (Y - c.Y) / 128`, `movie y = -(X - c.X) / 128`; 128 = volume UnrealUnitsPerPixel (32)
 x 4 (matches the movie's Mult4 rescale). The formula never reads the minimap.
 
-**Non-zero `NorthOffsetInDegreesClockwise` - it doesn't turn the map: geo.js no longer uses it** (2026-09-25: the
-user saw the markers all wrong in The Dust with the rotation; fixed - confirmed by the user on the page, The Dust). **What it's for**: the only script reading it is
-`StatusMenuMapGFxObject.Init`, which copies it into the map screen's `MapYawOffset` - it turns the pause menu's map
-view (cosmetic; the image stays world-aligned). **The page does the same** (2026-09-25, geo.js `mapTurn` -> view.js /
-draw.js `S.view.rot`, never the positions): S.view.rot = +north, i.e. the image turns **counterclockwise** by the
-offset on screen - the sign checked against the game's map screen in The Dust (the first guess, clockwise, was
-backwards). Rotate-with-heading, while following, still overrides it. The evidence (offline: the nav
-mesh fitted onto the map image at every angle, see "Level geometry for a 3D map"): 5 base game levels set one -
-Grass_Cliffs_P 180, HyperionCity_P 325, Luckys_P -90, PandoraPark_P 170, Interlude_P 90. On the first four the image
-fits the world **unrotated** (97-98 % of the nav mesh on drawn pixels; every other angle <= 72 %), while geo.js rotates
-positions by it. Interlude_P fits best at 270-285 (92 % vs 73 % unrotated) - unclear. **The Dust in game**
-(probe_navwalk 2026-09-25, runtime centre 8288, 13659, north 90, upp 32; tools/probes/probe_navwalk_thedust.txt): with the
-true centre the page's rotation (+90) is the worst fit (40.8 % of the nav mesh on drawn pixels) vs unrotated 68 %,
--90 71.5 %, best single angle 73 % (315) - no clean fit on this map (Sanctuary: 98 %), part of its nav mesh isn't
-drawn; the movie places its image unrotated (no rotation in PlaceObject / the bitmap fill). 26 positions on foot
-all on player collision or terrain; its streaming like Southern Shelf's (all Kismet loaded, `_Px` not). To confirm in game before
-changing geo.js: tools/probes/probe_navwalk.py + check_navwalk.py compare both with the runtime centre (the page rotates
-clockwise by it - unverified), or several map images (`_I2`...; handled, unverified).
-
-## Script API found in the packages (names only, verify in game)
-
-- Pawn: `GetHealth`, `GetMaxHealth`, `IsEnemy`, `IsFriendly`, `GetOpinion`, `GetTargetName`,
-  `bIsDead`, `Allegiance`; `WillowAIPawn.AIClass`.
-- `WillowPickup.InventoryRarityLevel` (int), `bPickupable`, `.Inventory`;
-  `WillowInventory.GetShortHumanReadableName`, `GetRarityLevel`, `RarityLevel`.
-- `WillowInteractiveObject`: `GetHumanReadableName`, `GetTargetName`, `GetHealth`, `Allegiance`.
-- `LevelDependencyList.GetFriendlyLevelNameFromMapName` (localized level names - not used yet).
-- `StatusMenuMapGFxObject.PlaceCustomObjective` (map screen waypoint - possible page -> game feature).
+**`NorthOffsetInDegreesClockwise` doesn't move the positions**: the map image fits the world unrotated (offline, the
+nav mesh fitted onto the image at every angle: Grass_Cliffs_P 180, HyperionCity_P 325, Luckys_P -90, PandoraPark_P 170
+all 97-98 % unrotated, every other angle <= 72 %; Interlude_P 90 unclear - best at 270-285). Rotating positions by it put
+the markers all wrong in The Dust (the user, 2026-09-25; fixed, confirmed there). The only script reading it,
+`StatusMenuMapGFxObject.Init`, copies it into the map screen's `MapYawOffset`: it turns the whole view (cosmetic). The
+page does the same (geo.js `mapTurn` -> `S.view.rot`, never the positions): the image turns **counterclockwise** by it
+on screen (the sign checked against the game's map screen in The Dust). Rotate-with-heading, while following, overrides it.
 
 ## World scale (probe_scale.py, in game)
 
@@ -81,7 +60,7 @@ usual 50 / 2 cm, which made heights look doubled). The page and the inspector us
 
 Localized properties hold the game's text in its current language at runtime (on disk:
 `WillowGame/Localization/<LANG>/*.<lang>`; the INT files mostly hold overrides, English is in the
-packages). Used by the mod (unverified in game):
+packages). Used by the mod:
 
 | Technical | Display text |
 |---|---|
@@ -253,36 +232,22 @@ co-op yet):
   .StationOverride` (tools/probes/probe_quests.txt: a "Go to Sanctuary" step -> Sanctuary, a later one ->
   IceEast; mostly None).
 - `pc.GetLevelForMission(mission)` -> a map name: the tracked Name Game -> `Ice_P` (where it's done;
-  its TravelStation is Sanctuary, its giver's). Seen once; for ready / not started not tried.
-- **Game crash, 2026-09-23 22:28** (Tundra Express, ~8 min after a reload, right after an ECHO log
-  that starts a mission was found): access violation writing 0x0 at `Borderlands2.exe+0x2582` (the
-  engine's own fatal-error crash), called from Python in a hook (stack: unrealsdk hook > pyunrealsdk >
-  python > pyunrealsdk > game). No Python error logged. The new per-pass function calls were
-  `pc.GetLevelForMission` (every active mission, every pass incl. the 1 s fast one) and
-  `tracker.IsMissionObjectiveComplete`: both removed (not proven the cause) - where to go now comes
-  from station overrides only, objective dependencies from the log's progress data. It crashed again
-  (22:34, same game stack, ~2.5 min after a reload without those two): not them. Still called:
-  `GetFriendlyLevelNameFromMapName` (once per map); the area level (GetGameStageFromRegion, a few per
-  full pass: removed, then back - innocent).
-  Next: faulthandler (util.start_log) writes the Python traceback of a native crash to
-  `helios_crash.log` - the line that called into the game.
-  **Found (3rd crash, 22:41, helios_crash.log):** `_publish_state` > `_pawn_info` > `call_str` - the
-  pawn name functions (`GetTargetName` / `GetMapDisplayName` / `GetTransformedName`, old code) on some
-  pawn in Tundra Express. Now: the balance's `PlayThroughs[].DisplayName` read as a property
-  (collector.pawn_display_name; the names seen right in game, user 2026-09-23). The two calls removed
-  after the 1st crash were innocent.
-  Rule: prefer property reads; a new function call in a loop = a crash risk, keep them rare and cached.
+  its TravelStation is Sanctuary, its giver's). Seen once; no longer called (innocent of the crash below, but
+  not needed: station overrides give where to go).
+- **The pawn name functions crash the game** (2026-09-23, Tundra Express, 3 crashes: an access violation in the
+  engine's own fatal-error code, called from a Python hook; found through faulthandler's `helios_crash.log`):
+  `GetTargetName` / `GetMapDisplayName` / `GetTransformedName` on some pawn. Now the balance's
+  `PlayThroughs[].DisplayName`, read as a property (collector.pawn_display_name). Rule: prefer property reads; a
+  new function call in a loop = a crash risk, keep them rare and cached.
 - The collector sends, for active missions, where to go (`go`): the step's objective / step station
-  override (GetLevelForMission no longer: see the crash below); the page's whereTo: that (active; none:
-  no place shown), the turn-in station (ready), its own station (not picked up: where to grab it).
-- Not tried: `FindActiveStationsForLevel`.
+  override; the page's whereTo: that (active; none: no place shown), the turn-in station (ready), its own
+  station (not picked up: where to grab it).
 - **The area's level** (probe_region.py, Tundra Express, player 14): no "current region" anywhere (pc,
   pawn, world / game / replication info). `pc.RegionGameStages[]` = {RegionDef, GameStage,
   PlaythroughIdx} (83: every region seen); `pc.GetGameStageFromRegion(region)` (-1: not visited). This
   map's 5 missions all use `GD_GameStages.Zone1.Tundra` -> 13; the enemies here 12-15 (mostly 14).
   Shown under the level's name ("Area level 13": the stages of this map's missions'
-  `GameStageRegion`s, `lv` [min, max] in the level payload, after each full mission pass). Removed
-  during the crash hunt, back once the crash was found elsewhere (the pawn name functions).
+  `GameStageRegion`s, `lv` [min, max] in the level payload, after each full mission pass).
 
 ## Mission level (probe_mission_level.py, in game, 2026-09-23)
 
@@ -304,8 +269,7 @@ co-op yet):
   picked up (its share of the player's level shrinks as they level); a not-picked-up one keeps
   following its region (up to the region's max). Not verified: whether the PLAYER's level changes a
   locked mission's reward (only the mission's level was swept) - the co-op host comparison would.
-- Functions: `MissionDefinition.GetExpLevel / GetGameStage / GetExpectedGameStage`,
-  `pc.GetGameStageFromRegion(region)`, `pc.GetLevelForMission(mission)` (a map name?) - not called yet.
+- Not called: `MissionDefinition.GetExpLevel / GetGameStage / GetExpectedGameStage`.
 
 ## Vending machines (offline, WillowGame.upk / Startup.upk + probe_vending.py in game, 2026-09-25)
 
@@ -400,10 +364,7 @@ What "Can contain" could turn into percentages - read as properties only:
 - **Open (the user, 2026-09-25): does it hold for the DLCs and the Pre-Sequel?** The DLCs use the same classes and
   structures (their own `GD_<DLC>_Itempools` / pools / weights - the probe reads whatever a chest points to, but their
   weights may be other objects than `GD_Balance.Weighting.*`, and seasonal / Pearl pools may be gated): to check with
-  a DLC chest (a Pirate's Booty / Dragon Keep area). The Pre-Sequel is another game on the same engine (the SDK's
-  willow2 side covers it) - the mod as a whole isn't known to run there; a question for the whole mod, not just this.
-  2026-09-26: the manifest now lists it (`supported_games = ["BL2", "TPS"]`) to try it as-is; `python tools/link_mod.py tps`
-  links it there (project.json's `tps`). What was seen there: `.agent/presequel.md`.
+  a DLC chest (a Pirate's Booty / Dragon Keep area). The Pre-Sequel's pools: not checked (`.agent/presequel.md`).
 
 ## Pickup amounts (probe_pickup_amounts*.py, in game, 2026-09-26)
 
@@ -433,7 +394,7 @@ worked out from the item definition by the attribute system, all of it readable 
 - Not seen yet: eridium, health (the collector tries eridium the same way; health left out - its amount may be a share
   of max health). The picker's own bonuses (skills, relics) aren't counted.
 
-## Level geometry for a 3D map (offline, the level's packages, 2026-09-25)
+## Level geometry for a 3D map (offline, the level's packages, 2026-09-25 - parked: design.md)
 
 What a level's `<Map>_*.upk` packages hold (the persistent one + every sublevel: `_Dynamic`, `_Freighter`, `_Light`...;
 Southern Shelf's `_P` alone: 404 `StaticMesh`, 4131 `StaticMeshComponent`, 11 `Terrain`, 355 `RB_BodySetup`, 135
@@ -680,67 +641,9 @@ Southern Shelf's `_P` alone: 404 `StaticMesh`, 4131 `StaticMeshComponent`, 11 `T
   `references.gibbed_oz`'s table. A code from the page (the Pre-Sequel's, `BLOZ`) pasted into Gibbed's editor: accepted (the user, 2026-09-26);
   BL2's goes through the same code (its codes checked against Gibbed's table above).
 
-## Backlog
+## More findings
 
-- **Game-thread spikes, not reproduced** (the log, co-op host with 3 others, Wildlife Exploitation Preserve, 2026-09-30):
-  "players" (every 2 s, usually 10-18 ms) once 557 ms, "state.pickups" up to 135 ms, "state.pawns" 102 ms, "scan
-  objects" 132 ms - none in two 20 s runs of tools/probes/probe_profile.py (state and players both wrapped). A guess, not
-  checked: item cards built when loot rains (ground_item, ITEMS_PER_UPDATE), or Python's GC. Fixed meanwhile: failed
-  property lookups cached (util._prop - the Pre-Sequel's OxygenPool looked up in BL2 every update, 12 % of the state
-  update), the pickups read through reader(): the state update 6.0 -> 4.8 ms on average (174 updates / 20 s).
-
-- **The Electrical Fuse Box is a switch, not an explosive** (tools/probes/probe_io.txt, Wildlife Exploitation Preserve,
-  2026-09-30; GD_ElectricFence.InteractiveObjects.IO_ElectricalFenceBox, BL2) - TO FIX: the page draws it as a shock
-  explosive (inspector.py explosion_info: any Behavior_Explode). Its definition's sequence Active: OnUsedBy (pressed)
-  and OnHealthDepleted (shot out) run the same chain - Behavior_CustomEvent (the fence off), ChangeUsability,
-  ChangeAllegiance, ChangeInstanceDataSwitch x2; OnHealthDepleted puts a Behavior_Explode first whose DamageFormula,
-  DamageRadiusFormula and MomentumFormula are all 0 (constant 0, no attribute / initialization): an effect only
-  (Explosion_ElectricalBox, DmgType_Shock_Impact_NoDoT). Its definition: bCanBeKilled False, Allegiance
-  Allegiance_ExplosiveBarrel (the barrels' own: not a test either), MaxHealth from Init_BaseInteractiveObjectHealth.
-  Shot out it reads Health 0 (max 203 here) and the page drops it as killed ("kd"), though it stays. The likely
-  rule: an explosive's Behavior_Explode does damage (DamageFormula / DamageRadiusFormula not 0) - check a barrel's
-  formulas first (the Pre-Sequel's: DamageFormula / DamageRadiusFormula set). Then a category for switches?
-
-- **Mission log cost** (user, 2026-09-23: 20-40 ms often) - (1) and (3) DONE, to measure in game; (2) if still needed:
-  the full pass reads ~10 properties for each of ~290 entries in one tick. Plan: (1) read per entry
-  only what can change - not started: status + bHeardKickoff; done: status only (progress final);
-  a locked level once; full reads only for active ones (the fast pass has them anyway); (2) spread
-  the pass over ticks (~50 entries each); (3) split the payload: static definitions once, the live
-  part on change (less JSON on the game thread). Measure with the collector's slow-task timings.
-
-- **Best now: first version DONE** (2026-09-23: ranking + XP share). Still open: mission level vs the
-  player's (XP drops when outlevelled: "do it soon"), item reward rarity, other currencies (eridium
-  / seraph), best area (rewards summed per area), unlock value.
-
-- **Background / map opacity: DONE** (2026-09-24, js/look.js): Settings tab "See-through" -
-  Background (the canvas fill `COLORS.bg` + the page's `--page-bg`), Map (the image) 0-100 %,
-  Panels (`--panel`: the panel, the drawer, the tooltips, the status) 20-100 %. No URL parameters
-  (dropped, user: OBS's "Interact" window reaches the Settings tab). OBS renders a transparent page
-  see-through - a normal browser tab never does.
-  The map textures are cut out already (checked on the game files, DXT5 alpha): Southern Shelf 75 %
-  / Sanctuary 55 % fully transparent (outside the playable area), 4-7 % partial (the edges), and no
-  baked background in the opaque part (none near #0b1116, none very dark; average #2d5365, cyan):
-  background 0 % leaves only the level's shape.
-
-- **Loot rarity only for real gear** (user, 2026-09-23): rarity colours, the bigger marker for high
-  rarity, and the loot filter must only apply to pickups that go into the inventory (weapons,
-  shields, grenade mods, class mods, relics). ECHO logs, ammo, cash, health, mission items etc. get a
-  neutral style and aren't filtered by rarity. Classify by the pickup's inventory class (as the
-  inspector's `ITEM_KINDS` does: `WillowWeapon` / `WillowShield` / `WillowGrenadeMod` /
-  `WillowClassMod` / `WillowArtifact` vs `WillowUsableItem` / `WillowMissionItem`), and check the
-  real `RarityLevel` values of each tier in game (the page's tier names were confirmed correct by the
-  user for inventory items, 2026-09-23; the colours are still ours).
-  **Use the game's own rarity colours** (user): `GlobalsDefinition.RarityLevelColors` (array of
-  `RarityLevelColor`: `RarityRating` + colour, probably a RarityLevel range) - send them with the
-  level payload, colour loot / items from it, drop the page's guessed palette. Also
-  `GlobalsDefinition.MissionItemRarityLevel` (mission items' fixed rarity level: likely why ECHO logs
-  looked "legendary"), and `ReceivedAmmoMessage.AmmoFakedRarityLevelForItemColor` /
-  `ReceivedCreditsMessage.CreditsFakedRarityLevelForItemColor`. Probe the struct fields first.
-
-- **Item card stats from the game**: `ItemCardModifierStats` / `ReplicatedWeaponCardModifierValues`
-  -> `AttributePresentationDefinition` text + value, instead of the hand-picked stat list. Probe first.
-
-- **Player inspection, co-op client: DONE** (seen in game, tools/probes/probe_coop.py, 2026-09-23). The
+- **Player inspection, co-op client** (seen in game, tools/probes/probe_coop.py, 2026-09-23). The
   others have no controller and no `InvManager` on a client. Replicated anyway: their pawn's
   `Weapon`, `HolsteredWeaponSlots` and `EquippedItems` (shield, grenade, class mod, relic: the Gear
   tab shows them), their player info's `ExpLevel`, `ClassModNamePart`, `bClassModIsBuffingTeam*`,
@@ -749,7 +652,7 @@ Southern Shelf's `_P` alone: 404 `StaticMesh`, 4131 `StaticMeshComponent`, 11 `T
   `NextActionSkillActiveAbilityTime` (= `...CooldownAbilityTime`) is the world time of their last
   action skill use (tools/probes/probe_coop_skill.py: jumps to the current time on use, nothing when ready
   again): the Info tab shows "last used N s ago".
-- **Player inspection, co-op host: DONE** (seen in game, 2026-09-23). The host has every player's
+- **Player inspection, co-op host** (seen in game, 2026-09-23). The host has every player's
   controller and inventory manager: skill tree, XP (ExpPool), equipped gear, cooldowns, passives.
   Not their backpack: `Backpack` empty and no item objects of theirs besides the equipped ones
   (tools/probes/probe_backpack.py); their `BackpackInventoryCount` isn't their count (24 one session, 0 then
@@ -799,10 +702,6 @@ Southern Shelf's `_P` alone: 404 `StaticMesh`, 4131 `StaticMeshComponent`, 11 `T
   cash). Still unnamed: 502 (14: white), 503 (15: purple `#9132c8`), 504 (16: cyan, as pearl's 500).
   The wiki's Gemstone (Dragon Keep: its balances are grade `_4_`) and Cursed (Pirate's Booty) tiers
   may be among those three: not tied to an item yet (probe_rarity4 with one near).
-- (history) Player inspection candidates, before the probes: `InvManager.Backpack` / `InventoryChain` /
-  `ItemChain`, `pawn.EquippedItems` / `HolsteredWeaponSlots`, item `DefinitionData`, `RarityLevel`,
-  `ExpLevel`, card stat modifiers; `pc.PlayerSkillTree.Skills` / `Branches`; replicated to everyone:
-  `PlayerReplicationInfo.StandInGear`, `TrackedSkills`, `ClassModNamePart`.
 - **Opened containers on a co-op client** (tools/probes/probe_client_containers.py, Outwash, 2026-09-23):
   opened ones `SimpleAnimState` / `RepSimpleAnimState` 7, unopened 4 - but `bCanBeUsed` stays (1, 0)
   on both (not sent to clients): the host's test (7 + no longer usable) never fired. A client: the
@@ -853,7 +752,7 @@ Southern Shelf's `_P` alone: 404 `StaticMesh`, 4131 `StaticMeshComponent`, 11 `T
   mission is picked up, the objective isn't done, and it's in the current step (a restriction = a
   current set, or none and the objective in one). Quest givers ("!"): none on a client. Seen working
   in game (user, 2026-09-23: markers with their radius).
-- **Mission markers: DONE** (verified in game, Southern Shelf, tools/probes/probe_missions.txt):
+- **Mission markers** (verified in game, Southern Shelf, tools/probes/probe_missions.txt):
   `MissionTracker` (find_all, one instance) `.MissionWaypoints[] = {Mission, Waypoints[]}`; waypoints
   are `MissionObjectiveWaypointComponent` (objective marker: `WaypointInfo.LinkedObjective`,
   `WaypointRadius`, `bActive`) or `MissionDirectiveWaypointComponent` (quest giver / turn-in, on an
@@ -862,21 +761,7 @@ Southern Shelf's `_P` alone: 404 `StaticMesh`, 4131 `StaticMeshComponent`, 11 `T
   `WillowWaypoint.AreaRadius` > 0 = area circle (uu; equals the component's WaypointRadius), 0 = point.
   Texts (localized): `MissionDefinition.MissionName`, `MissionObjectiveDefinition.ProgressMessage`.
   `ActiveMission` = the tracked one. The HUD minimap icon lists came back empty in that run (why?).
-  Next: the HUD's objective checklist (checkboxes / counts): `HUDWidget_Missions` - the probe now
-  dumps it. Original research notes:
-- Mission areas / objectives. Names found in WillowGame:
-  - `MissionTracker` (`MissionWaypoints`, `MissionList`, `MissionDirectors`, `LevelTransitions`,
-    `GetActiveMission`, `GetCurrentObjectives`, `GetObjectivesProgress`) - probably reachable from
-    the GameReplicationInfo;
-  - `WillowWaypoint.AreaRadius`, `MissionObjectiveWaypointComponent.WaypointRadius` +
-    `MissionObjectiveWaypointData`, `WaypointComponent.bActive`;
-  - `IMissionDirector.GetMissionDirectorLocation` / `GetEligibleMissions` / `GetRedeemableMissions`
-    (quest givers with available / turn-in missions);
-  - `MissionObjectiveDefinition.GetObjectiveName` / `GetMissionName`, `ObjectiveCount`;
-  - what the HUD shows: `HUDWidget_Minimap.Icons_Objective` / `Icons_AreaObjective` /
-    `Icons_AreaObjectiveSticky` / `Icons_MissionEligible` / `Icons_MissionRedeemable`, and the map
-    screen's `StatusMenuMapGFxObject.MapObjects` (`MapObjectData`).
-  - `WorldDiscoveryArea.bWorldAreaRadius` (discoverable areas, maybe for fog of war).
+  Not used: the HUD's objective checklist (`HUDWidget_Missions`).
 - **Area names / fog of war** (probe_discovery.py, Southern Shelf): `WorldDiscoveryArea` actors (6 there,
   bNoDelete): `WorldAreaDisplayName` (the game's name: "Wreck Of The Ice Sickle", "Gateway Harbor"; empty for
   `bForFogOfWarOnly` ones - they only clear fog), `DefaultWorldAreaShortName` ("SOUTHERNSHELF_PWDA_4"; or
@@ -971,3 +856,31 @@ Southern Shelf's `_P` alone: 404 `StaticMesh`, 4131 `StaticMeshComponent`, 11 `T
   as is. The fonts the same way now (any movie's compacted fonts in those
   packages, each name's fullest). Still named: the skill icons' packages (GD_*_Streaming_SF, any *_Streaming_SF in a
   DLC's Content - the Pre-Sequel's DLC classes have no "GD_" -, + Startup).
+
+## Open
+
+- **Game-thread spikes, not reproduced** (the log, co-op host with 3 others, Wildlife Exploitation Preserve, 2026-09-30):
+  "players" (every 2 s, usually 10-18 ms) once 557 ms, "state.pickups" up to 135 ms, "state.pawns" 102 ms, "scan
+  objects" 132 ms - none in two 20 s runs of tools/probes/probe_profile.py (state and players both wrapped). A guess, not
+  checked: item cards built when loot rains (ground_item, ITEMS_PER_UPDATE), or Python's GC. Fixed meanwhile: failed
+  property lookups cached (util._prop - the Pre-Sequel's OxygenPool looked up in BL2 every update, 12 % of the state
+  update), the pickups read through reader(): the state update 6.0 -> 4.8 ms on average (174 updates / 20 s).
+
+- **The Electrical Fuse Box is a switch, not an explosive** (tools/probes/probe_io.txt, Wildlife Exploitation Preserve,
+  2026-09-30; GD_ElectricFence.InteractiveObjects.IO_ElectricalFenceBox, BL2): the page draws it as a shock
+  explosive (inspector.py explosion_info: any Behavior_Explode). Its definition's sequence Active: OnUsedBy (pressed)
+  and OnHealthDepleted (shot out) run the same chain - Behavior_CustomEvent (the fence off), ChangeUsability,
+  ChangeAllegiance, ChangeInstanceDataSwitch x2; OnHealthDepleted puts a Behavior_Explode first whose DamageFormula,
+  DamageRadiusFormula and MomentumFormula are all 0 (constant 0, no attribute / initialization): an effect only
+  (Explosion_ElectricalBox, DmgType_Shock_Impact_NoDoT). Its definition: bCanBeKilled False, Allegiance
+  Allegiance_ExplosiveBarrel (the barrels' own: not a test either), MaxHealth from Init_BaseInteractiveObjectHealth.
+  Shot out it reads Health 0 (max 203 here) and the page drops it as killed ("kd"), though it stays. The likely
+  rule: an explosive's Behavior_Explode does damage (DamageFormula / DamageRadiusFormula not 0) - check a barrel's
+  formulas first (the Pre-Sequel's: DamageFormula / DamageRadiusFormula set). Then a category for switches?
+
+- **Best now, ideas**: item reward rarity, other currencies (eridium / seraph), best area (rewards
+  summed per area), unlock value. (Outlevelling a mission costs no XP: "Mission level" above.)
+
+- **Item card stats from the game** beyond shields (`_ui_stats`): other items' `UIStatModifiers`,
+  weapons' `ItemCardModifierStats` / `ReplicatedWeaponCardModifierValues` -> their
+  `AttributePresentationDefinition` text + value, instead of the hand-picked stat list. Probe first.

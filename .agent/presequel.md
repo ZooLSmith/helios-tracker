@@ -14,7 +14,8 @@ changes made for TPS ("patches"), so each finding says which build it was seen o
   games.
 - Both games write to the same log files (`helios_tracker/helios_tracker.log`, `helios_crash.log`) through the
   junction: a TPS session is told apart by its paths (`...\BorderlandsPreSequel\sdk_mods\...`) and times.
-- `tools/offline_check.py` and the game file extraction still use BL2 (`project.json`'s `game`) only.
+- `tools/offline_check.py` and the game file extraction use BL2 (`project.json`'s `game`); one Pre-Sequel map
+  (ComFacility_P: its movie draws a part of its texture) is extracted too when `tps` is set.
 
 ## Out of the box (2026-09-26, first run)
 
@@ -53,11 +54,12 @@ changes made for TPS ("patches"), so each finding says which build it was seen o
 
 ### Not checked yet
 
-- The map itself: TPS's tactical maps (their objects and textures, the world -> map fit), levels with low gravity /
-  oxygen (Elpis), the Moonshot / Grinder / oxygen-kit things (TPS-only object classes).
-- The panels: missions, skills (TPS characters' trees), shops, loot odds (TPS item pools, not the BL2
-  `GD_Balance.Weighting.*` / `GD_Itempools` names).
-- Gear cards for TPS-only types (Oz kits, laser guns, cryo / ice elements, Glitch rarity).
+(Seen since, under "After patches": skills, card icons, oxygen, Oz kits / Moonstones, shop names, the Glitch rarity -
+notes.md "The Pre-Sequel's rarity table"; a mission's objective order - notes.md "Mission log".)
+
+- The world -> map fit on more of its maps, low gravity (jumps, heights), the Moonshot / Grinder.
+- Loot odds (TPS item pools, not the BL2 `GD_Balance.Weighting.*` / `GD_Itempools` names).
+- Gear cards for laser guns and cryo weapons in full.
 - Co-op, and the TPS DLCs (Claptastic Voyage).
 
 ## After patches
