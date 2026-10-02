@@ -21,7 +21,7 @@ from typing import Any
 
 from mods_base import BoolOption, ButtonOption, HiddenOption, SliderOption, build_mod, hook
 from ui_utils import OptionBox, OptionBoxButton, hide_coop_message, show_coop_message
-from unrealsdk.hooks import Type
+from unrealsdk.hooks import Type, add_hook, remove_hook
 from unrealsdk.unreal import BoundFunction, UObject, WrappedStruct
 
 from .collector import Collector, cooked_dir, game_language
@@ -277,11 +277,11 @@ def _check_update(auto: bool) -> None:
             return
         _busy_text[0] = f"Downloading Helios Tracker {release.tag}..."
         updater.apply(updater.download(release))
-        log(f"Helios Tracker {release.tag} installed: it runs from the next game start")
+        log(f"Helios Tracker {release.tag} installed")
         if _answer_wanted[0]:  # (pressed during the download)
             _on_game_thread(lambda: _offer_reload(release.version, check_answer=True))
         else:
-            _toast(f"Helios Tracker {release.tag} installed: it runs from the next game start")
+            _on_game_thread(lambda: _reload_soon(release.tag))
     except Exception as ex:  # noqa: BLE001 - offline, GitHub down, a bad release: next time
         log(f"update check failed: {ex}")
         if not auto or _answer_wanted[0]:
@@ -305,9 +305,38 @@ def _start_check(auto: bool) -> None:
     _start_thread(_check_update, "Checking for updates...", auto)
 
 
+# The automatic path reloads by itself: from a one-shot hook on another function (the queue drains in our PostRender
+# hook, which the reload removes - not done from inside it), the next frame; the new module says it (the old one's
+# message would never be hidden: its hook is gone) - the tag handed over on sys.
+RELOAD_HOOK = ("WillowGame.WillowGameViewportClient:Tick", "helios_tracker.auto_reload")
+_UPDATED = "_helios_tracker_updated"  # sys attribute: the tag just installed by the automatic path, for the new module
+
+
+def _reload_soon(tag: str) -> None:
+    def once(*_: Any) -> None:
+        remove_hook(RELOAD_HOOK[0], Type.PRE, RELOAD_HOOK[1])
+        setattr(sys, _UPDATED, tag)
+        try:
+            updater.reload_mod()
+        except Exception as ex:  # noqa: BLE001
+            log_error("automatic update reload", ex)
+
+    add_hook(RELOAD_HOOK[0], Type.PRE, RELOAD_HOOK[1], once)
+
+
+def _announce_update() -> None:
+    """At enable: the automatic path's reload just ran this module - said in the bottom-left message."""
+    if (tag := getattr(sys, _UPDATED, None)) is not None:
+        delattr(sys, _UPDATED)
+        _toast(f"Helios Tracker updated to {tag}")
+
+
 def _auto_update() -> None:
-    """At enable: a check once a day, when the option's on."""
-    if not updater.can_install() or not auto_update.value or time.time() < float(next_update_check.value or 0):
+    """At enable: a check once a day, when the option's on (a dev source - update_source.txt: at every enable)."""
+    dev_source = updater.source() != updater.RELEASES_API
+    if not updater.can_install() or not auto_update.value:
+        return
+    if time.time() < float(next_update_check.value or 0) and not dev_source:
         return
     next_update_check.value = time.time() + UPDATE_EVERY
     if (built := globals().get("mod")) is not None and hasattr(built, "save_settings"):  # (enable can come first)
@@ -320,8 +349,8 @@ auto_update = BoolOption(
     value=True,
     display_name="Automatic Updates",
     description=(
-        "Once a day, looks for a new version of Helios Tracker on GitHub and installs it: it runs from the next game"
-        " start. Off: only when you press Check for Updates."
+        "Once a day, looks for a new version of Helios Tracker on GitHub, installs it and reloads the mod with it."
+        " Off: only when you press Check for Updates."
     ),
     is_hidden=not updater.can_install(),
 )
@@ -464,6 +493,7 @@ def _on_enable() -> None:
     _collector.reset()
     _serving[0] = True
     _start()
+    _announce_update()
     _auto_update()
 
 

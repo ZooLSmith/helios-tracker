@@ -343,8 +343,10 @@ bottom-left message).
 - `updater.py`: updates from the public repo's latest GitHub release (tag `vX.Y.Z`, `helios_tracker.sdkmod`
   attached; publishing them - CI or a script - isn't set up yet). **Only from a `.sdkmod`** (`can_install`): a folder
   install - the dev junction - never checks, its update options hidden. **Automatic Updates** (on: a check once a
-  day at enable, `next_update_check` a hidden option): a newer one downloaded, verified, swapped in, running from the
-  next start - said by the game's bottom-left message (`ui_utils.show_coop_message`, hidden after 8 s). **Check for
+  day at enable, `next_update_check` a hidden option; with a dev source - `update_source.txt` - at every enable): a newer one downloaded, verified, swapped in and reloaded at
+  once (`_reload_soon`: a one-shot hook on `WillowGameViewportClient:Tick`, not from our PostRender hook - the reload
+  removes it), then said by the new module in the game's bottom-left message (`ui_utils.show_coop_message`, hidden
+  after 8 s; the tag handed over on `sys._helios_tracker_updated`). **Check for
   Updates** (always that: the menu draws an option's name once, no live relabelling - a relabelling button did the
   next step unseen) opens the game's dialog box (`ui_utils.OptionBox`): "Checking for updates..." (Cancel: the answer
   dropped, a download deleted), "Downloading vX...", then the answer - each box replacing the last (an open box's
