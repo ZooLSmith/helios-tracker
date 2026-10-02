@@ -67,6 +67,8 @@ export default {
   "index.more": "More than a map",
   "index.more.inspector": "Player inspector",
   "index.more.inspectorText": "Every player's gear and skill trees, as the game's item cards.",
+  "index.more.gibbed": "Gibbed codes",
+  "index.more.gibbedText": "Copy an item's code for Gibbed's save editors.",
   "index.more.missions": "Mission log",
   "index.more.missionsText": "Every mission, in story order or by area, with its rewards.",
   "index.more.best": "Best now",
@@ -84,9 +86,11 @@ export default {
   "index.more.coop": "Co-op",
   "index.more.coopText": "Only one player needs it (<a href=\"install#coop\">best on the host</a>).",
   "index.more.language": "Your language",
-  "index.more.languageText": "The page in nine languages; game names in the game's language.",
+  "index.more.languageText": "The page in nine languages; game names and the mod's options in the game's language.",
+  "index.more.updates": "Updates",
+  "index.more.updatesText": "From the mod's options, in game: no restart, automatic if you want.",
 
-  "index.where": "Where to open it",
+  "index.where": "Where to view it",
   "index.where.screen": "A second screen",
   "index.where.screenText": "Any browser on the gaming PC.",
   "index.where.phone": "A phone or tablet",
@@ -110,11 +114,6 @@ export default {
   "index.assets.names": "Names",
   "index.assets.namesText": "In the game's language.",
   "index.assets.cache": "All cached on your PC, and your DLCs just work.",
-
-  "index.safe": "What it doesn't do",
-  "index.safe.save": "It only reads: your game and save stay untouched.",
-  "index.safe.draw": "It draws nothing in game.",
-  "index.safe.online": "It doesn't go online: your PC serves the page.",
 
   // ---- install.html ----
   "install.title": "Install | Helios Tracker",
@@ -184,7 +183,7 @@ export default {
   "share.lan.allow": "Allow LAN access",
   "share.lan.allowText": "Turn on <strong>Allow LAN Access</strong> in the mod's options. With it off, only the gaming PC can open the map.",
   "share.lan.address": "Find the gaming PC's address",
-  "share.lan.addressText": "On the gaming PC, open Windows <strong>Settings</strong>, <strong>Network &amp; internet</strong>, then the Wi-Fi or Ethernet connection it's using, and note its <strong>IPv4 address</strong>.",
+  "share.lan.addressText": "On the gaming PC, open Windows <strong>Settings</strong>, <strong>Network &amp; internet</strong>, then the Wi-Fi or Ethernet connection it's using, and note its <strong>IPv4 address</strong>. Or type <code>ipconfig</code> in Command Prompt or PowerShell: it's the <strong>IPv4 Address</strong> line.",
   "share.lan.open": "Open it on the other device",
   "share.lan.openText": "On the phone or the other PC, connected to the same network, type <code>http://</code> followed by that address and <code>:8777/</code> in the browser.",
   "share.lan.firewall": "The firewall",
@@ -214,7 +213,7 @@ export default {
   "share.funnel.shareText": "It prints your address: <code>https://</code> then your PC's name on <code>ts.net</code>. It stays the same every time.",
   "share.funnel.details": "Details: <a href=\"https://tailscale.com/kb/1223/funnel\">Tailscale Funnel</a>.",
   "share.autoexec": "Optional: start it automatically with the map",
-  "share.autoexec.file": "In <code>sdk_mods</code>, next to <code>helios_tracker.sdkmod</code>, create a text file named <code>helios_tracker.autoexec.ps1</code>.",
+  "share.autoexec.file": "In <code>sdk_mods</code>, open the <code>.helios_tracker</code> folder (the mod creates it the first time the game runs with it) and create a text file named <code>autoexec.ps1</code> in it.",
   "share.autoexec.paste": "Paste this line in it:",
   "share.autoexec.done": "From now on the tunnel starts with the map, and stops with it.",
 

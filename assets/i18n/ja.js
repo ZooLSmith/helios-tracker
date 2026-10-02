@@ -66,6 +66,8 @@ export default {
   "index.more": "マップだけではありません",
   "index.more.inspector": "プレイヤー インスペクター",
   "index.more.inspectorText": "各プレイヤーの装備とスキルツリーを、ゲームのアイテムカードの形で。",
+  "index.more.gibbed": "Gibbed コード",
+  "index.more.gibbedText": "アイテムのコードを Gibbed のセーブエディター用にコピー。",
   "index.more.missions": "ミッション ログ",
   "index.more.missionsText": "すべてのミッションをストーリー順またはエリア別に、報酬とともに。",
   "index.more.best": "今のおすすめ",
@@ -83,9 +85,11 @@ export default {
   "index.more.coop": "Co-op",
   "index.more.coopText": "必要なのは 1 人だけ（<a href=\"install#coop\">ホストが最適</a>）。",
   "index.more.language": "あなたの言語で",
-  "index.more.languageText": "ページは 9 言語に対応。ゲームの名称はゲームの言語で。",
+  "index.more.languageText": "ページは 9 言語に対応。ゲームの名称と MOD のオプションはゲームの言語で。",
+  "index.more.updates": "アップデート",
+  "index.more.updatesText": "ゲーム内の MOD オプションから：再起動不要、自動にもできます。",
 
-  "index.where": "どこで開くか",
+  "index.where": "どこで見るか",
   "index.where.screen": "セカンドモニター",
   "index.where.screenText": "ゲーム PC の任意のブラウザーで。",
   "index.where.phone": "スマートフォンやタブレット",
@@ -109,11 +113,6 @@ export default {
   "index.assets.names": "名称",
   "index.assets.namesText": "ゲームの言語で。",
   "index.assets.cache": "すべて PC にキャッシュされ、DLC もそのまま使えます。",
-
-  "index.safe": "しないこと",
-  "index.safe.save": "読み取るだけです：ゲームとセーブデータには手を触れません。",
-  "index.safe.draw": "ゲーム内には何も描画しません。",
-  "index.safe.online": "インターネットには接続しません：ページはあなたの PC が配信します。",
 
   // ---- install.html ----
   "install.title": "インストール | Helios Tracker",
@@ -183,7 +182,7 @@ export default {
   "share.lan.allow": "LAN アクセスを許可",
   "share.lan.allowText": "MOD のオプションで <strong>LANアクセスを許可</strong> をオンにします。オフのままだと、マップを開けるのはゲーム PC だけです。",
   "share.lan.address": "ゲーム PC のアドレスを調べる",
-  "share.lan.addressText": "ゲーム PC で Windows の<strong>設定</strong>、<strong>ネットワークとインターネット</strong>を開き、使用中の Wi-Fi またはイーサネット接続を選んで、<strong>IPv4 アドレス</strong>を控えます。",
+  "share.lan.addressText": "ゲーム PC で Windows の<strong>設定</strong>、<strong>ネットワークとインターネット</strong>を開き、使用中の Wi-Fi またはイーサネット接続を選んで、<strong>IPv4 アドレス</strong>を控えます。コマンド プロンプトか PowerShell で <code>ipconfig</code> と入力しても調べられます：<strong>IPv4 アドレス</strong>の行です。",
   "share.lan.open": "別の端末で開く",
   "share.lan.openText": "同じネットワークにつないだスマートフォンや別の PC のブラウザーで、<code>http://</code>、そのアドレス、<code>:8777/</code> の順に入力します。",
   "share.lan.firewall": "ファイアウォール",
@@ -213,7 +212,7 @@ export default {
   "share.funnel.shareText": "アドレスが表示されます：<code>https://</code> に続いて、<code>ts.net</code> 上の PC の名前。毎回同じです。",
   "share.funnel.details": "詳細：<a href=\"https://tailscale.com/kb/1223/funnel\">Tailscale Funnel</a>。",
   "share.autoexec": "任意：マップと一緒に自動で起動する",
-  "share.autoexec.file": "<code>sdk_mods</code> の <code>helios_tracker.sdkmod</code> の隣に、<code>helios_tracker.autoexec.ps1</code> という名前のテキストファイルを作ります。",
+  "share.autoexec.file": "<code>sdk_mods</code> の <code>.helios_tracker</code> フォルダー（MOD を入れて初めてゲームを起動したときに作られます）を開き、その中に <code>autoexec.ps1</code> という名前のテキストファイルを作ります。",
   "share.autoexec.paste": "その中に次の行を貼り付けます：",
   "share.autoexec.done": "これで、トンネルはマップと一緒に起動し、一緒に止まります。",
 

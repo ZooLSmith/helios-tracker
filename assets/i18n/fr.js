@@ -66,6 +66,8 @@ export default {
   "index.more": "Plus qu'une carte",
   "index.more.inspector": "L'inspecteur de joueur",
   "index.more.inspectorText": "L'équipement et les arbres de compétences de chaque joueur, présentés comme dans le jeu.",
+  "index.more.gibbed": "Codes Gibbed",
+  "index.more.gibbedText": "Copiez le code d'un objet pour l'éditeur de sauvegarde de Gibbed.",
   "index.more.missions": "Le journal des missions",
   "index.more.missionsText": "Toutes les missions, dans l'ordre de l'histoire ou par zone, avec leurs récompenses.",
   "index.more.best": "Les missions les plus rentables",
@@ -83,9 +85,11 @@ export default {
   "index.more.coop": "Compatible coop",
   "index.more.coopText": "Un seul joueur doit l'installer, <a href=\"install#coop\">de préférence l'hôte</a>.",
   "index.more.language": "Votre langue",
-  "index.more.languageText": "La page est disponible en neuf langues ; les noms tirés du jeu restent dans la langue du jeu.",
+  "index.more.languageText": "La page est disponible en neuf langues ; les noms tirés du jeu et les options du mod sont dans la langue du jeu.",
+  "index.more.updates": "Mises à jour",
+  "index.more.updatesText": "Depuis les options du mod, en jeu : sans relancer, automatiques si vous voulez.",
 
-  "index.where": "Où l'ouvrir",
+  "index.where": "Où l'afficher",
   "index.where.screen": "Un second écran",
   "index.where.screenText": "N'importe quel navigateur du PC de jeu.",
   "index.where.phone": "Un téléphone ou une tablette",
@@ -109,11 +113,6 @@ export default {
   "index.assets.names": "Les noms",
   "index.assets.namesText": "Dans la langue du jeu.",
   "index.assets.cache": "Tout est mis en cache sur votre PC, et vos DLC fonctionnent sans rien installer de plus.",
-
-  "index.safe": "Ce que le mod ne fait pas",
-  "index.safe.save": "Lecture seule : votre jeu et votre sauvegarde restent intacts.",
-  "index.safe.draw": "Rien n'est dessiné en jeu.",
-  "index.safe.online": "Aucune connexion internet : la page est hébergée par votre PC.",
 
   // ---- install.html ----
   "install.title": "Installation | Helios Tracker",
@@ -183,7 +182,7 @@ export default {
   "share.lan.allow": "Autoriser l'accès réseau",
   "share.lan.allowText": "Activez <strong>Autoriser l'accès réseau local</strong> dans les options du mod. Tant que l'option est désactivée, seul le PC de jeu peut ouvrir la carte.",
   "share.lan.address": "Trouver l'adresse du PC de jeu",
-  "share.lan.addressText": "Sur le PC de jeu, ouvrez les <strong>Paramètres</strong> Windows, <strong>Réseau et Internet</strong>, puis la connexion Wi-Fi ou Ethernet qu'il utilise, et notez son <strong>Adresse IPv4</strong>.",
+  "share.lan.addressText": "Sur le PC de jeu, ouvrez les <strong>Paramètres</strong> Windows, <strong>Réseau et Internet</strong>, puis la connexion Wi-Fi ou Ethernet qu'il utilise, et notez son <strong>Adresse IPv4</strong>. Ou tapez <code>ipconfig</code> dans l'invite de commandes ou PowerShell : c'est la ligne <strong>Adresse IPv4</strong>.",
   "share.lan.open": "L'ouvrir sur l'autre appareil",
   "share.lan.openText": "Sur le téléphone ou l'autre PC, connecté au même réseau, tapez <code>http://</code> suivi de cette adresse et de <code>:8777/</code> dans le navigateur.",
   "share.lan.firewall": "Le pare-feu",
@@ -213,7 +212,7 @@ export default {
   "share.funnel.shareText": "La commande affiche votre adresse : <code>https://</code> puis le nom de votre PC sur <code>ts.net</code>. Elle ne change pas d'une fois à l'autre.",
   "share.funnel.details": "Détails : <a href=\"https://tailscale.com/kb/1223/funnel\">Tailscale Funnel</a>.",
   "share.autoexec": "Facultatif : le lancer automatiquement avec la carte",
-  "share.autoexec.file": "Dans <code>sdk_mods</code>, à côté de <code>helios_tracker.sdkmod</code>, créez un fichier texte nommé <code>helios_tracker.autoexec.ps1</code>.",
+  "share.autoexec.file": "Dans <code>sdk_mods</code>, ouvrez le dossier <code>.helios_tracker</code> (le mod le crée au premier lancement du jeu avec lui) et créez-y un fichier texte nommé <code>autoexec.ps1</code>.",
   "share.autoexec.paste": "Collez-y cette ligne :",
   "share.autoexec.done": "Désormais, le tunnel démarre avec la carte, et s'arrête avec elle.",
 

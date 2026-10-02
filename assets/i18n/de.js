@@ -66,6 +66,8 @@ export default {
   "index.more": "Mehr als eine Karte",
   "index.more.inspector": "Spieler-Inspektor",
   "index.more.inspectorText": "Ausrüstung und Skillbäume jedes Spielers, als Objektkarten des Spiels.",
+  "index.more.gibbed": "Gibbed-Codes",
+  "index.more.gibbedText": "Kopiere den Code eines Gegenstands für Gibbeds Save-Editor.",
   "index.more.missions": "Missionslog",
   "index.more.missionsText": "Jede Mission, in Story-Reihenfolge oder nach Gebiet, mit ihrer Belohnung.",
   "index.more.best": "Jetzt beste",
@@ -83,9 +85,11 @@ export default {
   "index.more.coop": "Koop",
   "index.more.coopText": "Nur ein Spieler braucht sie (<a href=\"install#coop\">am besten der Host</a>).",
   "index.more.language": "Deine Sprache",
-  "index.more.languageText": "Die Seite in neun Sprachen; Spielnamen in der Sprache des Spiels.",
+  "index.more.languageText": "Die Seite in neun Sprachen; Spielnamen und die Optionen der Mod in der Sprache des Spiels.",
+  "index.more.updates": "Updates",
+  "index.more.updatesText": "Aus den Optionen der Mod, im Spiel: ohne Neustart, auf Wunsch automatisch.",
 
-  "index.where": "Wo du sie öffnest",
+  "index.where": "Wo du sie ansiehst",
   "index.where.screen": "Ein zweiter Bildschirm",
   "index.where.screenText": "Jeder Browser auf dem Gaming-PC.",
   "index.where.phone": "Ein Handy oder Tablet",
@@ -109,11 +113,6 @@ export default {
   "index.assets.names": "Namen",
   "index.assets.namesText": "In der Sprache des Spiels.",
   "index.assets.cache": "Alles auf deinem PC zwischengespeichert, und deine DLCs funktionieren einfach.",
-
-  "index.safe": "Was sie nicht tut",
-  "index.safe.save": "Sie liest nur: dein Spiel und dein Spielstand bleiben unberührt.",
-  "index.safe.draw": "Sie zeichnet nichts im Spiel.",
-  "index.safe.online": "Sie geht nicht online: dein PC liefert die Seite.",
 
   // ---- install.html ----
   "install.title": "Installation | Helios Tracker",
@@ -183,7 +182,7 @@ export default {
   "share.lan.allow": "LAN-Zugriff erlauben",
   "share.lan.allowText": "Schalte <strong>LAN-Zugriff erlauben</strong> in den Optionen der Mod ein. Ist es aus, kann nur der Gaming-PC die Karte öffnen.",
   "share.lan.address": "Die Adresse des Gaming-PCs finden",
-  "share.lan.addressText": "Öffne auf dem Gaming-PC die Windows-<strong>Einstellungen</strong>, <strong>Netzwerk und Internet</strong>, dann die WLAN- oder Ethernet-Verbindung, die er nutzt, und notiere seine <strong>IPv4-Adresse</strong>.",
+  "share.lan.addressText": "Öffne auf dem Gaming-PC die Windows-<strong>Einstellungen</strong>, <strong>Netzwerk und Internet</strong>, dann die WLAN- oder Ethernet-Verbindung, die er nutzt, und notiere seine <strong>IPv4-Adresse</strong>. Oder gib <code>ipconfig</code> in der Eingabeaufforderung oder PowerShell ein: es ist die Zeile <strong>IPv4-Adresse</strong>.",
   "share.lan.open": "Auf dem anderen Gerät öffnen",
   "share.lan.openText": "Gib auf dem Handy oder dem anderen PC, im selben Netzwerk, im Browser <code>http://</code> ein, gefolgt von dieser Adresse und <code>:8777/</code>.",
   "share.lan.firewall": "Die Firewall",
@@ -213,7 +212,7 @@ export default {
   "share.funnel.shareText": "Es gibt deine Adresse aus: <code>https://</code>, dann der Name deines PCs auf <code>ts.net</code>. Sie bleibt jedes Mal gleich.",
   "share.funnel.details": "Details: <a href=\"https://tailscale.com/kb/1223/funnel\">Tailscale Funnel</a>.",
   "share.autoexec": "Optional: automatisch mit der Karte starten",
-  "share.autoexec.file": "Erstelle in <code>sdk_mods</code>, neben <code>helios_tracker.sdkmod</code>, eine Textdatei namens <code>helios_tracker.autoexec.ps1</code>.",
+  "share.autoexec.file": "Öffne in <code>sdk_mods</code> den Ordner <code>.helios_tracker</code> (die Mod legt ihn beim ersten Spielstart mit ihr an) und erstelle darin eine Textdatei namens <code>autoexec.ps1</code>.",
   "share.autoexec.paste": "Füge diese Zeile ein:",
   "share.autoexec.done": "Ab jetzt startet der Tunnel mit der Karte und stoppt mit ihr.",
 

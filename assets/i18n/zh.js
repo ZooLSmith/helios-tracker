@@ -66,6 +66,8 @@ export default {
   "index.more": "不只是地圖",
   "index.more.inspector": "玩家檢視",
   "index.more.inspectorText": "每位玩家的裝備與技能樹，以遊戲的物品卡片呈現。",
+  "index.more.gibbed": "Gibbed 代碼",
+  "index.more.gibbedText": "複製物品代碼，用於 Gibbed 的存檔編輯器。",
   "index.more.missions": "任務日誌",
   "index.more.missionsText": "所有任務，依劇情順序或區域排列，附上獎勵。",
   "index.more.best": "目前最佳",
@@ -83,9 +85,11 @@ export default {
   "index.more.coop": "合作",
   "index.more.coopText": "只需一位玩家安裝（<a href=\"install#coop\">最好是主機</a>）。",
   "index.more.language": "你的語言",
-  "index.more.languageText": "頁面提供九種語言；遊戲名稱使用遊戲的語言。",
+  "index.more.languageText": "頁面提供九種語言；遊戲名稱和模組的選項使用遊戲的語言。",
+  "index.more.updates": "更新",
+  "index.more.updatesText": "在遊戲中的模組選項裡：不必重新啟動，也可以自動更新。",
 
-  "index.where": "在哪裡開啟",
+  "index.where": "在哪裡觀看",
   "index.where.screen": "第二螢幕",
   "index.where.screenText": "遊戲電腦上的任何瀏覽器。",
   "index.where.phone": "手機或平板",
@@ -109,11 +113,6 @@ export default {
   "index.assets.names": "名稱",
   "index.assets.namesText": "使用遊戲的語言。",
   "index.assets.cache": "全部快取在你的電腦上，你的 DLC 也能直接使用。",
-
-  "index.safe": "它不會做的事",
-  "index.safe.save": "它只讀取：你的遊戲和存檔保持原樣。",
-  "index.safe.draw": "它不會在遊戲中繪製任何東西。",
-  "index.safe.online": "它不會連上網路：頁面由你的電腦提供。",
 
   // ---- install.html ----
   "install.title": "安裝 | Helios Tracker",
@@ -183,7 +182,7 @@ export default {
   "share.lan.allow": "允許區域網路存取",
   "share.lan.allowText": "在模組的選項中開啟 <strong>允許區域網路存取</strong>。關閉時，只有遊戲電腦能開啟地圖。",
   "share.lan.address": "找出遊戲電腦的位址",
-  "share.lan.addressText": "在遊戲電腦上開啟 Windows 的<strong>設定</strong>、<strong>網路和網際網路</strong>，再點它正在使用的 Wi-Fi 或乙太網路連線，記下它的 <strong>IPv4 位址</strong>。",
+  "share.lan.addressText": "在遊戲電腦上開啟 Windows 的<strong>設定</strong>、<strong>網路和網際網路</strong>，再點它正在使用的 Wi-Fi 或乙太網路連線，記下它的 <strong>IPv4 位址</strong>。也可以在命令提示字元或 PowerShell 輸入 <code>ipconfig</code>：就是 <strong>IPv4 位址</strong>那一行。",
   "share.lan.open": "在另一台裝置上開啟",
   "share.lan.openText": "在連到同一網路的手機或另一台電腦上，於瀏覽器輸入 <code>http://</code>，接著是該位址和 <code>:8777/</code>。",
   "share.lan.firewall": "防火牆",
@@ -213,7 +212,7 @@ export default {
   "share.funnel.shareText": "它會顯示你的網址：<code>https://</code> 加上你電腦在 <code>ts.net</code> 上的名稱。每次都一樣。",
   "share.funnel.details": "詳情：<a href=\"https://tailscale.com/kb/1223/funnel\">Tailscale Funnel</a>。",
   "share.autoexec": "選用：隨地圖自動啟動",
-  "share.autoexec.file": "在 <code>sdk_mods</code> 中，<code>helios_tracker.sdkmod</code> 旁邊，建立一個名為 <code>helios_tracker.autoexec.ps1</code> 的文字檔。",
+  "share.autoexec.file": "在 <code>sdk_mods</code> 中開啟 <code>.helios_tracker</code> 資料夾（第一次以此模組啟動遊戲時會自動建立），並在其中建立一個名為 <code>autoexec.ps1</code> 的文字檔。",
   "share.autoexec.paste": "在其中貼上這一行：",
   "share.autoexec.done": "從此通道會隨地圖啟動，也隨地圖停止。",
 

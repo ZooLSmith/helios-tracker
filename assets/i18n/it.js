@@ -66,6 +66,8 @@ export default {
   "index.more": "Più di una mappa",
   "index.more.inspector": "Ispettore dei giocatori",
   "index.more.inspectorText": "L'equipaggiamento e gli alberi delle abilità di ogni giocatore, come schede del gioco.",
+  "index.more.gibbed": "Codici Gibbed",
+  "index.more.gibbedText": "Copia il codice di un oggetto per l'editor di salvataggi di Gibbed.",
   "index.more.missions": "Registro missioni",
   "index.more.missionsText": "Tutte le missioni, per trama o per zona, con le loro ricompense.",
   "index.more.best": "Migliori ora",
@@ -83,9 +85,11 @@ export default {
   "index.more.coop": "Co-op",
   "index.more.coopText": "Serve a un solo giocatore (<a href=\"install#coop\">meglio l'host</a>).",
   "index.more.language": "La tua lingua",
-  "index.more.languageText": "La pagina in nove lingue; i nomi del gioco nella lingua del gioco.",
+  "index.more.languageText": "La pagina in nove lingue; i nomi del gioco e le opzioni della mod nella lingua del gioco.",
+  "index.more.updates": "Aggiornamenti",
+  "index.more.updatesText": "Dalle opzioni della mod, in gioco: senza riavviare, automatici se vuoi.",
 
-  "index.where": "Dove aprirla",
+  "index.where": "Dove guardarla",
   "index.where.screen": "Un secondo schermo",
   "index.where.screenText": "Qualsiasi browser del PC da gioco.",
   "index.where.phone": "Un telefono o un tablet",
@@ -109,11 +113,6 @@ export default {
   "index.assets.names": "Nomi",
   "index.assets.namesText": "Nella lingua del gioco.",
   "index.assets.cache": "Tutto in cache sul tuo PC, e i tuoi DLC funzionano da soli.",
-
-  "index.safe": "Cosa non fa",
-  "index.safe.save": "Si limita a leggere: il tuo gioco e il salvataggio restano intatti.",
-  "index.safe.draw": "Non disegna niente nel gioco.",
-  "index.safe.online": "Non va su internet: è il tuo PC a servire la pagina.",
 
   // ---- install.html ----
   "install.title": "Installazione | Helios Tracker",
@@ -183,7 +182,7 @@ export default {
   "share.lan.allow": "Consenti l'accesso dalla rete",
   "share.lan.allowText": "Attiva <strong>Consenti accesso LAN</strong> nelle opzioni della mod. Se è disattivata, solo il PC da gioco può aprire la mappa.",
   "share.lan.address": "Trova l'indirizzo del PC da gioco",
-  "share.lan.addressText": "Sul PC da gioco, apri le <strong>Impostazioni</strong> di Windows, <strong>Rete e Internet</strong>, poi la connessione Wi-Fi o Ethernet in uso, e annota il suo <strong>Indirizzo IPv4</strong>.",
+  "share.lan.addressText": "Sul PC da gioco, apri le <strong>Impostazioni</strong> di Windows, <strong>Rete e Internet</strong>, poi la connessione Wi-Fi o Ethernet in uso, e annota il suo <strong>Indirizzo IPv4</strong>. Oppure digita <code>ipconfig</code> nel Prompt dei comandi o in PowerShell: è la riga <strong>Indirizzo IPv4</strong>.",
   "share.lan.open": "Aprila sull'altro dispositivo",
   "share.lan.openText": "Sul telefono o sull'altro PC, connesso alla stessa rete, digita nel browser <code>http://</code> seguito da quell'indirizzo e da <code>:8777/</code>.",
   "share.lan.firewall": "Il firewall",
@@ -213,7 +212,7 @@ export default {
   "share.funnel.shareText": "Stampa il tuo indirizzo: <code>https://</code> poi il nome del tuo PC su <code>ts.net</code>. Resta sempre lo stesso.",
   "share.funnel.details": "Dettagli: <a href=\"https://tailscale.com/kb/1223/funnel\">Tailscale Funnel</a>.",
   "share.autoexec": "Facoltativo: avvialo automaticamente con la mappa",
-  "share.autoexec.file": "In <code>sdk_mods</code>, accanto a <code>helios_tracker.sdkmod</code>, crea un file di testo chiamato <code>helios_tracker.autoexec.ps1</code>.",
+  "share.autoexec.file": "In <code>sdk_mods</code>, apri la cartella <code>.helios_tracker</code> (la mod la crea al primo avvio del gioco con la mod) e crea al suo interno un file di testo chiamato <code>autoexec.ps1</code>.",
   "share.autoexec.paste": "Incollaci questa riga:",
   "share.autoexec.done": "D'ora in poi il tunnel parte con la mappa, e si ferma con lei.",
 

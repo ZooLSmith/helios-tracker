@@ -66,6 +66,8 @@ export default {
   "index.more": "지도 그 이상",
   "index.more.inspector": "플레이어 살펴보기",
   "index.more.inspectorText": "모든 플레이어의 장비와 스킬 트리를 게임의 아이템 카드로.",
+  "index.more.gibbed": "Gibbed 코드",
+  "index.more.gibbedText": "아이템 코드를 Gibbed 세이브 편집기용으로 복사합니다.",
   "index.more.missions": "미션 기록",
   "index.more.missionsText": "모든 미션을 스토리 순 또는 지역별로, 보상과 함께.",
   "index.more.best": "추천",
@@ -83,9 +85,11 @@ export default {
   "index.more.coop": "협동",
   "index.more.coopText": "한 명만 있으면 됩니다 (<a href=\"install#coop\">호스트가 가장 좋음</a>).",
   "index.more.language": "내 언어로",
-  "index.more.languageText": "페이지는 9개 언어로. 게임 이름은 게임 언어로.",
+  "index.more.languageText": "페이지는 9개 언어로. 게임 이름과 모드 옵션은 게임 언어로.",
+  "index.more.updates": "업데이트",
+  "index.more.updatesText": "게임 안의 모드 옵션에서: 다시 시작할 필요 없이, 원하면 자동으로.",
 
-  "index.where": "어디서 열까",
+  "index.where": "어디서 볼까",
   "index.where.screen": "보조 모니터",
   "index.where.screenText": "게임 PC의 아무 브라우저에서.",
   "index.where.phone": "휴대폰이나 태블릿",
@@ -109,11 +113,6 @@ export default {
   "index.assets.names": "이름",
   "index.assets.namesText": "게임 언어로.",
   "index.assets.cache": "모두 내 PC에 캐시되고, DLC도 그대로 작동합니다.",
-
-  "index.safe": "하지 않는 것",
-  "index.safe.save": "읽기만 합니다: 게임과 세이브는 그대로입니다.",
-  "index.safe.draw": "게임 안에는 아무것도 그리지 않습니다.",
-  "index.safe.online": "인터넷에 접속하지 않습니다: 페이지는 내 PC가 제공합니다.",
 
   // ---- install.html ----
   "install.title": "설치 | Helios Tracker",
@@ -183,7 +182,7 @@ export default {
   "share.lan.allow": "LAN 접속 허용",
   "share.lan.allowText": "모드 옵션에서 <strong>LAN 접근 허용</strong>을 켜세요. 꺼져 있으면 게임 PC에서만 지도를 열 수 있습니다.",
   "share.lan.address": "게임 PC의 주소 찾기",
-  "share.lan.addressText": "게임 PC에서 Windows <strong>설정</strong>, <strong>네트워크 및 인터넷</strong>을 열고, 사용 중인 Wi-Fi 또는 이더넷 연결을 선택해 <strong>IPv4 주소</strong>를 확인하세요.",
+  "share.lan.addressText": "게임 PC에서 Windows <strong>설정</strong>, <strong>네트워크 및 인터넷</strong>을 열고, 사용 중인 Wi-Fi 또는 이더넷 연결을 선택해 <strong>IPv4 주소</strong>를 확인하세요. 또는 명령 프롬프트나 PowerShell에서 <code>ipconfig</code>를 입력하세요: <strong>IPv4 주소</strong> 줄입니다.",
   "share.lan.open": "다른 기기에서 열기",
   "share.lan.openText": "같은 네트워크에 연결된 휴대폰이나 다른 PC의 브라우저에 <code>http://</code>, 그 주소, <code>:8777/</code>을 이어서 입력하세요.",
   "share.lan.firewall": "방화벽",
@@ -213,7 +212,7 @@ export default {
   "share.funnel.shareText": "주소가 출력됩니다: <code>https://</code> 뒤에 <code>ts.net</code> 위의 PC 이름. 매번 같은 주소입니다.",
   "share.funnel.details": "자세히: <a href=\"https://tailscale.com/kb/1223/funnel\">Tailscale Funnel</a>.",
   "share.autoexec": "선택: 지도와 함께 자동으로 시작",
-  "share.autoexec.file": "<code>sdk_mods</code> 안, <code>helios_tracker.sdkmod</code> 옆에 <code>helios_tracker.autoexec.ps1</code>이라는 텍스트 파일을 만드세요.",
+  "share.autoexec.file": "<code>sdk_mods</code> 안의 <code>.helios_tracker</code> 폴더(모드를 넣고 처음 게임을 실행할 때 만들어집니다)를 열고, 그 안에 <code>autoexec.ps1</code>이라는 텍스트 파일을 만드세요.",
   "share.autoexec.paste": "그 안에 이 줄을 붙여넣으세요:",
   "share.autoexec.done": "이제 터널이 지도와 함께 시작되고, 함께 멈춥니다.",
 

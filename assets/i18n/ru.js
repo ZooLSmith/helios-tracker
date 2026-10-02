@@ -66,6 +66,8 @@ export default {
   "index.more": "Больше, чем карта",
   "index.more.inspector": "Осмотр игрока",
   "index.more.inspectorText": "Снаряжение и деревья навыков каждого игрока — карточками предметов, как в игре.",
+  "index.more.gibbed": "Коды Gibbed",
+  "index.more.gibbedText": "Скопируйте код предмета для редактора сохранений Gibbed.",
   "index.more.missions": "Журнал заданий",
   "index.more.missionsText": "Все задания, по сюжету или по зонам, с наградами.",
   "index.more.best": "Лучшие сейчас",
@@ -83,9 +85,11 @@ export default {
   "index.more.coop": "Кооператив",
   "index.more.coopText": "Мод нужен только одному игроку (<a href=\"install#coop\">лучше всего хосту</a>).",
   "index.more.language": "Ваш язык",
-  "index.more.languageText": "Страница на девяти языках; названия из игры — на языке игры.",
+  "index.more.languageText": "Страница на девяти языках; названия из игры и настройки мода — на языке игры.",
+  "index.more.updates": "Обновления",
+  "index.more.updatesText": "Из настроек мода, прямо в игре: без перезапуска, по желанию — автоматически.",
 
-  "index.where": "Где открыть",
+  "index.where": "Где смотреть",
   "index.where.screen": "Второй экран",
   "index.where.screenText": "Любой браузер на игровом ПК.",
   "index.where.phone": "Телефон или планшет",
@@ -109,11 +113,6 @@ export default {
   "index.assets.names": "Названия",
   "index.assets.namesText": "На языке игры.",
   "index.assets.cache": "Всё кешируется на вашем ПК, а ваши DLC работают сами собой.",
-
-  "index.safe": "Чего он не делает",
-  "index.safe.save": "Он только читает: игра и сохранения остаются нетронутыми.",
-  "index.safe.draw": "Он ничего не рисует в игре.",
-  "index.safe.online": "Он не выходит в интернет: страницу отдаёт ваш ПК.",
 
   // ---- install.html ----
   "install.title": "Установка | Helios Tracker",
@@ -183,7 +182,7 @@ export default {
   "share.lan.allow": "Разрешите доступ по сети",
   "share.lan.allowText": "Включите <strong>Доступ по локальной сети</strong> в настройках мода. Если выключено, карту может открыть только игровой ПК.",
   "share.lan.address": "Узнайте адрес игрового ПК",
-  "share.lan.addressText": "На игровом ПК откройте <strong>Параметры</strong> Windows, <strong>Сеть и Интернет</strong>, затем используемое подключение Wi-Fi или Ethernet, и запишите его <strong>IPv4-адрес</strong>.",
+  "share.lan.addressText": "На игровом ПК откройте <strong>Параметры</strong> Windows, <strong>Сеть и Интернет</strong>, затем используемое подключение Wi-Fi или Ethernet, и запишите его <strong>IPv4-адрес</strong>. Или введите <code>ipconfig</code> в командной строке или PowerShell: это строка <strong>IPv4-адрес</strong>.",
   "share.lan.open": "Откройте на другом устройстве",
   "share.lan.openText": "На телефоне или другом ПК, подключённом к той же сети, введите в браузере <code>http://</code>, затем этот адрес и <code>:8777/</code>.",
   "share.lan.firewall": "Брандмауэр",
@@ -213,7 +212,7 @@ export default {
   "share.funnel.shareText": "Он выведет ваш адрес: <code>https://</code>, затем имя вашего ПК на <code>ts.net</code>. Адрес каждый раз один и тот же.",
   "share.funnel.details": "Подробнее: <a href=\"https://tailscale.com/kb/1223/funnel\">Tailscale Funnel</a>.",
   "share.autoexec": "Необязательно: запуск вместе с картой",
-  "share.autoexec.file": "В <code>sdk_mods</code>, рядом с <code>helios_tracker.sdkmod</code>, создайте текстовый файл <code>helios_tracker.autoexec.ps1</code>.",
+  "share.autoexec.file": "В <code>sdk_mods</code> откройте папку <code>.helios_tracker</code> (мод создаёт её при первом запуске игры с ним) и создайте в ней текстовый файл <code>autoexec.ps1</code>.",
   "share.autoexec.paste": "Вставьте в него эту строку:",
   "share.autoexec.done": "Теперь туннель запускается вместе с картой и останавливается вместе с ней.",
 

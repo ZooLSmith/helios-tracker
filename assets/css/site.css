@@ -470,11 +470,9 @@ kbd { padding: .05em .4em; background: var(--control); border: 1px solid var(--p
 
 /* ---- footer ---- */
 .foot { padding: 0 1.25rem; font-size: .85rem; color: var(--dim); }
-.foot > div { max-width: 76rem; margin: 0 auto; padding: 1rem 0; border-top: 1px solid var(--divider); display: flex; flex-wrap: wrap; gap: .5rem 2rem; justify-content: space-between; }
+.foot > div { max-width: 76rem; margin: 0 auto; padding: 1rem 0; border-top: 1px solid var(--divider); display: flex; flex-wrap: wrap; gap: .5rem 2rem; justify-content: center; text-align: center; }
 .foot p { margin: 0; }
-.foot-source { color: var(--dim); }
-.foot-source:hover { color: var(--text-bright); }
-/* the home's link to the questionnaire, under "Where to open it" */
+/* the home's link to the questionnaire, under "Where to view it" */
 .more-link { margin: -.4rem 0 1.4rem; font-weight: 600; }
 
 /* ---- translations (js/i18n.js): the page shows once its text is in (html.i18n) - or after 2 s whatever happens,
