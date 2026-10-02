@@ -481,5 +481,9 @@ image placed at its shape's bounds in movie px; yaw 0 = up, clockwise
 - Release: `tools/build_sdkmod.py` (`_work/dist/helios_tracker.sdkmod`: the package's git files, not `reload.py`;
   `.cache/` and logs are gitignored, so never in it). `tools/use_sdkmod.bat` runs it in the game in place of the
   junction, `tools/use_dev.bat` goes back (see the root `AGENTS.md`).
+- Publishing: `python tools/release.py [--publish] [--notes ...]` - on master, nothing uncommitted, master pushed to
+  the public repo, the pyproject's version newer than its latest release, its tag free; builds into
+  `_work/release/vX.Y.Z/`, verifies it with the updater's own `verify`, then `gh release create vX.Y.Z
+  helios_tracker.sdkmod --repo ZooLSmith/helios-tracker --target <that commit>` and a local `vX.Y.Z` tag here.
 - Updates: `python tools/fake_release.py [0.2.0]` serves a release of the working tree (version patched) the way
   GitHub's API does and points the game's updater at it until Ctrl+C.

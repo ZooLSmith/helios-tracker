@@ -20,6 +20,7 @@ updater speaks through the game's own UI (its dialog box, its bottom-left messag
 ```
 bl2-helios-tracker/
 ├── AGENTS.md                             # this file (CLAUDE.md: a pointer to it, for Claude Code)
+├── README.md, LICENSE                    # the public repo's front page; GPL-3.0
 ├── project.example.json                  # template of project.json: this machine's paths
 ├── .agent/                               # everything for agents / devs (never in the mod folder):
 │   ├── spec.md                           #   the mod's spec
@@ -28,7 +29,8 @@ bl2-helios-tracker/
 │   ├── references.md                     #   game layout, SDK facts, API notes
 │   └── presequel.md                      #   the mod in the Pre-Sequel: what works, what was seen
 ├── tools/                                # offline_check.py, project.py (reads project.json),
-│   │                                     # link_mod.py, build_sdkmod.py + use_sdkmod / use_dev.bat
+│   │                                     # link_mod.py, build_sdkmod.py + use_sdkmod / use_dev.bat,
+│   │                                     # release.py, fake_release.py (the updater's test server)
 │   └── probes/                           #   in-game probes (probe_*.py, their .txt) + offline research
 │                                         #   tools (check_navwalk, dump_tacmap_movie, find_fonts...)
 └── helios_tracker/                       # the mod (Python package + web/ page)
@@ -101,6 +103,11 @@ bl2-helios-tracker/
   Use specific names (`card_gun`, `later_shot`) and grep before introducing one.
 - Release format: `.sdkmod` = a renamed zip containing `helios_tracker/...`, without the dev files
   (`reload.py`, `.cache/`, logs). Agent / dev docs live at the root, never inside `helios_tracker/`.
+- Releasing (the user runs it - publishing, like pushing, is theirs): bump `helios_tracker/pyproject.toml`'s
+  version, commit, push `master` (both remotes), then `python tools/release.py` (checks, builds, verifies; says what
+  it would publish) and
+  `--publish [--notes "..."]`: a GitHub release of the public repo, tag `vX.Y.Z` = the version, the `.sdkmod`
+  attached - what the mod's updater reads. Agents run it without `--publish` only.
 - Never scan the whole drive; scope searches to this project or the game folder.
 - Edit scripts containing backslash escapes must be written to a file first: shell heredocs (even
   quoted ones, through some agent shells) can turn `\\` into `\`, which once wrote NUL bytes into a
@@ -114,11 +121,12 @@ bl2-helios-tracker/
 
 ## Repositories
 
-- `origin` = `ZooLSmith/helios-tracker-private` (private): the code, `master`.
-- `public` = `ZooLSmith/helios-tracker` (public): the site, the `documentation` branch - **never the code** - and a
-  `master` holding only a "not published yet" README (the local orphan branch `public-master`, no shared history).
-  Locally `remote.public.push` sends only `documentation`, and `.git/hooks/pre-push` refuses anything else to it but
-  `public-master` -> `master` (a fresh clone has neither: set them up again).
+- The code is open source (GPL-3.0, `LICENSE`), its whole history public.
+- `public` = `ZooLSmith/helios-tracker` (public): `master` = the code (the same history as `origin`'s), the site (the
+  `documentation` branch), the releases (`tools/release.py`: the `.sdkmod` attached).
+- `origin` = `ZooLSmith/helios-tracker-private` (private): the same `master`, and whatever isn't public yet (an
+  experimental branch). Locally `remote.public.push` sends `master` and `documentation` only, and `.git/hooks/pre-push`
+  refuses any other branch to the public repo (a fresh clone has neither: set them up again).
 
 ## Website (GitHub Pages)
 

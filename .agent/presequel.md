@@ -11,7 +11,7 @@ changes made for TPS ("patches"), so each finding says which build it was seen o
 - The Python SDK installs on its own in TPS (its own `sdk_mods/`, the same mods_base / unrealsdk / pyunrealsdk).
 - Dev link: `project.json`'s optional `tps` entry (the TPS install), then `python tools/link_mod.py tps` - the same
   junction as for BL2 (`<tps>\sdk_mods\helios_tracker` -> `<repo>\helios_tracker`), so one checkout runs in both
-  games. On this machine: `E:/SteamLibrary/steamapps/common/BorderlandsPreSequel`.
+  games.
 - Both games write to the same log files (`helios_tracker/helios_tracker.log`, `helios_crash.log`) through the
   junction: a TPS session is told apart by its paths (`...\BorderlandsPreSequel\sdk_mods\...`) and times.
 - `tools/offline_check.py` and the game file extraction still use BL2 (`project.json`'s `game`) only.
