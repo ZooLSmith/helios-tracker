@@ -76,6 +76,9 @@ bl2-helios-tracker/
   That fallback is the thing's **own** object name, as is: no heuristics to make a nicer one (walking to an
   owner object, stripping prefixes / suffixes picked to fit the cases at hand - the user: "don't make stuff up, no
   hacks no guessing"; a nameless level-up effect first came out "Level Up Naturally ?" that way).
+- **US English** in everything players read (the page's `en.js`, the mod's English in `i18n.py`, the README, the
+  site's `en.js` and heads): color, centered, gray, favorite... - not colour, centred. (The `{n} %` spacing is
+  on purpose: font issues.)
 - **Game enums by name**: unrealsdk's enums are int-based, `str(value)` is the number ("0"), not
   "DMGSURFACE_Generic" - a string test silently never matches. Compare through `getattr(v, "name", v)`
   (inspector.py `_enum_name`); in offline_check fake them with `enum.IntEnum`, not strings.

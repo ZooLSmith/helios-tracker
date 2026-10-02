@@ -18,13 +18,13 @@ Every kind of marker is a layer you can show, hide or resize:
 
 - players, enemies with their health (bosses outlined in gold), NPCs and allies, vehicles
 - missions to pick up or hand in, and your missions' waypoints
-- gear in its rarity's colour (hover it for its item card), cash, ammo, health, eridium / moonstones, mission items
+- gear in its rarity's color (hover it for its item card), cash, ammo, health, eridium / moonstones, mission items
 - chests and containers (click one to see what it can drop), vending machines, slot machines and stations
 - explosives, jump pads, oxygen sources, Vault symbols
 
 And more than a map: every player's gear and skill trees as the game's item cards, Gibbed codes, the mission log and
 the best missions to do next, the vending machines' stock and restock timer, action skill cooldowns, area names and
-fog of war, tilting and turning the map, five colour themes, the page in nine languages. In co-op only one player needs it.
+fog of war, tilting and turning the map, five color themes, the page in nine languages. In co-op only one player needs it.
 
 ## Install
 
