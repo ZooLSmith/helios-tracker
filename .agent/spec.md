@@ -11,8 +11,10 @@ bottom-left message).
 ## Spec
 
 - Options: **Open Map in Browser** (button, `os.startfile(url)`), **Port** (default 8777),
-  **Allow LAN Access** (binds 0.0.0.0 instead of 127.0.0.1; phones / other PCs), **Updates Per
-  Second** (1-30, default 10). Port / LAN changes restart the server immediately.
+  **Allow LAN Access** (binds 0.0.0.0 instead of 127.0.0.1; phones / other PCs), **Tick Rate**
+  (`rate`, per second: 1-30, default 10 - was "Updates Per Second", read as the mod's own updates). A LAN change restarts the server immediately, a Port one on leaving the options
+  screen (`on_menu_back`, `WillowScrollingList:HandlePopList`: not a restart per slider step); both in a thread
+  (`_restart_soon`: stopping waits for the server's loop and the user script - a freeze on the game thread).
 - Page: full-window canvas, the level's map image(s), markers (the tracked player - "Who", else the host -
   = yellow arrow, drawn on top; other players = white arrows + names, enemies = red diamonds (like the game's minimap) + health bar when hurt, NPCs green
   hollow rings (not dots: the other pickups are dots of their kind's colour, cash a yellow "$" disc - their own icon, the
@@ -263,19 +265,30 @@ bottom-left message).
   offset -, in 2D and tilted; vertically, tilted, it tilts) - around where the drag started, that spot staying under the
   cursor (following: around the player). While Follow + Rotate turn it to the heading, the heading
   owns the turn (the drag only tilts, the spin is set aside). On a touch screen: a two-finger twist (past 10 deg, so a
-  pinch doesn't turn it by accident) turns it around the point between the fingers (view.js spinAt). Once turned - or
+  pinch doesn't turn it by accident) turns it around the point between the fingers (view.js spinAt); tilted, two
+  fingers sliding up / down side by side tilt it (the mouse's tilt had no touch equivalent) - the gesture decided
+  once, past 10 px: a tilt doesn't zoom, a pinch doesn't tilt. Once turned - or
   while Follow + Rotate turn it to the heading (its click then: Rotate off) - a compass shows in the map's free corner (view.js refreshNorth: the largest area no panel covers, its arrow pointing north
   and an upright N orbiting on its border (the badge's centre there) at the arrow's tip, like a moon (never turned: a turned N read as a Z); bigger on a touch screen; beside the drawer, in the free area's corner - on a
   phone the drawer, an opaque page, covers it); a click or N turns it back.
+- **The screen kept on** (`awake.js`): on Android / iOS (its user agent - an iPad's says Macintosh: with a touch
+  screen; a PC: no "playing audio" on its tab), always, no setting: the screen wake lock where the browser offers it (a secure page: https,
+  localhost), else NoSleep.js's trick - a tiny looping video in the page, off screen (not in it: no effect), not muted:
+  Chrome keeps the screen on for a video only if audible (a silent track counts) or largely on screen (blink's
+  video_wake_lock.cc; muted, Android's went off), embedded as a data URI (Safari plays a served video only by byte
+  ranges, our server sends none). Its first play needs a tap - any, anywhere on the page (no page may start sound by
+  itself) -, again after coming back to the page if the phone paused it. Android may lower other apps' music meanwhile.
 - **Phones** (up to 520 px wide): the drawer (the right pane) is a solid page of its own over everything - the whole window,
   clear of the notch / home bar, its close button back to the map; room under its content while the status shows (the
   game paused, the connection lost); the mission list's filters always unfolded (their chevron gone); the left panel
   keeps the top 45 %.
 - **Settings tab**, grouped by what it changes: **Who** (host / a player, saved by name) + Follow (F) / Rotate (R: map
-  turns to their heading; only while following, greyed out otherwise) + Fit map (0); **Map**: Colours (the theme's tint,
-  or the game's blue whatever the theme: `view.mapColors`), Background / Map opacity (`look.js`; 0 % background: in OBS
+  turns to their heading; only while following, greyed out otherwise) - the Fit map button gone (the 0 key still fits it); **Map**: Colours (the theme's tint,
+  or the game's blue whatever the theme: `view.mapColors`), Smooth (a checkbox, `view.smoothMap`, on by default: the map
+  images smoothed at any zoom; off, their texels as squares - zoomed out, thin lines dropped; the fog follows;
+  better upscalers tried and dropped: design.md), Background / Map opacity (`look.js`; 0 % background: in OBS
   via its browser source's "Interact"), Markers 50-200 % (every marker, its label and bars - times its layer's Size),
-  Tilt (3: `view.threeD` - was "3D view"; the map tilted by an orthographic camera, `view.tilt3d` 0-80 deg, markers
+  Tilt (T - was 3: `view.threeD` - was "3D view"; the map tilted by an orthographic camera, `view.tilt3d` 0-80 deg, markers
   lifted by their height above the map's plane - the tracked player's height, the tooltips' "x m above / below" origin
   (nobody tracked: the level's typical ground, the median height of its objects) - with a stem down to it; quest areas as ellipses on the plane; toScreen(mx, my, h), toMap on the plane: pan / zoom / clicks
   / coordinates / the fog unchanged. The floors / walls from the level's collision were tried and parked on the

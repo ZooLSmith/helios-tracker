@@ -38,6 +38,9 @@ export function defaults() {
       markerScale: 100, // every map marker's size (and its label, bars), % (50-200: look.js)
       theme: "default", // the page's colours (look.js THEMES; themes.css)
       mapColors: "theme", // the map images: "theme" (its tint, --map-filter) or "game" (the game's blue: draw.js)
+      // the map images smoothed at any zoom (the canvas' bilinear: draw.js); off, its texels as squares - zoomed out,
+      // thin lines dropped
+      smoothMap: true,
     },
     ui: { lang: "auto", panelTab: "info", inspectorTab: "info", openLayers: [], closedGroups: [], showLockedMissions: false,
       missionGroup: "chain", missionGoal: "xp",

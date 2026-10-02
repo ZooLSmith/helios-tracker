@@ -9,7 +9,7 @@ import { icon } from "../icons.js";
 import { invalidate } from "../scheduler.js";
 import { saveSettings, settings } from "../settings.js";
 import { S } from "../state.js";
-import { centerOnTarget, fit, resetSpin, stopFollow } from "../view.js";
+import { centerOnTarget, resetSpin, stopFollow } from "../view.js";
 import { renderInspector } from "./inspector.js";
 import { renderLayers } from "./layers.js";
 import { renderMission } from "./mission.js";
@@ -88,6 +88,7 @@ export function initPanel() {
     };
   };
   bindBox("follow", "follow"); bindBox("rotate", "rotate"); bindBox("threeD", "threeD"); bindBox("coords-on", "coords");
+  bindBox("smoothMap", "smoothMap");
   $("north").onclick = resetSpin; // (the compass on the map: shown once it's turned, or turning with the heading)
   syncRotate();
   $("follow").addEventListener("change", syncRotate);
@@ -116,7 +117,6 @@ export function initPanel() {
     else el.oninput = apply;
     show();
   }
-  $("fit").onclick = () => fit();
 
   // Theme: the page's colours (themes.css); the canvas' and the layer icons' read again. Map colours: its tint
   // (the theme's --map-filter) or the game's blue

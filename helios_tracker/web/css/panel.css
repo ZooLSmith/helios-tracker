@@ -65,6 +65,8 @@ label.row.cset { gap: 6px; }
 .cset select { width: auto; padding: 1px 4px; font-size: 12px; margin-left: auto; }
 .cset input[type="range"] { width: 72px; margin: 0; accent-color: var(--accent); }
 .cset .cval { width: 36px; text-align: right; font-variant-numeric: tabular-nums; }
+label.cset { cursor: pointer; } /* a title + checkbox row (Smooth): the title toggles it too */
+.cset input[type="checkbox"] { margin: 0; accent-color: var(--accent); cursor: pointer; }
 .seg { display: flex; margin-left: auto; border: 1px solid var(--panel-edge); border-radius: 4px; overflow: hidden; }
 .seg button { background: var(--control); color: var(--dim); border: 0; font: inherit; font-size: 11px; padding: 2px 4px; cursor: pointer; }
 .seg button + button { border-left: 1px solid var(--panel-edge); }

@@ -38,12 +38,15 @@ _STALE_SCRIPT = "_helios_tracker_script"  # same for the running autoexec.ps1
 # region Options
 
 
-def _on_port(_opt: Any, value: float) -> None:
-    _start(new_port=int(value))
+_port_changed = [False]  # the Port slider moved: the server restarted on leaving the options (on_menu_back)
+
+
+def _on_port(_opt: Any, _value: float) -> None:
+    _port_changed[0] = True  # (not a restart per slider step: every step was one, the old port gone meanwhile)
 
 
 def _on_lan(_opt: Any, value: bool) -> None:
-    _start(new_lan=value)
+    _restart_soon(new_lan=value)
 
 
 port = SliderOption(
@@ -52,7 +55,7 @@ port = SliderOption(
     min_value=1024,
     max_value=65535,
     display_name="Port",
-    description="Port of the local web server: the page is at http://localhost:<port>/.",
+    description="Port of the local web server: the page is at http://localhost:<port>/. Applied when you leave this menu.",
     on_change_while_enabled=_on_port,
 )
 lan = BoolOption(
@@ -71,8 +74,11 @@ rate = SliderOption(
     value=10,
     min_value=1,
     max_value=30,
-    display_name="Updates Per Second",
-    description="How often positions are sent to the page (it smooths movement in between).",
+    display_name="Tick Rate",  # (was "Updates Per Second": read as the mod's own updates, next to Check for Updates)
+    description=(
+        "How many times per second the mod reads the game and sends it to the page (the page smooths movement in"
+        " between). Lower: lighter on the game and on your upload when sharing the map."
+    ),
 )
 
 
@@ -80,9 +86,20 @@ def _url() -> str:
     return f"http://127.0.0.1:{int(port.value)}/"  # not localhost: the server is IPv4 only
 
 
+def _open_page(_opt: Any) -> None:
+    def open_it() -> None:
+        os.startfile(_url())  # type: ignore  # noqa: S606
+
+    if _port_changed[0]:  # (the Port slider moved, not applied yet - still in the menu: now, then the page on it)
+        _port_changed[0] = False
+        _restart_soon(then=open_it)
+    else:
+        open_it()
+
+
 open_page = ButtonOption(
     "Open Map in Browser",
-    on_press=lambda _: os.startfile(_url()),  # type: ignore  # noqa: S606
+    on_press=_open_page,
     description="Opens the live map in your default browser (the mod must be enabled).",
 )
 
@@ -348,7 +365,31 @@ def _lan_ip() -> str | None:
         return None
 
 
+# _start / _stop: from the game thread (enable / disable) and from a restart thread (_restart_soon), one at a time
+_server_lock = threading.RLock()
+_serving = [False]  # between _on_enable and _on_disable: a restart thread late after a disable starts nothing
+
+
+def _restart_soon(new_lan: bool | None = None, then: Any = None) -> None:
+    """The server restarted in a thread: stopping waits for its loop (<= its poll interval) and the user script's
+    end - on the game thread, a freeze (every Port slider step was one: the user caught it). `then`: called after."""
+
+    def run() -> None:
+        with _server_lock:
+            if _serving[0]:
+                _start(new_lan=new_lan)
+        if then is not None:
+            then()
+
+    threading.Thread(target=run, name="helios_tracker restart", daemon=True).start()
+
+
 def _stop() -> None:
+    with _server_lock:
+        _stop_locked()
+
+
+def _stop_locked() -> None:
     script = getattr(sys, _STALE_SCRIPT, None)
     setattr(sys, _STALE_SCRIPT, None)
     if script is not None:
@@ -367,7 +408,13 @@ def _stop() -> None:
 
 def _start(new_port: int | None = None, new_lan: bool | None = None) -> None:
     """(Re)starts the server; the option callbacks pass their new value (set after they return)."""
-    _stop()  # also a server left running by a reload that didn't disable the mod
+    with _server_lock:
+        _start_locked(new_port, new_lan)
+
+
+def _start_locked(new_port: int | None, new_lan: bool | None) -> None:
+    _stop_locked()  # also a server left running by a reload that didn't disable the mod
+    _port_changed[0] = False  # (started on port.value: a moved slider's too)
     port_value = int(port.value if new_port is None else new_port)
     lan_value = bool(lan.value if new_lan is None else new_lan)
     try:
@@ -415,12 +462,15 @@ _collector.on_page = lambda: _scan_game_files()
 
 def _on_enable() -> None:
     _collector.reset()
+    _serving[0] = True
     _start()
     _auto_update()
 
 
 def _on_disable() -> None:
-    _stop()
+    with _server_lock:
+        _serving[0] = False
+        _stop_locked()
     _stop_worker()
     _collector.reset()
 
@@ -456,6 +506,14 @@ def on_post_render(obj: UObject, args: WrappedStruct, ret: Any, func: BoundFunct
         _collector.tick(now)
     except Exception as ex:  # noqa: BLE001
         log_error("tick", ex)
+
+
+@hook("WillowGame.WillowScrollingList:HandlePopList", Type.POST)
+def on_menu_back(obj: UObject, args: WrappedStruct, ret: Any, func: BoundFunction) -> None:  # noqa: ARG001
+    """Leaving an options screen (the mod menu saves there too): the Port slider moved - the server restarted once."""
+    if _port_changed[0]:
+        _port_changed[0] = False
+        _restart_soon()
 
 
 @hook("WillowGame.WillowPlayerController:ClientPlayBinkMovie", Type.PRE)
@@ -525,6 +583,6 @@ mod = build_mod(
     on_enable=_on_enable,
     on_disable=_on_disable,
     hooks=[on_post_render, on_bink_movie, on_pickup_spawn, on_object_spawn, on_object_balance, on_object_destroyed,
-           on_set_usability, on_change_usability],
+           on_set_usability, on_change_usability, on_menu_back],
     options=[open_page, port, lan, rate, auto_update, update_button, next_update_check],
 )

@@ -10,6 +10,7 @@ import { H, W, canvas, fit, resetSpin, screenToMapDelta, spinAt, stopFollow, toM
 
 const FOLLOW_LET_GO = 40; // px a drag goes before it stops following the player (the user: not at the first pixel)
 const TWIST_START = 10; // degrees two fingers must turn before the map turns with them
+const TWO_FINGER_DECIDE = 10; // px two fingers slide / spread before their gesture is decided (a tilt or a pinch)
 
 // The marker under the cursor. First what the pointer is ON (inside a marker): among those, by layer - an item lying on
 // its container, a player by a chest: loot > quest points / givers > pawns > area objectives > objects - then the last
@@ -67,9 +68,11 @@ export function initInput() {
     pointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
     dragFrom = pointers.size === 1 ? { x: e.clientX, y: e.clientY } : null;
     canvas.classList.add("dragging");
-    if (pointers.size === 2) { // two fingers: pinch zooms, a twist turns the map (past TWIST_START: not by accident)
+    if (pointers.size === 2) { // two fingers: pinch zooms, a twist turns the map (past TWIST_START: not by accident),
+      // sliding up / down together tilts it (Tilt on)
       const [a, b] = [...pointers.values()];
-      pinch = { d: Math.hypot(a.x - b.x, a.y - b.y), zoom: S.view.zoom, angle: Math.atan2(b.y - a.y, b.x - a.x), twisting: false };
+      pinch = { d: Math.hypot(a.x - b.x, a.y - b.y), zoom: S.view.zoom, angle: Math.atan2(b.y - a.y, b.x - a.x), twisting: false,
+        mx: (a.x + b.x) / 2, my: (a.y + b.y) / 2, tilt: settings.view.tilt3d, mode: null };
     }
   });
   canvas.addEventListener("pointermove", (e) => {
@@ -83,9 +86,30 @@ export function initInput() {
     if (pointers.size === 2 && pinch) {
       const [a, b] = [...pointers.values()];
       const d = Math.hypot(a.x - b.x, a.y - b.y), mx = (a.x + b.x) / 2, my = (a.y + b.y) / 2;
-      zoomAt(mx, my, (pinch.zoom * d / pinch.d) / S.view.zoom);
       const angle = Math.atan2(b.y - a.y, b.x - a.x);
       const turn = (((angle - pinch.angle) * 180 / Math.PI) + 540) % 360 - 180; // degrees since the last step (or the start)
+      // The gesture, decided once: both fingers sliding up / down side by side, the gap between them kept - a tilt (Tilt
+      // on: the mouse's has no touch equivalent, the maps apps' gesture); else a pinch / twist. Never both: a tilt
+      // doesn't zoom, a pinch doesn't tilt
+      if (!pinch.mode) {
+        const slide = my - pinch.my, spread = d - pinch.d;
+        if (Math.max(Math.abs(slide), Math.abs(spread)) < TWO_FINGER_DECIDE && Math.abs(turn) <= TWIST_START) return;
+        pinch.mode = settings.view.threeD && Math.abs(slide) > 2 * Math.abs(spread) && Math.abs(turn) <= TWIST_START &&
+          Math.abs(a.y - b.y) < Math.abs(a.x - b.x) ? "tilt" : "pinch";
+      }
+      if (pinch.mode === "tilt") { // (up: more tilted, as the mouse's drag; around the point the fingers started from)
+        const v = settings.view, [px, py] = toMap(pinch.mx, pinch.my);
+        v.tilt3d = Math.min(80, Math.max(0, pinch.tilt - (my - pinch.my) * 0.3));
+        S.view.tilt = v.tilt3d * Math.PI / 180;
+        if (!v.follow) {
+          const [nx, ny] = toMap(pinch.mx, pinch.my);
+          S.view.cx += px - nx; S.view.cy += py - ny;
+        }
+        saveSettings();
+        invalidateNow(); // (the user tilting: not capped by the Refresh rate)
+        return;
+      }
+      zoomAt(mx, my, (pinch.zoom * d / pinch.d) / S.view.zoom);
       if (!pinch.twisting && Math.abs(turn) > TWIST_START) { pinch.twisting = true; pinch.angle = angle; }
       else if (pinch.twisting) { spinAt(mx, my, -turn); pinch.angle = angle; } // (the map turns with the fingers: a larger spin turns it the other way)
       return;
@@ -147,7 +171,7 @@ export function initInput() {
     if (k === "escape") { closeInspector(); return; }
     if (k === "f") { $("follow").click(); }
     else if (k === "r") { $("rotate").click(); } // (only while following: greyed out otherwise)
-    else if (k === "3") { $("threeD").click(); } // Tilt
+    else if (k === "t") { $("threeD").click(); } // Tilt
     else if (k === "n") { resetSpin(); } // the map turned back (the compass)
     else if (k === "c") { $("coords-on").click(); } // Show coordinates
     else if (k === "0") { stopFollow(); fit(); }

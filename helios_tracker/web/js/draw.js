@@ -185,7 +185,7 @@ export function draw() {
   ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
   ctx.translate(W / 2, H / 2); ctx.scale(1, Math.cos(S.view.tilt)); ctx.rotate(-S.view.rot); ctx.scale(S.view.zoom, S.view.zoom);
   ctx.translate(-S.view.cx, -S.view.cy);
-  ctx.imageSmoothingEnabled = S.view.zoom < 4;
+  ctx.imageSmoothingEnabled = settings.view.smoothMap; // (Settings: Smooth - the fog follows it, drawFog)
   ctx.globalAlpha = lk.map / 100; // the map image itself (cut out: transparent outside the level)
   for (const img of S.images) {
     const [x0, x1, y0, y1] = img.bounds;

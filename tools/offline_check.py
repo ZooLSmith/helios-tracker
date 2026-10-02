@@ -2310,6 +2310,39 @@ def check_updater() -> None:
     assert menu_provider.options[1].identifier == "Options" and menu_provider.options[1] is not menu_old.group
     assert menu_other.drawn_options[0] not in menu_new.opts, "another mod's menu: untouched"
     updater.follow_menu(menu_old, menu_new)  # (no willow2_mod_menu: nothing done, nothing raised)
+    # The Port slider: applied on leaving the options, not per step, and in a thread (a restart on the game thread froze
+    # it); Open Map in Browser with it not applied yet: restarted first, then the page; after a disable: nothing started
+    port_calls: list[str] = []
+    port_saved = upd_mod._start, getattr(upd_mod.os, "startfile", None)
+    upd_mod._start = lambda **_kw: port_calls.append("start")
+    upd_mod.os.startfile = lambda url: port_calls.append("open " + url)
+
+    def port_wait() -> None:
+        for port_thread in [t for t in threading.enumerate() if t.name == "helios_tracker restart"]:
+            port_thread.join(5)
+
+    try:
+        upd_mod._serving[0] = True
+        upd_mod._on_port(None, 9000.0)
+        assert port_calls == [] and upd_mod._port_changed[0], ("a slider step: nothing restarted", port_calls)
+        upd_mod._open_page(None)
+        port_wait()
+        assert port_calls == ["start", "open " + upd_mod._url()] and not upd_mod._port_changed[0], port_calls
+        port_calls.clear()
+        upd_mod._open_page(None)
+        assert port_calls == ["open " + upd_mod._url()], ("applied: just opened", port_calls)
+        port_calls.clear()
+        upd_mod._serving[0] = False
+        upd_mod._restart_soon()
+        port_wait()
+        assert port_calls == [], ("disabled meanwhile: no server started", port_calls)
+    finally:
+        upd_mod._start = port_saved[0]
+        if port_saved[1] is None:
+            del upd_mod.os.startfile
+        else:
+            upd_mod.os.startfile = port_saved[1]
+        upd_mod._serving[0] = upd_mod._port_changed[0] = False
     print("  updater: a newer release downloaded, verified and swapped in; older / mismatched / folder install left alone; an open options menu follows a reload")
 
 

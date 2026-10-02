@@ -1,6 +1,7 @@
 // The page's entry point (index.html calls start()). Modules only define things at import time -
 // every DOM hookup happens here, in order - so any of them can be imported under Node (the
 // offline check imports them all).
+import { initKeepAwake } from "./awake.js";
 import { connect } from "./data.js";
 import { applyI18n } from "./i18n.js";
 import { applyIcons } from "./icons.js";
@@ -33,6 +34,7 @@ export function start() {
   initInspector();
   initHoverTips();
   initInput();
+  initKeepAwake();
   applyI18n();
   renderTargets();
   refreshStatus();

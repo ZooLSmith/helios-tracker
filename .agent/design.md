@@ -4,6 +4,26 @@ Things the user wants the page to look like, decided but deliberately not done -
 have to be true to do them. Leftovers of the retheme toward Borderlands 2's art style (done: gradients,
 the game's own fonts - `gamefonts.py`).
 
+## Smoother map images up close (not done: no upscaler helps)
+
+**The wish** (the user, 2026-10-02): zoomed in, the map images look pixelated (Settings: Smooth off) or
+"jagged but smooth" (Smooth on: the canvas' bilinear). The tactical maps are small (Sanctuary 468 x 512, Southern Shelf
+876 x 1024, DXT5) and almost all thin borders - 1-2 texel antialiased lines over flat fills - so from zoom 4 every
+method has to invent the lines' shape.
+
+**Tried on real maps (a Southern Shelf crop at x8), all rejected by the user ("they're both bad"):**
+
+- Bicubic (Catmull-Rom x4 on premultiplied alpha, once per image in the page, ~100 ms): barely different from bilinear.
+- Bicubic then an edge sharpener (each pixel pushed toward its neighbourhood's min / max through a smoothstep):
+  crisp strokes, but bolder lines and blobby small features.
+- Super-xBR (Hyllian's, ported from his C++ reference): the only one that reshapes the lines (no blocks left), but
+  soft / painted, small features melting together - and slow: 8.4 s for Southern Shelf x4 under Node (a straight port;
+  it would need a Web Worker).
+
+**What would work:** vectorizing the map images - tracing the borders into curves once and drawing them as paths,
+smooth at any zoom. A big job (a tracer, the fills and colours, the fog's mask), and still a guess at the original
+lines. Not started.
+
 ## Chamfered corners (45° cuts)
 
 **The wish** (the user, 2026-09-24): Borderlands' UI often cuts panel corners at a sharp 45° instead of
