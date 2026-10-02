@@ -74,6 +74,7 @@
   --m-explosive: #e0703a; /* the tracker's --layer-explosive (on the map: each in its element's colour) */
   --m-slots: #5aa9ff; /* its --layer-slots */
   --m-oxygen: #4e6a86; /* its --layer-oxygen */
+  --m-vault: #ff7eb6; /* its --layer-vaultsymbol */
   --m-container: #e2c170;
   --m-eridium: #c77dff; /* its --layer-pickup-eridium */
   --m-moonstone: #4bf2be; /* its --layer-pickup-eridium-tps: the Pre-Sequel's moonstones, the game's colour */

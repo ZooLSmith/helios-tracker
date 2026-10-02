@@ -44,6 +44,8 @@ export default {
   "index.enemiesText": "With their health. Bosses outlined in gold.",
   "index.npcs": "NPCs and allies",
   "index.npcsText": "Allies and everyone else, as green rings.",
+  "index.vehicles": "Vehicles",
+  "index.vehiclesText": "Yours and the enemies', with their health.",
   "index.givers": "Missions",
   "index.giversText": "A mission to pick up or hand in.",
   "index.objectives": "Objectives",
@@ -56,8 +58,10 @@ export default {
   "index.chestsText": "Click one to see what it can drop.",
   "index.services": "Services",
   "index.servicesText": "Vending machines, slot machines and stations.",
-  "index.places": "Places",
-  "index.placesText": "Explosives, oxygen sources and jump pads, Vault symbols.",
+  "index.explosives": "Explosives",
+  "index.explosivesText": "Barrels and plants, in their element's colour. Jump pads and oxygen sources too.",
+  "index.vault": "Vault symbols",
+  "index.vaultText": "The level's hidden Vault symbols, to find and click.",
   "index.hover": "Hover a marker for its name, health and distance; click it for more.",
 
   "index.more": "More than a map",
@@ -74,7 +78,7 @@ export default {
   "index.more.fog": "Areas and fog of war",
   "index.more.fogText": "The game's area names and fog of war.",
   "index.more.tilt": "Tilt and turn",
-  "index.more.tiltText": "Tilt the map to see heights, turn it any way.",
+  "index.more.tiltText": "Tilt the map to see heights (two fingers up or down on a touch screen), turn it any way.",
   "index.more.themes": "Themes",
   "index.more.themesText": "Five colour themes, the map tinted to match.",
   "index.more.coop": "Co-op",
@@ -130,7 +134,6 @@ export default {
   "install.open": "Open the map",
   "install.openText": "In the mod's options, press <strong>Open Map in Browser</strong>, or go to this address in any browser on the same PC:",
   "install.openTab": "Leave the tab open while you play. It follows you from level to level by itself.",
-  "install.optionsNote": "", // (the other languages: the mod's in-game options are in English)
   "install.coop": "Playing co-op",
   "install.coopText": "Only one player needs the mod. If you can choose, install it on the <strong>host</strong>'s PC: the host's game knows everything, while a client's game only knows what the host sends it.",
   "install.coopClient": "As a client it still works, with less in it:",
@@ -143,7 +146,9 @@ export default {
   "install.next.overlay": "<a href=\"share?path=overlay\">In the Steam overlay</a>",
   "install.next.help": "If the map won't open, see <a href=\"troubleshooting\">Troubleshooting</a>.",
   "install.update": "Updating or removing it",
-  "install.updateText": "To update, replace <code>helios_tracker.sdkmod</code> with the new one and restart the game. To remove it, delete the file. The mod's options are saved apart, in <code>sdk_mods\\settings</code>.",
+  "install.updateText": "To update, press <strong>Check for Updates</strong> in the mod's options. If there's a new version, the game asks before downloading it, then offers to reload the mod right away: no need to restart the game.",
+  "install.updateAuto": "Or turn on <strong>Automatic Updates</strong> (off by default): at most once a day, when the mod starts, a new version installs and reloads by itself, and the game says so at the bottom left of the screen.",
+  "install.removeText": "To remove it, delete <code>helios_tracker.sdkmod</code> and the <code>.helios_tracker</code> folder next to it. The mod's options are saved apart, in <code>sdk_mods\\settings</code>.",
 
   // ---- share.html (the questionnaire) ----
   "share.title": "Open or share the map | Helios Tracker",
@@ -252,7 +257,7 @@ export default {
   "share.before.stop": "Stop the tunnel when you're done.",
   "share.before.lan": "<strong>Allow LAN Access</strong> isn't needed: the tunnel connects to the PC itself.",
   "share.before.router": "<strong>Why not just open a port on the router?</strong> You can, but the link is then your home IP address: whoever gets it, and whoever they pass it on to, knows it, and while the port is open your PC is reachable from the whole internet on it. The address also changes now and then, and many internet providers don't allow it at all. A tunnel keeps your IP private and the link working.",
-  "share.before.upload": "<strong>Every viewer uses your upload:</strong> your PC sends each of them every update, about 0.6 Mbit/s per viewer (more in busy levels). To go easier on it, lower <strong>Updates Per Second</strong> in the mod's options (10 by default; 5 halves it): the page smooths the movement in between. It applies to everyone, your own page too.",
+  "share.before.upload": "<strong>Every viewer uses your upload:</strong> your PC sends each of them every update, about 0.6 Mbit/s per viewer (more in busy levels). To go easier on it, lower <strong>Tick Rate</strong> in the mod's options (10 by default; 5 halves it): the page smooths the movement in between. It applies to everyone, your own page too.",
 
   // ---- troubleshooting.html ----
   "trouble.title": "Troubleshooting | Helios Tracker",
@@ -262,11 +267,11 @@ export default {
   "trouble.enabled": "Is the mod enabled?",
   "trouble.enabledText": "The server only runs while the mod is on: open <strong>Mods</strong> in the game and check <strong>Helios Tracker</strong> is enabled.",
   "trouble.port": "Is the port taken?",
-  "trouble.portText": "The map uses port 8777. If another program already has it, the server can't start: change <strong>Port</strong> in the mod's options, and the server restarts at once on the new one. Update your bookmarks and OBS sources to match.",
+  "trouble.portText": "The map uses port 8777. If another program already has it, the server can't start: change <strong>Port</strong> in the mod's options, and the server moves to the new one when you leave the menu. Update your bookmarks and OBS sources to match.",
   "trouble.device": "From another device?",
   "trouble.deviceText": "Check that <strong>Allow LAN Access</strong> is on, the device is on the same network, and the firewall lets the game through: see <a href=\"share?path=home\">your local network</a>.",
   "trouble.translation": "A translation is wrong?",
-  "trouble.translationText": "Wrong, clumsy or missing words, on this site or on the map's page: <a href=\"https://github.com/ZooLSmith/helios-tracker/issues/new\">open an issue</a> with the language, the page and what it should say. Names from the game (items, skills, places) come from the game itself, and the mod's options are in English on purpose.",
+  "trouble.translationText": "Wrong, clumsy or missing words, on this site, on the map's page or in the mod's options: <a href=\"https://github.com/ZooLSmith/helios-tracker/issues/new\">open an issue</a> with the language, the page and what it should say. Names from the game (items, skills, places) come from the game itself.",
   "trouble.help": "Still stuck?",
   "trouble.helpText": "Everything the mod prints also goes to <code>Binaries\\Win32\\Plugins\\unrealsdk.log</code> in the game's folder: its last lines usually say what went wrong.",
 
@@ -274,7 +279,7 @@ export default {
   // (data-search; the English ones count in every language: a missing key is fine) ----
   "kw.sdk": "mod manager, python sdk, unrealsdk, sdk_mods, requirements",
   "kw.coop": "multiplayer, host, client, friends, online",
-  "kw.update": "uninstall, remove, delete, upgrade, new version, settings",
+  "kw.update": "uninstall, remove, delete, upgrade, new version, settings, automatic updates, check for updates, reload",
   "kw.lan": "phone, tablet, mobile, ipad, iphone, android, wifi, ip address, lan",
   "kw.overlay": "steam overlay, shift tab, in-game browser",
   "kw.obs": "stream, streaming, twitch, youtube, streamlabs, browser source, transparent",
