@@ -168,7 +168,7 @@ def movie_length(name: str) -> float | None:
     """A cutscene video's length (s), from its Bink file's header (frames, then the frame rate as
     numerator / denominator at 28 / 32): <game>/WillowGame/Movies/<name>.bik, else a DLC's
     (DLC/<code name>/<Lic...>/Movies: Orchid_Intro.bik, 1948 frames at 29.97 = 65.0 s - the 65 s the game
-    rendered nothing, tools/probe_cutscene_watch.txt). None if not found / not a Bink file. The game names some with
+    rendered nothing, tools/probes/probe_cutscene_watch.txt). None if not found / not a Bink file. The game names some with
     their extension ('TC_Marcus.bik', 'MegaIntro' without): dropped first (it looked for 'TC_Marcus.bik.bik')."""
     cooked = cooked_dir()
     if name and name.lower().endswith(".bik"):
@@ -196,7 +196,7 @@ _level_names: dict[str, str] = {}
 def level_name(map_name: str) -> str:
     """The level's name as the game shows it (the map screen's): LevelDependencyList
     .GetFriendlyLevelNameFromMapName - one list for the base game (GD_Globals.General.LevelList) and
-    one per DLC, each knowing only its own maps (tools/probe_area.txt: "Ice_P" -> "Three Horns -
+    one per DLC, each knowing only its own maps (tools/probes/probe_area.txt: "Ice_P" -> "Three Horns -
     Divide"). Cached per map; "" if none knows it."""
     if (cached := _level_names.get(map_name)) is None:
         cached = ""
@@ -211,7 +211,7 @@ def level_name(map_name: str) -> str:
 
 def current_playthrough() -> int:
     """The playthrough, 0-based (Normal 0, True Vault Hunter 1...), -1 if unknown: the game replication info's
-    CurrentPlaythrough (tools/probe_loot_odds2.txt - a property there; the controller only has a GetCurrentPlaythrough
+    CurrentPlaythrough (tools/probes/probe_loot_odds2.txt - a property there; the controller only has a GetCurrentPlaythrough
     function: reading pc.CurrentPlaythrough failed silently, ammo amounts and the enemies' playthrough names with it)."""
     return try_(lambda: int(ENGINE.GetCurrentWorldInfo().GRI.CurrentPlaythrough), -1)
 
@@ -229,7 +229,7 @@ def pawn_display_name(pawn: Any) -> str:
 
 
 def pickup_mission(inv: Any) -> dict[str, str] | None:
-    """The mission a mission item is tied to (tools/probe_pickups.txt): the one it gives (its
+    """The mission a mission item is tied to (tools/probes/probe_pickups.txt): the one it gives (its
     MissionItemDefinition.MissionDirective - an ECHO log that starts "No Hard Feelings"; "k": "gives"),
     else the one whose objective it's for (AssociatedMissionObjective, its mission = the objective's
     Outer; "k": "for", "o": the objective). {"i": mission id, "n": its name (the game's), "k", "o"?}."""
@@ -374,7 +374,7 @@ class Collector:
         # markers are worked out from them - _client_markers), found at each objects scan
         self._waypoints: list[WeakPointer] = []
         self._client = False  # a co-op client (set at each objects scan): containers opened by their state alone
-        # NPCs giving / taking back missions (their MissionDirectives: tools/probe_directors.txt), by
+        # NPCs giving / taking back missions (their MissionDirectives: tools/probes/probe_directors.txt), by
         # pawn address -> (the pawn, [(mission, begins, ends)]): a co-op client's quest-giver markers
         self._givers: dict[int, tuple[WeakPointer, list[tuple[Any, bool, bool]]]] = {}
         self._next_log = 0.0
@@ -621,7 +621,7 @@ class Collector:
     @staticmethod
     def _in_vacuum(pawn: Any) -> bool:
         """A player in a vacuum (the Pre-Sequel): their pawn's VacuumComponent (an OzVacuumComponent) State VS_InVacuum -
-        VS_InAir inside an air dome that's on (tools/probe_dome_state.txt)."""
+        VS_InAir inside an air dome that's on (tools/probes/probe_dome_state.txt)."""
         state = try_(lambda: field(pawn, "VacuumComponent").State)
         return getattr(state, "name", state) == "VS_InVacuum"
 
@@ -629,7 +629,7 @@ class Collector:
     def _oxygen(pawn: Any) -> tuple[float, float] | None:
         """A player's oxygen (the Pre-Sequel's Oz meter): (current, max) from the pawn's OxygenPool, else their
         replicated one (PlayerReplicationInfo.OxygenPool: a co-op client's view of the others) - a pool reference
-        whose Data (OzOxygenResourcePool) has CurrentValue / MaxValue (tools/probe_tps2.txt: 100 / 100). None without
+        whose Data (OzOxygenResourcePool) has CurrentValue / MaxValue (tools/probes/probe_tps2.txt: 100 / 100). None without
         one (BL2) or a max of 0."""
         for ref in (try_(lambda: field(pawn, "OxygenPool")), try_(lambda: field(field(pawn, "PlayerReplicationInfo"), "OxygenPool"))):
             data = try_(lambda r=ref: r.Data) if ref is not None else None
@@ -640,11 +640,11 @@ class Collector:
 
     @staticmethod
     def _boost(vehicle: Any, world_now: float) -> list[float] | None:
-        """A vehicle's boost (nitro) meter: [left, max] from its AfterburnerPool (tools/probe_vehicle.txt:
+        """A vehicle's boost (nitro) meter: [left, max] from its AfterburnerPool (tools/probes/probe_vehicle.txt:
         a resource pool next to its HealthPool) - the pool's CurrentValue and MaxValue (else
         BaseMaxValue). None without one (or an empty max).
         Refilling (not boosting, not full): a third value, the seconds until full - it refills like a
-        shield (tools/probe_boost.txt): OnIdleRegenerationDelay (5 s) after PoolIdleDelayStartTime (world
+        shield (tools/probes/probe_boost.txt): OnIdleRegenerationDelay (5 s) after PoolIdleDelayStartTime (world
         time: when the boost stopped), then OnIdleRegenerationRate per second (20)."""
         pool = try_(lambda: field(vehicle, "AfterburnerPool").Data)
         if pool is None:
@@ -690,7 +690,7 @@ class Collector:
         }
 
     def movie_started(self, pc: Any, name: str, no_skip: bool) -> None:
-        """From the ClientPlayBinkMovie hook: a cutscene video starts on this PC (tools/probe_cutscene_watch.txt:
+        """From the ClientPlayBinkMovie hook: a cutscene video starts on this PC (tools/probes/probe_cutscene_watch.txt:
         ClientPlayBinkMovie(MovieName='Orchid_Intro'), then not one frame for its 65 s - the collector, run
         from the frames, is silent meanwhile). Tells the page now, with its length (the file's) and start
         (epoch s: a page opened meanwhile counts from it); the first frame after it clears it (tick).
@@ -707,7 +707,7 @@ class Collector:
 
     def _check_scene(self, pc: Any, wi: Any, now: float) -> None:
         """An in-engine cutscene on this PC (a forced scene, no video): the level script's cinematic mode
-        (tools/probe_cutscene_watch.txt: SetCinematicMode(bKismetSetCinematicMode=True) -> bCinematicMode and
+        (tools/probes/probe_cutscene_watch.txt: SetCinematicMode(bKismetSetCinematicMode=True) -> bCinematicMode and
         bKismetEnabledCinematicMode, the camera on a CameraActor; a cinematic mode not from the script - after
         a video, a respawn - doesn't count). A video's own cinematic mode: the video's (movie_started).
         Backgrounds are one too: the main menu's (the menu map's script, its Matinee = GRI.MenuMatinee - seen
@@ -860,7 +860,7 @@ class Collector:
 
     @staticmethod
     def _area_record(area: Any) -> dict[str, Any]:
-        """A discovery area (tools/probe_discovery.txt: WorldDiscoveryArea, a handful per level): its short
+        """A discovery area (tools/probes/probe_discovery.txt: WorldDiscoveryArea, a handful per level): its short
         name (the key pc.DiscoveredWorldAreas uses: CustomName if bUseCustomName, else
         DefaultWorldAreaShortName - 'SOUTHERNSHELF_PWDA_4'), the game's name for it (WorldAreaDisplayName,
         'Wreck Of The Ice Sickle'; empty for bForFogOfWarOnly ones: they only clear the map's fog),
@@ -873,7 +873,7 @@ class Collector:
 
     def _publish_areas(self) -> None:
         """The level's areas with the ones this player discovered: those in pc.DiscoveredWorldAreas[]
-        ({DiscoveryName, HasBeenUncovered} - being listed is what counts: tools/probe_fog.txt, every entry
+        ({DiscoveryName, HasBeenUncovered} - being listed is what counts: tools/probes/probe_fog.txt, every entry
         HasBeenUncovered False, Glacial's too though fully explored; Southern Shelf: the 5 areas visited
         listed, the one not reached absent). A map in pc.FullyExploredAreas: all of it. On change."""
         pc = get_pc(possibly_loading=True)
@@ -972,7 +972,7 @@ class Collector:
 
     def _note_giver(self, key: int, actor: Any, definition: Any) -> None:
         """An NPC's / object's missions it gives / takes back (a MissionDirectivesDefinition - an NPC's
-        MissionDirectives, an interactive object's Directives: the bounty board, tools/probe_bounty.txt;
+        MissionDirectives, an interactive object's Directives: the bounty board, tools/probes/probe_bounty.txt;
         static): kept for the quest-giver markers (_npc_givers)."""
         directives = [(d.MissionDefinition, bool(d.bBeginsMission), bool(d.bEndsMission))
                       for d in try_(lambda: list(definition.MissionDirectives), []) or []
@@ -1087,7 +1087,7 @@ class Collector:
     def _dome(io: Any) -> list[int] | None:
         """An air dome bubble's (the Pre-Sequel's IO_AirDome_Bubble_*): [its radius (uu), 1 on / 0 off] - its
         CollisionComponent, a SphereComponent: Bounds.BoxExtent its radius (1500 x the object's DrawScale), bAttached
-        whether it's on (False until its generator's button is pushed: tools/probe_dome_state.txt). None without it."""
+        whether it's on (False until its generator's button is pushed: tools/probes/probe_dome_state.txt). None without it."""
         comp = try_(lambda: io.CollisionComponent)
         radius = try_(lambda: float(comp.Bounds.BoxExtent.X), 0.0) if comp is not None else 0.0
         if radius <= 0:
@@ -1097,10 +1097,10 @@ class Collector:
     @staticmethod
     def _is_looted(io: Any, client: bool = False) -> bool:
         """Opened, and no longer usable (bCanBeUsed[0] 1 -> 0). Opened: its SimpleAnimState is a bitmask over its
-        animations (SimpleAnimInfo[].AnimName - tools/probe_prelooted.txt: Open, Open_Vacuum, Opened(_Idle),
+        animations (SimpleAnimInfo[].AnimName - tools/probes/probe_prelooted.txt: Open, Open_Vacuum, Opened(_Idle),
         Closed(_Idle)), the "Opened..." one's bit set: closed 8 (Closed), just opened 14, looted and the level
         reloaded 12, spawned looted 4 (Opened alone), BL2's 7 - the state 7 alone (the first rule) missed all but the
-        last. Without an "Opened" animation: the state 7. A co-op client (tools/probe_client_containers.txt): the
+        last. Without an "Opened" animation: the state 7. A co-op client (tools/probes/probe_client_containers.txt): the
         state (replicated) but bCanBeUsed stays 1 - it isn't sent: the state alone there."""
         state = try_(lambda: int(io.SimpleAnimState), 0)
         anims = [try_(lambda a=a: str(a.AnimName), "") for a in try_(lambda: list(io.SimpleAnimInfo), []) or []]
@@ -1165,7 +1165,7 @@ class Collector:
         # no loot; BL2's Ammo shrine neither (no list: left as it was). (Not its price: bought ones, and golden chests
         # too (golden keys), cost something - bCostsToUse / CostsToUseAmount, 0 before they're unlocked.)
         # costs something to use (its primary use: bCostsToUse[0], CostsToUseAmount[0] - the slot machines' 85 credits,
-        # tools/probe_moxxtail.txt): the page's machines you pay (not a container: golden chests cost golden keys)
+        # tools/probes/probe_moxxtail.txt): the page's machines you pay (not a container: golden chests cost golden keys)
         if try_(lambda: io.bCostsToUse[0], 0) and (cost := try_(lambda: int(io.CostsToUseAmount[0]), 0)) > 0:
             record["cost"] = cost
         lootable = Collector._lootable(io, balance)
@@ -1191,7 +1191,7 @@ class Collector:
     @staticmethod
     def _exit_text(station: Any) -> str:
         """A mission waypoint on a map exit (the objective is in another map: a LevelTransitionWaypointComponent on a
-        LevelTravelStation - no objective of its own, no WaypointInfo: tools/probe_waypoint_exit.txt): the game's words
+        LevelTravelStation - no objective of its own, no WaypointInfo: tools/probes/probe_waypoint_exit.txt): the game's words
         for it - the station's LevelTravelMapDisplayName ("Exit to %s") with its TravelDefinition's destination's
         DisplayName ("Frostburn Canyon"), in the game's language. "" if it isn't one / has none."""
         text = try_(lambda: str(station.LevelTravelMapDisplayName), "") or ""
@@ -1291,7 +1291,7 @@ class Collector:
         if (mission := pickup_mission(inv)) is not None:
             info["ms"] = mission
         # a pickup you pay for, sitting on an interactive object (a Moxxtail's drink, once they're on sale: bCostsToPickUp,
-        # 10 moonstones - its Base the Moxxtail, which lists it in Attached: tools/probe_moxxtail_link.txt): "on" that
+        # 10 moonstones - its Base the Moxxtail, which lists it in Attached: tools/probes/probe_moxxtail_link.txt): "on" that
         # object (the page shows the object, with this price: [amount, its CostsToPickUpType's name])
         if try_(lambda: bool(p.bCostsToPickUp), False) and (base := try_(lambda: p.Base)) is not None \
                 and try_(lambda: self._is(base, "WillowInteractiveObject"), False):
@@ -1460,7 +1460,7 @@ class Collector:
     @staticmethod
     def _down_state(pawn: Any) -> str:
         """"crippled" (down, fighting for their life), "dead" (died: ragdoll / death camera, before the
-        respawn) or "". Seen in game (tools/probe_respawn.txt): crippled = InjuredState
+        respawn) or "". Seen in game (tools/probes/probe_respawn.txt): crippled = InjuredState
         INJURED_Targeted + InjuredDeadState INJUREDDEAD_None; dead = InjuredState still
         INJURED_Targeted, InjuredDeadState INJUREDDEAD_InitRagdoll; respawning / fine: INJURED_Not.
         Plain property reads."""
@@ -1472,7 +1472,7 @@ class Collector:
 
     @staticmethod
     def _in_menu(pawn: Any) -> bool:
-        """Whether the player has a menu open. Seen in game (tools/probe_menu.txt, co-op host, every
+        """Whether the player has a menu open. Seen in game (tools/probes/probe_menu.txt, co-op host, every
         player): PlayerReplicationInfo.bGFxMenuOpen 1 while any menu is open, the pawn's
         bViewingStatusMenu too while it's the status menu (inventory, map, skills). Both replicated,
         plain property reads."""
@@ -1483,7 +1483,7 @@ class Collector:
 
     @staticmethod
     def _in_cutscene(pawn: Any) -> bool:
-        """Whether the player is in a cutscene: their controller's cinematic mode (tools/probe_cutscene_watch.txt:
+        """Whether the player is in a cutscene: their controller's cinematic mode (tools/probes/probe_cutscene_watch.txt:
         the level script's SeqAct_ToggleCinematicMode -> SetCinematicMode, bCinematicMode True, the HUD
         hidden, input ignored - a video's too). Controllers: everyone's on the host, only yours on a
         co-op client (the GRI's bAllInCinematicMode covers all of them). Property reads."""
@@ -1492,7 +1492,7 @@ class Collector:
 
     @staticmethod
     def _respawn_state(pawn: Any) -> tuple[bool, Any]:
-        """(respawning, where they'll come back or None). Seen in game (tools/probe_respawn.txt, during
+        """(respawning, where they'll come back or None). Seen in game (tools/probes/probe_respawn.txt, during
         the respawn effect): the pawn hidden, parked somewhere (where: up to the game - never assumed),
         bAwaitingInjuredRespawn set, AwaitingRespawnResurrectLocation = the spot (at
         AwaitingRespawnTravelStation, a ResurrectTravelStation). Plain property reads."""
@@ -1558,8 +1558,8 @@ class Collector:
 
     def _client_markers(self, tracker: Any, active_addr: int | None) -> list[dict[str, Any]]:
         """The objective markers on a co-op client, where the game registers no waypoint components
-        (tools/probe_client_markers.txt): from the level's WillowWaypoint actors, each carrying its
-        WaypointInfo {LinkedObjective, ObjectiveSetRestrictions} (tools/probe_client_waypoints.txt).
+        (tools/probes/probe_client_markers.txt): from the level's WillowWaypoint actors, each carrying its
+        WaypointInfo {LinkedObjective, ObjectiveSetRestrictions} (tools/probes/probe_client_waypoints.txt).
         One is shown - as the host's active components are - when its objective's mission is picked up,
         the objective isn't done, and it belongs to the mission's current step: one of its restrictions
         is a current objective set (ActiveObjectiveSet / SubObjectiveSets), or with none, the objective
@@ -1665,7 +1665,7 @@ class Collector:
     def _publish_missions(self) -> None:
         """Quest markers the game shows: every mission waypoint component that is bActive.
 
-        Verified in game (tools/probe_missions.py): MissionTracker.MissionWaypoints[] = {Mission,
+        Verified in game (tools/probes/probe_missions.py): MissionTracker.MissionWaypoints[] = {Mission,
         Waypoints[]}, the waypoints being MissionObjectiveWaypointComponent (an objective: WaypointInfo.
         LinkedObjective) or MissionDirectiveWaypointComponent (a quest giver / turn-in, on an NPC);
         only the displayed ones are bActive. The marker sits on the component's Owner: a
@@ -1741,7 +1741,7 @@ class Collector:
 
     def _update_area_level(self) -> None:
         """The level of the area the player is in, as the game has it: the game stage of the regions
-        this map's missions use (tools/probe_region.txt: Tundra Express -> Tundra, stage 13; enemies
+        this map's missions use (tools/probes/probe_region.txt: Tundra Express -> Tundra, stage 13; enemies
         12-15; a region not visited yet: -1, left out) - "lv": [lowest, highest] in the level payload,
         republished when it changes. A few function calls, after each full mission pass."""
         level = self._level

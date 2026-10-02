@@ -17,7 +17,7 @@ const COMMON = ["names", "nameSize", "size", "floors", "range"]; // (the panel's
 
 // RarityLevel -> [name key, colour]. The game's own, sent with the level (setRarityTable): its colour
 // per level and its colour entry - levels sharing an entry are one tier (5 and 7-10: legendary,
-// tools/probe_rarity3.txt). The names are ours (the game has none for rarities: the user confirmed
+// tools/probes/probe_rarity3.txt). The names are ours (the game has none for rarities: the user confirmed
 // them in game), by colour entry; an entry without one shows its number ("Rarity 503") in its colour.
 const TIER_BY_ENTRY = { 0: "misc", 1: "common", 2: "uncommon", 3: "rare", 4: "epic", 5: "legendary", 6: "etech",
   7: "legendary", 12: "pearl", 13: "seraph", 17: "effervescent" };
@@ -111,11 +111,11 @@ export const LAYERS = [
   // what gives oxygen (the Pre-Sequel's): air domes (their breathable area - on: filled; off, their generator's button
   // not pushed: dashed), their generators, oxygen fissures
   { id: "oxygen", group: "places", on: true, game: "tps", settings: COMMON },
-  // the Cult of the Vault symbols (IO_VaultRoy: clicked to discover, a challenge - tools/probe_directors.txt;
+  // the Cult of the Vault symbols (IO_VaultRoy: clicked to discover, a challenge - tools/probes/probe_directors.txt;
   // discovered ones not told apart yet)
   { id: "vaultsymbol", group: "places", on: true, settings: COMMON },
   { id: "other", group: "places", on: false, settings: COMMON },
-  // Map: the level's areas (the game's discovery areas, tools/probe_discovery.txt): their names, the ones not
+  // Map: the level's areas (the game's discovery areas, tools/probes/probe_discovery.txt): their names, the ones not
   // discovered yet dimmed; the fog of war: the game's fog pieces over the areas not discovered (its count)
   { id: "area", group: "map", on: true, settings: ["size", "opacity"] },
   { id: "fog", group: "map", on: false, settings: ["opacity"] },

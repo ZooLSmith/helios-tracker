@@ -71,7 +71,7 @@ changes made for TPS ("patches"), so each finding says which build it was seen o
   draws solid-fill shapes too (_shape_rgba) - BL2 gained its sniper / shotgun / SMG / AR / launcher outlines (vectors
   too: only their fill showed). Seen right in game.
 - **Weapon type names**: from the game (Typename) - TPS's Jakobs sniper type says `'sniper'` in lower case (its pistol
-  and shotgun `'Pistol'`, `'Shotgun'`): the game's own data, shown as it is (tools/probe_tps.txt).
+  and shotgun `'Pistol'`, `'Shotgun'`): the game's own data, shown as it is (tools/probes/probe_tps.txt).
 - **Skills** (probe_tps.txt, Aurelia Lv 1): the tree reads as in BL2 - 4 branches (the action skill + The Huntress,
   Cold Money, Contractual Aristocracy), 19 tiers, 38 skills, names, grades, SkillIcon, the skill manager, the
   cooldown pool. The DLC characters' skill icons are in `DLC/<code>/Compat/Content/<Code>_<Class>_Streaming_SF.upk`
@@ -118,7 +118,7 @@ changes made for TPS ("patches"), so each finding says which build it was seen o
   other class), Moonstones its eridium. The game's words (WillowGame.int): [CategoryLabels] Artifact="OZ KITS" (BL2
   "RELICS"; FRA "KITS D'OXYGÈNE" / "RELIQUES"), [Training] EridiumTitle=Moonstones (BL2 Eridium; FRA "Pierres lunaires"
   / "Éridium"). Localize(Section, Key, "WillowGame") on Object's default object returns them in game
-  (tools/probe_tps2.txt) - but the page's labels stay ours, static (the user's call): each label that differs gets a
+  (tools/probes/probe_tps2.txt) - but the page's labels stay ours, static (the user's call): each label that differs gets a
   ".tps" twin in i18n (group.relic.tps "OZ KITS", currency.eridium.tps, layer.pickup.eridium.tps...), taken when the
   level message says "game": "tps" (mods_base Game.get_current(); i18n.js setVariant).
 - **The Oz meter** (the player's oxygen): `WillowPawn.OxygenPool` / `WillowPlayerReplicationInfo.OxygenPool` (the same
@@ -140,10 +140,10 @@ changes made for TPS ("patches"), so each finding says which build it was seen o
 - **Where oxygen is** (built 2026-09-26: the "Oxygen sources" layer, the Pre-Sequel only - dark blue-grey; its domes on: filled, off:
   dashed; their generators and the oxygen fissures (IO_OxygenCracks*) a diamond with "O2"; collector.py _dome /
   _check_domes, re-read with the containers' check; the player's in air / in a vacuum
-  right of the Oz meter: collector.py _in_vacuum - tools/probe_oxygen.py, Deadsurface): an air dome's area is its bubble
+  right of the Oz meter: collector.py _in_vacuum - tools/probes/probe_oxygen.py, Deadsurface): an air dome's area is its bubble
   (IO_AirDome_Bubble_On, a WillowInteractiveObject): CollisionComponent a SphereComponent whose Bounds.BoxExtent is its
   radius, 1500 x the object's DrawScale (976 / 1687 / 2236 for 0.650 / 1.125 / 1.491; Bounds.SphereRadius is the box's
-  corner, x sqrt 3). **On / off** (tools/probe_dome_state.py, Moonsurface, a dome off -> its button pushed -> outside):
+  corner, x sqrt 3). **On / off** (tools/probes/probe_dome_state.py, Moonsurface, a dome off -> its button pushed -> outside):
   the bubble's CollisionComponent.bAttached, False while off, True once on (the button gives it a new sphere:
   SphereComponent_3 -> _5); the definitions stay "_On" throughout (the name isn't the state), nothing else changes
   (timers, ticking). The player's side: OzVacuumComponent.State VS_InVacuum (off, outside) / VS_InAir (on) - their

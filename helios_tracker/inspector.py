@@ -3,13 +3,13 @@ Player inspection: equipped gear, backpack and skills of every player, for the p
 
 Game thread only (called by the collector every PLAYERS_EVERY). Reads defensively: what's missing
 is reported (as a reason code the page translates), not guessed. Stats are sent as raw numbers
-([key, value, extra]); the page labels and formats them. Expected availability (to verify with tools/probe_inventory.py):
+([key, value, extra]); the page labels and formats them. Expected availability (to verify with tools/probes/probe_inventory.py):
 - inventory: `pawn.InvManager` - our own; on the host probably everyone's, on a client only ours.
   A client still gets the others' equipped gear, replicated on their pawn (seen in game,
-  tools/probe_coop.py): `Weapon` (in hand), `HolsteredWeaponSlots` (the other carried weapons) and
+  tools/probes/probe_coop.py): `Weapon` (in hand), `HolsteredWeaponSlots` (the other carried weapons) and
   `EquippedItems` (shield, grenade, class mod, relic) - not their backpack. The host has everyone's
   inventory manager, but not the others' backpack items (`Backpack` empty, no item objects of theirs
-  besides the equipped ones: tools/probe_backpack.txt). Their `BackpackInventoryCount` there isn't
+  besides the equipped ones: tools/probes/probe_backpack.txt). Their `BackpackInventoryCount` there isn't
   their count either: it read 24 one session, 0 then negative (after a drop) in another - it seems to
   only count what the host saw them pick up / drop. So nothing of their backpack is shown;
 - skills: `pawn.Controller.PlayerSkillTree` - our own; on the host probably everyone's (the host
@@ -28,7 +28,7 @@ import unrealsdk
 from unrealsdk.unreal import WeakPointer
 from mods_base import Game, get_pc
 
-from . import amounts, gamecards
+from . import amounts, gamecards, paths
 
 from .skills import skill_icon
 from .util import addr, call_str, def_name, field, item_name, log, log_error, named, player_info, try_
@@ -97,9 +97,9 @@ def card_keys(inv: Any, kind: str | None = None) -> dict[str, str]:
     """Its item card icons' keys, the game's (gamecards.py serves them: /cardicon/<kind>/<key>.png): "mf" its
     manufacturer's FlashLabelName ("maliwan"), "wt" a weapon's type's ScaleformFrameName ("pistol" - a property),
     another item's type frame from the card's own IItemCardable.GetZippyFrame() ("Artifact", "comm",
-    "Customization_Head": tools/probe_zippy.txt; a call - once per definition, cached; the game calls it for a ground
+    "Customization_Head": tools/probes/probe_zippy.txt; a call - once per definition, cached; the game calls it for a ground
     item's card too), "el" its ElementalFrame ("shock" - an identifier: the game has no display name for it,
-    tools/probe_weapon_card2.txt). Those it has. Also for the pickups on the map (their type icon)."""
+    tools/probes/probe_weapon_card2.txt). Those it has. Also for the pickups on the map (their type icon)."""
     kind = kind or _kind(inv)
     out: dict[str, str] = {}
     data = try_(lambda: inv.DefinitionData)
@@ -126,7 +126,7 @@ GIBBED_PREFIXES = {"BL2": "BL2", "TPS": "BLOZ"}  # Gibbed's save editors' code p
 def gibbed_code(inv: Any) -> str:
     """Its code for Gibbed's save editors ("BL2(hwAAAAAB...)", the Pre-Sequel's "BLOZ(...)"), or "". The body is the
     game's own item serial - what a save holds: the native CreateSerialNumber()'s Buffer, the packed bits before the
-    game writes its check and scrambles it (tools/probe_serial2.txt) - finished the way Gibbed's copy button does it
+    game writes its check and scrambles it (tools/probes/probe_serial2.txt) - finished the way Gibbed's copy button does it
     (PackedDataHelper.Encode): the unique id cleared (then the scrambling, seeded by it, does nothing), the check
     written (CRC32 of the 40 bytes with 0xFFFF in its place, its halves xored), the trailing 0xFF bytes dropped,
     base64. A call, once per item record (they're cached)."""
@@ -189,7 +189,7 @@ def _stats(inv: Any, kind: str) -> list[list[Any]]:
         if dmg:
             out.append(["damage", round(dmg0), round(dmg)])
         radius0, radius = pair("BlastRadius")
-        if radius:  # uu -> m (1 uu = 1 cm, measured: tools/probe_scale.py)
+        if radius:  # uu -> m (1 uu = 1 cm, measured: tools/probes/probe_scale.py)
             out.append(["blastRadius", round(radius0 / 100, 1), round(radius / 100, 1)])
         fuse0, fuse = pair("FuseTime")
         if fuse:
@@ -234,7 +234,7 @@ def _remapped(pres: Any, value: float, inv: Any) -> float | None:
 
 
 def _accuracy(inv: Any, spread0: float | None, spread: float) -> list[Any] | None:
-    """A weapon's card Accuracy (72.1 for a shotgun's Spread 4.19 - tools/probe_accuracy.txt): its spread through
+    """A weapon's card Accuracy (72.1 for a shotgun's Spread 4.19 - tools/probes/probe_accuracy.txt): its spread through
     the "Accuracy" presentation's remapping, rounded as it says -> [card (from SpreadBaseValue), with the owner's
     bonuses (Spread), decimals], or None (no presentation / remapping)."""
     if not _accuracy_pres:
@@ -251,7 +251,7 @@ def _accuracy(inv: Any, spread0: float | None, spread: float) -> list[Any] | Non
 
 def _ui_stats(inv: Any) -> list[list[Any]]:
     """An item's card stats as the game's card shows them (a shield's Capacity 53, Recharge Rate 16, Recharge Delay
-    2.36 - tools/probe_shield.txt): WillowItem.UIStatModifiers[] = {AttributePresentation, ModifierTotal (53.059...)},
+    2.36 - tools/probes/probe_shield.txt): WillowItem.UIStatModifiers[] = {AttributePresentation, ModifierTotal (53.059...)},
     the presentation's Description the label (the game's text) and its rounding the value's (_presented).
     -> [[label, value, decimals]]. The same property in both games (WillowGame.upk)."""
     out: list[list[Any]] = []
@@ -473,7 +473,7 @@ _stats_cache: dict[tuple[int, int, int], list[dict[str, Any]]] = {}  # (skill de
 
 
 def _skill_stats(sd: Any, ctrl: Any, grade: int) -> list[dict[str, Any]]:
-    """A skill's tooltip stats at a grade, as the game computes them (tools/probe_skill_stats2.txt):
+    """A skill's tooltip stats at a grade, as the game computes them (tools/probes/probe_skill_stats2.txt):
     SkillDefinition.GetSkillEffectPresentations(grade, the player's controller, out lines) -> each line's
     presentation (Description: game text with a $NUMBER$ placeholder, "Gun Damage: $NUMBER$"; its display
     flags) and ModifierValue (0.06 = +6 % when shown as a percentage). A function call: cached per (skill,
@@ -521,7 +521,7 @@ def _game_text(text: str) -> str:
 def _presentation_line(entry: Any, item: Any = None) -> dict[str, Any] | None:
     """One {AttributePresentation, ModifierValue, bShouldDisplay} entry (a skill's stats, an item card's lines) ->
     a line for the page: its text, display flags (see _skill_stats), value; None if hidden / without text.
-    Its text (tools/probe_weapon_card2.txt): the Description (a $NUMBER$ placeholder), else NoConstraintText
+    Its text (tools/probes/probe_weapon_card2.txt): the Description (a $NUMBER$ placeholder), else NoConstraintText
     ("Deals bonus elemental damage."), and / or a Prefix / Suffix around the number ("Consumes [skill]" 2
     "ammo[-skill] per shot."). Its colour: TextColor when not white (the element's: shock's blue on "Highly
     effective vs Shields."; a unique's red text). An item's line tied to one of its attributes (the shot cost):
@@ -585,7 +585,7 @@ _element_names: dict[str, str] = {}  # damage type key ("Shock") -> the game's n
 # ("fire" - notes.md; the card's sprite isn't in the enum's order: no index to go by) - not written down here, seen on
 # the game's own items, and remembered (.cache/element_frames.json: once a fire weapon's been seen, in any session).
 # Until one is seen: the enum's name.
-FRAMES_FILE = Path(__file__).with_name(".cache") / "element_frames.json"
+FRAMES_FILE = paths.DATA / ".cache" / "element_frames.json"
 
 
 def _load_frames() -> dict[str, str]:
@@ -760,7 +760,7 @@ def _element_name(damage_type: Any, ctrl: Any) -> str:
 
 
 def _element_chance(weapon: Any) -> list[float] | None:
-    """A weapon's elemental effect chance, the card's way (tools/probe_element_chance.txt): its element's base
+    """A weapon's elemental effect chance, the card's way (tools/probes/probe_element_chance.txt): its element's base
     chance (its damage type's StatusEffect: DamageSurfaceChanceModifiers[SurfaceType Generic].BaseChance - shock
     20) x its BaseStatusEffectChanceModifier (0.6) x its StatusEffectChanceModifier (1.4) = 16.8 % - the card uses
     the base values; with the player's skills' modifiers (the current values: 1.496) it's 17.95 %.
@@ -791,7 +791,7 @@ def _element_chance(weapon: Any) -> list[float] | None:
 
 
 def _card_lines(inv: Any, kind: str) -> list[dict[str, Any]]:
-    """An item's card lines, as the game's item card shows them (tools/probe_weapon_card.txt): a weapon's
+    """An item's card lines, as the game's item card shows them (tools/probes/probe_weapon_card.txt): a weapon's
     WeaponCardModifierStats (its material's "High elemental effect chance.", its element's "Highly effective vs
     Shields.", its shot cost...), other gear's ItemCardModifierStats (a class mod's skill bonuses...) - the same
     entries as the skills' stats. Static per item: read with its record.
@@ -835,7 +835,7 @@ def _card_keys() -> None:
 
 def _skill_bonuses(pawn: Any) -> dict[str, int]:
     """The skill ranks the equipped items add (a class mod's "+2 Steady", blue in the skill screen:
-    tools/probe_skill_bonus.txt): an item's ItemCardModifierStats[] = {AttributePresentation, ModifierValue}
+    tools/probes/probe_skill_bonus.txt): an item's ItemCardModifierStats[] = {AttributePresentation, ModifierValue}
     - its card's lines; a skill bonus's presentation lives in the class's skills package
     (GD_AttributePresentation.Skills_Soldier.AttrPresent_Steady) and is named after the skill's definition
     (GD_Soldier_Skills.Gunpowder.Steady): value 2.02 -> +2. The tree's own Grade / GetSkillGrade: the points spent
@@ -976,7 +976,7 @@ def _branch_grid(bd: Any) -> list[dict[str, Any]]:
         queue = iter(skills)
         cells = [(next(queue, None) if on else None) for on in occupied]
         # More skills than occupied cells: hidden helpers the menu never shows, listed after the real
-        # ones (Krieg: "_Bloodlust" the stack counter, "FireStatusDetector"... - tools/probe_skill_layout.txt).
+        # ones (Krieg: "_Bloodlust" the stack counter, "FireStatusDetector"... - tools/probes/probe_skill_layout.txt).
         # Left out: appended, they widened the grid and shifted every row.
         grid.append({
             "need": try_(lambda t=tier: int(t.PointsToUnlockNextTier), 0) or 0,
@@ -1050,7 +1050,7 @@ def read_players(world_info: Any, me: Any, pc: Any = None) -> list[dict[str, Any
     players = []
     me_addr = addr(me) if me is not None else None
     # Who hosts: us unless we're a client (NetMode 3); then the party leader (the host's player info
-    # has bIsPartyLeader on a client: tools/probe_coop.txt)
+    # has bIsPartyLeader on a client: tools/probes/probe_coop.txt)
     client = try_(lambda: int(world_info.NetMode), 0) == 3
     pawn = world_info.PawnList
     for _ in range(1000):

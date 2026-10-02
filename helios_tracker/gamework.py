@@ -7,7 +7,7 @@ waited on it every frame, the page's first load lagged the game).
 - The worker: one subinterpreter, started on the first job, fed through a queue (a job: a JSON string; its answer:
   bytes); it imports this package's file-only modules under another name (helios_work: never the mod's
   __init__ - mods_base / unrealsdk aren't there). Jobs one at a time (a lock).
-- Its results cached on disk (.cache/assets, gitignored): a font / an icon decoded once per install, keyed by the job
+- Its results cached on disk (.cache/assets in paths.DATA, gitignored): a font / an icon decoded once per install, keyed by the job
   and its packages' sizes and dates (a patched package: decoded again).
 - No subinterpreters (an older Python) / the worker won't start: the job runs here, politely (gamescan's pause and
   switch interval), as before.
@@ -21,8 +21,10 @@ import threading
 import time
 from pathlib import Path
 
+from . import paths
+
 HERE = Path(__file__).parent
-ASSETS = HERE / ".cache" / "assets"
+ASSETS = paths.DATA / ".cache" / "assets"
 VERSION = 1  # the rendering's: another number = every asset decoded again
 JOB_TIMEOUT = 300.0  # s a job may take in the worker (the first scan: ~5 s)
 

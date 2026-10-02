@@ -3,7 +3,7 @@ Loot odds: a container's chances, from its loot data - for the click panel's "Ca
 record, the pools in the objects payload's `pools`).
 
 Game thread only (the collector builds them with an object's record: static data, cached). Everything is read as
-properties, nothing is called (tools/probe_loot_odds*.txt, .agent/notes.md "Loot odds"):
+properties, nothing is called (tools/probes/probe_loot_odds*.txt, .agent/notes.md "Loot odds"):
 - a container picks ONE loot configuration by weight (each its `Weight`), then rolls each of its ItemAttachments'
   ItemPool; a pool picks ONE of its BalancedItems by weight (`Probability`): an item balance or a sub-pool;
 - a weight is an AttributeInitializationData: its InitializationDefinition's value, else its BaseValueAttribute's,
@@ -13,7 +13,7 @@ properties, nothing is called (tools/probe_loot_odds*.txt, .agent/notes.md "Loot
   ResourceThreshold AboveThresholdWeight, below between Min- and MaxBelowThresholdWeight - "if low on health");
   a designer attribute: the host's live value (WorldInfo.Game.DesignerAttributes: each InstancedDesignerAttribute's
   Value, by its DesignerAttributeDefinitionPathName - GearDrops_CommonWeightModifier read 0.625, its base 1:
-  tools/probe_loot_odds3.txt), else (a co-op client) its BaseValue;
+  tools/probes/probe_loot_odds3.txt), else (a co-op client) its BaseValue;
 - anything else (conditional resolvers, random variance, a runtime-built weight): unknown - its entry has no chance
   (None) and the others' percentages leave it out.
 These rules are inferred from the data, not checked against the game's own draws: the page marks them "~".
@@ -242,7 +242,7 @@ _containers: dict[int, list[dict[str, Any]]] = {}  # balance address -> its conf
 def container_odds(io: Any, balance: Any) -> list[dict[str, Any]]:
     """A container's loot configurations with their chances (configs_odds), its pools added to POOLS: from its
     balance (per type, cached) - its default loot and its loot lists' configurations, one set the game picks from (an
-    object's own Loot is that set: the golden chest's, tools/probe_loot_odds.txt) - else the object's own Loot."""
+    object's own Loot is that set: the golden chest's, tools/probes/probe_loot_odds.txt) - else the object's own Loot."""
     key = try_(lambda: balance._get_address()) if balance is not None else None
     if key is not None and key in _containers:
         return _containers[key]

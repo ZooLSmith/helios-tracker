@@ -2,9 +2,9 @@
 The game's own UI fonts as web fonts (files only: no SDK, no UObjects - run on a background thread).
 
 BL2's Scaleform menus take their fonts from a font library movie: Startup.upk's SwfMovie
-UI_FontsEn.FontsEn (tools/find_fonts.txt) - WillowBody (menus, missions), Compacta Bd BT (headings, the
+UI_FontsEn.FontsEn (tools/probes/find_fonts.txt) - WillowBody (menus, missions), Compacta Bd BT (headings, the
 HUD), Chintzy CPU BRK - each a GFx DefineCompactedFont tag (1005): vector glyphs in Scaleform's compact
-encoding (below, decoded from the data: tools/find_fonts.py). They're rebuilt here as TrueType fonts
+encoding (below, decoded from the data: tools/probes/find_fonts.py). They're rebuilt here as TrueType fonts
 (the glyphs are quadratic curves already) and served to the page (/font/<slug>.ttf) - extracted at run
 time from the player's install, never stored in the repo.
 

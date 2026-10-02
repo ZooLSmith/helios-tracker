@@ -87,7 +87,7 @@ function drawGrid(f) { // areas without a map: a 10 m grid so movement still rea
   ctx.stroke();
 }
 
-// The fog of war, the game's (tools/dump_tacmap_movie.txt): its blob (a soft dark cloud) over every
+// The fog of war, the game's (tools/probes/dump_tacmap_movie.txt): its blob (a soft dark cloud) over every
 // area not discovered yet, where the level's map movie places it (one per area, by its short name);
 // the map screen hides an area's once it's discovered. Drawn in the map's transform (movie px), on a
 // canvas of its own masked by the map images (the pieces reach past the map: only where it has pixels),

@@ -3,7 +3,7 @@ Player skills (game thread): each player's action skill (ready / running / cooli
 timed passive effects (e.g. Locked and Loaded's buff) and melee skill cooldown - for the page's
 Players list and player Info tab.
 
-Verified in game (tools/probe_passives.txt, cooldown probes):
+Verified in game (tools/probes/probe_passives.txt, cooldown probes):
 - pc.GetSkillManager() = the SkillEffectManager (one for everyone); its ActiveSkills = the running
   Skill instances: Definition (SkillDefinition: SkillName localized, SkillType SKILL_TYPE_Action /
   SKILL_TYPE_Passive, DurationType DURATION_Timed / DURATION_Infinite), SkillState (SKILL_Active),
@@ -13,17 +13,17 @@ Verified in game (tools/probe_passives.txt, cooldown probes):
 - pc.SkillCooldownPool.Data (CurrentValue, ConsumptionRate): the action skill's cooldown (the HUD
   bar's), GetSkillCooldownTime() its full length; MeleeSkillCooldownPool / GetMeleeSkillCooldownTime()
   the same for the melee skill. On the host, another player's pool reads empty
-  (tools/probe_action_skill.txt): their cooldown = the full length from when their action skill was last
+  (tools/probes/probe_action_skill.txt): their cooldown = the full length from when their action skill was last
   seen running (the instance's Duration isn't its real length). pc.SavedSkillTreeSkill: the action skill's definition (seen: Gunzerking;
   on the host, another player's gave no name: their tree's SKILL_TYPE_Action skill then).
-- Not unlocked yet (before the story gives it - Lv 1 in the Pre-Sequel, tools/probe_tps.txt): the tree's action skill
-  has Grade 0 (1 once it's there: BL2's Gunzerking, Krieg's, tools/probe_skill_layout.txt) - its cooldown still reads
+- Not unlocked yet (before the story gives it - Lv 1 in the Pre-Sequel, tools/probes/probe_tps.txt): the tree's action skill
+  has Grade 0 (1 once it's there: BL2's Gunzerking, Krieg's, tools/probes/probe_skill_layout.txt) - its cooldown still reads
   a length and an empty pool: it looked "ready". No "ak" then.
 
 Hidden helper skills: some timed effects run as a helper that no skill tree lists, with dev text
 for a name (Krieg's Blood Overdrive runs "BloodOverdriveChild": "Blood Overdrive Child - If you are
 reading this please bug it!"). The helper uses its skill's icon (skill_icon: unique per tree skill,
-shared with its helpers - tools/probe_child_skill.txt): shown under that tree skill's name.
+shared with its helpers - tools/probes/probe_child_skill.txt): shown under that tree skill's name.
 Nameless timed effects (an empty SkillName) - seen on a Pre-Sequel Lv 1 player: definitions a behaviour creates,
 "GD_PlayerShared.Behaviors.PlayerBehavior_LevelUp:Behavior_AttributeEffect_1.SkillDefinition_2" (4 s, twice),
 "...PlayerBehavior_LevelUpNaturally:...SkillDefinition_1" (30 s), "GD_JackCombatNPC.injured.JackInjuredDefinition:
@@ -201,7 +201,7 @@ class SkillReader:
         elif action_max > 0 and not locked:
             left = _pool_seconds(try_(lambda: field(pc, "SkillCooldownPool").Data))
             if left[0] <= 0 and key != self._local and (ended := self._act_seen.get(key)) is not None:
-                # another player on the host: their pool reads empty (tools/probe_action_skill.txt) -
+                # another player on the host: their pool reads empty (tools/probes/probe_action_skill.txt) -
                 # the full cooldown from when their skill stopped running (its Duration isn't when:
                 # Phaselock said 120 s, ended after 1 s)
                 remaining = ended + action_max - self._world
@@ -222,7 +222,7 @@ class SkillReader:
     def _remote(self, pawn: Any) -> dict[str, Any]:
         """Another player on a co-op client (no controller): only when they last used their action
         skill - the pawn's replicated NextActionSkillActiveAbilityTime, set to the world time of each
-        use (seen in game, tools/probe_coop_skill.py; not when it's ready again: no duration or cooldown
+        use (seen in game, tools/probes/probe_coop_skill.py; not when it's ready again: no duration or cooldown
         reaches a client). -> {"ak": ["u", seconds ago]}, nothing if never used here."""
         used = try_(lambda: float(field(pawn, "NextActionSkillActiveAbilityTime")), 0.0)
         if used <= 0 or used > self._world:

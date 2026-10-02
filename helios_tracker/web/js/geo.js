@@ -1,6 +1,6 @@
 // World <-> tactical map transform. Pure (no DOM): tested offline under Node.
 
-export const UU_PER_METER = 100; // 1 uu = 1 cm - measured (tools/probe_scale.py): Salvador (1.62 m) is 152-160 uu tall
+export const UU_PER_METER = 100; // 1 uu = 1 cm - measured (tools/probes/probe_scale.py): Salvador (1.62 m) is 152-160 uu tall
 
 /** The largest rectangle of the w x h screen that none of the rects ({left, top, right, bottom}, e.g.
  *  the open panels) covers -> {x, y, w, h}; the whole screen if nothing covers it. Brute force over

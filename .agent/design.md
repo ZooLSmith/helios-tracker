@@ -156,7 +156,7 @@ by the frames like the rest (the Refresh rate setting), redrawn only when someth
 
 **Still open before building:**
 - Other levels: Opportunity (vertical, north offset 325), a rotated map, a DLC level (DLC maps keep their tactical map
-  movie elsewhere) - `tools/probe_navwalk.py` + `probe_streaming.py` there, scored like the first two.
+  movie elsewhere) - `tools/probes/probe_navwalk.py` + `probe_streaming.py` there, scored like the first two.
 - Gaps: brush geometry (`Model` / BSP, BlockingVolumes), `EngineMeshes.Cube` (the engine's own package), the last 5
   rooftop misses; movers are taken at their position in the file (the dome: blocking by its flags - whether it really
   is in game isn't known; reachability drops it anyway).

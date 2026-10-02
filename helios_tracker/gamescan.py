@@ -8,8 +8,8 @@ wait on it every frame). So:
 - the scan runs in gamework's subinterpreter (a GIL of its own: beside the game, not in turns with it); without
   one, here, politely (a 1 ms switch interval, a pause after each decompressed block);
 - one pass, each package opened once, everything collected from it;
-- its result cached (an index - names, export numbers, rectangles; no game art) in .cache/scan.json next to the
-  mod (gitignored), per package, keyed by the file's size and date: from the second session on, nothing is
+- its result cached (an index - names, export numbers, rectangles; no game art) in .cache/scan.json (paths.DATA:
+  the mod folder, gitignored, or sdk_mods/.helios_tracker/), per package, keyed by the file's size and date: from the second session on, nothing is
   scanned; a changed package (a patch) is scanned again, alone. The game's side only reads that file.
 """
 
@@ -17,10 +17,10 @@ import json
 import threading
 from pathlib import Path
 
-from . import gamecards, gamefonts, gameicons, gamework
+from . import gamecards, gamefonts, gameicons, gamework, paths
 from .tacmap import Package
 
-CACHE = Path(__file__).with_name(".cache") / "scan.json"
+CACHE = paths.DATA / ".cache" / "scan.json"
 VERSION = 5  # the cache's layout: another number = scanned again (2: the card arts' layers; 3: the textures; 4: skill
 # icons whose texture has another name than their movie; 5: each font's movie package - its language's library)
 PAUSE = 0.003  # s slept after each decompressed block, scanning in process
@@ -99,7 +99,7 @@ def _load_cache(cache: Path) -> dict:
 
 def _save_cache(cache: Path, entries: dict) -> None:
     try:
-        cache.parent.mkdir(exist_ok=True)
+        cache.parent.mkdir(parents=True, exist_ok=True)
         tmp = cache.with_suffix(".tmp")
         tmp.write_text(json.dumps({"version": VERSION, "packages": entries}), encoding="utf-8")
         tmp.replace(cache)

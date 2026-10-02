@@ -52,12 +52,12 @@ mesh fitted onto the map image at every angle, see "Level geometry for a 3D map"
 Grass_Cliffs_P 180, HyperionCity_P 325, Luckys_P -90, PandoraPark_P 170, Interlude_P 90. On the first four the image
 fits the world **unrotated** (97-98 % of the nav mesh on drawn pixels; every other angle <= 72 %), while geo.js rotates
 positions by it. Interlude_P fits best at 270-285 (92 % vs 73 % unrotated) - unclear. **The Dust in game**
-(probe_navwalk 2026-09-25, runtime centre 8288, 13659, north 90, upp 32; tools/probe_navwalk_thedust.txt): with the
+(probe_navwalk 2026-09-25, runtime centre 8288, 13659, north 90, upp 32; tools/probes/probe_navwalk_thedust.txt): with the
 true centre the page's rotation (+90) is the worst fit (40.8 % of the nav mesh on drawn pixels) vs unrotated 68 %,
 -90 71.5 %, best single angle 73 % (315) - no clean fit on this map (Sanctuary: 98 %), part of its nav mesh isn't
 drawn; the movie places its image unrotated (no rotation in PlaceObject / the bitmap fill). 26 positions on foot
 all on player collision or terrain; its streaming like Southern Shelf's (all Kismet loaded, `_Px` not). To confirm in game before
-changing geo.js: tools/probe_navwalk.py + check_navwalk.py compare both with the runtime centre (the page rotates
+changing geo.js: tools/probes/probe_navwalk.py + check_navwalk.py compare both with the runtime centre (the page rotates
 clockwise by it - unverified), or several map images (`_I2`...; handled, unverified).
 
 ## Script API found in the packages (names only, verify in game)
@@ -115,7 +115,7 @@ item's `DefinitionData.ItemDefinition` (a `UsableItemDefinition`):
 | eridium | `GD_Currency.A_Item.EridiumStick` | `...Definitions.Credits` (shared with cash!) | ? |
 
 - Every currency shares the `Credits` presentation: the definition's `FormOfCurrency` tells them
-  apart (`CURRENCY_Credits` / `CURRENCY_Eridium`; seen in game, tools/probe_eridium.py). Other
+  apart (`CURRENCY_Credits` / `CURRENCY_Eridium`; seen in game, tools/probes/probe_eridium.py). Other
   currencies (Seraph crystals, Torgue tokens: not seen yet) go to "other".
 
 - Also consistent per kind: `PickupFlagIcon` (`fx_shared_items.Textures.ItemCards.Health` / `Credits` /
@@ -146,7 +146,7 @@ item's `DefinitionData.ItemDefinition` (a `UsableItemDefinition`):
   ObjectivesProgress, ActiveObjectiveSet, SubObjectiveSets, bInitialized, bHeardKickoff, bFiltered}`.
   `Status` = `EMissionStatus`: `MS_NotStarted` (0), `MS_Active` (1), `MS_RequiredObjectivesComplete`
   (2), `MS_ReadyToTurnIn` (3: seen, every objective done, its step `bCanCompleteMission`), `MS_Complete`
-  (4) (tools/probe_turnin.txt); 5 (failed?) not seen - the page shows unknown names as the game's.
+  (4) (tools/probes/probe_turnin.txt); 5 (failed?) not seen - the page shows unknown names as the game's.
   2 and 3 = the page's "ready" (to turn in: green).
   `ObjectivesProgress[i]` = count of `MissionDef.ObjectiveDefs[i]` (empty before the mission starts).
 - **The objectives' order** (the Pre-Sequel's "Marooned", 2026-09-26 - the user: "Throw breaker" first in game,
@@ -162,10 +162,10 @@ item's `DefinitionData.ItemDefinition` (a `UsableItemDefinition`):
   `ObjectiveDefs`, `ObjectiveSetDefs`, `InitialObjectiveSet`, `bRepeatable`, `bCanBeFailed`,
   `Reward` / `AlternativeReward` (XP / cash as attribute-based multipliers, `RewardItems`,
   `RewardItemPools`; the numbers the game shows: `MissionDefinition.GetExperienceReward(pc, bAlt)` /
-  `GetCurrencyReward(pc, bAlt)` / `GetCurrencyRewardType(bAlt)` - tools/probe_rewards.txt; the XP
+  `GetCurrencyReward(pc, bAlt)` / `GetCurrencyRewardType(bAlt)` - tools/probes/probe_rewards.txt; the XP
   attribute's own `GetValue(pc)` gives the 0.1 multiplier, not the XP), `bEnableAltReward`,
   `TravelStation` / `TurnInStation` (FastTravelStationDefinition: the area, e.g. "Three Horns -
-  Divide": `StationDisplayName` - tools/probe_mission_areas.txt; also `StationSign`, sometimes
+  Divide": `StationDisplayName` - tools/probes/probe_mission_areas.txt; also `StationSign`, sometimes
   longer: "Windshear Waste - Claptrap's Place"; LevelTravelStationDefinition has it too; the
   regions (`GameStageRegion`) have no text), `DlcExpansion`.
 - Besides `Dependencies`: `MissionDefinition.ObjectiveDependency = {Objective, Status}` (an objective of
@@ -250,7 +250,7 @@ co-op yet):
   it comes from (its giver's: Name Game -> Sanctuary, done in Three Horns), `TurnInStation` where to
   hand it in (None: back at its own). Level actors `FastTravelStation.TravelDefinition` (Ice_P: IceEast).
 - Where a step is done: `MissionObjectiveSetDefinition.StationOverride` / `MissionObjectiveDefinition
-  .StationOverride` (tools/probe_quests.txt: a "Go to Sanctuary" step -> Sanctuary, a later one ->
+  .StationOverride` (tools/probes/probe_quests.txt: a "Go to Sanctuary" step -> Sanctuary, a later one ->
   IceEast; mostly None).
 - `pc.GetLevelForMission(mission)` -> a map name: the tracked Name Game -> `Ice_P` (where it's done;
   its TravelStation is Sanctuary, its giver's). Seen once; for ready / not started not tried.
@@ -294,7 +294,7 @@ co-op yet):
   Normal -3` (the mission log's difficulty: mission level - player's; below Normal: trivial).
   `ExpScaleByLevelDifference` (lower: 0.9 0.7 0.4 0.15 0.05 0.01 for 1..6) is the ENEMY kill XP
   scale - missions don't match it (160 XP at -5 would mean 3200 full). The mission curve:
-  tools/probe_mission_xp_curve.py (below).
+  tools/probes/probe_mission_xp_curve.py (below).
 - **The XP curve** (probe_mission_xp_curve.txt, player level 8): a mission's XP (and cash) depends on
   its own level only - `GameStage` of a picked-up (locked) mission: 1: 53, 2: 132, 3: 241, 4: 378,
   5: 543, 6: 733, 7: 948, 8: 1187, 9: 1450, 10: 1736, 12: 2376, 14: 3104 (XPReward_04_Large) -
@@ -423,7 +423,7 @@ worked out from the item definition by the attribute system, all of it readable 
   third taken as 2, inferred; the playthrough: `WorldInfo.GRI.CurrentPlaythrough` + 1 - a property of the game
   replication info; the controller only has `GetCurrentPlaythrough()`, `pc.CurrentPlaythrough` fails) x Level `Init_AmmoAmountSharedPercentage_<type>` (a ConditionalInitialization: 0.5 -
   `Att_AmmoPercentageShared_<type>` - if the item's `ClonedForSharing` == 1, a co-op copy; else 1), ^1 + 0.
-- **Their icons** (probe_pickup_icons.py; offline: tools/extract_pickup_icons.py -> _work/pickup_icons/): the item
+- **Their icons** (probe_pickup_icons.py; offline: tools/probes/extract_pickup_icons.py -> _work/pickup_icons/): the item
   definition's `PickupFlagIcon`, a 128 x 128 DXT5 texture in Startup.upk - `fx_shared_items.Textures.ItemCards.`
   Credits, Eridium_Currency, Health, Ammo_Repeater / SMG / CombatRifle / Shotgun / RocketLauncher / Grenade, the
   sniper's `fx_shared_items.Textures.Ammo_Sniper_Dif`; navy and white (cash / health: a disc, ammo: a starburst badge;
@@ -463,8 +463,8 @@ Southern Shelf's `_P` alone: 404 `StaticMesh`, 4131 `StaticMeshComponent`, 11 `T
   drawn pixels - the street outlines sit on the map's edges. A fitted centre lands within ~1 m of the measured ones.
 - **Coverage - the real limit**: it's where the AI walks. Share of each map image's drawn pixels under nav mesh:
   12-81 %, mostly 50-70 % (Sanctuary_P 29 %: the big lower area has none; Southern Shelf 51 %). Part is borders /
-  decoration; whether the player walks in the rest isn't knowable offline: tools/probe_navwalk.py records the
-  player's positions in game, tools/check_navwalk.py scores them (nav under the feet, holes grouped). A 3D view is
+  decoration; whether the player walks in the rest isn't knowable offline: tools/probes/probe_navwalk.py records the
+  player's positions in game, tools/probes/check_navwalk.py scores them (nav under the feet, holes grouped). A 3D view is
   an optional alternative to the 2D map (the user, 2026-09-25): where it's thin, the page stays 2D.
 - Not checked yet: the undecoded rest, spots only reachable by jumping, sublevels that load per mission (merged
   anyway). Most DLC levels' map movie isn't in their `_P` package (the runtime `TacticalMapMovie` gives it).
@@ -543,10 +543,10 @@ Southern Shelf's `_P` alone: 404 `StaticMesh`, 4131 `StaticMeshComponent`, 11 `T
   doesn't collide (71 of Sanctuary's 117 don't; 41 block the player - the rooftop walk stood on two of them, so movers
   can't be left out: they're taken at their position in the file). Sanctuary: 2592 placements block the player, 1728
   don't. Coverage unchanged (78 / 84 with terrain, 60 from collision); 77 % of nav vertices on a player-collision face.
-- **Southern Shelf, climbing the structure** (probe_navwalk, 2026-09-25, saved as tools/probe_navwalk_southernshelf.txt;
+- **Southern Shelf, climbing the structure** (probe_navwalk, 2026-09-25, saved as tools/probes/probe_navwalk_southernshelf.txt;
   Sanctuary's as probe_navwalk_sanctuary_roofs.txt): 251 positions on foot, **all** with a surface under the footprint,
   collision + terrain alone 249 (collision median 6.5 uu). Player-blocking collision: 1.22 M triangles, 251k walkable.
-- **What's loaded** (tools/probe_streaming.py, Southern Shelf, two places ~50 m apart): no distance / volume
+- **What's loaded** (tools/probes/probe_streaming.py, Southern Shelf, two places ~50 m apart): no distance / volume
   streaming in BL2 - every map's sublevels are `LevelStreamingAlwaysLoaded` (237 over all maps) or
   `LevelStreamingKismet` (378, loaded by the level's script); all 9 Kismet ones loaded + visible both times.
   **`SouthernShelf_Px` - "AlwaysLoaded" - is NOT loaded**: `_Px` = PhysX extras, loaded by the PhysX setting (the user's is Low; not re-checked on High - the rule
@@ -593,7 +593,7 @@ Southern Shelf's `_P` alone: 404 `StaticMesh`, 4131 `StaticMeshComponent`, 11 `T
   SpawnLootAtPoints, what containers hand their loot out with. Of the definitions activating a skill (15 TPS, 12 BL2: all
   packages scanned) only Isaiah's strongbox hands loot out. Not their price: bCostsToUse / CostsToUseAmount read 0 on
   them (not unlocked yet: bought later - GD_Moxxtails.Misc.Init_MoxxtailCost), golden chests cost golden keys, the slot
-  machine 85 credits (tools/probe_moxxtail.txt). Some real containers have no loot behaviour of their own either (the
+  machine 85 credits (tools/probes/probe_moxxtail.txt). Some real containers have no loot behaviour of their own either (the
   Dice chest, meteorite loot piles, Claptrap's stash): not a test for "container". The rule also needs loot (that
   leftover list) or an item of its own (Behavior_SpawnItems: the Moxxtails' drink - the Ammo Moxxtail's balance has no
   loot list, the only one of the 8; nothing else activating a skill spawns anything): the other objects activating a
@@ -607,14 +607,14 @@ Southern Shelf's `_P` alone: 404 `StaticMesh`, 4131 `StaticMeshComponent`, 11 `T
   - which the shape fills with. tacmap.parse_map_movie: the crop, the page draws that part.
 - **Moxxtails on sale** (unlocked): each spawns its drink, a WillowPickup of a GD_Moxxtails.Pickups.PickupDummy_*
   (UsableItemDefinition, no name: the page's "Usable Item"), bought - bCostsToPickUp, CostsToPickUpType CURRENCY_Eridium
-  (moonstones), CostsToPickUpAmount 10 (the only pickups that cost: tools/probe_moxxtail_pickup.txt). Tied to its
+  (moonstones), CostsToPickUpAmount 10 (the only pickups that cost: tools/probes/probe_moxxtail_pickup.txt). Tied to its
   Moxxtail both ways: the pickup's Base = the Moxxtail's WillowInteractiveObject, the Moxxtail's Attached = [the pickup]
-  (tools/probe_moxxtail_link.txt, all 8). The page shows the Moxxtail with the drink's price, not the drink.
+  (tools/probes/probe_moxxtail_link.txt, all 8). The page shows the Moxxtail with the drink's price, not the drink.
 - **Mission waypoints on a map exit** (the objective in another map): a LevelTransitionWaypointComponent on the
   LevelTravelStation - no LinkedObjective, no WaypointInfo (the page had no name for it). The game's text for it: the
   station's LevelTravelMapDisplayName "Exit to %s", %s its TravelDefinition (LevelTravelStationDefinition
   GD_LevelTravelStations.Zone1.IceToIceCanyon) -> DestinationStationDefinition -> DisplayName ("Frostburn Canyon"; also
-  StationDisplayName, StationLevelName icecanyon_p) - tools/probe_waypoint_exit.txt, Three Horns Divide.
+  StationDisplayName, StationLevelName icecanyon_p) - tools/probes/probe_waypoint_exit.txt, Three Horns Divide.
 - **Elemental plants** (BL2's Firemelon, Acidolus, Shock Cactus; the Pre-Sequel's Cryo Vine _Normal / _Medium / _Large -
   GD_ElementalPlants): the game groups them - their definition's Allegiance GD_AI_Allegiance.Allegiance_ElementalPlant,
   no other object's (both games' packages). Like barrels, but shot empty they recharge (bDestroyWhenKilled False). Their
@@ -684,12 +684,12 @@ Southern Shelf's `_P` alone: 404 `StaticMesh`, 4131 `StaticMeshComponent`, 11 `T
 
 - **Game-thread spikes, not reproduced** (the log, co-op host with 3 others, Wildlife Exploitation Preserve, 2026-09-30):
   "players" (every 2 s, usually 10-18 ms) once 557 ms, "state.pickups" up to 135 ms, "state.pawns" 102 ms, "scan
-  objects" 132 ms - none in two 20 s runs of tools/probe_profile.py (state and players both wrapped). A guess, not
+  objects" 132 ms - none in two 20 s runs of tools/probes/probe_profile.py (state and players both wrapped). A guess, not
   checked: item cards built when loot rains (ground_item, ITEMS_PER_UPDATE), or Python's GC. Fixed meanwhile: failed
   property lookups cached (util._prop - the Pre-Sequel's OxygenPool looked up in BL2 every update, 12 % of the state
   update), the pickups read through reader(): the state update 6.0 -> 4.8 ms on average (174 updates / 20 s).
 
-- **The Electrical Fuse Box is a switch, not an explosive** (tools/probe_io.txt, Wildlife Exploitation Preserve,
+- **The Electrical Fuse Box is a switch, not an explosive** (tools/probes/probe_io.txt, Wildlife Exploitation Preserve,
   2026-09-30; GD_ElectricFence.InteractiveObjects.IO_ElectricalFenceBox, BL2) - TO FIX: the page draws it as a shock
   explosive (inspector.py explosion_info: any Behavior_Explode). Its definition's sequence Active: OnUsedBy (pressed)
   and OnHealthDepleted (shot out) run the same chain - Behavior_CustomEvent (the fence off), ChangeUsability,
@@ -740,22 +740,22 @@ Southern Shelf's `_P` alone: 404 `StaticMesh`, 4131 `StaticMeshComponent`, 11 `T
 - **Item card stats from the game**: `ItemCardModifierStats` / `ReplicatedWeaponCardModifierValues`
   -> `AttributePresentationDefinition` text + value, instead of the hand-picked stat list. Probe first.
 
-- **Player inspection, co-op client: DONE** (seen in game, tools/probe_coop.py, 2026-09-23). The
+- **Player inspection, co-op client: DONE** (seen in game, tools/probes/probe_coop.py, 2026-09-23). The
   others have no controller and no `InvManager` on a client. Replicated anyway: their pawn's
   `Weapon`, `HolsteredWeaponSlots` and `EquippedItems` (shield, grenade, class mod, relic: the Gear
   tab shows them), their player info's `ExpLevel`, `ClassModNamePart`, `bClassModIsBuffingTeam*`,
   `Currency`. Not replicated: backpack, skill tree (`TrackedSkills` empty), XP (the player info's
   `ExpPointsNextLevelAt` = 0, no `ExpPool`), cooldowns. The pawn's
   `NextActionSkillActiveAbilityTime` (= `...CooldownAbilityTime`) is the world time of their last
-  action skill use (tools/probe_coop_skill.py: jumps to the current time on use, nothing when ready
+  action skill use (tools/probes/probe_coop_skill.py: jumps to the current time on use, nothing when ready
   again): the Info tab shows "last used N s ago".
 - **Player inspection, co-op host: DONE** (seen in game, 2026-09-23). The host has every player's
   controller and inventory manager: skill tree, XP (ExpPool), equipped gear, cooldowns, passives.
   Not their backpack: `Backpack` empty and no item objects of theirs besides the equipped ones
-  (tools/probe_backpack.py); their `BackpackInventoryCount` isn't their count (24 one session, 0 then
+  (tools/probes/probe_backpack.py); their `BackpackInventoryCount` isn't their count (24 one session, 0 then
   negative after a drop in another) - nothing of it is shown. Who hosts: NetMode 3 = client, then the
   party leader (`PlayerReplicationInfo.bIsPartyLeader`); the page names players, the host marked.
-- **Action skill of the others, on the host** (tools/probe_action_skill.txt, 2026-09-23, 3 others):
+- **Action skill of the others, on the host** (tools/probes/probe_action_skill.txt, 2026-09-23, 3 others):
   their controller's `SavedSkillTreeSkill` is None (the name: their tree's `SKILL_TYPE_Action` skill -
   "Gunzerking", "Phaselock"); the running skill shows in the skill manager with them as instigator
   (+ `pawn.MyActionSkill`, `pc.ActionSkillTime` 0 -> 1 while running, -1 otherwise; the pawn's
@@ -764,7 +764,7 @@ Southern Shelf's `_P` alone: 404 `StaticMesh`, 4131 `StaticMeshComponent`, 11 `T
   Their cooldown pool read empty in the collector (the page showed "ready" all along; the probe logged
   the pool object, not its value - fixed for a re-run). skills.py: the full cooldown from when the skill
   was last seen running (the local player keeps the pool's real value, cooldown boosts included).
-- **Skill tree extras** (tools/probe_skill_layout.py, probe_child_skill.py): a branch tier's `Skills[]`
+- **Skill tree extras** (tools/probes/probe_skill_layout.py, probe_child_skill.py): a branch tier's `Skills[]`
   can list hidden helpers after the real ones (Krieg: `_Bloodlust`, `FireStatusDetector`...), more
   than the layout's occupied cells - left out of the grid. Timed effects can run as helpers in no
   tree, with dev text for a name ("BloodOverdriveChild - If you are reading this please bug it!");
@@ -776,7 +776,7 @@ Southern Shelf's `_P` alone: 404 `StaticMesh`, 4131 `StaticMeshComponent`, 11 `T
 - **Driving** (a player in a vehicle): the controller possesses the vehicle (`pawn.Controller` None:
   through `DrivenVehicle.Controller`), and the pawn's health properties went wrong (max = health):
   the functions then, both logged once ("vitals check (player driving)") - to confirm in the log.
-- **Rarity: the game's** (tools/probe_rarity*.py): `GlobalsDefinition.RarityLevelColors` reads empty,
+- **Rarity: the game's** (tools/probes/probe_rarity*.py): `GlobalsDefinition.RarityLevelColors` reads empty,
   but `GetRarityColorForLevel(level)` / `GetRarityLevelColorsIndexforLevel(level)` work: levels sharing
   a colour entry are one tier (5 and 7-10 legendary; 6 E-tech; 500 pearl, 501 Seraph, 506 "Rainbow"
   = effervescent; `GetRarityForLevel` gives EItemRarity but files E-tech under VeryRare). Sent with
@@ -792,7 +792,7 @@ Southern Shelf's `_P` alone: 404 `StaticMesh`, 4131 `StaticMeshComponent`, 11 `T
   (moonstone crystals...), 500 mission items (GlobalsDefinition.MissionItemRarityLevel), 502 ECHO logs, 504
   moonstones / shield boosters, 505 the instant oxygen drinks (Moxxi's Slammer), 506 PickupDummy_Excalibastard; 503
   none. Not gear tiers: left unnamed.
-- **Every coloured level** (tools/probe_rarity4.txt, levels 0-2000, 2026-09-24): 18 colour entries
+- **Every coloured level** (tools/probes/probe_rarity4.txt, levels 0-2000, 2026-09-24): 18 colour entries
   (0-17), all within 0-506. 11, 505 and 507+: none. Entries 8-11 are not gear tiers, just the
   pickups' made-up levels: 12-170 (entry 8: black, alpha 0 = no colour), 171-175 (9: red `#cf4747`,
   health: "Health Now!" is 171), 176-180 (10: peach `#ffc7a7`, unknown kind), 181-499 (11: yellow,
@@ -803,12 +803,12 @@ Southern Shelf's `_P` alone: 404 `StaticMesh`, 4131 `StaticMeshComponent`, 11 `T
   `ItemChain`, `pawn.EquippedItems` / `HolsteredWeaponSlots`, item `DefinitionData`, `RarityLevel`,
   `ExpLevel`, card stat modifiers; `pc.PlayerSkillTree.Skills` / `Branches`; replicated to everyone:
   `PlayerReplicationInfo.StandInGear`, `TrackedSkills`, `ClassModNamePart`.
-- **Opened containers on a co-op client** (tools/probe_client_containers.py, Outwash, 2026-09-23):
+- **Opened containers on a co-op client** (tools/probes/probe_client_containers.py, Outwash, 2026-09-23):
   opened ones `SimpleAnimState` / `RepSimpleAnimState` 7, unopened 4 - but `bCanBeUsed` stays (1, 0)
   on both (not sent to clients): the host's test (7 + no longer usable) never fired. A client: the
   state alone (`_is_looted(io, client)`; `_client` from the NetMode at each objects scan). Seen
   working in game (user: containers and all their kinds right, as a client).
-- **A container's opened state is a bitmask** (tools/probe_prelooted.py, the Pre-Sequel's Moonsurface, 2026-09-26 - the
+- **A container's opened state is a bitmask** (tools/probes/probe_prelooted.py, the Pre-Sequel's Moonsurface, 2026-09-26 - the
   user: looted containers "Not looted yet" again after leaving and coming back, some spawned looted):
   `SimpleAnimState` = one bit per entry of the object's `SimpleAnimInfo[]` ({Tree, AnimName, Nodes} - here Open,
   Open_Vacuum, Opened(_Idle), Closed(_Idle)): closed 8 (Closed), just opened 14 (Open_Vacuum + Opened + Closed),
@@ -821,7 +821,7 @@ Southern Shelf's `_P` alone: 404 `StaticMesh`, 4131 `StaticMeshComponent`, 11 `T
   definition is there (`_incomplete`, INCOMPLETE_EVERY) - first tied to the full objects scan, which
   is every 120 s (OBJECTS_EVERY: a safety net, the hooks do the rest): "2 min to sync" (user). The
   host too after a level load, not only a client. Seen fixed in game (the chests show).
-- **Quest givers on a co-op client** (tools/probe_directors.py, Sanctuary, 2026-09-24): NPCs have
+- **Quest givers on a co-op client** (tools/probes/probe_directors.py, Sanctuary, 2026-09-24): NPCs have
   `MissionDirectives` (a `MissionDirectivesDefinition`: `MissionDirectives[]` = {MissionDefinition,
   bBeginsMission, bEndsMission, BranchEnding}; Scooter: Poetic License, Swallowed Whole, Cold
   Shoulder...; Crimson Raiders: empty) and a `MissionDirectorParticle` (template
@@ -830,7 +830,7 @@ Southern Shelf's `_P` alone: 404 `StaticMesh`, 4131 `StaticMeshComponent`, 11 `T
   only the tracked objective, Marcus offering Rock, Paper, Genocide; NPCs with a game marker skipped)
   makes a giver marker per NPC with a
   mission it gives that can be picked up / takes back that's ready (MissionLog.giver_states). Not
-  verified in game yet. **Bounty board** (tools/probe_bounty.txt, Sanctuary, 2026-09-25): a plain
+  verified in game yet. **Bounty board** (tools/probes/probe_bounty.txt, Sanctuary, 2026-09-25): a plain
   `WillowInteractiveObject` (no class of its own), definition `GD_GameSystemMachines.InteractiveObjects
   .BountyBoard` (`StatusMenuMapInfoBoxHeader` 'Bounty Board', `CompassIcon` RadarIconType_BountyBoard);
   its missions: `WillowInteractiveObject.Directives` (a MissionDirectivesDefinition, like an NPC's
@@ -842,7 +842,7 @@ Southern Shelf's `_P` alone: 404 `StaticMesh`, 4131 `StaticMeshComponent`, 11 `T
   the Vault challenge, clicked to discover): two dumped in full, identical but for DrawScale (1 / 0.5)
   - nothing on the object says discovered (likely the player's challenge progress). Own map layer
   ("Vault symbols", a pink ring + dot, on by default), discovered ones not told apart (user's call).
-- **Mission markers on a co-op client** (tools/probe_client_markers.py / probe_minimap_icons.py /
+- **Mission markers on a co-op client** (tools/probes/probe_client_markers.py / probe_minimap_icons.py /
   probe_client_waypoints.py, 2026-09-23): the client's MissionTracker has the full MissionList and
   ActiveMission but an empty `MissionWaypoints`, and no waypoint components exist at all (the host
   registers them: `RegisterWaypoint(component, mission)`). The HUD minimap's `Icons_*` are fixed pools
@@ -853,7 +853,7 @@ Southern Shelf's `_P` alone: 404 `StaticMesh`, 4131 `StaticMeshComponent`, 11 `T
   mission is picked up, the objective isn't done, and it's in the current step (a restriction = a
   current set, or none and the objective in one). Quest givers ("!"): none on a client. Seen working
   in game (user, 2026-09-23: markers with their radius).
-- **Mission markers: DONE** (verified in game, Southern Shelf, tools/probe_missions.txt):
+- **Mission markers: DONE** (verified in game, Southern Shelf, tools/probes/probe_missions.txt):
   `MissionTracker` (find_all, one instance) `.MissionWaypoints[] = {Mission, Waypoints[]}`; waypoints
   are `MissionObjectiveWaypointComponent` (objective marker: `WaypointInfo.LinkedObjective`,
   `WaypointRadius`, `bActive`) or `MissionDirectiveWaypointComponent` (quest giver / turn-in, on an
@@ -885,7 +885,7 @@ Southern Shelf's `_P` alone: 404 `StaticMesh`, 4131 `StaticMeshComponent`, 11 `T
   that save, every level seen). Being listed = discovered (probe_fog.py: HasBeenUncovered False on all 51,
   a fully explored level's too; Southern Shelf's 5 visited areas listed, the unreached one absent), `pc.FullyExploredAreas[]` (map names: "Glacial_P"). No fog state
   elsewhere (pawn, PRI, HUD, world / game / replication info).
-  **The fog itself** (tools/dump_tacmap_movie.py): the level's map movie imports the blob and places it
+  **The fog itself** (tools/probes/dump_tacmap_movie.py): the level's map movie imports the blob and places it
   once per area, named by the area's short name, a matrix stretching it (ellipses: Southern Shelf 5 pieces,
   none for the Wreck; Sanctuary 2; Sage Underground 22 `..._DYNAMICWDA_n`) - the map screen hides a
   discovered area's piece; outside every piece nothing is ever fogged. A first try (the map darkened
@@ -926,7 +926,7 @@ Southern Shelf's `_P` alone: 404 `StaticMesh`, 4131 `StaticMeshComponent`, 11 `T
   nor per row toward the next tier (12 showed mid-row 3), nor points / max ranks (~90 a tree); none with no
   point in it, greyscale below, framed in the highlight; a tile's outline +
   rank dots #04cc04 maxed, #d46a00 in progress (the game: "5/5" badges - the user prefers the dots).
-- **The game's UI fonts** (tools/find_fonts.py, gamefonts.py): Startup_LOC_INT.upk has UE3 bitmap fonts
+- **The game's UI fonts** (tools/probes/find_fonts.py, gamefonts.py): Startup_LOC_INT.upk has UE3 bitmap fonts
   (`UI_Fonts.Font_Willowbody_18pt`, `Font_Willowhead_8pt`, `Font_Hud_Medium`: texture pages, canvas text);
   the Scaleform menus use vector ones from a font library movie, Startup.upk's `UI_FontsEn.FontsEn`
   (`UI_FontsJp/Kr/Twn` for Asian scripts): GFx `DefineCompactedFont` tags (1005) - WillowBody (293 glyphs,

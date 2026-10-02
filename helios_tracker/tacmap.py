@@ -552,11 +552,11 @@ def parse_map_movie(raw: bytes) -> list[tuple[str, tuple[float, float, float, fl
     return out
 
 
-FOG_BLOB = "fog of war blob"  # the fog piece SharedWillowTacMaps exports (tools/dump_tacmap_movie.txt)
+FOG_BLOB = "fog of war blob"  # the fog piece SharedWillowTacMaps exports (tools/probes/dump_tacmap_movie.txt)
 
 
 def parse_fog_pieces(raw: bytes) -> list[tuple[str, tuple[float, ...]]]:
-    """A level movie's fog of war (tools/dump_tacmap_movie.txt): the fog blob it imports from
+    """A level movie's fog of war (tools/probes/dump_tacmap_movie.txt): the fog blob it imports from
     SharedWillowTacMaps, placed once per discovery area - named by the area's short name
     ("SOUTHERNSHELF_PWDA_1"), its matrix (as _affine, movie px) stretching the blob over it. The map
     screen hides an area's blob once it's discovered. -> [(name, matrix)]."""

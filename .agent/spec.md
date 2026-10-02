@@ -129,7 +129,7 @@ It draws nothing in game: everything it shows is on the page.
 - **In a menu** (see notes: `PlayerReplicationInfo.bGFxMenuOpen` / the pawn's `bViewingStatusMenu`,
   `mn` 1): a "..." badge on their marker, "In menu" over the bars (neutral, when not down), in the
   tooltip and the Info tab's state.
-- **Skills** (`skills.py`, see its docstring: verified with tools/probe_passives.txt): every player's
+- **Skills** (`skills.py`, see its docstring: verified with tools/probes/probe_passives.txt): every player's
   action skill (ready / running, from the manager's `SKILL_TYPE_Action` skill instance / cooling down,
   from the pool), timed passive effects (a passive's triggered buff: `SKILL_TYPE_Passive` +
   `DURATION_Timed`) and melee skill cooldown. The skill manager is shared: read once per pass (every
@@ -169,7 +169,7 @@ It draws nothing in game: everything it shows is on the page.
   `WeaponCardPresentations` line, marked `el`: its TextColor - shock's blue), else the damage type's HUDDamageColor (the
   hit markers': fire's line has no colour - the line gets it too), else the element art's measured colour. The
   element's stat tiles' values in that colour too (exact, not pastel), like the game's card. Non-weapons' type frame: the card's
-  `IItemCardable.GetZippyFrame()` ("Artifact", "comm", "Customization_Head": tools/probe_zippy.txt; once per definition).
+  `IItemCardable.GetZippyFrame()` ("Artifact", "comm", "Customization_Head": tools/probes/probe_zippy.txt; once per definition).
 - **Gibbed code** (`inspector.py gibbed_code`, notes "Item serials"): every item record with a serial gets `gib`, its code
   for Gibbed's save editors (`BL2(...)`, the Pre-Sequel's `BLOZ(...)`, none in Assault on Dragon Keep) - the game's own
   serial (`CreateSerialNumber()`, once per record) finished as Gibbed's copy button does (unique id 0). In the item's
@@ -290,7 +290,7 @@ It draws nothing in game: everything it shows is on the page.
 - **Storage**: one `helios.settings` localStorage object (`js/settings.js`): `layers.<id>` (each
   layer's settings), `view`, `ui` (incl. `drawer`: what the drawer shows); validated against the defaults on load (unknown / invalid values
   dropped), the old one-key-per-setting storage migrated once.
-- **Distances**: 100 uu per metre (1 uu = 1 cm), measured (`tools/probe_scale.py`).
+- **Distances**: 100 uu per metre (1 uu = 1 cm), measured (`tools/probes/probe_scale.py`).
 - **Translations**: `web/i18n/<code>.js`, one catalog per language (en, fr; listed in
   `i18n/index.js`); static HTML uses
   `data-i18n` / `data-i18n-title`, JS uses `t("key", {vars})` (English fallback, numbers formatted
@@ -319,7 +319,7 @@ It draws nothing in game: everything it shows is on the page.
 - `inspector.py` (game thread, every 2 s, only sent on change): each player pawn's gear
   (`InvManager.InventoryChain` / `ItemChain`), backpack (`InvManager.Backpack`) and skills
   (`pawn.Controller.PlayerSkillTree`); falls back to `pawn.Weapon` when there's no InvManager.
-  Unverified in game - `tools/probe_inventory.py` checks what's really there (solo / host / client).
+  Unverified in game - `tools/probes/probe_inventory.py` checks what's really there (solo / host / client).
 - The collector does nothing but follow the level while no page is connected (`Hub.clients`).
 - `script.py`: an optional PowerShell script runs while the server runs (e.g. a tunnel for sharing the map on
   stream): the mod folder's `autoexec.ps1` (a folder install - the dev junction; gitignored), else
@@ -330,11 +330,11 @@ It draws nothing in game: everything it shows is on the page.
 - `shops.py`: the vending machines' stock, prices and the restock timer (`shops` / `shoptimer`), every 2 s.
 - `util.py`: shared helpers (`try_`, `call_str`, `def_name`, `addr`, `log_error`, `field`).
 - **Per-update / per-pass reads go through `util.field(obj, name)`** (the property looked up once per
-  class, then `_get_field`: 1-2 us instead of 15-24 us by name - tools/probe_perf.txt); structs held
+  class, then `_get_field`: 1-2 us instead of 15-24 us by name - tools/probes/probe_perf.txt); structs held
   in hand (`loc.X`) and `_get_address()` are cheap already. Function calls cost ~18 us: cache them.
   Slow tasks are logged every 30 s (`helios_tracker.log`), `state` with its parts (skills / pawns /
   pickups / json) and the counts.
-- `server.py`: stdlib `ThreadingHTTPServer`; `/` (page, read from disk per request),
+- `server.py`: stdlib `ThreadingHTTPServer`; `/` (page, read per request: `paths.read`),
   `/<path>.js|css|png|svg|woff2` (any module / stylesheet / image / font under `web/`: `img/favicon.png` = the tab icon,
   64 x 64, the logo; `fonts/helios-h-*.woff2` = the panel title's "H", the logo as a font of one letter - see base.css;
   both built from the logo's sources, a local repo kept out of git in `_work/logo/`), `/events` (SSE: `level`, `state` - only what moves, sent only when something did: per pawn a row
@@ -351,6 +351,26 @@ It draws nothing in game: everything it shows is on the page.
   browser refresh. The Hub holds
   the payloads; server threads never touch UObjects. The running server is kept on
   `sys._helios_tracker_server` so a reload can always stop the previous one.
+
+## Files on disk
+
+`paths.py` decides (no SDK imports: the worker uses it too). Read: the package's own files (`paths.read("web/...")`:
+from the folder, or out of the `.sdkmod` - `Path.read_bytes` can't). Written: `paths.DATA` = the package folder in
+a folder install (dev: the junction, so the repo's `helios_tracker/`, gitignored), `sdk_mods/.helios_tracker/` from a
+`.sdkmod` (the loader skips dot names; any other folder in `sdk_mods` it imports as a mod) - also the place for a
+downloaded update. Everything written is built on the player's machine from their game: never shipped, never committed.
+
+| File (under `DATA`) | Written by | What | Kept until |
+|---|---|---|---|
+| `helios_tracker.log` | `util.log` | diagnostics: errors with tracebacks, slow tasks every 30 s, level loads | past 1 MB at a load: started over |
+| `helios_crash.log` | `util.start_crash_log` | faulthandler: every thread's Python stack at a native crash | grows (a line per load) |
+| `.cache/scan.json` | `gamescan` (in the worker) | the game packages' index: per package its exports' names / numbers / rectangles, no art (~0.5 MB) | its `VERSION` changes (all scanned again); a package's size / date changes (that one again) |
+| `.cache/assets/<2 hex>/<sha1>.bin` | `gamework` | decoded game assets, one per job: fonts (TTF), icons and textures (PNG), item card images (PNG) | never cleaned: the name hashes `VERSION`, the job and its packages' sizes / dates (a patch or a new `VERSION`: a new file; the old one stays) |
+| `.cache/element_frames.json` | `inspector` | which item card frame each damage type uses, learned from seen items (`{"DAMAGE_TYPE_Incindiary": "fire"}`) | grows |
+
+Elsewhere: `autoexec.log` / `helios_tracker.autoexec.log` beside the user script (`script.py`, overwritten per run);
+the mod's options in `sdk_mods/settings/helios_tracker.json` (mods_base's); the page's settings in the browser
+(localStorage, per origin). In memory only: the level's map images (`tacmap.py`), definitions, names.
 
 ## The page (`web/`)
 
@@ -412,6 +432,8 @@ image placed at its shape's bounds in movie px; yaw 0 = up, clockwise
   fake level load through the collector, the server (page, image, SSE), and the page's JS under
   Node (DXT5 decode vs a reference decoder, world->map vs the probe samples).
 - In game: `pyexec helios_tracker/reload.py`; page edits only need a browser refresh.
-- Probes: `tools/probe_map.py` (level, map info, volume), `tools/probe_map2.py` (samples the
+- Probes: `tools/probes/probe_map.py` (level, map info, volume), `tools/probes/probe_map2.py` (samples the
   minimap's MapClip against the player position, to fit the transform).
-- Release: exclude the dev files (`reload.py`, `.cache/`, logs; see the root `AGENTS.md`).
+- Release: `tools/build_sdkmod.py` (`_work/dist/helios_tracker.sdkmod`: the package's git files, not `reload.py`;
+  `.cache/` and logs are gitignored, so never in it). `tools/use_sdkmod.bat` runs it in the game in place of the
+  junction, `tools/use_dev.bat` goes back (see the root `AGENTS.md`).

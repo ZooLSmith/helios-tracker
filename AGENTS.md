@@ -27,7 +27,9 @@ bl2-helios-tracker/
 │   ├── references.md                     #   game layout, SDK facts, API notes
 │   └── presequel.md                      #   the mod in the Pre-Sequel: what works, what was seen
 ├── tools/                                # offline_check.py, project.py (reads project.json),
-│                                         # link_mod.py + in-game probes (probe_*.py)
+│   │                                     # link_mod.py, build_sdkmod.py + use_sdkmod / use_dev.bat
+│   └── probes/                           #   in-game probes (probe_*.py, their .txt) + offline research
+│                                         #   tools (check_navwalk, dump_tacmap_movie, find_fonts...)
 └── helios_tracker/                       # the mod (Python package + web/ page)
     ├── __init__.py                       # builds + registers the mod (build_mod)
     └── pyproject.toml                    # mod metadata (name, version, authors, description)
@@ -40,8 +42,11 @@ bl2-helios-tracker/
   Run after every change; it's the only test we have outside the game. Without `project.json`'s game
   it skips the game file checks.
 - In game: `pyexec helios_tracker/reload.py`. Page edits only need a browser refresh.
-- Probes: `py exec(open(r"<repo>\tools\probe_<name>.py").read())`, output to
-  `tools/probe_<name>.txt` (found through the mod's junction: `sys.modules["helios_tracker"]`'s real path).
+- As players run it: `tools/use_sdkmod.bat` builds `_work/dist/helios_tracker.sdkmod` (`tools/build_sdkmod.py`) and
+  puts it in `sdk_mods`, the junction parked as `.helios_tracker_dev` (a folder beats a `.sdkmod`; dot names are skipped);
+  `tools/use_dev.bat` goes back to the junction. Restart the game after either.
+- Probes: `py exec(open(r"<repo>\tools\probes\probe_<name>.py").read())`, output to
+  `tools/probes/probe_<name>.txt` (found through the mod's junction: `sys.modules["helios_tracker"]`'s real path).
 - Offline tools that read game files take the game from `project.json` via `tools/project.py`
   (`project.cooked_dir()`, `project.path("references.gibbed")`, `project.require(...)`).
 - Dev outputs (probe dumps, logs, screenshots) are gitignored — keep it that way; extracted game

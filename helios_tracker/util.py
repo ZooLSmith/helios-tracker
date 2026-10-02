@@ -7,10 +7,12 @@ import traceback
 from pathlib import Path
 from typing import Any
 
+from .paths import DATA
+
 # Diagnostics (errors with tracebacks, slow tasks) also go here: the game console can't be copied.
 # Kept across sessions (a crash doesn't lose it) until it grows past LOG_MAX_BYTES.
 # HELIOS_TRACKER_LOG overrides the path (tools/offline_check.py: a temp file, not the real log)
-LOG_FILE = Path(os.environ.get("HELIOS_TRACKER_LOG") or Path(__file__).with_name("helios_tracker.log"))
+LOG_FILE = Path(os.environ.get("HELIOS_TRACKER_LOG") or DATA / "helios_tracker.log")
 LOG_MAX_BYTES = 1_000_000
 
 
@@ -111,7 +113,7 @@ def clear_fields() -> None:
 def _prop(cls: Any, props: dict[str, Any], name: str) -> Any:
     """The class's property `name`, looked up once - a missing one too: remembered as its error, raised again each
     time (BL2 has none of the Pre-Sequel's OxygenPool: its lookup through the class chain, ~100 us, ran for every
-    player on every update - 12 % of the state update, tools/probe_profile.txt)."""
+    player on every update - 12 % of the state update, tools/probes/probe_profile.txt)."""
     prop = props.get(name)
     if prop is None:
         try:
@@ -127,7 +129,7 @@ def _prop(cls: Any, props: dict[str, Any], name: str) -> Any:
 def reader(obj: Any) -> Any:
     """field() bound to one object: `get = reader(pawn); get("Location")`. Its class and the class's properties
     looked up once for all the reads - field()'s own overhead (obj.Class, its address, the cache key) was a third of
-    the state update with 50 pawns ~10 reads each (tools/probe_profile.txt). Plain Python objects: getattr."""
+    the state update with 50 pawns ~10 reads each (tools/probes/probe_profile.txt). Plain Python objects: getattr."""
     get = getattr(type(obj), "_get_field", None)
     if get is None:
         return lambda name: getattr(obj, name)
@@ -145,7 +147,7 @@ def reader(obj: Any) -> Any:
 def field(obj: Any, name: str) -> Any:
     """obj.<name>, ~10x cheaper for the per-update reads: a property read by name costs 15-24 us (the
     name looked up through the class chain), the property looked up once then `_get_field` 1-2 us
-    (tools/probe_perf.txt). Raises like obj.<name> if there's no such property. Plain Python objects
+    (tools/probes/probe_perf.txt). Raises like obj.<name> if there's no such property. Plain Python objects
     (the offline check's fakes): getattr."""
     get = getattr(type(obj), "_get_field", None)
     if get is None:
@@ -204,7 +206,7 @@ PRESENTATION_KINDS = {"Credits": "cash", "Health": "health", "GrenadeAmmo": "amm
 # ("Oxygen": the Pre-Sequel's Oxygen Canister - GD_BuffDrinks.A_Item.BuffDrink_OxygenInstant, presentation
 # GD_InventoryPresentations.Definitions.Oxygen, icon fx_shared_items.Textures.OxygenCannister_Particle - Startup.upk)
 # The "Credits" presentation is shared by every currency: the definition's FormOfCurrency tells them
-# apart (seen in game, tools/probe_eridium.py: GD_Currency.A_Item.EridiumStick = CURRENCY_Eridium).
+# apart (seen in game, tools/probes/probe_eridium.py: GD_Currency.A_Item.EridiumStick = CURRENCY_Eridium).
 # Other currencies (not seen yet: Seraph crystals, Torgue tokens...) stay "other".
 CURRENCY_KINDS = {"CURRENCY_Credits": "cash", "CURRENCY_Eridium": "eridium"}
 # Per item definition (static game data, set when the item spawns - never changes): kind. Never
@@ -214,7 +216,7 @@ _pickup_kinds: dict[int, str] = {}
 
 def pickup_kind(inv: Any) -> str:
     """ "ammo" / "cash" / "eridium" / "health" / "oxygen" for a usable item (a non-gear pickup), "mission" for a
-    mission item (WillowMissionItem: ECHO logs, Princess Fluffybutt... - tools/probe_pickups.txt), ""
+    mission item (WillowMissionItem: ECHO logs, Princess Fluffybutt... - tools/probes/probe_pickups.txt), ""
     for anything else. Weapons / gear aren't looked at; each definition is resolved once."""
     if inv is None:
         return ""
@@ -236,7 +238,7 @@ def pickup_kind(inv: Any) -> str:
     return kind
 
 
-# The game's rarity per RarityLevel (tools/probe_rarity3.txt): GlobalsDefinition.GetRarityColorForLevel
+# The game's rarity per RarityLevel (tools/probes/probe_rarity3.txt): GlobalsDefinition.GetRarityColorForLevel
 # (the colour it draws) and GetRarityLevelColorsIndexforLevel (its colour entry: levels sharing one
 # are one tier - e.g. 5 and 7-10 are all legendary). The table itself (RarityLevelColors) reads empty.
 RARITY_LEVELS = (*range(0, 16), *range(500, 521))

@@ -177,7 +177,7 @@ for (const [k, s] of Object.entries(LAYER_SETTINGS)) {
 const lootLayers = [[1, "WillowWeapon"], [5, "WillowShield"], [500, "WillowArtifact"], [520, "WillowWeapon"], [0, "WillowClassMod"],
   [77, "WillowGrenadeMod"], [5, "WillowUsableItem"], [181, "", "cash"], [0, "WillowUsableItem", "ammo"], [171, "WillowUsableItem", "health"],
   [0, "WillowUsableItem", "bogus"], [2, "WillowUsableCustomizationItem"], [0, "WillowUsableItem", "eridium"]].map(([q, c, pk]) => lootLayer({ q, c, pk }));
-// The game's rarity table (tools/probe_rarity3.txt): 7-10 share legendary's colour entry; 503 has no name
+// The game's rarity table (tools/probes/probe_rarity3.txt): 7-10 share legendary's colour entry; 503 has no name
 setRarityTable({ "5": [5, "#ffb400"], "9": [7, "#ffb400"], "501": [13, "#ff9ab8"], "503": [15, "#9132c8"] });
 const gameRarity = [5, 9, 501, 503].map((q) => rarity(q)).concat([lootLayer({ q: 9, c: "WillowWeapon" })]);
 setRarityTable(null);
@@ -190,7 +190,7 @@ const log = [
   { i: "c", num: 3, plot: 1, st: "NotStarted", deps: ["b"] }, { i: "s1", num: 20, plot: 0, st: "NotStarted", deps: ["a"], kick: 1 },
   { i: "s3", num: 22, plot: 0, st: "NotStarted", deps: ["a"] },
   { i: "s2", num: 21, plot: 0, st: "NotStarted", deps: ["s1"] }, { i: "o", num: 30, plot: 0, st: "Complete", deps: [] },
-  // ready to turn in (tools/probe_turnin.txt), and a status the page doesn't know (shown by its name)
+  // ready to turn in (tools/probes/probe_turnin.txt), and a status the page doesn't know (shown by its name)
   { i: "x", num: 40, plot: 0, st: "RequiredObjectivesComplete", deps: ["gone"] }, { i: "r", num: 41, plot: 0, st: "ReadyToTurnIn", deps: [] },
   { i: "f", num: 42, plot: 0, st: "Failed", deps: [] },
   // every mission it needs done, but it waits on an objective of b (its ObjectiveDependency): locked
@@ -446,7 +446,7 @@ def check_helios_tracker() -> None:  # noqa: PLR0915
     assets_cards._keys.update(assets_saved[0])
     assets_cards._index = assets_saved[1]
 
-    # field(): the property looked up once per class, then read with _get_field (tools/probe_perf.txt)
+    # field(): the property looked up once per class, then read with _get_field (tools/probes/probe_perf.txt)
     class FakeClass:
         finds = 0
 
@@ -511,7 +511,7 @@ def check_helios_tracker() -> None:  # noqa: PLR0915
     print("helios_tracker:")
     print(f"  options: {[getattr(o, 'identifier', o) for o in m.mod.options]}")
     assert col.pretty_map_name("SouthernShelf_P") == "Southern Shelf", col.pretty_map_name("SouthernShelf_P")
-    # A mission item (tools/probe_pickups.txt, an ECHO log): named by its definition, not the class's
+    # A mission item (tools/probes/probe_pickups.txt, an ECHO log): named by its definition, not the class's
     # generic "Mission Item"; the mission it gives (MissionDirective) / its objective's (AssociatedMissionObjective)
     echo_mission = types.SimpleNamespace(MissionName="No Hard Feelings", _path_name=lambda: "gd_z1_nohardfeelings.M_NoHardFeelings")
     echo = types.SimpleNamespace(GetShortHumanReadableName=lambda: "Mission Item", MissionItemString="Mission Item",
@@ -524,12 +524,12 @@ def check_helios_tracker() -> None:  # noqa: PLR0915
     part = types.SimpleNamespace(ProgressMessage="Collect parts", Outer=echo_mission)
     echo.DefinitionData.ItemDefinition.MissionDirective, echo.DefinitionData.ItemDefinition.AssociatedMissionObjective = None, part
     assert col.pickup_mission(echo) == {"i": "gd_z1_nohardfeelings.M_NoHardFeelings", "n": "No Hard Feelings", "k": "for", "o": "Collect parts"}
-    # A vehicle's boost (tools/probe_vehicle.txt: its AfterburnerPool): [left, max], MaxValue else BaseMaxValue
+    # A vehicle's boost (tools/probes/probe_vehicle.txt: its AfterburnerPool): [left, max], MaxValue else BaseMaxValue
     boost = col.Collector._boost
     assert boost(types.SimpleNamespace(AfterburnerPool=types.SimpleNamespace(Data=types.SimpleNamespace(CurrentValue=30.0, MaxValue=100.0))), 0.0) == [30.0, 100.0]
     assert boost(types.SimpleNamespace(AfterburnerPool=types.SimpleNamespace(Data=types.SimpleNamespace(CurrentValue=5.0, MaxValue=0.0, BaseMaxValue=50.0))), 0.0) == [5.0, 50.0]
     assert boost(types.SimpleNamespace(), 0.0) is None, "no boost pool"
-    # refilling like a shield (tools/probe_boost.txt): the delay's rest, then (max - left) / rate
+    # refilling like a shield (tools/probes/probe_boost.txt): the delay's rest, then (max - left) / rate
     def refill(engaged=False, cur=40.0):
         pool = types.SimpleNamespace(CurrentValue=cur, MaxValue=100.0, OnIdleRegenerationRate=20.0,
                                      OnIdleRegenerationDelay=5.0, PoolIdleDelayStartTime=100.0)
@@ -552,7 +552,7 @@ def check_helios_tracker() -> None:  # noqa: PLR0915
     unknown_pt = col.pawn_display_name(brute)
     col.ENGINE = saved_engine
     assert (tvhm, unknown_pt, col.pawn_display_name(types.SimpleNamespace())) == ("Badass Bruiser", "Bruiser", ""), (tvhm, unknown_pt)
-    # The level's name as the game shows it (tools/probe_area.txt): a list per game / DLC, each knowing its maps
+    # The level's name as the game shows it (tools/probes/probe_area.txt): a list per game / DLC, each knowing its maps
     lists = [types.SimpleNamespace(Name="Default__LevelDependencyList", GetFriendlyLevelNameFromMapName=lambda m: "wrong"),
              types.SimpleNamespace(Name="LevelList", GetFriendlyLevelNameFromMapName=lambda m: {"Ice_P": "Three Horns - Divide"}.get(m, "")),
              types.SimpleNamespace(Name="AlliumTG_LevelList", GetFriendlyLevelNameFromMapName=lambda m: {"Hunger_P": "Gluttony Gulch"}.get(m, ""))]
@@ -571,7 +571,7 @@ def check_helios_tracker() -> None:  # noqa: PLR0915
         t = time.perf_counter()
         (img,) = load_tactical_map(GAME_COOKED / f"{level_name}.upk", f"UI_TacticalMap_{level_name[:-2]}.{level_name}")
         assert (img.format, img.width, img.height) == ("PF_DXT5", *size), img
-        # its fog of war (tools/dump_tacmap_movie.txt): the shared blob, placed once per discovery area
+        # its fog of war (tools/probes/dump_tacmap_movie.txt): the shared blob, placed once per discovery area
         fog = load_fog(GAME_COOKED / f"{level_name}.upk", f"UI_TacticalMap_{level_name[:-2]}.{level_name}")
         assert fog is not None and (fog.blob.format, fog.blob.width, fog.blob.bounds) == ("PF_A8R8G8B8", 64, (-128.0, 128.0, -128.0, 128.0)), fog
         want = {"Sanctuary_P": ["SANCTUARY_PWDA_1", "SANCTUARY_PWDA_0"],
@@ -581,7 +581,7 @@ def check_helios_tracker() -> None:  # noqa: PLR0915
             assert fog.pieces[1][1] == (0.640625, 0.0, 0.0, 1.04791259765625, 110.0, 143.0), fog.pieces[1]
         print(f"  {level_name}: {img.name} {img.width}x{img.height} {img.format}, bounds {img.bounds}"
               f" ({time.perf_counter() - t:.2f} s)")
-    # The game's UI fonts (tools/find_fonts.txt: Startup.upk's UI_FontsEn.FontsEn, Scaleform compacted fonts)
+    # The game's UI fonts (tools/probes/find_fonts.txt: Startup.upk's UI_FontsEn.FontsEn, Scaleform compacted fonts)
     # rebuilt as TrueType: every table there, the glyphs and kerning kept
     import io  # noqa: PLC0415
     import struct  # noqa: PLC0415
@@ -728,9 +728,9 @@ def check_helios_tracker() -> None:  # noqa: PLR0915
 
     # A level load through the collector (fake world); the map is extracted on its thread
     ns = types.SimpleNamespace
-    # A respawning player (tools/probe_respawn.txt): hidden + awaiting a respawn -> their New-U spot
+    # A respawning player (tools/probes/probe_respawn.txt): hidden + awaiting a respawn -> their New-U spot
     spot = ns(X=19361.0, Y=-27830.0, Z=1581.0)
-    # Down states (tools/probe_respawn.txt): crippled / dead / fine
+    # Down states (tools/probes/probe_respawn.txt): crippled / dead / fine
     injured = enum.Enum("EInjuredStage", ["INJURED_Not", "INJURED_Targeted"], start=0)
     dead_state = enum.Enum("EInjuredDeadState", ["INJUREDDEAD_None", "INJUREDDEAD_InitRagdoll"], start=0)
     down_state = col.Collector._down_state
@@ -738,14 +738,14 @@ def check_helios_tracker() -> None:  # noqa: PLR0915
     assert down_state(ns(InjuredState=injured.INJURED_Targeted, InjuredDeadState=dead_state.INJUREDDEAD_InitRagdoll)) == "dead"
     assert down_state(ns(InjuredState=injured.INJURED_Not, InjuredDeadState=dead_state.INJUREDDEAD_None)) == ""
     assert down_state(ns()) == "", "no InjuredState: fine"
-    # In a menu (tools/probe_menu.txt): the player info's bGFxMenuOpen (any menu), the pawn's
+    # In a menu (tools/probes/probe_menu.txt): the player info's bGFxMenuOpen (any menu), the pawn's
     # bViewingStatusMenu (the status menu)
     in_menu = col.Collector._in_menu
     assert in_menu(ns(bViewingStatusMenu=False, PlayerReplicationInfo=ns(bGFxMenuOpen=1)))
     assert in_menu(ns(bViewingStatusMenu=True, PlayerReplicationInfo=ns(bGFxMenuOpen=0)))
     assert not in_menu(ns(bViewingStatusMenu=False, PlayerReplicationInfo=ns(bGFxMenuOpen=0)))
     assert not in_menu(ns()), "no such properties: not in a menu"
-    # Opened containers: state 7 + no longer usable (host); a client gets the state only (tools/probe_client_containers.txt)
+    # Opened containers: state 7 + no longer usable (host); a client gets the state only (tools/probes/probe_client_containers.txt)
     opened_box, closed_box = ns(SimpleAnimState=7, bCanBeUsed=(1, 0)), ns(SimpleAnimState=4, bCanBeUsed=(1, 0))
     looted = col.Collector._is_looted
     assert (looted(opened_box), looted(opened_box, True), looted(closed_box, True)) == (False, True, False)
@@ -755,13 +755,13 @@ def check_helios_tracker() -> None:  # noqa: PLR0915
     # 57), the max precise (sent on change)
     assert (col._vital(57.96), col._vital(107.89068603515625), col._vital(100.0)) == (57.9, 107.8, 100)
     assert (col._vital_max(107.89068603515625), col._vital_max(57.695556640625), col._vital_max(100.0)) == (107.8907, 57.6956, 100)
-    # a player's oxygen (the Pre-Sequel's Oz meter - tools/probe_tps2.txt): the pawn's OxygenPool, else their replicated one
+    # a player's oxygen (the Pre-Sequel's Oz meter - tools/probes/probe_tps2.txt): the pawn's OxygenPool, else their replicated one
     oxygen_pool = types.SimpleNamespace(Data=types.SimpleNamespace(CurrentValue=40.0, MaxValue=100.0))
     assert col.Collector._oxygen(types.SimpleNamespace(OxygenPool=oxygen_pool)) == (40.0, 100.0)
     assert col.Collector._oxygen(types.SimpleNamespace(OxygenPool=None, PlayerReplicationInfo=types.SimpleNamespace(OxygenPool=oxygen_pool))) \
         == (40.0, 100.0), "a co-op client's view: the replicated pool"
     assert col.Collector._oxygen(types.SimpleNamespace(PlayerReplicationInfo=None)) is None, "BL2: no oxygen"
-    # an air dome's bubble (tools/probe_dome_state.txt): its sphere's extent the radius, bAttached on / off
+    # an air dome's bubble (tools/probes/probe_dome_state.txt): its sphere's extent the radius, bAttached on / off
     def dome_io(extent: float, attached: bool) -> types.SimpleNamespace:
         return types.SimpleNamespace(CollisionComponent=types.SimpleNamespace(
             Bounds=types.SimpleNamespace(BoxExtent=types.SimpleNamespace(X=extent)), bAttached=attached))
@@ -771,7 +771,7 @@ def check_helios_tracker() -> None:  # noqa: PLR0915
     assert col.Collector._in_vacuum(types.SimpleNamespace(VacuumComponent=types.SimpleNamespace(State=vacuum_state.VS_InVacuum)))
     assert not col.Collector._in_vacuum(types.SimpleNamespace(VacuumComponent=types.SimpleNamespace(State=vacuum_state.VS_InAir)))
     assert not col.Collector._in_vacuum(types.SimpleNamespace(VacuumComponent=None)), "BL2: never in a vacuum"
-    # Skills (tools/probe_passives.txt): the manager's running timed skills by player; the action skill
+    # Skills (tools/probes/probe_passives.txt): the manager's running timed skills by player; the action skill
     # running / cooling down (its pool) / ready; timed passive effects; melee cooldown
     from helios_tracker.skills import SkillReader  # noqa: PLC0415
 
@@ -812,7 +812,7 @@ def check_helios_tracker() -> None:  # noqa: PLR0915
     assert reader.player(ns(Controller=None), 11.0) == {}, "no controller (co-op client)"
     driving = reader.player(ns(Controller=None, DrivenVehicle=ns(Controller=player_pc)), 11.0)
     assert driving == {"ak": ["r", "Gunzerking"], "mk": [0.5, 7.5]}, ("driving: the vehicle's controller", driving)
-    # Another player, on the host (tools/probe_action_skill.txt): no SavedSkillTreeSkill (the name: their
+    # Another player, on the host (tools/probes/probe_action_skill.txt): no SavedSkillTreeSkill (the name: their
     # tree's action skill), their cooldown pool empty (the full cooldown from when their skill stopped
     # running - Phaselock's Duration said 120 s, it ended after 1 s)
     phaselock = skill_def(0x906, "Phaselock", skill_type.SKILL_TYPE_Action)
@@ -833,7 +833,7 @@ def check_helios_tracker() -> None:  # noqa: PLR0915
     host.update(player_pc, 2005.0, 15.0)  # (still cooling at 2005, but:)
     host.update(player_pc, 3.0, 16.0)  # a level load: the world time restarted
     assert host.player(ns(Controller=other_pc), 16.0) == {"ak": ["r", "Phaselock"]}, "level load: not cooling"
-    # not unlocked yet (the Pre-Sequel at Lv 1, tools/probe_tps.txt): the tree's action skill at Grade 0 - its cooldown
+    # not unlocked yet (the Pre-Sequel at Lv 1, tools/probes/probe_tps.txt): the tree's action skill at Grade 0 - its cooldown
     # reads a length, its pool empty: no "ak" (not "ready"); unlocked (Grade 1): ready
     cold_as_ice = skill_def(0x907, "Cold as Ice", skill_type.SKILL_TYPE_Action)
     locked_tree_skill = ns(Definition=cold_as_ice, Grade=0)
@@ -857,7 +857,7 @@ def check_helios_tracker() -> None:  # noqa: PLR0915
     assert nameless_got["ps"] == [["Skill LevelUp", 20.0, 30.0, 1]], ("its object name, marked made up", nameless_got)
     manager.ActiveSkills = []
     # a hidden helper (Krieg's BloodOverdriveChild, dev text for a name, in no tree): shown as the tree
-    # skill with its icon (tools/probe_child_skill.txt)
+    # skill with its icon (tools/probes/probe_child_skill.txt)
     icon = ns(_path_name=lambda: "UI_Lilac_SharedSkillIcons_Psyc.SkillIcon-Psycho04")
     overdrive = skill_def(0x904, "Surcharge sanglante", skill_type.SKILL_TYPE_Passive, timed=False)
     overdrive.SkillIcon = icon
@@ -929,7 +929,7 @@ def check_helios_tracker() -> None:  # noqa: PLR0915
         GetShortHumanReadableName=lambda: "Unkempt Harold", RarityLevel=5, ExpLevel=30, MonetaryValue=4321,
         InstantHitDamage=512.4, ProjectilesPerShot=3.0, FireInterval=0.25, ClipSize=16.0, ReloadTime=2.25,
         QuickSelectSlot=1, DefinitionData=weapon_data,
-        # its serial: a BL2 Law's (tools/probe_serial2.txt: the packed bits, unique id 235059291, no check yet)
+        # its serial: a BL2 Law's (tools/probes/probe_serial2.txt: the packed bits, unique id 235059291, no check yet)
         CreateSerialNumber=lambda: ns(State=serial_state.SNS_Full, RunningCounter=309, Buffer=tuple(bytes.fromhex(
             "875bb8020effff008747024006814042c38885110d2301c6ffffffffd230feff4fc38840820de3ff"))),
     )
@@ -974,9 +974,9 @@ def check_helios_tracker() -> None:  # noqa: PLR0915
         Class=ns(Name="WillowInteractiveObject"), _get_address=lambda: 0x500,
         GetTargetName=lambda: "", GetHumanReadableName=lambda: "",
     )
-    # The mission tracker (as seen in game, tools/probe_missions.txt): one tracked mission with an
+    # The mission tracker (as seen in game, tools/probes/probe_missions.txt): one tracked mission with an
     # active area objective and an inactive one, plus an active quest giver on an NPC
-    # The mission log (tools/probe_quests.txt): MissionList entries {MissionDef, Status,
+    # The mission log (tools/probes/probe_quests.txt): MissionList entries {MissionDef, Status,
     # ObjectivesProgress (per ObjectiveDefs entry), ActiveObjectiveSet}; a done story mission, the
     # tracked one (3 objectives, the current step = the last two), a side mission it unlocked
     # (available) and one needing the tracked mission (locked)
@@ -986,7 +986,7 @@ def check_helios_tracker() -> None:  # noqa: PLR0915
     # (its station: set below, once the stations exist)
     extra = ns(Name="Bonus", ProgressMessage="Bonus", ObjectiveCount=1, bObjectiveIsOptional=True, _get_address=lambda: 0x652)
 
-    # travel stations (tools/probe_area.txt): the name the game shows, the map they're in
+    # travel stations (tools/probes/probe_area.txt): the name the game shows, the map they're in
     shelf = ns(_get_address=lambda: 0x680, StationDisplayName="Southern Shelf", StationLevelName="SouthernShelf_P")
     sanctuary = ns(_get_address=lambda: 0x681, StationDisplayName="Sanctuary", StationLevelName="Sanctuary_P")
     bay = ns(_get_address=lambda: 0x682, StationDisplayName="Southern Shelf - Bay", StationLevelName="SouthernShelf_P")
@@ -1022,7 +1022,7 @@ def check_helios_tracker() -> None:  # noqa: PLR0915
         waypoint(0x702, ns(_get_address=lambda: 0x703, Location=ns(X=5.0, Y=6.0, Z=7.0)), True, cls="MissionDirectiveWaypointComponent"),
     ])])
     real_find_all = col.unrealsdk.find_all
-    # the level's discovery areas (tools/probe_discovery.txt): a named one, a fog of war only one
+    # the level's discovery areas (tools/probes/probe_discovery.txt): a named one, a fog of war only one
     def discovery(n, short, name, fog, r):
         return ns(Name=f"WorldDiscoveryArea_{n}", Outer=ns(Class=ns(Name="Level")), bDeleteMe=False, bUseCustomName=False,
                   CustomName="None", DefaultWorldAreaShortName=short, WorldAreaDisplayName=name, bForFogOfWarOnly=fog,
@@ -1097,7 +1097,7 @@ def check_helios_tracker() -> None:  # noqa: PLR0915
     parts = {slot: (name, group, text) for slot, name, group, text in gun["parts"]}
     assert parts["Barrel"] == ("SMG_Barrel_Hyperion", "Barrel", "") and parts["Title"][2] == "Bitch", parts
     # its Gibbed code: the game's serial, unique id cleared, check written, trailing 0xFF dropped (decoded by Gibbed's
-    # format: the Law, all its parts - tools/probe_serial2.txt); the Pre-Sequel's prefix; none in Assault on Dragon
+    # format: the Law, all its parts - tools/probes/probe_serial2.txt); the Pre-Sequel's prefix; none in Assault on Dragon
     # Keep (no Gibbed editor), nor for a serial not full, nor without one (the fake shield)
     law_code = "BL2(hwAAAADNoQCHRwJABoFAQsOIhRENIwHG/////9Iw/v9Pw4hAgg3j)"
     assert gun["gib"] == law_code, gun.get("gib")
@@ -1135,7 +1135,7 @@ def check_helios_tracker() -> None:  # noqa: PLR0915
     assert areas == [{"k": "southernshelf_pwda_4", "x": 100, "y": -200, "z": 30, "r": 4644, "n": "Wreck Of The Ice Sickle"},
                      {"k": "southernshelf_pwda_3", "x": 100, "y": -200, "z": 30, "r": 5908}], areas
     real_get_pc = col.get_pc
-    # listed = discovered (tools/probe_fog.txt: HasBeenUncovered False on every entry, visited ones too)
+    # listed = discovered (tools/probes/probe_fog.txt: HasBeenUncovered False on every entry, visited ones too)
     col.get_pc = lambda **k: ns(DiscoveredWorldAreas=[ns(DiscoveryName="SouthernShelf_PWDA_3", HasBeenUncovered=False),
                                                       ns(DiscoveryName="GLACIAL_PWDA_4", HasBeenUncovered=False)],
                                 FullyExploredAreas=["Glacial_P"])
@@ -1152,12 +1152,12 @@ def check_helios_tracker() -> None:  # noqa: PLR0915
     msg = json.loads(hub.latest("areas"))
     assert msg.get("full") == 1 and all(a.get("u") for a in msg["areas"]), ("a fully explored map: every area", msg)
     col.get_pc = real_get_pc
-    # A skill's stats (tools/probe_skill_stats2.txt): GetSkillEffectPresentations(grade, ctrl, out lines) -> the
+    # A skill's stats (tools/probes/probe_skill_stats2.txt): GetSkillEffectPresentations(grade, ctrl, out lines) -> the
     # game's text, value, display flags; cached per (skill, grade, player level)
     from helios_tracker import inspector as insp  # noqa: PLC0415
 
     # Pickup amounts (amounts.py: the tooltip's "$ 22", "18 rounds"), worked out from the definitions as the game has
-    # them (tools/probe_pickup_amounts2.txt): cash - its external BaseCredits slot, 10 x 1.25 x 1.12^ExpLevel (its own
+    # them (tools/probes/probe_pickup_amounts2.txt): cash - its external BaseCredits slot, 10 x 1.25 x 1.12^ExpLevel (its own
     # effect: scale 0); ammo - AmmoAmount (36 in playthrough 2, else 18) x the co-op sharing share (0.5 if cloned for it)
     import enum  # noqa: PLC0415
 
@@ -1246,8 +1246,8 @@ def check_helios_tracker() -> None:  # noqa: PLR0915
     fx = insp._skill_stats(onslaught, stat_ctrl, 2)
     assert fx == [{"d": "Gun Damage: $NUMBER$", "v": 0.12, "pct": 1, "fl": 1, "fp": 1}], fx
     assert insp._skill_stats(onslaught, stat_ctrl, 2) == fx and calls == [2], ("cached", calls)
-    # An item card's lines (tools/probe_weapon_card.txt): WeaponCardModifierStats, the same entries; a name part's red
-    # (tools/probe_weapon_card2.txt: the text from the Description, NoConstraintText or Prefix / Suffix; the colour
+    # An item card's lines (tools/probes/probe_weapon_card.txt): WeaponCardModifierStats, the same entries; a name part's red
+    # (tools/probes/probe_weapon_card2.txt: the text from the Description, NoConstraintText or Prefix / Suffix; the colour
     # from TextColor; a line tied to an attribute: its current value on the weapon, by its resolver's property)
     def pres(text, colour=(255, 255, 255), no_number=True, **more):  # noqa: ANN001, ANN202
         return ns(Description=text, NoConstraintText=more.get("nc", ""), bDisplayAsPercentage=False, bDisplayPercentAsFloat=False,
@@ -1265,7 +1265,7 @@ def check_helios_tracker() -> None:  # noqa: PLR0915
         ns(AttributePresentation=pres("", nc="Deals [skill]bonus elemental damage[-skill]."), ModifierValue=0.0, bShouldDisplay=True),
         ns(AttributePresentation=vs_shields, ModifierValue=0.0, bShouldDisplay=True)])
     card_lines = insp._card_lines(card_gun, "weapon")
-    # its elemental chance (tools/probe_element_chance.txt): 20 (shock's base) x 0.6 x 1.4 = 16.8 %; with skills (1.496): 17.95 %
+    # its elemental chance (tools/probes/probe_element_chance.txt): 20 (shock's base) x 0.6 x 1.4 = 16.8 %; with skills (1.496): 17.95 %
     import enum  # noqa: PLC0415
 
     class Surface(enum.IntEnum):  # (like the game's: int-based - str() gives the number on Python 3.11+)
@@ -1303,7 +1303,7 @@ def check_helios_tracker() -> None:  # noqa: PLR0915
         ("High elemental effect chance.", None, None, None), ("", 2.0, None, None),
         ("Deals [skill]bonus elemental damage[-skill].", None, None, None),
         ("Highly effective vs Shields.", None, "#0064ff", 1)], card_lines
-    # A class mod's bonus ranks (tools/probe_skill_bonus.txt): its card's lines whose presentation is a skill's
+    # A class mod's bonus ranks (tools/probes/probe_skill_bonus.txt): its card's lines whose presentation is a skill's
     def card(path, value):  # noqa: ANN001, ANN202
         return ns(AttributePresentation=ns(_path_name=lambda: path, Name=path.rpartition(".")[2]), ModifierValue=value)
     cmod = ns(ItemCardModifierStats=[card("GD_AttributePresentation.Skills_Soldier.AttrPresent_Steady", 2.02),
@@ -1316,7 +1316,7 @@ def check_helios_tracker() -> None:  # noqa: PLR0915
     assert insp._skill_bonuses(ns(InvManager=ns(ItemChain=relic))) == {
         "steady": [[1, "Relic"], [2, "Resolute Rifleman"]], "pressure": [[3, "Resolute Rifleman"]]}, "bonus ranks, per item"
     insp.item_name = real_item_name
-    # A cutscene video (tools/probe_cutscene_watch.txt): told at once with its length; the first frame
+    # A cutscene video (tools/probes/probe_cutscene_watch.txt): told at once with its length; the first frame
     # over a second later clears it; another player's controller's: ignored
     me_pc = ns(_get_address=lambda: 0xC0)
     col.get_pc = lambda **k: me_pc
@@ -1433,7 +1433,7 @@ def check_helios_tracker() -> None:  # noqa: PLR0915
     c.tick(1001.4)
     names = [o["n"] for o in json.loads(hub.latest("objects"))["objects"]]
     assert names == ["Explosive Gas Tank", "Treasure Chest"], names
-    # Vending machines (tools/probe_vending.txt): a machine's 30-slot stock (the items, then None), its item of the
+    # Vending machines (tools/probes/probe_vending.txt): a machine's 30-slot stock (the items, then None), its item of the
     # day, the price the machine asks; the restock timer from WorldInfo.Game (the host) - sent when it drifts
     from helios_tracker import shops as vend_mod  # noqa: PLC0415
     vend_shop_type = enum.IntEnum("EShopType", ["SType_Weapons", "SType_Items", "SType_Health", "SType_BlackMarket"], start=0)
@@ -1513,7 +1513,7 @@ def check_helios_tracker() -> None:  # noqa: PLR0915
     else:
         vend_mod.unrealsdk.find_class = vend_find_class
     print(f"  shops: {vend_rec['n']!r}, stock + item of the day with the machine's prices, the timer sent on drift / restock")
-    # Loot odds (tools/probe_loot_odds*.txt): the golden chest's configurations (Weight_* x a scale: 300 / 150 / 90 / 80 x 3
+    # Loot odds (tools/probes/probe_loot_odds*.txt): the golden chest's configurations (Weight_* x a scale: 300 / 150 / 90 / 80 x 3
     # / 50), a pool's rarity sub-pools (common = the designer modifier x Weight_1_Common; a legendary one from stage 7),
     # a box's health weight (an AmmoDropWeight resolver x 500: its "if low on health" range)
     from helios_tracker import lootodds  # noqa: PLC0415
@@ -1563,7 +1563,7 @@ def check_helios_tracker() -> None:  # noqa: PLR0915
     assert round(odds_box[1]["p"], 1) == round(15 / 215 * 100, 1) and odds_box[1]["c"] == "health", odds_box[1]  # usual: 0.03 x 500
     assert [round(x, 1) for x in odds_box[1]["lo"]] == [round(50 / 250 * 100, 1), round(125 / 325 * 100, 1)], odds_box[1]  # low: 0.1-0.25
     assert "p" not in odds_box[2], ("an unknown weight given a chance", odds_box[2])
-    # the host's live designer attribute (tools/probe_loot_odds3.txt: the common modifier 0.625, its base 1): every odds
+    # the host's live designer attribute (tools/probes/probe_loot_odds3.txt: the common modifier 0.625, its base 1): every odds
     # worked out again with it - common gear 62.5, not 100
     odds_version = lootodds.version
     odds_world = ns(Game=ns(DesignerAttributes=[ns(DesignerAttributeDefinitionPathName="GD_Balance.Weighting.GearDrops_CommonWeightModifier",
@@ -1621,7 +1621,7 @@ def check_helios_tracker() -> None:  # noqa: PLR0915
     assert mlog._waiting_on(waiter, {}, {0x600: (1, 5, 0)}) is None, "objective done (its count reached)"
     assert mlog._waiting_on(waiter, {"GD_Episode02.M_Ep2a_MoreGuns": "Complete"}, {}) is None, "its mission done"
     assert mlog._waiting_on(ns(ObjectiveDependency=ns(Objective=None, Status=dep_status.EODS_Complete)), {}, {}) is None
-    # The area's level (tools/probe_region.txt): the game stage of the regions this map's missions use
+    # The area's level (tools/probes/probe_region.txt): the game stage of the regions this map's missions use
     tundra, train, elsewhere = (ns(_get_address=lambda a=a: a) for a in (0x6a0, 0x6a1, 0x6a2))
     here_station = ns(_get_address=lambda: 0x683, StationDisplayName="Tundra Express", StationLevelName="TundraExpress_P")
     area_log = mlog.MissionLog()
@@ -1639,7 +1639,7 @@ def check_helios_tracker() -> None:  # noqa: PLR0915
     both = c._level.get("lv")
     c._log, c._level, col.get_pc = saved_log, saved_level, saved_get_pc
     assert (one, both) == ([13, 13], [13, 15]), ("the area's level: its regions' stages, unvisited ones left out", one, both)
-    # A co-op client's markers (tools/probe_client_waypoints.txt): no waypoint components - the level's
+    # A co-op client's markers (tools/probes/probe_client_waypoints.txt): no waypoint components - the level's
     # WillowWaypoint actors, each with WaypointInfo {LinkedObjective, ObjectiveSetRestrictions}
     step_set, other_set = ns(_get_address=lambda: 0x6b0), ns(_get_address=lambda: 0x6b1)
     saved_step = log_entries[1].ActiveObjectiveSet
@@ -1662,7 +1662,7 @@ def check_helios_tracker() -> None:  # noqa: PLR0915
     c._waypoints = []
     assert [(m["i"], m["rad"], m["tracked"], m["objective"]["n"]) for m in client_marks] == [
         ("6c0", 500, True, "Tuer des bandits"), ("6c3", 0, True, "Bonus")], client_marks
-    # Quest givers from the NPCs (tools/probe_directors.txt; a client has no directive waypoints, the host's
+    # Quest givers from the NPCs (tools/probes/probe_directors.txt; a client has no directive waypoints, the host's
     # miss some): an NPC's MissionDirectives against the log - "Side job" can be picked up (its dependency
     # done), "Later job" can't (needs the active mission); an NPC with the game's own marker: skipped
     states = c._log.giver_states()
@@ -1685,7 +1685,7 @@ def check_helios_tracker() -> None:  # noqa: PLR0915
     assert [[(e["i"], e["n"], e.get("end")) for e in m["list"]] for m in several] == [
         [("GD_Z1_Side.M_Side", "Side job", None), ("GD_Z1_Later.M_Later", "Later job", 1)]], several
     assert (several[0]["mi"], several[0]["mission"]) == ("GD_Z1_Side.M_Side", {"n": "Side job"}), several
-    # an object's list (the bounty board: WillowInteractiveObject.Directives, tools/probe_bounty.txt) - the same
+    # an object's list (the bounty board: WillowInteractiveObject.Directives, tools/probes/probe_bounty.txt) - the same
     board = ns(Location=ns(X=900.0, Y=0.0, Z=0.0))
     board_directive = ns(MissionDefinition=side, bBeginsMission=True, bEndsMission=False)
     c._note_giver(0x6e0, board, ns(MissionDirectives=[board_directive]))
@@ -1707,7 +1707,7 @@ def check_helios_tracker() -> None:  # noqa: PLR0915
         steps += 1
         assert chunked.in_cycle and not chunked.payload(1)["missions"], "applied before the cycle completed"
     assert steps == len(log_entries) - 1 and [m["st"] for m in chunked.payload(1)["missions"]] == [m["st"] for m in log["missions"]], steps
-    # rewards per player level (tools/probe_rewards.txt: MissionDefinition.GetExperienceReward(pc, bAlt))
+    # rewards per player level (tools/probes/probe_rewards.txt: MissionDefinition.GetExperienceReward(pc, bAlt))
     from helios_tracker import missions as mission_log  # noqa: PLC0415
 
     def controller(addr: int, level: int):  # noqa: ANN202
@@ -1740,14 +1740,14 @@ def check_helios_tracker() -> None:  # noqa: PLR0915
     assert player["skills"][0]["pts"] == 4 and not player["skills"][0].get("root"), player["skills"]
     (tier,) = player["skills"][0]["tiers"]
     assert tier["need"] == 5 and tier["cells"][0]["g"] == 4 and tier["cells"][1:] == [None, None], tier
-    # a co-op client, another player: no inventory manager, their equipped gear on the pawn (tools/probe_coop.txt)
+    # a co-op client, another player: no inventory manager, their equipped gear on the pawn (tools/probes/probe_coop.txt)
     inspector = sys.modules["helios_tracker.inspector"]
     remote = {"local": False}
     inspector._inventory(ns(InvManager=None, Weapon=weapon, HolsteredWeaponSlots=[weapon, None],
                             EquippedItems=[shield, None, None, None]), remote)
     assert remote["inventory"] == "partial" and [i["k"] for i in remote["equipped"]] == ["weapon", "shield"], remote
     assert remote["inventoryWhy"] == "coopClient" and "backpack" not in remote, remote
-    # A shield's card stats (tools/probe_shield.txt, the Pre-Sequel's Dinky Shield - the card: 53, 16, 2.36): its
+    # A shield's card stats (tools/probes/probe_shield.txt, the Pre-Sequel's Dinky Shield - the card: 53, 16, 2.36): its
     # UIStatModifiers, labelled by their presentation's Description, rounded by its RoundingMode / FloatPrecision
     attr_rounding = enum.IntEnum("EAttributePresentationRoundingMode", ["ATTRROUNDING_None", "ATTRROUNDING_IntRound"], start=0)
     def ui_stat(label: str, total: float, rounding: int, precision: int) -> types.SimpleNamespace:
@@ -1758,7 +1758,7 @@ def check_helios_tracker() -> None:  # noqa: PLR0915
     assert inspector._ui_stats(card_shield) == [["Capacity", 53, 0], ["Recharge Rate", 16, 0], ["Recharge Delay", 2.36, 2],
                                                 ["Half", 17, 0]], ("the card's numbers, IntRound half up", inspector._ui_stats(card_shield))
     assert inspector._ui_stats(ns(UIStatModifiers=None)) == [], "no stats: none"
-    # A weapon's card Accuracy (tools/probe_accuracy.txt: the Pre-Sequel's shotgun, Spread 4.186 -> the card's 72.1; a
+    # A weapon's card Accuracy (tools/probes/probe_accuracy.txt: the Pre-Sequel's shotgun, Spread 4.186 -> the card's 72.1; a
     # sniper, 0.667 -> 95.6): its spread through AttrPresent_WeaponSpread's remapping (both games' Startup.upk: 0..15
     # onto 100..0, ATTRROUNDING_Float, the class default FloatPrecision 1)
     accuracy_rounding = enum.IntEnum("EAccuracyRounding", ["ATTRROUNDING_None", "ATTRROUNDING_IntRound", "ATTRROUNDING_Float"], start=0)
@@ -1853,7 +1853,7 @@ def check_helios_tracker() -> None:  # noqa: PLR0915
     assert col.Collector._killed(ns(bHasBeenKilled=False), {"h": 0, "m": 80}), "0 health: killed"
     assert not col.Collector._killed(ns(bHasBeenKilled=False), {"h": 35.5, "m": 80})
     assert not col.Collector._killed(ns(bHasBeenKilled=False), {}), "no health: never killed"
-    # a container's opened state: a bitmask over its animations, the "Opened" one's bit (tools/probe_prelooted.txt)
+    # a container's opened state: a bitmask over its animations, the "Opened" one's bit (tools/probes/probe_prelooted.txt)
     locker_anims = [ns(AnimName=n) for n in ("Open", "Open_Vacuum", "Opened", "Closed")]
     locker_looted = {state: col.Collector._is_looted(ns(SimpleAnimState=state, SimpleAnimInfo=locker_anims, bCanBeUsed=[0, 0]))
                      for state in (8, 14, 12, 4)}
@@ -2163,10 +2163,41 @@ def check_script() -> None:
     print("  user script: the mod folder's autoexec.ps1, else sdk_mods/helios_tracker.autoexec.ps1 (folder / .sdkmod)")
 
 
+def check_sdkmod() -> None:
+    """paths.py run from inside a .sdkmod (a zip, imported in a child Python): it finds the zip, reads the page's
+    files out of it, and writes to sdk_mods/.helios_tracker/ - created, not a folder the loader would import."""
+    import subprocess  # noqa: PLC0415
+    import tempfile  # noqa: PLC0415
+    import zipfile  # noqa: PLC0415
+
+    with tempfile.TemporaryDirectory() as tmp:
+        sdk_mods = Path(tmp) / "sdk_mods"
+        sdk_mods.mkdir()
+        sdkmod = sdk_mods / "helios_tracker.sdkmod"
+        with zipfile.ZipFile(sdkmod, "w") as z:
+            z.write(ROOT / "helios_tracker" / "paths.py", "helios_tracker/paths.py")
+            z.writestr("helios_tracker/__init__.py", "")
+            z.write(ROOT / "helios_tracker" / "web" / "index.html", "helios_tracker/web/index.html")
+        child = (
+            "import sys; sys.path.insert(0, sys.argv[1])\n"
+            "from helios_tracker import paths\n"
+            "print(paths.SDKMOD); print(paths.DATA); print(len(paths.read('web/index.html') or b''));"
+            " print(paths.read('web/nothing.js'))\n"
+        )
+        out = subprocess.run([sys.executable, "-c", child, str(sdkmod)], capture_output=True, text=True, check=True)
+        found, data, size, missing = out.stdout.split("\n")[:4]
+        assert Path(found) == sdkmod, out.stdout
+        assert Path(data) == sdk_mods / ".helios_tracker" and Path(data).is_dir(), data
+        assert int(size) == len((ROOT / "helios_tracker" / "web" / "index.html").read_bytes()), size
+        assert missing == "None", missing
+    print("  .sdkmod: page files read out of the zip, logs / caches in sdk_mods/.helios_tracker/")
+
+
 def main() -> None:
     _install_fakes()
     check_helios_tracker()
     check_script()
+    check_sdkmod()
     print("OK")
 
 

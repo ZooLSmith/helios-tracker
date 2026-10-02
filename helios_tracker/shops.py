@@ -2,7 +2,7 @@
 Vending machines: every machine's stock, its item of the day and their prices, and the shops' restock timer - the
 page's Shops pane (the `shops` payload).
 
-Game thread only (the collector calls read() every SHOPS_EVERY). Seen in game (tools/probe_vending.txt, .agent/notes.md
+Game thread only (the collector calls read() every SHOPS_EVERY). Seen in game (tools/probes/probe_vending.txt, .agent/notes.md
 "Vending machines"; Sanctuary, solo host):
 - each machine (WillowVendingMachine) has its own stock: `ShopInventory`, a fixed 30-slot array (the items, then
   None), and `FeaturedItem` (the item of the day); every item a distinct inventory object owned by it;

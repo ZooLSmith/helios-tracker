@@ -225,7 +225,7 @@ def on_post_render(obj: UObject, args: WrappedStruct, ret: Any, func: BoundFunct
 
 @hook("WillowGame.WillowPlayerController:ClientPlayBinkMovie", Type.PRE)
 def on_bink_movie(obj: UObject, args: WrappedStruct, ret: Any, func: BoundFunction) -> None:  # noqa: ARG001
-    """A cutscene video starting: the game renders nothing until it's over (tools/probe_cutscene_watch.txt)."""
+    """A cutscene video starting: the game renders nothing until it's over (tools/probes/probe_cutscene_watch.txt)."""
     try:
         _collector.movie_started(obj, str(args.MovieName), bool(args.bForceNoSkip))
     except Exception as ex:  # noqa: BLE001

@@ -2,9 +2,9 @@
 The mission log (game thread): every mission of the playthrough with its status, objectives and
 progress, and what it depends on - for the page's quest panel and mission tree.
 
-Verified in game (tools/probe_quests.py): MissionTracker.MissionList[] = {MissionDef, Status
+Verified in game (tools/probes/probe_quests.py): MissionTracker.MissionList[] = {MissionDef, Status
 (EMissionStatus: MS_NotStarted / MS_Active / MS_RequiredObjectivesComplete / MS_ReadyToTurnIn /
-MS_Complete - tools/probe_turnin.txt), ObjectivesProgress[] (one count per
+MS_Complete - tools/probes/probe_turnin.txt), ObjectivesProgress[] (one count per
 MissionDef.ObjectiveDefs entry, same order; empty before the mission starts), ActiveObjectiveSet
 (a MissionObjectiveSetDefinition: its ObjectiveDefinitions are the current step), SubObjectiveSets}.
 
@@ -12,7 +12,7 @@ Definitions never change: each is read once (cached forever, by address). The li
 progress, current step) is read by a full pass over the list (every few seconds) and a fast pass
 over the tracked / active missions only (every second).
 
-Rewards (tools/probe_rewards.py): MissionDefinition.GetExperienceReward(pc, bAlt) /
+Rewards (tools/probes/probe_rewards.py): MissionDefinition.GetExperienceReward(pc, bAlt) /
 GetCurrencyReward(pc, bAlt) / GetCurrencyRewardType(bAlt) - what the game's mission screen shows,
 scaled to the player; items: Reward.RewardItems (balance definitions) / RewardItemPools. Function
 calls: only for the active / available / tracked missions, cached per (mission, player level).
@@ -33,7 +33,7 @@ REWARDS_SECONDS = 0.003  # per cycle, computing rewards not cached yet (function
 # is part of the key: it's only set when the mission is picked up (GameStage), changing the reward
 _rewards: dict[tuple[int, int, int], dict[str, Any]] = {}
 # The game's difficulty thresholds (GlobalsDefinition.LevelDifference_*: mission level - player level),
-# read once (tools/probe_mission_level.txt: Impossible 5, Hard 3, Tough 1, Normal -3)
+# read once (tools/probes/probe_mission_level.txt: Impossible 5, Hard 3, Tough 1, Normal -3)
 _thresholds: dict[str, int] | None = None
 
 
@@ -62,7 +62,7 @@ _stations: dict[int, dict[str, str]] = {}
 
 
 def station(s: Any) -> dict[str, str] | None:
-    """A travel station definition as the page gets it (tools/probe_area.txt): StationDisplayName and
+    """A travel station definition as the page gets it (tools/probes/probe_area.txt): StationDisplayName and
     StationLevelName (the map it's in, e.g. "Ice_P": compared with the current level) - static, cached."""
     if s is None:
         return None
@@ -100,7 +100,7 @@ def _definition(mdef: Any) -> tuple[dict[str, Any], dict[int, int]]:
         "stage": try_(lambda: int(mdef.GameStage), 0),
         "obj": objectives,
     }
-    # Its area: the travel station's name, as the game shows it (tools/probe_mission_areas.py:
+    # Its area: the travel station's name, as the game shows it (tools/probes/probe_mission_areas.py:
     # TravelStation.StationDisplayName - "Three Horns Divide", "Claptrap's Place"...)
     # Where it comes from - where its giver is (Name Game: Sanctuary); not where it's done: see _live)
     if (home := try_(lambda: station(mdef.TravelStation))) is not None:
@@ -174,7 +174,7 @@ _NOT_STARTED: Live = ("NotStarted", (), (), False, 0, False, None, None)
 
 def _waiting_on(mdef: Any, status: dict[str, str], progress: dict[int, tuple[int, ...]]) -> tuple[str, str] | None:
     """The objective of another mission a mission waits on, besides its Dependencies: its
-    ObjectiveDependency {Objective, Status} (tools/probe_quests.txt: None on most; EODS_Complete: that
+    ObjectiveDependency {Objective, Status} (tools/probes/probe_quests.txt: None on most; EODS_Complete: that
     objective must be done) - (the objective's text, its mission's id) while it isn't, else None. Done:
     its mission done, or its count reached in that mission's progress (the last pass's, by mission
     address) - property reads only, no function call (tracker.IsMissionObjectiveComplete was one of
@@ -211,10 +211,10 @@ def _live(entry: Any, index: dict[int, int], prev: Live | None, doable: bool,
     - active (and anything else): everything - progress, the current step (ActiveObjectiveSet +
       SubObjectiveSets), its level (GameStage, fixed when picked up: bGameStageLocked), and where
       to go for it now (active only): the StationOverride of its step's first objective left that has
-      one, else the step's (MissionObjective(Set)Definition.StationOverride - tools/probe_quests.txt:
+      one, else the step's (MissionObjective(Set)Definition.StationOverride - tools/probes/probe_quests.txt:
       "Go to Sanctuary" -> Sanctuary). (name, map) or None. Property reads only: pc.GetLevelForMission
-      (the level the game says - tools/probe_area.txt) is no longer called, suspected in a game crash.
-    Levels: tools/probe_mission_xp_curve.txt."""
+      (the level the game says - tools/probes/probe_area.txt) is no longer called, suspected in a game crash.
+    Levels: tools/probes/probe_mission_xp_curve.txt."""
     status = _status_name(try_(lambda: entry.Status, ""))
     if status == "Complete":
         if prev is not None and prev[0] == "Complete":
@@ -425,7 +425,7 @@ class MissionLog:
         return False
 
     def giver_states(self) -> dict[str, str]:
-        """For the quest givers' "!" (a co-op client works it out: tools/probe_directors.txt), per
+        """For the quest givers' "!" (a co-op client works it out: tools/probes/probe_directors.txt), per
         mission id: "begin" if it can be picked up now (not started, every mission it needs done, not
         waiting on another's objective), "end" if it's ready to hand in - from the last full pass (the
         others left out). Built once per call: the caller keeps it for the pass."""
@@ -444,7 +444,7 @@ class MissionLog:
 
     def map_regions(self, map_name: str) -> list[Any]:
         """The game stage regions of the missions whose station is on this map (MissionDefinition
-        .GameStageRegion - tools/probe_region.txt: Tundra Express's 5 missions -> Tundra): the area's
+        .GameStageRegion - tools/probes/probe_region.txt: Tundra Express's 5 missions -> Tundra): the area's
         level is theirs (pc.GetGameStageFromRegion). Static definitions: cached per map."""
         key = map_name.lower()
         if (cached := self._map_regions.get(key)) is None:

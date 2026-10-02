@@ -2,7 +2,7 @@
 Pickup amounts: how much a cash / eridium / ammo / health pickup gives - for the map's tooltip ("$ 22", "18 rounds").
 
 Game thread only (the collector, once per pickup: cached with its record). Everything is read as properties, nothing is
-called (tools/probe_pickup_amounts*.txt, .agent/notes.md "Pickup amounts"):
+called (tools/probes/probe_pickup_amounts*.txt, .agent/notes.md "Pickup amounts"):
 - what a pickup gives: its item definition's ExternalAttributeEffects (ammo: its pool + Init_AmmoAmountShared_<type>)
   and its "external" AttributeSlotEffects (cash: CreditsOnHand + the BaseCredits slot - the effect itself has scale 0),
   each an AttributeInitializationData: its InitializationDefinition's value, else its BaseValueAttribute's, else

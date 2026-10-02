@@ -134,7 +134,7 @@ NDesk.Options - are the same commits in both).
 - Rarity leads: Gemstone = Dragon Keep's `GD_Aster_Weapons.*_4_<Gem>` balances (Quartz, Emerald,
   Diamond, Citrine, Garnet, Rock...: grade 4 like Epic, with a `Prefix_Gemstone_*` name part; also
   `GD_Anemone_Weapons...Prefix_Gemstone_Rock`). Cursed (Pirate's Booty per the wiki): no lead in the
-  dumps yet. To match against `tools/probe_rarity4.py`'s unnamed levels.
+  dumps yet. To match against `tools/probes/probe_rarity4.py`'s unnamed levels.
 - The code: `projects\Gibbed.Borderlands2.FileFormats` (save file and packed item / weapon formats),
   `projects\Gibbed.Borderlands2.GameInfo` (loaders for the dumps).
 

@@ -2,7 +2,7 @@
 // Pure (no DOM): tested offline under Node.
 
 /** Picked up and not handed in yet: the game's statuses between Active and Complete (every
- *  required objective done - tools/probe_turnin.txt). */
+ *  required objective done - tools/probes/probe_turnin.txt). */
 export const READY = ["ReadyToTurnIn", "RequiredObjectivesComplete"];
 const pickedUp = (m) => m.st === "Active" || READY.includes(m.st);
 
@@ -20,7 +20,7 @@ export function missionState(m, byId) {
   return m.kick ? "available" : "unknown";
 }
 
-/** Where to go for a mission now (tools/probe_area.txt): in progress, where it's done ("go": its
+/** Where to go for a mission now (tools/probes/probe_area.txt): in progress, where it's done ("go": its
  *  step's station override, else the level the game says - GetLevelForMission; none: null, its origin
  *  isn't where to go); ready, its turn-in station ("tin", else back at its own); not picked up, its own
  *  station - where to grab it (its giver's). { a: the name (the game's), map: its level's map,

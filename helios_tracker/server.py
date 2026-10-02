@@ -27,12 +27,12 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from typing import Any
 
-from . import gamescan
+from . import gamescan, paths
 from .gamecards import card_png
 from .gameicons import icon_png, texture_by_path
 
-WEB_DIR = Path(__file__).parent / "web"
-# Files served from WEB_DIR: lowercase names, folders allowed, no dots but the extension (no "..")
+# The page's files: paths.read("web/...") (a folder, or inside the .sdkmod).
+# Files served from web/: lowercase names, folders allowed, no dots but the extension (no "..")
 STATIC = re.compile(r"/(?:[a-z0-9_-]+/)*[a-z0-9_-]+\.(js|css|png|svg|woff2)")
 TYPES = {"js": "text/javascript; charset=utf-8", "css": "text/css; charset=utf-8", "png": "image/png",
          "svg": "image/svg+xml", "woff2": "font/woff2"}
@@ -239,9 +239,9 @@ class _Handler(BaseHTTPRequestHandler):
             gamescan.wait(SCAN_WAIT)  # (the game's files not indexed yet: a page just opened - its scan's running)
         try:
             if path in ("/", "/index.html"):
-                self._send(HTTPStatus.OK, "text/html; charset=utf-8", (WEB_DIR / "index.html").read_bytes())
-            elif (m := STATIC.fullmatch(path)) and (WEB_DIR / path[1:]).is_file():
-                self._send(HTTPStatus.OK, TYPES[m[1]], (WEB_DIR / path[1:]).read_bytes())
+                self._send(HTTPStatus.OK, "text/html; charset=utf-8", paths.read("web/index.html") or b"")
+            elif (m := STATIC.fullmatch(path)) and (data := paths.read("web" + path)) is not None:
+                self._send(HTTPStatus.OK, TYPES[m[1]], data)
             elif path == "/events":
                 self._events()
             elif path.startswith("/image/"):
