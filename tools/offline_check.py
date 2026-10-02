@@ -2144,27 +2144,22 @@ def check_helios_tracker() -> None:  # noqa: PLR0915
 
 
 def check_script() -> None:
-    """The user script's lookup: the mod folder's autoexec.ps1 first, else sdk_mods/helios_tracker.autoexec.ps1 -
-    beside a folder install or a .sdkmod (a zip: the package's parent is a file)."""
+    """The user script's lookup: autoexec.ps1 in the data folder (paths.DATA - sdk_mods/.helios_tracker/ beside a
+    .sdkmod, the mod's folder in a folder install), its log beside it; the old place beside the .sdkmod: not looked at."""
     import tempfile  # noqa: PLC0415
 
+    from helios_tracker import paths  # noqa: PLC0415
     from helios_tracker.script import find_script  # noqa: PLC0415
 
     with tempfile.TemporaryDirectory() as tmp:
-        sdk_mods = Path(tmp) / "sdk_mods"
-        folder_pkg = sdk_mods / "helios_tracker"
-        folder_pkg.mkdir(parents=True)
-        zip_pkg = sdk_mods / "helios_tracker.sdkmod" / "helios_tracker"  # (inside the zip: not on disk)
-        (sdk_mods / "helios_tracker.sdkmod").write_bytes(b"PK")
-        assert find_script(folder_pkg) is None and find_script(zip_pkg) is None
-        beside = sdk_mods / "helios_tracker.autoexec.ps1"
-        beside.write_text("")
-        assert find_script(zip_pkg) == (beside, sdk_mods / "helios_tracker.autoexec.log"), find_script(zip_pkg)
-        assert find_script(folder_pkg) == (beside, sdk_mods / "helios_tracker.autoexec.log")
-        inside = folder_pkg / "autoexec.ps1"
-        inside.write_text("")
-        assert find_script(folder_pkg) == (inside, folder_pkg / "autoexec.log")  # the folder's own first
-    print("  user script: the mod folder's autoexec.ps1, else sdk_mods/helios_tracker.autoexec.ps1 (folder / .sdkmod)")
+        script_data = Path(tmp) / "sdk_mods" / ".helios_tracker"
+        script_data.mkdir(parents=True)
+        (script_data.parent / "helios_tracker.autoexec.ps1").write_text("")  # (the old place)
+        assert find_script(script_data) is None, "only the data folder's"
+        (script_data / "autoexec.ps1").write_text("")
+        assert find_script(script_data) == (script_data / "autoexec.ps1", script_data / "autoexec.log")
+    assert find_script.__defaults__ == (paths.DATA,), "the data folder by default"
+    print("  user script: autoexec.ps1 in the data folder (sdk_mods/.helios_tracker/, or the mod's folder), its log beside it")
 
 
 def check_sdkmod() -> None:

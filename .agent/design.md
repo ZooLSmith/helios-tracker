@@ -81,7 +81,7 @@ instead of the whole state. First: log the updates' sizes in game.
 **Tunnels to document** (free, quick): Tailscale Funnel (the main one: stable HTTPS address, SSE works), ngrok
 (free, but a warning page for browsers), SSH tunnels (localhost.run: nothing to install, changing addresses - not
 pinggy: its free addresses contain the user's public IP), Cloudflare's quick tunnels (no account, no domain, a random address: tested in game 2026-09-25, the SSE
-passes - ~8 updates/s; the first page load is slow: ~45 uncached files), a named tunnel for those with a domain. `sdk_mods/helios_tracker.autoexec.ps1` can start / stop the tunnel with the server. Allow LAN Access isn't needed.
+passes - ~8 updates/s; the first page load is slow: ~45 uncached files), a named tunnel for those with a domain. `sdk_mods/.helios_tracker/autoexec.ps1` can start / stop the tunnel with the server. Allow LAN Access isn't needed.
 
 **Pointers for more than 50** (docs only): a relay - the mod sends one stream to a server that fans it out (e.g. a
 Cloudflare Worker), so the PC uploads once; a Twitch extension for an in-player map. Either means running a service,

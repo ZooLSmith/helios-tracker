@@ -341,9 +341,9 @@ bottom-left message).
   Unverified in game - `tools/probes/probe_inventory.py` checks what's really there (solo / host / client).
 - The collector does nothing but follow the level while no page is connected (`Hub.clients`).
 - `script.py`: an optional PowerShell script runs while the server runs (e.g. a tunnel for sharing the map on
-  stream): the mod folder's `autoexec.ps1` (a folder install - the dev junction; gitignored), else
-  `sdk_mods/helios_tracker.autoexec.ps1` beside the mod (the players' place: a `.sdkmod` is a zip). It gets
-  `HELIOS_PORT`, runs hidden, and its output goes to `autoexec.log` / `helios_tracker.autoexec.log` beside it. It sits in a kill-on-close job object: server stop, port / LAN
+  stream): `autoexec.ps1` in the data folder (`paths.DATA`: `sdk_mods/.helios_tracker/` beside a `.sdkmod` - the
+  players' place -, the mod's own folder in a folder install - the dev junction; gitignored). It gets
+  `HELIOS_PORT`, runs hidden, and its output goes to `autoexec.log` beside it. It sits in a kill-on-close job object: server stop, port / LAN
   restart, mod disable, or the game exiting ends it along with its children.
 - `updater.py`: updates from the public repo's latest GitHub release (tag `vX.Y.Z`, `helios_tracker.sdkmod`
   attached; publishing them - CI or a script - isn't set up yet). **Only from a `.sdkmod`** (`can_install`): a folder
@@ -412,7 +412,7 @@ downloaded update. Everything written is built on the player's machine from thei
 | `.cache/assets/<2 hex>/<sha1>.bin` | `gamework` | decoded game assets, one per job: fonts (TTF), icons and textures (PNG), item card images (PNG) | never cleaned: the name hashes `VERSION`, the job and its packages' sizes / dates (a patch or a new `VERSION`: a new file; the old one stays) |
 | `.cache/element_frames.json` | `inspector` | which item card frame each damage type uses, learned from seen items (`{"DAMAGE_TYPE_Incindiary": "fire"}`) | grows |
 
-Elsewhere: `autoexec.log` / `helios_tracker.autoexec.log` beside the user script (`script.py`, overwritten per run);
+Also there: `autoexec.ps1` (the user's script, `script.py`) and its `autoexec.log` (overwritten per run). Elsewhere:
 the mod's options in `sdk_mods/settings/helios_tracker.json` (mods_base's); the page's settings in the browser
 (localStorage, per origin). In memory only: the level's map images (`tacmap.py`), definitions, names.
 

@@ -1,9 +1,7 @@
 """
-The user's own PowerShell script (optional): run while the server runs. The first found of:
-
-- `autoexec.ps1` in the mod's folder (a folder install: the dev setup's junction), its output in `autoexec.log`;
-- `helios_tracker.autoexec.ps1` in `sdk_mods`, beside the mod (the place for a `.sdkmod`, a zip: nothing can
-  go inside it), its output in `helios_tracker.autoexec.log`.
+The user's own PowerShell script (optional): run while the server runs. `autoexec.ps1` in the mod's data folder
+(paths.DATA: `sdk_mods/.helios_tracker/` beside a `.sdkmod` - nothing can go inside a zip -, the mod's own folder in
+a folder install: the dev setup's junction), its output in `autoexec.log` beside it.
 
 For a tunnel (`tailscale funnel 8777`, `cloudflared tunnel run ...`) or anything else that should live with
 the map. It gets the server's port in `HELIOS_PORT`, runs hidden (no console window over the game). The
@@ -18,20 +16,14 @@ import sys
 from ctypes import wintypes
 from pathlib import Path
 
+from .paths import DATA
 from .util import log, log_error
 
-PACKAGE = Path(__file__).parent  # sdk_mods/helios_tracker: a folder, or a folder inside helios_tracker.sdkmod
 
-
-def find_script(package: Path = PACKAGE) -> tuple[Path, Path] | None:
+def find_script(data: Path = DATA) -> tuple[Path, Path] | None:
     """The script to run and its log file, or None."""
-    # sdk_mods: the package's parent - or, in a .sdkmod (a zip: a file, not a folder), the zip's
-    sdk_mods = package.parent if package.parent.is_dir() else package.parent.parent
-    for script, output in ((package / "autoexec.ps1", package / "autoexec.log"),
-                           (sdk_mods / "helios_tracker.autoexec.ps1", sdk_mods / "helios_tracker.autoexec.log")):
-        if script.is_file():
-            return script, output
-    return None
+    script = data / "autoexec.ps1"
+    return (script, data / "autoexec.log") if script.is_file() else None
 
 _JOB_OBJECT_EXTENDED_LIMIT_INFORMATION = 9
 _JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE = 0x2000
