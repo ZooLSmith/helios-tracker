@@ -283,6 +283,12 @@ strong { color: var(--text-bright); font-weight: 700; }
 .game { font: 800 1.08em/1 var(--font-head); letter-spacing: .03em; text-transform: uppercase; white-space: nowrap;
   background: linear-gradient(var(--title-top), var(--title-bottom)); -webkit-background-clip: text; background-clip: text;
   -webkit-text-fill-color: transparent; }
+/* (a link to the game's Steam page: no link colour or underline - the gradient is the cue; brighter on hover) */
+a.game { text-decoration: none; }
+a.game:hover { filter: brightness(1.25); }
+/* the Pre-Sequel's "The" as on its logo: half the height, its top on the top of PRE (Big Shoulders' caps: .8em; vertical-align's em is its own, half the name's: raised .8 x 2 - .8) */
+.game .the { font-size: .5em; vertical-align: .8em; margin-right: -.45em; /* (most of the space after it) */ letter-spacing: .12em;
+  -webkit-text-stroke: .035em transparent; } /* (bolder than the font's 800: an outline, the gradient showing through it) */
 .anchor { margin-left: .4rem; color: var(--divider); text-decoration: none; font-weight: 400; opacity: 0; }
 h2:hover .anchor, h3:hover .anchor, .anchor:focus { opacity: 1; }
 .anchor:hover { color: var(--accent); }

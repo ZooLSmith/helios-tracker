@@ -25,7 +25,7 @@ export default {
   // ---- index.html ----
   "index.title": "Helios Tracker | Borderlands 2 與 The Pre-Sequel 的即時地圖",
   "index.description": "Helios Tracker 是 Borderlands 2 與 Borderlands: The Pre-Sequel 的模組，在網頁瀏覽器中以即時地圖顯示你所在的關卡：玩家、敵人、戰利品與任務，隨你的遊玩即時更新。",
-  "index.lead": "<span class=\"game\">Borderlands 2</span> 與 <span class=\"game\">The Pre-Sequel</span> 的即時地圖，就在瀏覽器分頁中：你所在的關卡，還有你的隊伍、敵人、戰利品和任務。",
+  "index.lead": "你所在關卡的地圖，即時顯示在瀏覽器中：玩家、敵人、戰利品和任務，邊玩 <a class=\"game\" href=\"https://store.steampowered.com/app/49520/\">Borderlands 2</a> 或 <a class=\"game\" href=\"https://store.steampowered.com/app/261640/\"><span class=\"the\">The</span> Pre-Sequel</a> 邊看。",
   "index.lead2": "可在第二螢幕、手機、OBS 中使用，或分享給朋友。它只讀取遊戲。",
   "index.install": "安裝",
   "index.source": "GitHub 上的原始碼",
@@ -118,7 +118,7 @@ export default {
   "install.title": "安裝 | Helios Tracker",
   "install.description": "安裝 Helios Tracker：Python SDK、一個 .sdkmod 檔案，然後在瀏覽器、手機、OBS 或 Steam 內嵌介面中開啟地圖。",
   "install.h": "安裝",
-  "install.lead": "你需要 PC 版的 <span class=\"game\">Borderlands 2</span> 或 <span class=\"game\">Borderlands: The Pre-Sequel</span>，並安裝 Python SDK。之後只要一個檔案。",
+  "install.lead": "你需要 PC 版的 <a class=\"game\" href=\"https://store.steampowered.com/app/49520/\">Borderlands 2</a> 或 <a class=\"game\" href=\"https://store.steampowered.com/app/261640/\">Borderlands: <span class=\"the\">The</span> Pre-Sequel</a>，並安裝 Python SDK。之後只要一個檔案。",
   "install.sdk": "安裝 Python SDK",
   "install.sdkText": "SDK 是這些遊戲的模組管理器。請從它的<a href=\"https://github.com/bl-sdk/willow2-mod-manager/releases\">發行頁面</a>下載，那裡也有安裝說明的連結。Helios Tracker 需要目前的版本（第 3 版，遊戲中有 Mods 選單）。",
   "install.download": "下載模組",

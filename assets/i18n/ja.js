@@ -25,7 +25,7 @@ export default {
   // ---- index.html ----
   "index.title": "Helios Tracker | Borderlands 2 と The Pre-Sequel のライブマップ",
   "index.description": "Helios Tracker は Borderlands 2 と Borderlands: The Pre-Sequel 用の MOD で、今いるレベルを Web ブラウザーにライブマップとして表示します：プレイヤー、敵、戦利品、ミッションを、プレイしながら。",
-  "index.lead": "<span class=\"game\">Borderlands 2</span> と <span class=\"game\">The Pre-Sequel</span> のライブマップを、ブラウザーのタブに：今いるレベルを、仲間、敵、戦利品、ミッションとともに。",
+  "index.lead": "<a class=\"game\" href=\"https://store.steampowered.com/app/49520/\">Borderlands 2</a> や <a class=\"game\" href=\"https://store.steampowered.com/app/261640/\"><span class=\"the\">The</span> Pre-Sequel</a> をプレイしながら、今いるレベルのマップをブラウザーでリアルタイムに：プレイヤー、敵、戦利品、ミッション。",
   "index.lead2": "セカンドモニター、スマートフォン、OBS で、あるいは友達と共有して。ゲームを読み取るだけです。",
   "index.install": "インストールする",
   "index.source": "GitHub のソースコード",
@@ -118,7 +118,7 @@ export default {
   "install.title": "インストール | Helios Tracker",
   "install.description": "Helios Tracker のインストール：Python SDK と .sdkmod ファイル 1 つ。あとはブラウザー、スマートフォン、OBS、Steam オーバーレイでマップを開くだけ。",
   "install.h": "インストール",
-  "install.lead": "PC 版の <span class=\"game\">Borderlands 2</span> または <span class=\"game\">Borderlands: The Pre-Sequel</span> と Python SDK が必要です。あとはファイル 1 つだけ。",
+  "install.lead": "PC 版の <a class=\"game\" href=\"https://store.steampowered.com/app/49520/\">Borderlands 2</a> または <a class=\"game\" href=\"https://store.steampowered.com/app/261640/\">Borderlands: <span class=\"the\">The</span> Pre-Sequel</a> と Python SDK が必要です。あとはファイル 1 つだけ。",
   "install.sdk": "Python SDK をインストール",
   "install.sdkText": "SDK はこれらのゲームの MOD マネージャーです。<a href=\"https://github.com/bl-sdk/willow2-mod-manager/releases\">リリースページ</a>からダウンロードしてください。インストール手順へのリンクもそこにあります。Helios Tracker には現行版（バージョン 3、ゲーム内に Mods メニューがあるもの）が必要です。",
   "install.download": "MOD をダウンロード",

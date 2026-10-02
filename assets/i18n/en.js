@@ -26,7 +26,7 @@ export default {
   // ---- index.html ----
   "index.title": "Helios Tracker | A live map for Borderlands 2 and The Pre-Sequel",
   "index.description": "Helios Tracker is a mod for Borderlands 2 and Borderlands: The Pre-Sequel that shows the level you're in as a live map in your web browser: players, enemies, loot and missions, as you play.",
-  "index.lead": "A live map for <span class=\"game\">Borderlands 2</span> and <span class=\"game\">The Pre-Sequel</span>, in a browser tab: the level you're in, with your squad, the enemies, the loot and your missions.",
+  "index.lead": "The map of the level you're in, live in your browser: players, enemies, loot and missions, as you play <a class=\"game\" href=\"https://store.steampowered.com/app/49520/\">Borderlands 2</a> or <a class=\"game\" href=\"https://store.steampowered.com/app/261640/\"><span class=\"the\">The</span> Pre-Sequel</a>.",
   "index.lead2": "On a second screen, a phone, in OBS, or shared with friends. It only reads the game.",
   "index.install": "Install it",
   "index.source": "Source on GitHub",
@@ -119,7 +119,7 @@ export default {
   "install.title": "Install | Helios Tracker",
   "install.description": "Install Helios Tracker: the Python SDK, one .sdkmod file, then open the map in a browser, on a phone, in OBS or in the Steam overlay.",
   "install.h": "Install",
-  "install.lead": "You need <span class=\"game\">Borderlands 2</span> or <span class=\"game\">Borderlands: The Pre-Sequel</span> on PC, with the Python SDK. Then it's one file.",
+  "install.lead": "You need <a class=\"game\" href=\"https://store.steampowered.com/app/49520/\">Borderlands 2</a> or <a class=\"game\" href=\"https://store.steampowered.com/app/261640/\">Borderlands: <span class=\"the\">The</span> Pre-Sequel</a> on PC, with the Python SDK. Then it's one file.",
   "install.sdk": "Install the Python SDK",
   "install.sdkText": "The SDK is the games' mod manager. Download it from its <a href=\"https://github.com/bl-sdk/willow2-mod-manager/releases\">releases page</a>, which also links to the install instructions. Helios Tracker needs the current one (version 3, with the Mods menu in game).",
   "install.download": "Download the mod",
