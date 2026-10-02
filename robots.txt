@@ -1,0 +1,4 @@
+User-agent: *
+Disallow: /live/
+
+Sitemap: https://helios-tracker.zoolsmith.com/sitemap.xml
