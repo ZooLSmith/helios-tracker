@@ -163,7 +163,10 @@ export function nameText(o) { return o.raw ? prettyRaw(o.n) : String(o.n || "?")
  *  Customization items (skins, heads: probe_pickups.py - RarityLevel 2 on a vehicle skin) count. */
 const GEAR_CLASSES = ["WillowWeapon", "WillowShield", "WillowGrenadeMod", "WillowClassMod", "WillowArtifact",
   "WillowUsableCustomizationItem"];
-export function isGear(cls) { return GEAR_CLASSES.some((g) => String(cls || "").startsWith(g)); }
+export function isGear(cls) {
+  const name = String(cls || "");
+  return GEAR_CLASSES.some((g) => name.startsWith(g)) || gameData().gearClasses.some((g) => name.startsWith(g)); // (each game's: game.js)
+}
 
 /** Chest tier from the game's loot list names: 2 = an "Epic" list (the red chests: EpicChestRedLoot),
  *  1 = a "WeaponChest" one (metal crates, bandit weapon chests: WeaponChestWhiteLoot...), 0 = none - or, a

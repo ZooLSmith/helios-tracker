@@ -304,3 +304,7 @@ says when it was seen.
   (`WaypointNumber`, 0 a single one) and passed (`bCompleted`) - the game shows the next one, the lowest number not
   done (Bone Head's Theft's WP_Checkpoint: #1 done, #2 shown; the page had both - "Digistruct Module:" twice, the
   user). The same number twice: alternatives, both (T.K.'s Food's two #3).
+- **Gear on the ground**: the page's gear test goes by class (model.js `isGear`) - BL1's shields, grenade mods, com
+  decks are one class, `WillowEquipAbleItem` (game.js `bl1.gearClasses`; its `WillowUsableItem`: ammo, health, not
+  gear). Without it an "Explosive Bouncing Bettie" showed as "Equip Able Item ?", no rarity, no card (the user). The
+  collector's own test (inspector.is_gear) goes by kind: `equip_kind` already made it gear.
