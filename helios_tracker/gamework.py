@@ -25,7 +25,7 @@ from . import paths
 
 HERE = Path(__file__).parent
 ASSETS = paths.DATA / ".cache" / "assets"
-VERSION = 2  # the rendering's: another number = every asset decoded again (2: BL1's item icons with their back shape)
+VERSION = 4  # the rendering's: another number = every asset decoded again (4: BL1's element icons without their level)
 JOB_TIMEOUT = 300.0  # s a job may take in the worker (the first scan: ~5 s)
 
 _lock = threading.Lock()
@@ -72,6 +72,10 @@ def run_job(job: str) -> bytes:
         from . import bl1map  # noqa: PLC0415
 
         return _bgra_png(bl1map.card_icon(Path(j["cooked"]), j["keys"], j["label"]))
+    if do == "cardframe":  # (Borderlands 1's element icons: bl1map.element_icon_png)
+        from . import bl1map  # noqa: PLC0415
+
+        return _bgra_png(bl1map.card_frame_icon(Path(j["cooked"]), j["clip"], j["frame"]))
     if do == "itemicon":  # (Borderlands 1's item icons: bl1map.item_icon_png)
         from . import bl1map  # noqa: PLC0415
 

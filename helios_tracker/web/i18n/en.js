@@ -309,6 +309,7 @@ export default {
   "stat.magazine": "Magazine",
   "stat.reload": "Reload",
   "stat.elementChance": "Elemental chance",
+  "stat.elementLevel": "Element level",
   "stat.blastRadius": "Blast radius",
   "stat.fuse": "Fuse",
   "stat.accuracy": "Accuracy",

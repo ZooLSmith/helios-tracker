@@ -45,6 +45,7 @@ function statRow([key, base, now, extra]) {
     fuse: (x) => t("unit.seconds", { n: one(x) }),
     blastRadius: (x) => t("unit.meters", { n: one(x) }),
     elementChance: (x) => t("unit.percent", { n: numUpTo(x, 1) }), // (the card's: 16.8 %)
+    elementLevel: (x) => t("unit.times", { n: num(x) }), // (Borderlands 1's tech level: its card's "x2" on the element icon)
     accuracy: (x) => num(x, extra), // (its presentation's decimals: the card's 72.1)
   }[key] || ((x) => num(x));
   const changed = now != null && base && Math.abs(now - base) / Math.abs(base) >= 0.005;
@@ -96,8 +97,10 @@ function statTilesHtml(it) {
   // its element's damage, labelled with the game's name for it ("shock": its localization - capitalised here)
   const element = it.eln ? it.eln.charAt(0).toLocaleUpperCase() + it.eln.slice(1) : t("stat.elementDamage");
   if (it.edps) tiles.push([element, t("unit.perSecond", { n: num(it.edps, 1) }), "", "", "element"]);
-  const elementChance = (it.stats || []).findIndex(([key]) => key === "elementChance");
-  if (elementChance >= 0) tiles[elementChance][4] = "element";
+  for (const key of ["elementChance", "elementLevel"]) {
+    const at = (it.stats || []).findIndex(([k]) => k === key);
+    if (at >= 0) tiles[(it.ui || []).length + at][4] = "element";
+  }
   // the element's tiles (its chance, its damage) in the element's colour, like the game's card (the item's --etint:
   // its element line's colour, else the damage type's)
   return tiles.map(([k, v, sub, tip, role]) => `<div class="istat"${tip || ""}>` +

@@ -823,6 +823,16 @@ def check_helios_tracker() -> None:  # noqa: PLR0915
         bl1_pistol_w, bl1_pistol_h, bl1_pistol_px = bl1map.item_icon(bl1_cooked, "repeater")
         assert bl1_pistol_px[3] == 0 and bl1_pistol_h < bl1_pistol_w, "the pistol without its square"
         assert bl1map.item_icon(bl1_cooked, "health"), "its cross: also what the empty frame after it shows"
+        # its element icons: the card's "chemical" clip at the item's frame number (1: explosive, no level)
+        assert bl1map.card_frame_icon(bl1_cooked, bl1map.ELEMENT_CLIP, 1) and bl1map.card_frame_icon(bl1_cooked, bl1map.ELEMENT_CLIP, 13)
+        assert bl1map.card_frame_icon(bl1_cooked, bl1map.ELEMENT_CLIP, 0) is None and bl1map.card_frame_icon(bl1_cooked, "nope", 1) is None
+        assert bl1map.card_frame_icon(bl1_cooked, bl1map.ELEMENT_CLIP, "fire1") and bl1map.card_frame_icon(bl1_cooked, bl1map.ELEMENT_CLIP, "fire9") is None
+        assert bl1map.card_frame_icon(bl1_cooked, bl1map.ELEMENT_CLIP, "fire3")[:2] == bl1map.card_frame_icon(bl1_cooked, bl1map.ELEMENT_CLIP, "fire0")[:2], (
+            "a level's frame: its element's mark alone (moved a little: the number beside it), its number left out")
+        assert bl1map.card_frame_icon(bl1_cooked, bl1map.ELEMENT_CLIP, "fire1")[:2] == bl1map.card_frame_icon(bl1_cooked, bl1map.ELEMENT_CLIP, "fire0")[:2], (
+            "the first level too (its frame moves the mark: still the mark alone)")
+        bl1_element_png = bl1_work.run_job(json.dumps({"do": "cardframe", "cooked": str(bl1_cooked), "clip": "chemical", "frame": 6}))
+        assert bl1_element_png[:8] == b"\x89PNG\r\n\x1a\n", bl1_element_png[:16]
         bl1_item_png = bl1_work.run_job(json.dumps({"do": "itemicon", "cooked": str(bl1_cooked), "label": "repeater"}))
         assert bl1_item_png[:8] == b"\x89PNG\r\n\x1a\n", bl1_item_png[:16]
         assert bl1map.card_icon(bl1_cooked, bl1_brand_keys, "corazza") is None, "no logo of its own in the movie"
@@ -1282,6 +1292,24 @@ def check_helios_tracker() -> None:  # noqa: PLR0915
     # BL1's item cards show the level the item needs (probe_bl1_levels: ExpLevel 6, its card 4), BL2's its level
     bl1_gun = ns(GetControllerPlayerExpLevelRequiredToUse=lambda c: 4)
     assert profile_bl1.zippy_frame(ns(ZippyFrame="shield")) == "shield", "BL1's card type frame: a property"
+    # its card element: an item's frame number (FlashTechFrame - probe_bl1_elements: an Explosive MIRV's 1.0), 0 none
+    assert profile_bl1.element_frame(ns(GetTechIconFrame=lambda: 1.0), "grenade") == "1"
+    assert profile_bl1.element_frame(ns(GetTechIconFrame=lambda: 0.0), "shield") == ""
+    # a weapon's: its damage type's element and its tech level (probe_bl1_elements: The Clipper, "fire1" - its card's x1)
+    bl1_dmg_enum = enum.IntEnum("EDamageType", ["DAMAGE_TYPE_Unknown", "DAMAGE_TYPE_Incindiary", "DAMAGE_TYPE_Shock"], start=0)
+    bl1_clipper = ns(DefinitionData="data", StaticCalculateWeaponTechLevelForUI=lambda d: (1, d),
+                     StaticGetWeaponDamageType=lambda d: (ns(DamageType=bl1_dmg_enum.DAMAGE_TYPE_Incindiary), d))
+    assert profile_bl1.element_frame(bl1_clipper, "weapon") == "fire1"
+    bl1_plain_gun = ns(**{**vars(bl1_clipper), "StaticGetWeaponDamageType": lambda d: (ns(DamageType=bl1_dmg_enum.DAMAGE_TYPE_Unknown), d)})
+    assert profile_bl1.element_frame(bl1_plain_gun, "weapon") == ""
+    # its level: a stat of its own (the icon: the mark alone) - none without an element, BL2's never
+    assert profile_bl1.element_level(bl1_clipper, "weapon") == 1 and profile_bl1.element_level(bl1_plain_gun, "weapon") == 0
+    assert profile_bl1.element_level(ns(GetTechIconFrame=lambda: 3.0, CalculateItemTechLevel=lambda: 2), "grenade") == 2
+    assert profile_bl1.element_level(ns(GetTechIconFrame=lambda: 0.0, CalculateItemTechLevel=lambda: 2), "shield") == 0
+    assert profile_bl2.element_level(bl1_clipper, "weapon") == 0
+    # its containers looted: no longer usable (probe_bl1_looted: bCanBeUsed a flag, no animation state)
+    assert profile_bl1.is_looted(ns(bCanBeUsed=False), False) and not profile_bl1.is_looted(ns(bCanBeUsed=True), False)
+    assert profile_bl2.element_frame(ns(ElementalFrame="shock"), "weapon") == "shock" and profile_bl2.element_frame(ns(ElementalFrame="None"), "weapon") == ""
     assert profile_bl2.zippy_frame(ns(GetZippyFrame=lambda: "comm")) == "comm"
     assert profile_bl1.item_card_level(bl1_gun, 6) == 4 and profile_bl2.item_card_level(bl1_gun, 6) == 6
     bl1_player = {"local": True}

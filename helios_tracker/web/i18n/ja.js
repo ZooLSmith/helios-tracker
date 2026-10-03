@@ -308,6 +308,7 @@ export default {
   "stat.magazine": "マガジン サイズ",
   "stat.reload": "リロード速度",
   "stat.elementChance": "エレメンタル効果の確率",
+  "stat.elementLevel": "エレメンタルレベル",
   "stat.blastRadius": "爆発範囲",
   "stat.fuse": "信管",
   "stat.accuracy": "精度",

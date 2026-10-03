@@ -117,7 +117,7 @@ def card_keys(inv: Any, kind: str | None = None) -> dict[str, str]:
             _zippy[zkey] = str(try_(lambda: games.GAME.zippy_frame(inv), "") or "")
         if _zippy[zkey].lower() not in ("", "none"):
             out["wt"] = _zippy[zkey].lower()
-    if (element := try_(lambda: str(inv.ElementalFrame), "") or "").lower() not in ("", "none"):
+    if element := try_(lambda: games.GAME.element_frame(inv, kind), "") or "":  # (each game's: games.py)
         out["el"] = element
     return out
 
@@ -187,6 +187,8 @@ def _stats(inv: Any, kind: str) -> list[list[Any]]:
             out.append(["reload", round(reload0, 2), round(reload, 2)])
         if (chance := _element_chance(inv)) is not None:
             out.append(["elementChance", *chance])
+    if level := try_(lambda: games.GAME.element_level(inv, kind), 0):  # (Borderlands 1's: games.py)
+        out.append(["elementLevel", level, level])
     elif kind == "grenade":
         dmg0, dmg = pair("GrenadeDamage")
         if dmg:

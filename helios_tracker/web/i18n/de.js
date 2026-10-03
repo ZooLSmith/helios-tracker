@@ -308,6 +308,7 @@ export default {
   "stat.magazine": "Magazin",
   "stat.reload": "Nachladen",
   "stat.elementChance": "Elementar-Chance",
+  "stat.elementLevel": "Elementstufe",
   "stat.blastRadius": "Sprengradius",
   "stat.fuse": "Zünder",
   "stat.accuracy": "Genauigkeit",

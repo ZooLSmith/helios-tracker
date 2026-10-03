@@ -342,6 +342,58 @@ def card_icon_png(cooked: Path, keys: set[str], label: str) -> bytes | None:
                           [cooked / CARD_PACKAGE])
 
 
+# The card's element icon: its clip placed as "chemical" (its "manufacturer", "zippy", "protean" - the grenade's type -,
+# "comm" beside it), 21 frames: "exp0".."exp4", "shock0".., "fire0".., "corr0".., "none" - the element and its tech
+# level, drawn ("x2", "x4"...); an item's frame number: its FlashTechFrame (games.Borderlands1.element_frame)
+ELEMENT_CLIP = "chemical"
+
+
+def card_frame_icon(cooked: Path, clip: str, frame: int | str) -> tuple[int, int, bytes] | None:
+    """The card movie's clip placed as `clip`, drawn at its frame `frame` - a number (1: its first - Flash's
+    gotoAndStop) or a label ("fire1") - (_icon), or None: no such clip / frame, or nothing drawn."""
+    movie = _movie(cooked / CARD_PACKAGE, CARD_MOVIE)
+    sprite = next((cid for tags in movie.sprites.values() for code, body in tags if code == 26
+                   for cid, _matrix, name in [_place2(body)] if name == clip and cid in movie.sprites), None)
+    if sprite is None or (isinstance(frame, int) and frame < 1):
+        return None
+    labels: list[str | None] = [None]
+    for code, body in movie.sprites[sprite]:
+        if code == 43 and labels[-1] is None:
+            labels[-1] = _cstr(body, 0)[0]
+        elif code == 1:
+            labels.append(None)
+    if isinstance(frame, str):
+        label = next((x for x in labels if x and x.lower() == frame.lower()), None)
+    else:
+        label = labels[frame - 1] if frame <= len(labels) else None
+    # the element's mark alone: a level's frame adds its number ("x1") to what the frame before it showed - its
+    # element's mark, placed with its first frame ("fire0"), kept (moved a little: room for the number) - its number
+    # left out (the level: a stat of its own - the user: "as BL2, no number on it"); a frame keeping nothing of the
+    # one before (an element's first: its mark): all it shows
+    index = labels.index(label) if label else 0
+    before = {cid for cid, _matrix in movie.display_list(sprite, labels[index - 1], carried=True)} if index and labels[index - 1] else set()
+    shown = movie.display_list(sprite, label, carried=True) if label else []
+    kept = [(cid, matrix) for cid, matrix in shown if cid in before]
+    layers: list[tuple[Affine, Shape]] = []
+    for cid, matrix in kept or shown:
+        if cid in movie.shapes:
+            layers.append((matrix, movie.shape(cid)))
+        elif cid in movie.sprites:
+            layers += movie.layers(cid, None, matrix)
+    return _icon(layers) if layers else None
+
+
+def element_icon_png(cooked: Path, frame: str) -> bytes | None:
+    """The card's element icon at a frame - an item's number ("1": explosive, no level), a weapon's label ("fire1") -
+    as a PNG, or None - rendered by gamework (cached on disk). The server's threads: no SDK."""
+    from . import gamework  # noqa: PLC0415
+
+    if not re.fullmatch(r"[A-Za-z0-9_]+", frame or ""):
+        return None
+    return gamework.asset({"do": "cardframe", "cooked": str(cooked), "clip": ELEMENT_CLIP,
+                           "frame": int(frame) if frame.isdigit() else frame}, [cooked / CARD_PACKAGE])
+
+
 def item_icon_png(cooked: Path, label: str) -> bytes | None:
     """item_icon as a PNG, or None - rendered by gamework (cached on disk). The server's threads: no SDK."""
     from . import gamework  # noqa: PLC0415

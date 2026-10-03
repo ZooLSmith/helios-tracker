@@ -308,6 +308,7 @@ export default {
   "stat.magazine": "Caricatore",
   "stat.reload": "Ricarica",
   "stat.elementChance": "Prob. elementale",
+  "stat.elementLevel": "Livello elementale",
   "stat.blastRadius": "Raggio d'esplosione",
   "stat.fuse": "Detonatore",
   "stat.accuracy": "Precisione",

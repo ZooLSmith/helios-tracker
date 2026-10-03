@@ -1015,17 +1015,8 @@ class Collector:
 
     @staticmethod
     def _is_looted(io: Any, client: bool = False) -> bool:
-        """Opened, and no longer usable (bCanBeUsed[0] 1 -> 0). Opened: its SimpleAnimState is a bitmask over its
-        animations (SimpleAnimInfo[].AnimName - tools/probes/probe_prelooted.txt: Open, Open_Vacuum, Opened(_Idle),
-        Closed(_Idle)), the "Opened..." one's bit set: closed 8 (Closed), just opened 14, looted and the level
-        reloaded 12, spawned looted 4 (Opened alone), BL2's 7 - the state 7 alone (the first rule) missed all but the
-        last. Without an "Opened" animation: the state 7. A co-op client (tools/probes/probe_client_containers.txt): the
-        state (replicated) but bCanBeUsed stays 1 - it isn't sent: the state alone there."""
-        state = try_(lambda: int(io.SimpleAnimState), 0)
-        anims = [try_(lambda a=a: str(a.AnimName), "") for a in try_(lambda: list(io.SimpleAnimInfo), []) or []]
-        opened_bits = [n for n, name in enumerate(anims) if name.lower().startswith("opened")]
-        opened = any(state >> n & 1 for n in opened_bits) if opened_bits else state == 7
-        return opened and (client or not try_(lambda: io.bCanBeUsed[0], 1))
+        """A container looted - each game's test (games.py is_looted)."""
+        return bool(try_(lambda: games.GAME.is_looted(io, client), False))
 
     @staticmethod
     def _lootable(io: Any, balance: Any) -> bool:

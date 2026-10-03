@@ -102,10 +102,36 @@ class Profile:
         """The level an item's card shows, from its level (ExpLevel / GetExpLevel()): BL2's, as is."""
         return level
 
+    def is_looted(self, io: Any, client: bool) -> bool:
+        """A container looted: opened, and no longer usable (bCanBeUsed[0] 1 -> 0). Opened: its SimpleAnimState is a
+        bitmask over its animations (SimpleAnimInfo[].AnimName - tools/probes/probe_prelooted.txt: Open, Open_Vacuum,
+        Opened(_Idle), Closed(_Idle)), the "Opened..." one's bit set: closed 8 (Closed), just opened 14, looted and the
+        level reloaded 12, spawned looted 4 (Opened alone), BL2's 7 - the state 7 alone (the first rule) missed all but
+        the last. Without an "Opened" animation: the state 7. A co-op client (tools/probes/probe_client_containers.txt):
+        the state (replicated) but bCanBeUsed stays 1 - it isn't sent: the state alone there."""
+        from .util import try_  # noqa: PLC0415
+
+        state = try_(lambda: int(io.SimpleAnimState), 0)
+        anims = [try_(lambda a=a: str(a.AnimName), "") for a in try_(lambda: list(io.SimpleAnimInfo), []) or []]
+        opened_bits = [n for n, name in enumerate(anims) if name.lower().startswith("opened")]
+        opened = any(state >> n & 1 for n in opened_bits) if opened_bits else state == 7
+        return opened and (client or not try_(lambda: io.bCanBeUsed[0], 1))
+
     def zippy_frame(self, inv: Any) -> str:
         """An item's card type frame ("Artifact", "comm"...): IItemCardable.GetZippyFrame() (a call -
         tools/probes/probe_zippy.txt)."""
         return str(inv.GetZippyFrame())
+
+    def element_level(self, inv: Any, kind: str) -> int:
+        """An elemental item's level, a stat of its own (0: none): BL2's has none - its element's strength is its
+        attributes' (its card's lines)."""
+        return 0
+
+    def element_frame(self, inv: Any, kind: str) -> str:
+        """An item's card element key ("el": /cardicon/element/<key>.png), "" for none: its ElementalFrame ("shock" -
+        tools/probes/probe_weapon_card2.txt)."""
+        element = str(inv.ElementalFrame)
+        return "" if element.lower() == "none" else element
 
     def card_icon_png(self, kind: str, key: str) -> bytes | None:
         """An item card icon (/cardicon/<kind>/<key>.png) as a PNG, or None: the game's UI movies' (gamecards.py, from
@@ -241,7 +267,12 @@ BL1_BEHAVIOR_ARRAYS = ("OnSpawn", "OnBehaviorSetEnabled", "OnBehaviorSetDisabled
                        "OnTakeDamage", "OnKilled")
 BL1_REACTION_ARRAYS = ("CustomEvents", "TimerEvents", "CounterEvents")
 BL1_EQUIP_KINDS = {"EQUIPLOC_Shield": "shield", "EQUIPLOC_MOD": "grenade", "EQUIPLOC_Deck": "classmod"}  # (com decks)
-BL1_CARD_KINDS = ("manufacturer", "type")  # its card icons read (Borderlands1.card_icon_png)
+BL1_CARD_KINDS = ("manufacturer", "type", "element")  # its card icons read (Borderlands1.card_icon_png)
+# a weapon's element (its damage type's EDamageType) -> its frames' prefix in the card's element clip (bl1map
+# ELEMENT_CLIP: exp0-4, shock0-4, fire0-4, corr0-4 - their art an explosion, a bolt, a flame, a biohazard; the enum's
+# order isn't the clip's: Incindiary, Shock, Explosive, Corrosive)
+BL1_ELEMENT_FRAMES = {"DAMAGE_TYPE_Explosive": "exp", "DAMAGE_TYPE_Shock": "shock", "DAMAGE_TYPE_Incindiary": "fire",
+                      "DAMAGE_TYPE_Corrosive": "corr"}
 # a tree branch -> the skill clip's text field naming it: tree1..3 sit under treeLeft / treeCenter / treeRight (the
 # skill clip's placements, x 21.75 / 199.75 / 378.75 against 17.2 / 195.4 / 339.2 - its movie, offline)
 BL1_BRANCH_TEXTS = {"SKILLBRANCH_Left": "tree1.text", "SKILLBRANCH_Middle": "tree2.text", "SKILLBRANCH_Right": "tree3.text"}
@@ -337,6 +368,12 @@ class Borderlands1(Profile):
     def mission_number(self, mdef: Any) -> int:
         return int(mdef.PlotMissionNumber)
 
+    def is_looted(self, io: Any, client: bool) -> bool:
+        # No SimpleAnimState / SimpleAnimInfo (WillowGame.u, offline), its bCanBeUsed a flag (BL2's an array): looted
+        # = no longer usable (tools/probes/probe_bl1_looted.txt: the looted containers False, a toilet not searched
+        # yet True). (A co-op client's: not seen.)
+        return not bool(io.bCanBeUsed)
+
     def zippy_frame(self, inv: Any) -> str:
         # No GetZippyFrame: a property, WillowInventory.ZippyFrame (a name - Engine.u, offline)
         return str(inv.ZippyFrame)
@@ -353,13 +390,45 @@ class Borderlands1(Profile):
             return None
         if kind == "type":
             return bl1map.item_icon_png(cooked, key)
+        if kind == "element":
+            return bl1map.element_icon_png(cooked, key)
         return bl1map.card_icon_png(cooked, gamecards.keys(kind), key)
 
     def card_icons_ready(self) -> bool:
-        # (the movie read on demand: once the keys are known - the first players' read)
+        # (the movie read on demand: once the keys are known - the first players' read; the elements need none)
         from . import gamecards  # noqa: PLC0415
 
-        return all(gamecards.keys(kind) for kind in BL1_CARD_KINDS)
+        return all(gamecards.keys(kind) for kind in BL1_CARD_KINDS if kind != "element")
+
+    def element_level(self, inv: Any, kind: str) -> int:
+        # Its card draws an element's tech level on its icon ("x1".."x4": the clip's level frames - element_frame); the
+        # page draws the mark alone (bl1map.card_frame_icon) and the level as a stat (the user: "as BL2, no number on
+        # it, but a stat"). A weapon's: StaticCalculateWeaponTechLevelForUI (The Clipper's 1: x1 - the user); an item's
+        # (an element: its FlashTechFrame) CalculateItemTechLevel (its parts' TechLevelIncrease - an Explosive MIRV's 0,
+        # no number on its card)
+        if not self.element_frame(inv, kind):
+            return 0
+        if kind == "weapon":
+            return int(inv.StaticCalculateWeaponTechLevelForUI(inv.DefinitionData)[0])
+        return int(inv.CalculateItemTechLevel())
+
+    def element_frame(self, inv: Any, kind: str) -> str:
+        # No ElementalFrame: an item's card element is its frame number in the card's element clip (bl1map
+        # ELEMENT_CLIP: 1-5 explosive, 6-10 shock, 11-15 fire, 16-20 corrosive - each tech level -, 21 none), its
+        # instance data's FlashTechFrame - GetTechIconFrame() (WillowItem: script; tools/probes/probe_bl1_elements.txt:
+        # an "Explosive MIRV" 1.0, the others 0 - none). A weapon's: its damage type and tech level
+        # (StaticGetWeaponDamageType, StaticCalculateWeaponTechLevelForUI - static, its DefinitionData their input;
+        # each returns (its value, that input)): the clip's frame "<element><level>" - The Clipper: Incendiary_Impact,
+        # its DamageType DAMAGE_TYPE_Incindiary, level 1: "fire1", the flame and "x1", its card's (the user).
+        if kind == "weapon":
+            damage_type = inv.StaticGetWeaponDamageType(inv.DefinitionData)[0]
+            element = getattr(damage_type.DamageType, "name", "") if damage_type is not None else ""
+            if element not in BL1_ELEMENT_FRAMES:
+                return ""
+            level = int(inv.StaticCalculateWeaponTechLevelForUI(inv.DefinitionData)[0])
+            return f"{BL1_ELEMENT_FRAMES[element]}{level}"
+        frame = int(float(inv.GetTechIconFrame()))
+        return str(frame) if frame > 0 else ""
 
     def item_card_level(self, inv: Any, level: int) -> int:
         # Its card shows the level the item needs, not its ExpLevel (the user: weapons of ExpLevel 6, their cards 4 -

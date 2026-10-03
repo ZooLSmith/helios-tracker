@@ -308,6 +308,7 @@ export default {
   "stat.magazine": "彈匣容量",
   "stat.reload": "裝填速度",
   "stat.elementChance": "元素效果機率",
+  "stat.elementLevel": "元素等級",
   "stat.blastRadius": "爆炸半徑",
   "stat.fuse": "引信",
   "stat.accuracy": "準確度",

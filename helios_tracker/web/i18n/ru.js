@@ -308,6 +308,7 @@ export default {
   "stat.magazine": "Магазин",
   "stat.reload": "Перезарядка",
   "stat.elementChance": "Шанс стихии",
+  "stat.elementLevel": "Уровень стихии",
   "stat.blastRadius": "Радиус взрыва",
   "stat.fuse": "Запал",
   "stat.accuracy": "Точность",

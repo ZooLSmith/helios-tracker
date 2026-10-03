@@ -254,3 +254,18 @@ says when it was seen.
   diamond behind mods / class mods / shields, a burst behind grenades / ammo, a circle, an octagon): not drawn, the
   user's call - only what the frame shows that no other frame does (drawn as the frames place them, the pistol had
   its square, the sniper not).
+- **Element icons** (games.py `element_frame`, bl1map `card_frame_icon`): no ElementalFrame - the card's clip placed as
+  "chemical" (beside "manufacturer", "zippy", "protean" - the grenade's type -, "comm"), 21 frames: exp0-4, shock0-4,
+  fire0-4, corr0-4, none (the element, its tech level: "x2", "x4" - a level's frame places only that, the mark kept
+  from the element's first: drawn with what earlier frames left). An item's frame number: its instance data's
+  `FlashTechFrame` (`GetTechIconFrame()`, script - probe_bl1_elements.txt: an Explosive MIRV 1.0 = exp0, others 0 =
+  none). A weapon's: no instance data - its damage type's `DamageType` (EDamageType: Unknown, Incindiary [sic], Shock,
+  Explosive, Corrosive, Impact, Healing - not the clip's order: games.py `BL1_ELEMENT_FRAMES`, by the frames' art)
+  and its tech level (`StaticGetWeaponDamageType` / `StaticCalculateWeaponTechLevelForUI`, static, its DefinitionData
+  their input - each returns (value, that input)): the frame "<element><level>" - The Clipper "fire1", its card's
+  flame and x1 (the user). The number: a layer the level frames add over the mark (an explosive grenade, exp0: none)
+  - left out of the page's icon (the mark alone: what the frame keeps from its element's first), the level a stat
+  of its own instead, "Element level x1" (games.py `element_level`: the weapon's tech level, an item's
+  CalculateItemTechLevel) - the user: as BL2, no number on it.
+- **Looted containers** (games.py `is_looted`): no SimpleAnimState / SimpleAnimInfo; `bCanBeUsed` a flag (BL2's an
+  array: `bCanBeUsed[0]` failed, never looted) - False once looted (probe_bl1_looted.txt; a toilet not searched: True).

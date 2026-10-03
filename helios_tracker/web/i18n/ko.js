@@ -308,6 +308,7 @@ export default {
   "stat.magazine": "탄창 용량",
   "stat.reload": "재장전 속도",
   "stat.elementChance": "속성 효과 확률",
+  "stat.elementLevel": "속성 레벨",
   "stat.blastRadius": "폭발 반경",
   "stat.fuse": "폭발까지의 시간",
   "stat.accuracy": "명중률",
