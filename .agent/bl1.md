@@ -191,3 +191,22 @@ says when it was seen.
   `InteractiveObjectBehaviorSet` - OnKilled, OnTakeDamage... arrays of behaviours, CustomEvents / TimerEvents /
   CounterEvents of reactions with `Behaviors[]`); the barrel's `Behavior_Explode` (its `Definition.DamageTypeDef` as
   BL2's) is there - games.py `object_behaviors`.
+
+## Item cards, rarities, exits (2026-10-03: probe_bl1_cards.txt, probe_bl1_exits.txt, offline)
+
+- **Rarities**: GlobalsDefinition has only GetRarityColorForLevel (no GetRarityLevelColorsIndexforLevel): its
+  `RarityLevelColors[] {MinLevel, MaxLevel, Color}` read as properties (games.py `rarity_table`) - 13 entries: -1..1 /
+  2..4 white, 5..10 green, 11..15 blue, 16..49 purple, 50..60 / 61..65 / 66..100 legendary shades, 170 / 171 / 180-190
+  the pickups', 500 pearl. game.js `bl1.tierByEntry`.
+- **Card lines** (WeaponCardModifierStats): the game shows the line's modifier, never its attribute's current value -
+  remapped (`bValueRemappingEnabled`: the zoom's -100..0 onto -10..0), its sign flipped if `bDisplayAsInverse` (BL2's:
+  a reciprocal), x 100 if a percentage, rounded by its RoundingMode (Float: one decimal, a percentage whole). An SG330:
+  zoom -40, fire rate -0.4318, projectiles 1 -> "4.0x", "+43%", "+1" (checked by the user). games.py `card_line_value`
+  (the line's "dv" / "dp": the page shows them as is).
+- **Rounding**: its presentations have no FloatPrecision (one decimal: the accuracy's 6.7); `ATTRROUNDING_IntCeil` (its
+  damage: AttrPresent_WeaponDamage - 85.2 shows 86), `ATTRROUNDING_IntFloor` (magazine, projectiles).
+- **Game text**: HTML entities in it ("S&amp;S Munitions"): decoded (inspector._localized).
+- **Exits**: `PersistentTransitionLandmark {FromMapName, ToMapName}` (Engine.u), one by each map changer
+  (gd_MapChangeObjects.Default_MapChanger - no destination of its own: the level's scripting). A mission whose
+  waypoint definition is in another area (its PersistentLevelName) is marked on the exit leading there (the user: the
+  game's marker on the map changer).

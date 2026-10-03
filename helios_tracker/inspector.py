@@ -17,6 +17,7 @@ is reported (as a reason code the page translates), not guessed. Stats are sent 
 """
 
 import base64
+import html
 import json
 import math
 import re
@@ -167,7 +168,11 @@ def _stats(inv: Any, kind: str) -> list[list[Any]]:
     if kind == "weapon":
         (dmg0, dmg), pellets = pair("InstantHitDamage"), get("ProjectilesPerShot")
         if dmg:
-            out.append(["damage", round(dmg0), round(dmg), round(pellets or 1)])
+            # rounded as the game's card does (games.py damage_presentation: BL1's rounds up), else to the nearest
+            if (pres := _damage_presentation()) is not None:
+                out.append(["damage", _presented(pres, dmg0)[0], _presented(pres, dmg)[0], round(pellets or 1)])
+            else:
+                out.append(["damage", round(dmg0), round(dmg), round(pellets or 1)])
         spread0, spread = pair("Spread")
         if spread is not None and (accuracy := _accuracy(inv, spread0, spread)) is not None:
             out.append(["accuracy", *accuracy])
@@ -233,6 +238,17 @@ def _remapped(pres: Any, value: float, inv: Any) -> float | None:
     return out_mn + (value - in_mn) * (out_mx - out_mn) / (in_mx - in_mn)
 
 
+_damage_pres: list[Any] = []  # the game's damage presentation (games.py), looked up once
+
+
+def _damage_presentation() -> Any:
+    """The weapon card damage's attribute presentation, if the game has one for it (games.py damage_presentation)."""
+    if not _damage_pres:
+        path = games.GAME.damage_presentation
+        _damage_pres.append(try_(lambda: unrealsdk.find_object("AttributePresentationDefinition", path)) if path else None)
+    return _damage_pres[0]
+
+
 def _accuracy(inv: Any, spread0: float | None, spread: float) -> list[Any] | None:
     """A weapon's card Accuracy (72.1 for a shotgun's Spread 4.19 - tools/probes/probe_accuracy.txt): its spread through
     the "Accuracy" presentation's remapping, rounded as it says -> [card (from SpreadBaseValue), with the owner's
@@ -269,16 +285,17 @@ def _localized(obj: Any, grade: int) -> str:
     """The game's own display text for a definition, in the game's language ("" if it has none).
 
     Localized properties (see the repo's .agent/notes.md): name parts' PartName, weapon types'
-    Typename, item definitions' ItemName, manufacturers' Grades[grade].DisplayName.
+    Typename, item definitions' ItemName, manufacturers' Grades[grade].DisplayName. HTML entities decoded, as the
+    game's (Scaleform, HTML) text fields show them: BL1's "S&amp;S Munitions" (the page escapes what it shows itself).
     """
     for prop in ("PartName", "Typename", "ItemName"):
         text = try_(lambda p=prop: str(getattr(obj, p)), "")
         if text and text != "None":  # ("None": an unset name, not a name - the Pre-Sequel's Tediore laser type has none)
-            return text
+            return html.unescape(text)
     grades = try_(lambda: list(obj.Grades), [])
     if grades:
         grade_data = grades[grade] if 0 <= grade < len(grades) else grades[0]
-        return try_(lambda: str(grade_data.DisplayName), "")
+        return html.unescape(try_(lambda: str(grade_data.DisplayName), "") or "")
     return ""
 
 
@@ -557,7 +574,9 @@ def _presentation_line(entry: Any, item: Any = None) -> dict[str, Any] | None:
         rgb = tuple(try_(lambda c=c: int(getattr(colour, c)), 255) for c in ("R", "G", "B"))
         if rgb != (255, 255, 255):
             line["col"] = "#%02x%02x%02x" % rgb
-    if item is not None and (current := _attribute_value(item, try_(lambda: p.Attribute))) is not None:
+    if item is not None and (shown := try_(lambda: games.GAME.card_line_value(entry, p, item))) is not None:
+        line["dv"], line["dp"] = shown  # the number as the game shows it (games.py: BL1's card lines)
+    elif item is not None and (current := _attribute_value(item, try_(lambda: p.Attribute))) is not None:
         line["cur"] = current
     return line
 

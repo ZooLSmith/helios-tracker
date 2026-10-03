@@ -1190,6 +1190,37 @@ def check_helios_tracker() -> None:  # noqa: PLR0915
     assert profile_bl2.shop_timer_source(ns(Game=timer_host, GRI=timer_gri)) is timer_host
     assert profile_bl2.shop_timer_source(ns(Game=None, GRI=timer_gri)) is timer_gri
     assert profile_bl1.shop_timer_source(ns(Game=timer_host, GRI=timer_gri)) is timer_gri
+    # BL1's card lines (tools/probes/probe_bl1_cards.txt, an SG330): the modifier, remapped / its sign flipped / x 100 /
+    # rounded as its presentation says - the game's "4.0x", "+43%", "+1"; BL2's: the page's own (None)
+    line_rounding = enum.IntEnum("EAttributePresentationRoundingMode", ["ATTRROUNDING_Float", "ATTRROUNDING_IntRound", "ATTRROUNDING_IntCeil",
+                                                                         "ATTRROUNDING_IntFloor"], start=0)
+
+    def bl1_pres(**flags: object) -> types.SimpleNamespace:
+        return ns(**{"bValueRemappingEnabled": False, "bDisplayAsInverse": False, "bDisplayAsPercentage": False,
+                     "RoundingMode": line_rounding.ATTRROUNDING_Float, **flags})
+    zoom_pres = bl1_pres(bValueRemappingEnabled=True, bDisplayAsInverse=True, RemappingData=ns(
+        InputValueMn=ns(BaseValueConstant=-100.0, BaseValueAttribute=None, InitializationDefinition=None, BaseValueScaleConstant=1.0),
+        InputValueMx=ns(BaseValueConstant=0.0, BaseValueAttribute=None, InitializationDefinition=None, BaseValueScaleConstant=1.0),
+        OutputValueMn=ns(BaseValueConstant=-10.0, BaseValueAttribute=None, InitializationDefinition=None, BaseValueScaleConstant=1.0),
+        OutputValueMx=ns(BaseValueConstant=0.0, BaseValueAttribute=None, InitializationDefinition=None, BaseValueScaleConstant=1.0)))
+    card_shown = [profile_bl1.card_line_value(ns(ModifierValue=-40.0), zoom_pres, ns()),
+                  profile_bl1.card_line_value(ns(ModifierValue=-0.4318), bl1_pres(bDisplayAsInverse=True, bDisplayAsPercentage=True), ns()),
+                  profile_bl1.card_line_value(ns(ModifierValue=1.0), bl1_pres(RoundingMode=line_rounding.ATTRROUNDING_IntFloor), ns()),
+                  profile_bl1.card_line_value(ns(ModifierValue=0.0673), bl1_pres(bDisplayAsPercentage=True, RoundingMode=line_rounding.ATTRROUNDING_IntCeil), ns())]
+    assert card_shown == [(4.0, 1), (43.0, 0), (1.0, 0), (7.0, 0)], card_shown
+    assert profile_bl2.card_line_value(ns(ModifierValue=1.0), bl1_pres(), ns()) is None
+    # weapon card damage rounding: BL1's presentation rounds up (85.2 -> 86), BL2's a whole number, rounded
+    assert profile_bl1.damage_presentation.endswith("AttrPresent_WeaponDamage") and profile_bl2.damage_presentation is None
+    damage_rounding = enum.IntEnum("EAttributePresentationRoundingMode", ["ATTRROUNDING_Float", "ATTRROUNDING_IntCeil"], start=0)
+    assert sys.modules["helios_tracker.inspector"]._presented(ns(RoundingMode=damage_rounding.ATTRROUNDING_IntCeil), 85.2) == (86, 0)
+    # a game text's HTML entities decoded (BL1's manufacturer "S&amp;S Munitions": the page escaped it again)
+    assert sys.modules["helios_tracker.inspector"]._localized(ns(Grades=[ns(DisplayName="S&amp;S Munitions")]), 0) == "S&S Munitions"
+    # BL1's rarity table: its RarityLevelColors entries' level ranges (no index function) - 12 rare blue, 18 epic purple
+    bl1_rarity = profile_bl1.rarity_table(ns(RarityLevelColors=[
+        ns(MinLevel=-1, MaxLevel=1, Color=ns(R=255, G=255, B=255)), ns(MinLevel=2, MaxLevel=4, Color=ns(R=255, G=255, B=255)),
+        ns(MinLevel=5, MaxLevel=10, Color=ns(R=61, G=210, B=11)), ns(MinLevel=11, MaxLevel=15, Color=ns(R=47, G=120, B=255)),
+        ns(MinLevel=16, MaxLevel=49, Color=ns(R=145, G=50, B=200))]))
+    assert bl1_rarity["12"] == [3, "#2f78ff"] and bl1_rarity["18"] == [4, "#9132c8"] and bl1_rarity["0"][0] == 0 and "-1" not in bl1_rarity, bl1_rarity
     assert profile_bl2.shop_currency(ns(FormOfCurrency=enum.IntEnum("ECurrencyType", ["CURRENCY_Credits", "CURRENCY_Eridium"], start=0).CURRENCY_Eridium)) == "CURRENCY_Eridium"
     # BL1's pawn names: its balance's grade's (GradeIndex), none without a balance - then its own AIPawnName as the guess
     bl1_skag = ns(BalanceDefinitionState=ns(GradeIndex=1, BalanceDefinition=ns(Grades=[
@@ -1939,10 +1970,19 @@ def check_helios_tracker() -> None:  # noqa: PLR0915
                      bl1_waypoint(0xE4, ns(_get_address=lambda: 0xD9), 4.0)]
     mission_games.GAME = mission_games.make_profile("BL1")
     mission_games.GAME.mission_entries = lambda tracker_obj: bl1_entries
+    mission_games.GAME.map_name = lambda wi_obj: "arid_p"
     try:
-        bl1_markers = col.Collector._waypoint_markers(ns(_waypoints=[lambda w=w: w for w in bl1_waypoints]), ns(), 0xB102)
+        bl1_markers = col.Collector._waypoint_markers(ns(_waypoints=[lambda w=w: w for w in bl1_waypoints], _exits=[]), ns(), 0xB102)
+        # a mission whose target is in another area: marked on the exit leading there (its transition landmark's
+        # ToMapName - Nine-Toes: Take Him Down, WP_NineToes in Arid_SkagGully_P)
+        bl1_two.TargetWaypointDefinition = ns(_get_address=lambda: 0xD4, PersistentLevelName="Arid_SkagGully_P")
+        bl1_gully = ns(_get_address=lambda: 0xF1, ToMapName="Arid_SkagGully_P", Location=ns(X=-22012.0, Y=44803.0, Z=1370.0))
+        bl1_cave = ns(_get_address=lambda: 0xF2, ToMapName="Arid_Cave_P", Location=ns(X=-26730.0, Y=-11709.0, Z=-1122.0))
+        bl1_exit_markers = col.Collector._waypoint_markers(ns(_waypoints=[lambda w=w: w for w in bl1_waypoints],
+                                                               _exits=[lambda: bl1_gully, lambda: bl1_cave]), ns(), 0xB102)
     finally:
         mission_games.GAME = real_game
+    assert [(m["x"], m["k"]) for m in bl1_exit_markers if m["k"] == "objective"] == [(-22012, "objective")], bl1_exit_markers
     assert [(m["x"], m["k"], m.get("end"), m["tracked"]) for m in bl1_markers] == [(2, "directive", 1, False), (3, "objective", None, True)], \
         ("the ready one's turn-in, the active one's target - not the pearls' (done), not another definition's", bl1_markers)
     assert bl1_markers[1]["objective"]["n"] == "Kill Nine-Toes" and bl1_markers[1]["mi"].endswith("M_TwoThings"), bl1_markers
@@ -2298,7 +2338,8 @@ def check_helios_tracker() -> None:  # noqa: PLR0915
     assert game_out["gameSwitch"] == [True, False], ("the same features in another order: no change", game_out["gameSwitch"])
     assert game_out["gameTps"] == {"shown": ["loot.glitch", "oxygen", "pickup.oxygen", "jumppad", "area", "fog", "enemy"],
                                    "glitch": "glitch", "etech": "loot.legendary"}, game_out["gameTps"]
-    assert game_out["gameBl1"] == ["enemy", 2, 0], ("BL1: no discovery areas, no BL2 / TPS tiers; its treasure chest big", game_out["gameBl1"])
+    assert game_out["gameBl1"] == ["loot.pearl", "enemy", 2, 0], \
+        ("BL1: no discovery areas, its pearlescent (500) but no other BL2 / TPS tiers; its treasure chest big", game_out["gameBl1"])
     assert game_out["gameBl2"] == {"shown": ["loot.pearl", "loot.etech", "area", "fog", "enemy"], "seraph": "seraph",
                                    "etech": "loot.etech"}, game_out["gameBl2"]
     assert mig["layers"]["player"] == {"names": True, "nameSize": 100, "floors": "show", "size": 100}, mig["layers"]["player"]

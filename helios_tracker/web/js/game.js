@@ -35,7 +35,11 @@ const DATA = {
   aodk: { ...BL2, rarities: RARITIES }, // (BL2's engine; its own gear not checked: the common tiers only)
   // (its rarities not checked yet: .agent/bl1.md). Its big red chest: InteractiveObj_TreasureChest (up to 6 items -
   // the user; its balances ObjectGrade_TreasureChest*); its StrongBox / Crate_Metal: not seen yet, plain containers
-  bl1: { ...BL2, rarities: RARITIES, chestByDefinition: [[/treasurechest/i, 2]] },
+  // its rarity table (gd_globals RarityLevelColors, offline): entries 0 (-1..1) / 1 (2..4) white, 2 green, 3 blue,
+  // 4 purple, 5-7 three legendary shades (50..100), 12 pearl (500); 8-11 the pickups' (170 / 171 / 180-190: not gear)
+  bl1: { ...BL2, rarities: [...RARITIES, "pearl"], chestByDefinition: [[/treasurechest/i, 2]],
+    tierByEntry: { 0: "misc", 1: "common", 2: "uncommon", 3: "rare", 4: "epic", 5: "legendary", 6: "legendary", 7: "legendary",
+      12: "pearl" } },
 };
 const UNKNOWN = { ...BL2, rarities: RARITIES }; // before the level message (or a game the page doesn't know)
 

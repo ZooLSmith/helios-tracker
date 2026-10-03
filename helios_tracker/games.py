@@ -52,6 +52,9 @@ class Profile:
     # the item kinds whose card stats are the game's list (WillowItem.UIStatModifiers: inspector._ui_stats) - BL2's other
     # kinds are worked out from their own properties (inspector._stats)
     ui_stat_kinds: frozenset[str] = frozenset({"shield"})
+    # the attribute presentation a weapon card's damage is shown with (its rounding: inspector._presented) - None: a
+    # whole number, rounded (BL2's cards, checked)
+    damage_presentation: str | None = None
     features: frozenset[str] = frozenset({TACMAP, DISCOVERY, SCAN, MISSION_STEPS})
 
     def map_name(self, wi: Any) -> str:
@@ -98,6 +101,25 @@ class Profile:
         """What a vending machine asks for one of an item (the price its menu shows): GetSellingPriceForInventory(item,
         controller, quantity) - scaled to the player."""
         return int(machine.GetSellingPriceForInventory(inv, pc, 1))
+
+    def rarity_table(self, globals_def: Any) -> dict[str, list[Any]]:
+        """{"level": [colour entry index, "#rrggbb"]} for the rarity levels the game colours (util.rarity_table) - BL2's
+        (tools/probes/probe_rarity3.txt): GlobalsDefinition.GetRarityColorForLevel (the colour it draws) and
+        GetRarityLevelColorsIndexforLevel (its colour entry: levels sharing one are one tier - 5 and 7-10 all legendary)
+        for its levels 0-15, 500-520; the table itself (RarityLevelColors) reads empty there."""
+        out: dict[str, list[Any]] = {}
+        for level in (*range(0, 16), *range(500, 521)):
+            index = int(globals_def.GetRarityLevelColorsIndexforLevel(level))
+            color = globals_def.GetRarityColorForLevel(level)
+            rgb = (int(color.R), int(color.G), int(color.B))
+            if index >= 0 and rgb != (0, 0, 0):  # (-1: not a colour entry; black: an empty one)
+                out[str(level)] = [index, "#{:02x}{:02x}{:02x}".format(*rgb)]
+        return out
+
+    def card_line_value(self, entry: Any, pres: Any, item: Any) -> tuple[float, int] | None:
+        """An item card line's number as the game shows it, (value, decimals) - None: the page works it out from the
+        line's value and flags (BL2's: inspector._presentation_line, the page's skillStatParts)."""
+        return None
 
     def shop_timer_source(self, world_info: Any) -> Any:
         """What the shops' restock timer is read from (SecondsUntilShopsReset, ShopTimerRate): the host's own count
@@ -199,6 +221,9 @@ class Borderlands1(Profile):
     # its equipped items: one class (WillowEquipAbleItem) - the shield's card stats in UIStatModifiers as BL2's (probe_bl1_pause:
     # ShieldMaxValue 50, ShieldOnIdleRegenerationRate 7.5); its grenade mods' and com decks': theirs too (the same class)
     ui_stat_kinds = frozenset({"shield", "grenade", "classmod"})
+    # its card's damage: AttrPresent_WeaponDamage, ATTRROUNDING_IntCeil (gd_AttributePresentation, offline) - the GGN9's
+    # 86 in game, 85 rounded (the user)
+    damage_presentation = "gd_AttributePresentation.Weapons.AttrPresent_WeaponDamage"
     # no WorldDiscoveryArea class (the log: "Couldn't find class"); its packages not indexed (gamescan reads BL2's)
     features = (Profile.features - {DISCOVERY, SCAN, MISSION_STEPS}) | {WAYPOINT_MARKERS}
 
@@ -269,6 +294,48 @@ class Borderlands1(Profile):
         # GetSellingPriceForInventory(InventoryForSale, Quantity): no controller (WillowGame.u, offline) - BL2's call with
         # one failed (no price on the page)
         return int(machine.GetSellingPriceForInventory(inv, 1))
+
+    def rarity_table(self, globals_def: Any) -> dict[str, list[Any]]:
+        # No GetRarityLevelColorsIndexforLevel (only GetRarityColorForLevel): the table itself, RarityLevelColors[] =
+        # {MinLevel, MaxLevel, Color} (gd_globals.upk, offline: 13 entries - -1..1 / 2..4 white, 5..10 green, 11..15 blue,
+        # 16..49 purple, 50..60 / 61..65 / 66..100 yellow to orange, 170 green, 171 red, 180..190 gold, 500 cyan): each
+        # level in an entry's range -> its index. (Its levels: up to 100, 170-190, 500 - not BL2's 0-15, 500-520.)
+        out: dict[str, list[Any]] = {}
+        for index, entry in enumerate(globals_def.RarityLevelColors):
+            color = entry.Color
+            rgb = (int(color.R), int(color.G), int(color.B))
+            if rgb == (0, 0, 0):
+                continue
+            for level in range(max(0, int(entry.MinLevel)), int(entry.MaxLevel) + 1):
+                out.setdefault(str(level), [index, "#{:02x}{:02x}{:02x}".format(*rgb)])
+        return out
+
+    def card_line_value(self, entry: Any, pres: Any, item: Any) -> tuple[float, int] | None:
+        # Its card shows the line's modifier, never its attribute's current value (tools/probes/probe_bl1_cards.txt: an
+        # SG330's zoom -40, fire rate -0.4318, projectiles 1 -> "4.0x", "+43%", "+1"; the page showed the gun's 20, 0.45,
+        # 8): remapped (bValueRemappingEnabled - the zoom's -100..0 onto -10..0), its sign flipped if bDisplayAsInverse
+        # (not BL2's reciprocal), x 100 if a percentage, rounded by its RoundingMode - Float: one decimal, a percentage
+        # a whole number (the fire rate's 43.18: "+43%").
+        import math  # noqa: PLC0415
+
+        from .inspector import _remapped  # noqa: PLC0415
+
+        value = float(entry.ModifierValue)
+        if bool(pres.bValueRemappingEnabled) and (remapped := _remapped(pres, value, item)) is not None:
+            value = remapped
+        if bool(pres.bDisplayAsInverse):
+            value = -value
+        percent = bool(pres.bDisplayAsPercentage)
+        if percent:
+            value *= 100
+        mode = str(getattr(pres.RoundingMode, "name", pres.RoundingMode))
+        if mode == "ATTRROUNDING_IntCeil":
+            return float(math.ceil(value - 1e-9)), 0
+        if mode == "ATTRROUNDING_IntFloor":
+            return float(math.floor(value + 1e-9)), 0
+        if mode == "ATTRROUNDING_IntRound" or percent:
+            return float(math.floor(abs(value) + 0.5) * (1 if value >= 0 else -1)), 0
+        return round(value, 1), 1
 
     def shop_timer_source(self, world_info: Any) -> Any:
         # The replicated count, a whole number a little ahead of the host's (925 for its 922.85 - probe_bl1_vending.txt):

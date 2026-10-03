@@ -301,6 +301,9 @@ class Collector:
         # A co-op client: the level's WillowWaypoint actors (no waypoint components there: the
         # markers are worked out from them - _client_markers), found at each objects scan
         self._waypoints: list[WeakPointer] = []
+        # BL1's area exits (PersistentTransitionLandmark {FromMapName, ToMapName}): where a mission in another area is
+        # marked (games.WAYPOINT_MARKERS: _waypoint_markers), found at each objects scan
+        self._exits: list[WeakPointer] = []
         self._client = False  # a co-op client (set at each objects scan): containers opened by their state alone
         # NPCs giving / taking back missions (their MissionDirectives: tools/probes/probe_directors.txt), by
         # pawn address -> (the pawn, [(mission, begins, ends)]): a co-op client's quest-giver markers
@@ -766,6 +769,8 @@ class Collector:
         client = self._client = getattr(try_(lambda: wi.NetMode), "name", "") == "NM_Client"
         self._waypoints = [WeakPointer(w) for w in unrealsdk.find_all("WillowWaypoint", exact=False)
                            if not w.Name.startswith("Default__")] if client or games.WAYPOINT_MARKERS in games.GAME.features else []
+        self._exits = [WeakPointer(x) for x in unrealsdk.find_all("PersistentTransitionLandmark", exact=False)
+                       if not x.Name.startswith("Default__")] if games.WAYPOINT_MARKERS in games.GAME.features else []
         self._areas = [] if games.DISCOVERY not in games.GAME.features else [
             a for w in unrealsdk.find_all("WorldDiscoveryArea", exact=False)
             if (a := try_(lambda w=w: self._area_record(w) if self._in_world(w) else None))]
@@ -1547,8 +1552,13 @@ class Collector:
         in: a "directive", "end") - tools/probes/probe_bl1_missions.txt: Buy Grenades, active -> WP_WeaponVendor, its one
         waypoint at the weapon vendor; Nine-Toes: T.K.'s Food ready -> WP_Al, at T.K.'s. Every waypoint of the definition
         (the food's: 4 - which ones the game shows while it's in progress: not seen). The waypoints are all bHidden
-        (markers, not things): not a reason to leave one out. Property reads only."""
+        (markers, not things): not a reason to leave one out. A definition in another area (its PersistentLevelName - Nine-
+        Toes: Take Him Down's WP_NineToes, 'Arid_SkagGully_P'): the exit leading there, as the game marks it - the area's
+        PersistentTransitionLandmark whose ToMapName it is (tools/probes/probe_bl1_exits.txt: by the map changer); further
+        than one exit away: none. Property reads only."""
         wanted: dict[int, tuple[Any, str, Any]] = {}  # waypoint definition address -> (mission, kind, its entry)
+        elsewhere: list[tuple[str, Any, str, Any]] = []  # (the area it's in, mission, kind, entry): marked on its exit
+        here = str(try_(lambda: games.GAME.map_name(ENGINE.GetCurrentWorldInfo()), "") or "").lower()
         for entry in try_(lambda: list(games.GAME.mission_entries(tracker)), []) or []:
             mission = try_(lambda e=entry: e.MissionDef)
             status = try_(lambda e=entry: games.GAME.mission_status(e), "")
@@ -1556,9 +1566,41 @@ class Collector:
                 continue
             kind = "objective" if status == "Active" else "directive"
             target = try_(lambda m=mission, k=kind: m.TargetWaypointDefinition if k == "objective" else m.TurnInWaypointDefinition)
-            if target is not None:
+            if target is None:
+                continue
+            area = str(try_(lambda t=target: t.PersistentLevelName, "") or "").lower()
+            if area and area != "none" and here and area != here:
+                elsewhere.append((area, mission, kind, entry))
+            else:
                 wanted.setdefault(target._get_address(), (mission, kind, entry))
         markers = []
+
+        def marker_at(actor: Any, mission: Any, kind: str, entry: Any) -> dict[str, Any]:
+            loc = actor.Location
+            marker = {
+                "i": addr(actor), "k": kind, "x": round(loc.X), "y": round(loc.Y), "z": round(loc.Z), "rad": 0,
+                "tracked": mission._get_address() == active_addr,
+                "mission": named(try_(lambda m=mission: str(m.MissionName), ""), def_name(mission)),
+                "mi": mission_id(mission),
+            }
+            if kind == "directive":
+                marker["end"] = 1  # (ready to hand in: the page's turn-in "?")
+            else:
+                progress = try_(lambda e=entry: games.GAME.mission_progress(e), ()) or ()
+                for i, (_key, objective) in enumerate(try_(lambda m=mission: games.GAME.mission_objectives(m), []) or []):
+                    if (progress[i] if i < len(progress) else 0) < (try_(lambda o=objective: int(o.ObjectiveCount), 1) or 1):
+                        marker["objective"] = named(try_(lambda o=objective: str(o.ProgressMessage), ""), "")
+                        break
+            return marker
+
+        for area, mission, kind, entry in elsewhere:
+            for ptr in self._exits:
+                exit_mark = ptr()
+                if exit_mark is not None and str(try_(lambda x=exit_mark: x.ToMapName, "") or "").lower() == area:
+                    try:
+                        markers.append({**marker_at(exit_mark, mission, kind, entry), "i": f"x{addr(exit_mark)}-{mission_id(mission)}"})
+                    except Exception as ex:  # noqa: BLE001
+                        log_error("exit marker", ex)
         for ptr in self._waypoints:
             w = ptr()
             if w is None:
@@ -1568,22 +1610,7 @@ class Collector:
                 if definition is None or (hit := wanted.get(definition._get_address())) is None:
                     continue
                 mission, kind, entry = hit
-                loc = w.Location
-                marker = {
-                    "i": addr(w), "k": kind, "x": round(loc.X), "y": round(loc.Y), "z": round(loc.Z), "rad": 0,
-                    "tracked": mission._get_address() == active_addr,
-                    "mission": named(try_(lambda m=mission: str(m.MissionName), ""), def_name(mission)),
-                    "mi": mission_id(mission),
-                }
-                if kind == "directive":
-                    marker["end"] = 1  # (ready to hand in: the page's turn-in "?")
-                else:
-                    progress = try_(lambda e=entry: games.GAME.mission_progress(e), ()) or ()
-                    for i, (_key, objective) in enumerate(try_(lambda m=mission: games.GAME.mission_objectives(m), []) or []):
-                        if (progress[i] if i < len(progress) else 0) < (try_(lambda o=objective: int(o.ObjectiveCount), 1) or 1):
-                            marker["objective"] = named(try_(lambda o=objective: str(o.ProgressMessage), ""), "")
-                            break
-                markers.append(marker)
+                markers.append(marker_at(w, mission, kind, entry))
             except Exception as ex:  # noqa: BLE001
                 log_error("waypoint marker", ex)
         return markers

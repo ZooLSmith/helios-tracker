@@ -17,13 +17,19 @@ export function skillStatText(f) {
 /** skillStatText in parts: [the text before the value, the value, the text after] - the value emphasised
  *  apart (the BONUSES). No value shown (bDontDisplayNumber): ["the text", "", ""]. */
 export function skillStatParts(f) {
-  // an item's line tied to one of its attributes: that attribute's current value (the shot cost: 2, not the +1)
-  let v = f.cur != null ? f.cur : f.inv && f.v ? 1 / f.v : f.v;
-  if (f.pct && f.cur == null) v *= 100;
-  if (f.pos) v = Math.abs(v);
-  const n = f.fl ? numUpTo(v, f.fp ?? 1) : num(Math.round(v));
-  const plus = v > 0 && !f.np ? "+" : "";
-  const number = `${plus}${f.pct && f.cur == null ? t("unit.percent", { n }) : n}`;
+  let number;
+  if (f.dv != null) { // the number as the game shows it, worked out by the mod (BL1's card lines: games.py card_line_value)
+    const n = num(f.pos ? Math.abs(f.dv) : f.dv, f.dp || 0);
+    number = `${f.dv > 0 && !f.np ? "+" : ""}${f.pct ? t("unit.percent", { n }) : n}`;
+  } else {
+    // an item's line tied to one of its attributes: that attribute's current value (the shot cost: 2, not the +1)
+    let v = f.cur != null ? f.cur : f.inv && f.v ? 1 / f.v : f.v;
+    if (f.pct && f.cur == null) v *= 100;
+    if (f.pos) v = Math.abs(v);
+    const n = f.fl ? numUpTo(v, f.fp ?? 1) : num(Math.round(v));
+    const plus = v > 0 && !f.np ? "+" : "";
+    number = `${plus}${f.pct && f.cur == null ? t("unit.percent", { n }) : n}`;
+  }
   // the prefix / suffix around the value (game text: "Consumes" 2 "ammo per shot."), a space on each side
   const pre = f.pre ? cleanText(f.pre) + " " : "", suf = f.suf ? " " + cleanText(f.suf) : "";
   const text = cleanText(f.d);
