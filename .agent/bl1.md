@@ -327,3 +327,5 @@ says when it was seen.
   offline: 6 - Dry_P, Arid_SkagGully_P, Arid_Mine_P, interlude_1_p with bAllowVehicles, Arid_Arena_Coliseum_P,
   Arid_Cave_P); named by the level lists. No "Exit to" text in BL1: the page's words. Its
   PersistentTransitionLandmarks (FromMapName / ToMapName) stand by the changers: the missions' exit markers.
+- **Shop restock timing (open)**: the game said "shop has new inventory" while the page's countdown showed 0:05
+  (the user) - 5 s late; BL2's is off by about a second either way. Not looked into - notes.md "Restock: not exact".

@@ -303,6 +303,10 @@ In game (probe_vending.py, Sanctuary_P, solo listen server, 2026-09-25): **confi
   yet). `ShopTimerRate` 1, empty modifier stack. When it expires: "Shops have new inventory!" (`NewShopInventory`, 5 s).
 - The timer stands still while the game is paused (`WorldInfo.Pauser`: the page's count went on, then jumped back
   at each resend - the user, 2026-09-25): the `shoptimer` payload says `paused`, the page holds it.
+- **Restock: not exact (open)**: the page's countdown and the game's restock differ by about a second either way
+  in BL2 (early or late - the user); in Borderlands 1 the game said "Shops have new inventory" while the page showed
+  0:05 left (.agent/bl1.md). Not looked into: where the gap comes from (the replicated count vs the host's, the
+  page's own clock between updates, the game's own timer granularity) is unknown.
 - Price: `GetSellingPriceForInventory(InventoryForSale, WPC, Quantity) -> int` (called since: the menu's prices); markup from
   `CommerceMarkup` (`GD_Economy.VendingMachine.Init_MarkupCalc_P1`).
 - Not seen yet: the reset itself (every machine at once? the timer back to 1200?), a level reload, a co-op client
