@@ -49,6 +49,9 @@ class Profile:
     gibbed_prefix = "BL2"  # a gear's code for Gibbed's save editor: "BL2(...)" ("": no editor)
     vending_class = "WillowVendingMachineBase"  # what a vending machine is (shops.py: the class or a superclass)
     vending_titles = "VendingMachineExGFxMovie"  # the vending menu, its default object's shop titles (None: none)
+    # the item kinds whose card stats are the game's list (WillowItem.UIStatModifiers: inspector._ui_stats) - BL2's other
+    # kinds are worked out from their own properties (inspector._stats)
+    ui_stat_kinds: frozenset[str] = frozenset({"shield"})
     features: frozenset[str] = frozenset({TACMAP, DISCOVERY, SCAN, MISSION_STEPS})
 
     def map_name(self, wi: Any) -> str:
@@ -90,6 +93,26 @@ class Profile:
     def mission_number(self, mdef: Any) -> int:
         """Its number in the story (the page's order)."""
         return int(mdef.MissionNumber)
+
+    def selling_price(self, machine: Any, inv: Any, pc: Any) -> int:
+        """What a vending machine asks for one of an item (the price its menu shows): GetSellingPriceForInventory(item,
+        controller, quantity) - scaled to the player."""
+        return int(machine.GetSellingPriceForInventory(inv, pc, 1))
+
+    def shop_timer_source(self, world_info: Any) -> Any:
+        """What the shops' restock timer is read from (SecondsUntilShopsReset, ShopTimerRate): the host's own count
+        (WorldInfo.Game), else the replicated one (a co-op client: GRI)."""
+        return world_info.Game if world_info.Game is not None else world_info.GRI
+
+    def presented_decimals(self, pres: Any) -> int:
+        """How many decimals an item card stat shows in ATTRROUNDING_Float (inspector._presented): its attribute
+        presentation's FloatPrecision (its class default 1: the accuracy's 72.1; a shield's delay 2), 0-4."""
+        return max(0, min(4, int(pres.FloatPrecision)))
+
+    def shop_currency(self, machine: Any) -> str:
+        """What a vending machine's prices are in, its enum's name (shops.py CURRENCIES: CURRENCY_Credits...):
+        FormOfCurrency (Crazy Earl's: eridium)."""
+        return str(getattr(machine.FormOfCurrency, "name", machine.FormOfCurrency))
 
     def pawn_name(self, pawn: Any) -> str:
         """An AI pawn's name as the game shows it ("" if none): BL2's balance names it per playthrough
@@ -173,6 +196,9 @@ class Borderlands1(Profile):
     # slots, FeaturedItem, ShopType, the game's SecondsUntilShopsReset; no ShopTimerRate) - tools/probes/probe_bl1_vending.txt
     vending_class = "WillowVendingMachine"
     vending_titles = None  # its menu (VendingMachineGFxMovie): no shop titles (PersonOrShopLabels empty)
+    # its equipped items: one class (WillowEquipAbleItem) - the shield's card stats in UIStatModifiers as BL2's (probe_bl1_pause:
+    # ShieldMaxValue 50, ShieldOnIdleRegenerationRate 7.5); its grenade mods' and com decks': theirs too (the same class)
+    ui_stat_kinds = frozenset({"shield", "grenade", "classmod"})
     # no WorldDiscoveryArea class (the log: "Couldn't find class"); its packages not indexed (gamescan reads BL2's)
     features = (Profile.features - {DISCOVERY, SCAN, MISSION_STEPS}) | {WAYPOINT_MARKERS}
 
@@ -238,6 +264,25 @@ class Borderlands1(Profile):
 
     def mission_number(self, mdef: Any) -> int:
         return int(mdef.PlotMissionNumber)
+
+    def selling_price(self, machine: Any, inv: Any, pc: Any) -> int:
+        # GetSellingPriceForInventory(InventoryForSale, Quantity): no controller (WillowGame.u, offline) - BL2's call with
+        # one failed (no price on the page)
+        return int(machine.GetSellingPriceForInventory(inv, 1))
+
+    def shop_timer_source(self, world_info: Any) -> Any:
+        # The replicated count, a whole number a little ahead of the host's (925 for its 922.85 - probe_bl1_vending.txt):
+        # the game showed a few seconds more than the page reading the host's (the user)
+        return world_info.GRI
+
+    def presented_decimals(self, pres: Any) -> int:
+        # its AttributePresentationDefinition has no FloatPrecision (WillowGame.u, offline): one decimal - the game's
+        # SG330 accuracy 6.7 (the user; ours read 7 from the missing property)
+        return 1
+
+    def shop_currency(self, machine: Any) -> str:
+        # no FormOfCurrency (one currency in the game): dollars - its prices showed bare numbers ("other")
+        return "CURRENCY_Credits"
 
     def pawn_name(self, pawn: Any) -> str:
         # Its balance names it per grade (tools/probes/probe_bl1_names.txt): BalanceDefinitionState {BalanceDefinition,

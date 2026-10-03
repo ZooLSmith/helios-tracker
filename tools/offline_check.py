@@ -1177,6 +1177,20 @@ def check_helios_tracker() -> None:  # noqa: PLR0915
     finally:
         game_profiles.GAME = real_profile
     assert profile_bl1.vending_titles is None and profile_bl2.vending_titles == "VendingMachineExGFxMovie"
+    # the price: BL2's call (item, controller, quantity), BL1's (item, quantity) - no controller
+    priced = ns(GetSellingPriceForInventory=lambda *a: 1000 + len(a))
+    assert (profile_bl2.selling_price(priced, "item", "pc"), profile_bl1.selling_price(priced, "item", "pc")) == (1003, 1002)
+    # its prices' currency: BL2's machine says (FormOfCurrency), BL1's has none - dollars
+    assert profile_bl1.shop_currency(ns()) == "CURRENCY_Credits"
+    assert profile_bl2.ui_stat_kinds == {"shield"} and profile_bl1.ui_stat_kinds == {"shield", "grenade", "classmod"}
+    # card stat decimals: BL2's presentation says (FloatPrecision), BL1's has none - one (its SG330's accuracy 6.7)
+    assert (profile_bl2.presented_decimals(ns(FloatPrecision=2)), profile_bl1.presented_decimals(ns())) == (2, 1)
+    # the shops' timer: BL2's host count (a client: the replicated one), BL1's replicated one (what its menu shows)
+    timer_host, timer_gri = ns(SecondsUntilShopsReset=922.85), ns(SecondsUntilShopsReset=925)
+    assert profile_bl2.shop_timer_source(ns(Game=timer_host, GRI=timer_gri)) is timer_host
+    assert profile_bl2.shop_timer_source(ns(Game=None, GRI=timer_gri)) is timer_gri
+    assert profile_bl1.shop_timer_source(ns(Game=timer_host, GRI=timer_gri)) is timer_gri
+    assert profile_bl2.shop_currency(ns(FormOfCurrency=enum.IntEnum("ECurrencyType", ["CURRENCY_Credits", "CURRENCY_Eridium"], start=0).CURRENCY_Eridium)) == "CURRENCY_Eridium"
     # BL1's pawn names: its balance's grade's (GradeIndex), none without a balance - then its own AIPawnName as the guess
     bl1_skag = ns(BalanceDefinitionState=ns(GradeIndex=1, BalanceDefinition=ns(Grades=[
         ns(GradeModifiers=ns(DisplayName="Skag Pup")), ns(GradeModifiers=ns(DisplayName="Adult Skag"))])), AIPawnName="None")

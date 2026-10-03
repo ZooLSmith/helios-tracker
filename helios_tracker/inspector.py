@@ -202,16 +202,18 @@ _accuracy_pres: list[Any] = []  # [the presentation, or None]: found once
 
 def _presented(pres: Any, value: float) -> tuple[float, int]:
     """A value rounded as its attribute presentation shows it: (value, decimals). RoundingMode ATTRROUNDING_IntRound
-    -> a whole number (half away from zero, not Python's to-even); ATTRROUNDING_Float (the accuracy's) or unset ->
-    FloatPrecision decimals (its class default 1: the accuracy's 72.1; a shield's delay 2); another mode: logged once,
-    FloatPrecision meanwhile (not guessed)."""
+    -> a whole number (half away from zero, not Python's to-even); ATTRROUNDING_IntCeil -> rounded up; ATTRROUNDING_Float
+    (the accuracy's) or unset -> the game's decimals (games.py presented_decimals: BL2's FloatPrecision, BL1's 1);
+    another mode: logged once, those decimals meanwhile (not guessed)."""
     mode = str(getattr(try_(lambda: pres.RoundingMode), "name", "") or "")
     if mode == "ATTRROUNDING_IntRound":
         return math.floor(abs(value) + 0.5) * (1 if value >= 0 else -1), 0
+    if mode == "ATTRROUNDING_IntCeil":  # (BL1's projectile damage: up to the next whole number)
+        return math.ceil(value), 0
     if mode not in ("", "ATTRROUNDING_Float") and mode not in _rounding_logged:
         _rounding_logged.add(mode)
         log(f"item card stat rounding not handled: {mode} ({try_(lambda: pres._path_name(), '?')})")
-    decimals = max(0, min(4, try_(lambda: int(pres.FloatPrecision), 0) or 0))
+    decimals = try_(lambda: games.GAME.presented_decimals(pres), 0) or 0  # (each game's: games.py)
     return round(value, decimals), decimals
 
 
@@ -350,7 +352,8 @@ def _item(inv: Any, equipped: bool, ctrl: Any = None) -> dict[str, Any]:
         "v": try_(lambda: int(inv.MonetaryValue), 0),
         "e": equipped,
         "stats": _stats(inv, kind),
-        **({"ui": ui} if kind == "shield" and (ui := _ui_stats(inv)) else {}),  # its card's stats (the game's labels)
+        # its card's stats, the game's labels - the kinds whose card lists them (games.py ui_stat_kinds: a shield)
+        **({"ui": ui} if kind in games.GAME.ui_stat_kinds and (ui := _ui_stats(inv)) else {}),
     }
     if card := _card_lines(inv, kind):
         item["card"] = card
