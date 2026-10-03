@@ -1135,7 +1135,7 @@ def check_helios_tracker() -> None:  # noqa: PLR0915
         time.sleep(0.05)
     assert level["status"] == "ready" and level["upp"] == 128.0 and level["center"] == [-3072.0, -10240.0], level
     # the game and its features, for the page (games.py -> game.js)
-    assert level["game"] == "bl2" and level["features"] == ["discovery", "scan", "tacmap"], (level.get("game"), level.get("features"))
+    assert level["game"] == "bl2" and level["features"] == ["discovery", "missionsteps", "scan", "tacmap"], (level.get("game"), level.get("features"))
     # The games' profiles (games.py): one per game, by mods_base's name; each other game only what differs from BL2
     from helios_tracker import games as game_profiles  # noqa: PLC0415
     profile_bl2, profile_tps, profile_bl1 = (game_profiles.make_profile(n) for n in ("BL2", "TPS", "BL1"))
@@ -1872,6 +1872,36 @@ def check_helios_tracker() -> None:  # noqa: PLR0915
     log_obj.full(tracker, [controller(1, 30)])
     dlcs = {m["i"]: m.get("dlc") for m in log_obj.defs_payload()["missions"]}
     assert dlcs["GD_Episode02.M_Ep2_Henchman"] == "GD_Orchid.DLC" and dlcs["GD_Z1_Side.M_Side"] is None, dlcs
+    # BL1's mission log (tools/probes/probe_bl1_missions.txt): the player's own list (MissionPlaythroughData), objectives as
+    # structs {ProgressMessage, ObjectiveCount}, progress Objectives[].CurrentAmount, MS_Redeemed = done, no steps (all
+    # its objectives current), its story number PlotMissionNumber - MissionLog unchanged, the profile's reads
+    from helios_tracker import games as mission_games  # noqa: PLC0415
+    bl1_status = enum.IntEnum("EMissionStatus", ["MS_NotStarted", "MS_Active", "MS_ReadyToTurnIn", "MS_Complete", "MS_Redeemed"], start=0)
+
+    def bl1_mission(addr: int, name: str, number: int, objectives: list) -> types.SimpleNamespace:
+        return ns(_get_address=lambda: addr, _path_name=lambda: f"Z0_Missions.Missions.{name}", Name=name, MissionName=name.removeprefix("M_"),
+                  PlotMissionNumber=number, bPlotCritical=True, Dependencies=[], MissionDescription="", MissionSummary="", MissionGiver="T.K. Baha",
+                  GameStage=3, Objectives=[ns(ProgressMessage=text, ObjectiveCount=count, StatId="None") for text, count in objectives])
+    bl1_meet = bl1_mission(0xB100, "M_MeetAl", 6, [])
+    bl1_food = bl1_mission(0xB101, "M_ExterminateSkag", 7, [("Stolen Food:", 4)])
+    bl1_two = bl1_mission(0xB102, "M_TwoThings", 8, [("Kill Nine-Toes", 1), ("Bandits killed:", 10)])
+    bl1_entries = [ns(MissionDef=bl1_meet, Status=bl1_status.MS_Redeemed, Objectives=[]),
+                   ns(MissionDef=bl1_food, Status=bl1_status.MS_ReadyToTurnIn, Objectives=[ns(StatId="None", CurrentAmount=4)]),
+                   ns(MissionDef=bl1_two, Status=bl1_status.MS_Active, Objectives=[ns(StatId="None", CurrentAmount=0), ns(StatId="None", CurrentAmount=3)])]
+    real_game = mission_games.GAME
+    mission_games.GAME = mission_games.make_profile("BL1")
+    mission_games.GAME.mission_entries = lambda tracker_obj: bl1_entries  # (the player's list: mods_base's controller, not faked here)
+    try:
+        bl1_log = mission_log.MissionLog()
+        bl1_log.full(ns(ActiveMission=bl1_food), [])
+        bl1_defs = {m["i"].rpartition(".")[2]: m for m in bl1_log.defs_payload()["missions"]}
+        bl1_live = {m["i"].rpartition(".")[2]: m for m in bl1_log.payload(1)["missions"]}
+    finally:
+        mission_games.GAME = real_game
+    assert [bl1_live[k]["st"] for k in ("M_MeetAl", "M_ExterminateSkag", "M_TwoThings")] == ["Complete", "ReadyToTurnIn", "Active"], bl1_live
+    assert bl1_live["M_ExterminateSkag"]["p"] == [4] and bl1_defs["M_ExterminateSkag"]["obj"][0]["c"] == 4, (bl1_live, bl1_defs)
+    assert bl1_live["M_TwoThings"]["cur"] == [0, 1] and bl1_live["M_TwoThings"]["p"] == [0, 3], ("no steps: every objective current", bl1_live)
+    assert bl1_defs["M_TwoThings"]["num"] == 8 and bl1_defs["M_TwoThings"]["obj"][1]["n"] == "Bandits killed:", bl1_defs
     version = hub._channels["missionlog"][0]
     c.tick(1001.5)  # nothing changed: not published again
     assert hub._channels["missionlog"][0] == version, "mission log republished with no change"

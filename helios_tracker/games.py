@@ -20,6 +20,7 @@ DISCOVERY = "discovery"  # the level's discovery areas and the map's fog of war 
 OXYGEN = "oxygen"  # the Oz meter: oxygen pools, air domes, oxygen sources
 JUMPPADS = "jumppads"  # jump pads and geysers (OzPlayerJumpPad)
 SCAN = "scan"  # the game files' index: fonts, item card / skill icons (gamescan.py: BL2's package layout)
+MISSION_STEPS = "missionsteps"  # a mission's objectives come in steps (objective sets: ActiveObjectiveSet) - else all at once
 
 _PROFILES: dict[str, type["Profile"]] = {}
 
@@ -43,7 +44,7 @@ class Profile:
     packages = "CookedPCConsole"  # WillowGame/<this>: its cooked packages, the folder the mod reads (None: none read)
     exe_depth = 2  # the game's folder: this many up from its executable's (Binaries/Win32/Borderlands2.exe)
     gibbed_prefix = "BL2"  # a gear's code for Gibbed's save editor: "BL2(...)" ("": no editor)
-    features: frozenset[str] = frozenset({TACMAP, DISCOVERY, SCAN})
+    features: frozenset[str] = frozenset({TACMAP, DISCOVERY, SCAN, MISSION_STEPS})
 
     def map_name(self, wi: Any) -> str:
         """The persistent level's map name ("Sanctuary_P"), from the world info."""
@@ -62,6 +63,28 @@ class Profile:
         BehaviorProviderDefinition's BehaviorSequences[].BehaviorData2[].Behavior."""
         return [data.Behavior for seq in definition.BehaviorProviderDefinition.BehaviorSequences
                 for data in seq.BehaviorData2 if data.Behavior is not None]
+
+    def mission_entries(self, tracker: Any) -> Any:
+        """The playthrough's missions, each {MissionDef, Status, its progress...} (missions.py MissionLog): the
+        tracker's MissionList - every mission of the game, not started ones too."""
+        return tracker.MissionList
+
+    def mission_objectives(self, mdef: Any) -> list[tuple[int, Any]]:
+        """A mission definition's objectives, in order: (its key - what objective_index maps to its index - , the
+        objective: ProgressMessage, ObjectiveCount, bObjectiveIsOptional). ObjectiveDefs, keyed by address."""
+        return [(o._get_address(), o) for o in mdef.ObjectiveDefs if o is not None]
+
+    def mission_progress(self, entry: Any) -> tuple[int, ...]:
+        """A mission entry's count per objective (its definition's order): ObjectivesProgress."""
+        return tuple(int(v) for v in entry.ObjectivesProgress)
+
+    def mission_status(self, entry: Any) -> str:
+        """A mission entry's status, as the page names them (EMissionStatus without "MS_": Active, ReadyToTurnIn...)."""
+        return str(getattr(entry.Status, "name", entry.Status)).removeprefix("MS_")
+
+    def mission_number(self, mdef: Any) -> int:
+        """Its number in the story (the page's order)."""
+        return int(mdef.MissionNumber)
 
     def pawn_name(self, pawn: Any) -> str:
         """An AI pawn's name as the game shows it ("" if none): BL2's balance names it per playthrough
@@ -142,7 +165,7 @@ class Borderlands1(Profile):
     exe_depth = 1  # Binaries/Borderlands.exe
     gibbed_prefix = ""
     # no WorldDiscoveryArea class (the log: "Couldn't find class"); its packages not indexed (gamescan reads BL2's)
-    features = Profile.features - {DISCOVERY, SCAN}
+    features = Profile.features - {DISCOVERY, SCAN, MISSION_STEPS}
 
     def map_name(self, wi: Any) -> str:
         # The world is "Loader" in every area (tools/probes/probe_bl1.txt): the area is streamed in, the first of its
@@ -179,6 +202,33 @@ class Borderlands1(Profile):
             for name in BL1_REACTION_ARRAYS:
                 out += [b for reaction in getattr(behavior_set, name) for b in reaction.Behaviors if b is not None]
         return out
+
+    def mission_entries(self, tracker: Any) -> Any:
+        # The tracker's MissionList is bare definitions (its active ones): the player's own, per playthrough -
+        # WillowPlayerController.MissionPlaythroughData[] = MissionPlaythroughInfo {PlayThroughNumber, ActiveMission,
+        # MissionList: [{MissionDef, Status, Objectives: [{StatId, CurrentAmount}]}]} - the one of the playthrough
+        # played (WillowGameReplicationInfo.HostCurrentPlaythrough: the array's entries all said PlayThroughNumber 0 -
+        # tools/probes/probe_bl1_missions.txt). Only the missions the player has (no not started ones).
+        from mods_base import ENGINE, get_pc  # noqa: PLC0415
+
+        playthrough = int(ENGINE.GetCurrentWorldInfo().GRI.HostCurrentPlaythrough)
+        return get_pc().MissionPlaythroughData[playthrough].MissionList
+
+    def mission_objectives(self, mdef: Any) -> list[tuple[int, Any]]:
+        # Objectives[] = MissionObjectiveData structs {StatId, ObjectiveCount, ProgressMessage}: keyed by their index
+        return list(enumerate(mdef.Objectives))
+
+    def mission_progress(self, entry: Any) -> tuple[int, ...]:
+        return tuple(int(o.CurrentAmount) for o in entry.Objectives)
+
+    def mission_status(self, entry: Any) -> str:
+        # EMissionStatus: NotStarted, Active, ReadyToTurnIn, Complete, Redeemed - turned in: Redeemed (every done one
+        # in the probe); Complete, BL2's "done", too
+        name = str(getattr(entry.Status, "name", entry.Status)).removeprefix("MS_")
+        return "Complete" if name in ("Complete", "Redeemed") else name
+
+    def mission_number(self, mdef: Any) -> int:
+        return int(mdef.PlotMissionNumber)
 
     def pawn_name(self, pawn: Any) -> str:
         # Its balance names it per grade (tools/probes/probe_bl1_names.txt): BalanceDefinitionState {BalanceDefinition,

@@ -140,7 +140,18 @@ says when it was seen.
   'T.K. Baha'), `Objectives[] {StatId, ObjectiveCount, ProgressMessage}`, `TargetWaypointDefinition`,
   `TurnInWaypointDefinition`, Dependencies, NextMissionInChain, PlotMissionNumber, bPlotCritical. The markers: the
   level's `WillowWaypoint` actors, each a `WaypointDefinition` (WP_SkagPearls...) and a `WaypointNumber` - the active
-  mission's target / turn-in definition's. Its progress (x / 4): not seen yet (the player's mission data). To build.
+  mission's target / turn-in definition's.
+- **The player's missions** (probe_bl1_missions.txt, a mission ready to turn in): `pc.MissionPlaythroughData[]` =
+  `MissionPlaythroughInfo {PlayThroughNumber, ActiveMission, MissionList}` - 3 entries (all PlayThroughNumber 0: the
+  playthrough played is `GRI.HostCurrentPlaythrough`); its MissionList: only the missions the player has,
+  `{MissionDef, Status, Objectives: [{StatId, CurrentAmount}]}` (a done one: Objectives empty). `EMissionStatus`:
+  NotStarted, Active, ReadyToTurnIn, Complete, **Redeemed** (turned in). No objective steps: the HUD lists them all
+  ("Stolen Food: 4/4", then "Turn in" - the user). Read by missions.py's MissionLog, unchanged, through the profile
+  (`mission_entries`, `_objectives`, `_progress`, `_status`, `_number`; no `missionsteps` feature: every objective
+  current). The page's mission panel and log.
+- **Its waypoints**: every WillowWaypoint is bHidden (markers, not things). The ready one: its TurnIn definition's
+  (WP_Al: 1, at T.K.'s); the target's: 4 WP_SkagPearls (numbers 1, 2, 3, 3). Which the game marks while in progress:
+  the probe again then (not built yet - the objective markers).
 - **Hooks**: `WillowGameViewportClient:Tick` doesn't exist (BL1: `Engine.GameViewportClient:Tick`) - the mod's
   auto-reload hook (`RELOAD_HOOK`) uses BL2's.
 
