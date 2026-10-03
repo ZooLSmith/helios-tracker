@@ -1193,7 +1193,7 @@ def check_helios_tracker() -> None:  # noqa: PLR0915
         time.sleep(0.05)
     assert level["status"] == "ready" and level["upp"] == 128.0 and level["center"] == [-3072.0, -10240.0], level
     # the game and its features, for the page (games.py -> game.js)
-    assert level["game"] == "bl2" and level["features"] == ["discovery", "missionsteps", "scan", "tacmap"], (level.get("game"), level.get("features"))
+    assert level["game"] == "bl2" and level["features"] == ["discovery", "learnedelements", "missionsteps", "scan", "tacmap"], (level.get("game"), level.get("features"))
     # The games' profiles (games.py): one per game, by mods_base's name; each other game only what differs from BL2
     from helios_tracker import games as game_profiles  # noqa: PLC0415
     profile_bl2, profile_tps, profile_bl1 = (game_profiles.make_profile(n) for n in ("BL2", "TPS", "BL1"))
@@ -1312,8 +1312,19 @@ def check_helios_tracker() -> None:  # noqa: PLR0915
     assert profile_bl1.element_level(ns(GetTechIconFrame=lambda: 3.0, CalculateItemTechLevel=lambda: 2), "grenade") == 2
     assert profile_bl1.element_level(ns(GetTechIconFrame=lambda: 0.0, CalculateItemTechLevel=lambda: 2), "shield") == 0
     assert profile_bl2.element_level(bl1_clipper, "weapon") == 0
+    # a barrel's element (its explosion's damage type): its element's mark ("exp0") - not learned from the weapons
+    assert profile_bl1.damage_type_frame("DAMAGE_TYPE_Explosive") == "exp0" and profile_bl1.damage_type_frame("DAMAGE_TYPE_Unknown") == ""
+    assert game_profiles.LEARNED_ELEMENTS in profile_bl2.features and game_profiles.LEARNED_ELEMENTS not in profile_bl1.features
     # its containers looted: no longer usable (probe_bl1_looted: bCanBeUsed a flag, no animation state)
     assert profile_bl1.is_looted(ns(bCanBeUsed=False), False) and not profile_bl1.is_looted(ns(bCanBeUsed=True), False)
+    # its quest givers: their missions on the object; one offered = eligible (the game's word) and not picked up yet
+    assert profile_bl1.object_directives(ns(MissionDirectives=["d"])) == ["d"] and profile_bl2.object_directives(ns(Directives=ns(MissionDirectives=["d"]))) == ["d"]
+    bl1_eligibility = enum.IntEnum("EMissionEligibility", ["ME_Eligible", "ME_Ineligible_Level", "ME_Ineligible_Dependencies", "ME_Ineligible_Other"], start=0)
+    bl1_board_pc = ns(GetMissionEligibility=lambda m: bl1_eligibility.ME_Eligible if m == "tk" else bl1_eligibility.ME_Ineligible_Other)
+    assert profile_bl1.mission_offered(bl1_board_pc, "tk", "", False), "eligible, not taken: its !"
+    assert not profile_bl1.mission_offered(bl1_board_pc, "tk", "", True), "eligible but picked up already"
+    assert not profile_bl1.mission_offered(bl1_board_pc, "other", "", False)
+    assert profile_bl2.mission_offered(None, "m", "begin", False) and not profile_bl2.mission_offered(None, "m", "", False)
     assert profile_bl2.element_frame(ns(ElementalFrame="shock"), "weapon") == "shock" and profile_bl2.element_frame(ns(ElementalFrame="None"), "weapon") == ""
     assert profile_bl2.zippy_frame(ns(GetZippyFrame=lambda: "comm")) == "comm"
     assert profile_bl1.item_card_level(bl1_gun, 6) == 4 and profile_bl2.item_card_level(bl1_gun, 6) == 6
@@ -2006,10 +2017,10 @@ def check_helios_tracker() -> None:  # noqa: PLR0915
     # an object's list (the bounty board: WillowInteractiveObject.Directives, tools/probes/probe_bounty.txt) - the same
     board = ns(Location=ns(X=900.0, Y=0.0, Z=0.0))
     board_directive = ns(MissionDefinition=side, bBeginsMission=True, bEndsMission=False)
-    c._note_giver(0x6e0, board, ns(MissionDirectives=[board_directive]))
+    c._note_giver(0x6e0, board, [board_directive])
     c._givers[0x6e0] = (lambda: board, c._givers[0x6e0][1])  # (the fake isn't weak-referenceable: its pointer by hand)
     board_marks = c._npc_givers(None, set())
-    c._note_giver(0x6e0, board, None)  # no list (any other object): not a giver
+    c._note_giver(0x6e0, board, [])  # no list (any other object): not a giver
     assert [(m["i"], m["mission"]["n"], m["x"]) for m in board_marks] == [("g6e0", "Side job", 900)] and not c._givers, board_marks
     assert (tracked["ml"], tracked.get("mlk")) == (3, 1), "picked up: its level, locked"
     assert (by_id["GD_Z1_Side.M_Side"]["ml"], by_id["GD_Z1_Side.M_Side"].get("mlk")) == (3, None), "not picked up: the level it would lock at"

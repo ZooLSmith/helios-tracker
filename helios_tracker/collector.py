@@ -824,7 +824,7 @@ class Collector:
             try:
                 records[key] = self._object_record(io, self._client) if self._in_world(io) else None
                 self._note_incomplete(key, io)
-                self._note_giver(key[0], io, try_(lambda io=io: io.Directives))
+                self._note_giver(key[0], io, try_(lambda io=io: games.GAME.object_directives(io), []))
                 if (record := records[key]) is not None and not io.bHidden and not io.bDeleteMe:
                     self._objects[key] = record
                     self._objects_dirty = True
@@ -867,7 +867,7 @@ class Collector:
         key = (io._get_address(), str(io.Name))
         self._object_records[key] = record = self._object_record(io, self._client)
         self._note_incomplete(key, io)
-        self._note_giver(key[0], io, try_(lambda: io.Directives))
+        self._note_giver(key[0], io, try_(lambda: games.GAME.object_directives(io), []))
         self._shops.note(io)
         if not io.bHidden:
             self._objects[key] = record
@@ -889,13 +889,12 @@ class Collector:
         else:
             self._incomplete.pop(key, None)
 
-    def _note_giver(self, key: int, actor: Any, definition: Any) -> None:
-        """An NPC's / object's missions it gives / takes back (a MissionDirectivesDefinition - an NPC's
-        MissionDirectives, an interactive object's Directives: the bounty board, tools/probes/probe_bounty.txt;
-        static): kept for the quest-giver markers (_npc_givers)."""
+    def _note_giver(self, key: int, actor: Any, entries: list[Any]) -> None:
+        """An NPC's / object's missions it gives / takes back ({MissionDefinition, bBeginsMission, bEndsMission} - an NPC's
+        MissionDirectives' MissionDirectives, an interactive object's: games.py object_directives - the bounty board,
+        tools/probes/probe_bounty.txt; static): kept for the quest-giver markers (_npc_givers)."""
         directives = [(d.MissionDefinition, bool(d.bBeginsMission), bool(d.bEndsMission))
-                      for d in try_(lambda: list(definition.MissionDirectives), []) or []
-                      if try_(lambda d=d: d.MissionDefinition) is not None]
+                      for d in entries or [] if try_(lambda d=d: d.MissionDefinition) is not None]
         if directives:
             self._givers[key] = (WeakPointer(actor), directives)
         else:
@@ -1137,7 +1136,7 @@ class Collector:
             # native fatal error from call_str here, helios_crash.log, 2026-09-23, Tundra Express)
             name = named(try_(lambda: games.GAME.pawn_name(pawn), "") or "", try_(lambda: games.GAME.pawn_raw_name(pawn), "") or "",
                          str(pawn.Class.Name))
-            self._note_giver(addr, pawn, try_(lambda: pawn.MissionDirectives))  # the missions it gives / takes back
+            self._note_giver(addr, pawn, try_(lambda: list(pawn.MissionDirectives.MissionDirectives), []))  # (its missions)
         info = {"i": f"{addr:x}", "k": kind, **name}
         # a boss: its AI class says so (AIClassDefinition.bBoss - both games: few - the Pre-Sequel's 7 of 266), or the game
         # has had it as the boss of a boss bar this level (GRI.BossPawn: Deadlift - _note_boss)
@@ -1618,6 +1617,8 @@ class Collector:
         game. Property reads only."""
         markers = []
         states = self._log.giver_states() if self._givers else {}
+        logged = self._log.ids() if self._givers else set()
+        pc = get_pc() if self._givers else None
         for key, (ptr, directives) in list(self._givers.items()):
             giver = ptr()  # an NPC, or an object (the bounty board)
             if giver is None:
@@ -1630,6 +1631,8 @@ class Collector:
                 for mission, begins, ends in directives:
                     mid = mission_id(mission)
                     state = states.get(mid, "")
+                    if begins and state != "end" and try_(lambda m=mission, s=state, i=mid: games.GAME.mission_offered(pc, m, s, i in logged), False):
+                        state = "begin"  # (each game's: games.py)
                     if ((state == "begin" and begins) or (state == "end" and ends)) and all(e["i"] != mid for e in listed):
                         entry = {"i": mid, **named(try_(lambda m=mission: str(m.MissionName), ""), def_name(mission))}
                         if state == "end":

@@ -25,6 +25,9 @@ MISSION_STEPS = "missionsteps"  # a mission's objectives come in steps (objectiv
 # its objectives marked by the level's waypoint actors (WillowWaypoint: a mission's target / turn-in waypoint definition's
 # - collector._waypoint_markers), not by the tracker's waypoint components (MissionWaypoints)
 WAYPOINT_MARKERS = "waypointmarkers"
+# a damage type's element icon learned from the weapons seen (inspector.learn_frame: their card frame next to their
+# damage type) - else the profile's damage_type_frame
+LEARNED_ELEMENTS = "learnedelements"
 
 _PROFILES: dict[str, type["Profile"]] = {}
 
@@ -56,7 +59,7 @@ class Profile:
     # the attribute presentation a weapon card's damage is shown with (its rounding: inspector._presented) - None: a
     # whole number, rounded (BL2's cards, checked)
     damage_presentation: str | None = None
-    features: frozenset[str] = frozenset({TACMAP, DISCOVERY, SCAN, MISSION_STEPS})
+    features: frozenset[str] = frozenset({TACMAP, DISCOVERY, SCAN, MISSION_STEPS, LEARNED_ELEMENTS})
 
     def map_name(self, wi: Any) -> str:
         """The persistent level's map name ("Sanctuary_P"), from the world info."""
@@ -116,6 +119,16 @@ class Profile:
         opened_bits = [n for n, name in enumerate(anims) if name.lower().startswith("opened")]
         opened = any(state >> n & 1 for n in opened_bits) if opened_bits else state == 7
         return opened and (client or not try_(lambda: io.bCanBeUsed[0], 1))
+
+    def object_directives(self, io: Any) -> list[Any]:
+        """An interactive object's missions it gives / takes back ({MissionDefinition, bBeginsMission, bEndsMission}):
+        its Directives' (a MissionDirectivesDefinition - the bounty board, tools/probes/probe_bounty.txt)."""
+        return list(io.Directives.MissionDirectives)
+
+    def mission_offered(self, pc: Any, mission: Any, state: str, logged: bool) -> bool:
+        """Whether a giver's mission can be picked up now (its "!"): the mission log's word (MissionLog.giver_states:
+        not started, the missions it needs done) - `state` "begin"."""
+        return state == "begin"
 
     def zippy_frame(self, inv: Any) -> str:
         """An item's card type frame ("Artifact", "comm"...): IItemCardable.GetZippyFrame() (a call -
@@ -299,7 +312,8 @@ class Borderlands1(Profile):
     # 86 in game, 85 rounded (the user)
     damage_presentation = "gd_AttributePresentation.Weapons.AttrPresent_WeaponDamage"
     # no WorldDiscoveryArea class (the log: "Couldn't find class"); its packages not indexed (gamescan reads BL2's)
-    features = (Profile.features - {DISCOVERY, SCAN, MISSION_STEPS}) | {WAYPOINT_MARKERS}
+    # (its element icons: its card clip's frames, its damage types' known - damage_type_frame: nothing to learn)
+    features = (Profile.features - {DISCOVERY, SCAN, MISSION_STEPS, LEARNED_ELEMENTS}) | {WAYPOINT_MARKERS}
 
     def __init__(self) -> None:
         self._branch_names: dict[int, dict[str, str]] = {}  # CharacterName -> its branches' names (branch_names)
@@ -374,6 +388,18 @@ class Borderlands1(Profile):
         # yet True). (A co-op client's: not seen.)
         return not bool(io.bCanBeUsed)
 
+    def object_directives(self, io: Any) -> list[Any]:
+        # On the object itself: WillowInteractiveObject.MissionDirectives (tools/probes/probe_bl1_givers.txt: the bounty
+        # board's 15, Dr. Zed's 11 - a WillowInteractiveNPC, an interactive object) - no Directives
+        return list(io.MissionDirectives)
+
+    def mission_offered(self, pc: Any, mission: Any, state: str, logged: bool) -> bool:
+        # Its log has only the missions picked up (no "not started" ones): the game's own word - the controller's
+        # GetMissionEligibility(mission) (script: its minimum level, dependencies, status) ME_Eligible, and not in the
+        # log (a mission picked up is eligible too: the board's Bandit Presence, taken, ME_Eligible) - probe_bl1_givers:
+        # the board's T.K. Has More Work, ME_Eligible, its AnnouncedMissions - the game's "!" (the user)
+        return not logged and getattr(pc.GetMissionEligibility(mission), "name", "") == "ME_Eligible"
+
     def zippy_frame(self, inv: Any) -> str:
         # No GetZippyFrame: a property, WillowInventory.ZippyFrame (a name - Engine.u, offline)
         return str(inv.ZippyFrame)
@@ -399,6 +425,13 @@ class Borderlands1(Profile):
         from . import gamecards  # noqa: PLC0415
 
         return all(gamecards.keys(kind) for kind in BL1_CARD_KINDS if kind != "element")
+
+    def damage_type_frame(self, enum: str) -> str:
+        # A damage type's element icon (a barrel's explosion - collector.py): its element's frames' first, the mark
+        # alone ("exp0", "fire0": BL1_ELEMENT_FRAMES); "" for none. (Not learned from the weapons: their frames carry
+        # their level - "fire1" - and the learned table is the other games' - the user saw BL2's 404s on BL1's barrels)
+        prefix = BL1_ELEMENT_FRAMES.get(enum, "")
+        return f"{prefix}0" if prefix else ""
 
     def element_level(self, inv: Any, kind: str) -> int:
         # Its card draws an element's tech level on its icon ("x1".."x4": the clip's level frames - element_frame); the

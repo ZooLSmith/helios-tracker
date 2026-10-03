@@ -433,6 +433,10 @@ class MissionLog:
                 out[record["i"]] = "begin"
         return out
 
+    def ids(self) -> set[str]:
+        """The mission ids in the log, as of the last full pass (Borderlands 1's: the missions picked up only)."""
+        return {r["i"] for r in self._records}
+
     def entry_addresses(self) -> list[tuple[int, int]]:
         """(MissionList index, MissionDefinition address) per entry, as of the last full pass."""
         return list(self._addrs)

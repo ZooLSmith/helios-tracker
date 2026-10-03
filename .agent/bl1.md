@@ -277,3 +277,12 @@ says when it was seen.
   CalculateItemTechLevel) - the user: as BL2, no number on it.
 - **Looted containers** (games.py `is_looted`): no SimpleAnimState / SimpleAnimInfo; `bCanBeUsed` a flag (BL2's an
   array: `bCanBeUsed[0]` failed, never looted) - False once looted (probe_bl1_looted.txt; a toilet not searched: True).
+- **Quest givers' "!"** (probe_bl1_givers.txt; games.py `object_directives`, `mission_offered`): a giver's missions
+  are on the object itself, `WillowInteractiveObject.MissionDirectives` (BL2's: `io.Directives.MissionDirectives`) -
+  the bounty board's 15, Dr. Zed's 11 (a WillowInteractiveNPC). Its log has only the missions picked up, so "can be
+  picked up" is the game's word: the controller's `GetMissionEligibility(mission)` ME_Eligible (script: minimum
+  level, dependencies, status) and not in the log (a mission taken is eligible too: the board's Bandit Presence).
+  The board's T.K. Has More Work: eligible, in its `AnnouncedMissions` - the game's "!". Turn-ins: the log, as BL2's.
+- **Barrels' element icons**: a damage type's icon is its element's mark (`damage_type_frame`: "exp0") - not
+  learned from the weapons (BL2's `.cache/element_frames.json`: a BL1 weapon's "fire1" had been saved as Incindiary's,
+  the BL2 barrels' table - the feature `learnedelements`, not BL1's).
