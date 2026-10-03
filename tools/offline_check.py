@@ -742,11 +742,21 @@ def check_helios_tracker() -> None:  # noqa: PLR0915
     assert square_cover[10 * 20 + 10] == 255 and square_cover[2 * 20 + 2] == 0 and square_cover[10 * 20 + 4] == 0, "a square's inside / outside"
     half_cover = swfshape._coverage([(5.5, 5, 5.5, 15), (15, 5, 15, 15)], 20, 20)
     assert half_cover[10 * 20 + 5] == 128 and half_cover[10 * 20 + 6] == 255, ("half a pixel: half its alpha", half_cover[10 * 20 + 5])
-    square_shape = swfshape.Shape((5.0, 15.0, 5.0, 15.0), [(41, 77, 93, 255)],
-                                  [(0, 1, [(5.0, 5.0), (15.0, 5.0), (15.0, 15.0), (5.0, 15.0), (5.0, 5.0)])])
+    square_shape = swfshape.Shape((5.0, 15.0, 5.0, 15.0), [(0, (41, 77, 93, 255))], [],
+                                  [(0, 1, 0, [(5.0, 5.0), (15.0, 5.0), (15.0, 15.0), (5.0, 15.0), (5.0, 5.0)])])
     sq_w, sq_h, sq_bgra, sq_bounds = swfshape.render([((1.0, 0.0, 0.0, 1.0, 0.0, 0.0), square_shape)], 2.0)
     assert (sq_w, sq_h, sq_bounds) == (20, 20, (5.0, 15.0, 5.0, 15.0)) and sq_bgra[(10 * 20 + 10) * 4:(10 * 20 + 10) * 4 + 4] == bytes((93, 77, 41, 255)), \
         ("a filled square, BGRA, 2 px per movie px", sq_w, sq_h, sq_bounds)
+    # a line across it from a later style list (BL1's maps keep their lines there): over the fill, the fill beside it
+    square_shape.lines.append((1, 1.0, (130, 173, 202, 255)))
+    square_shape.edges.append((0, 0, 1, [(5.0, 10.0), (15.0, 10.0)]))
+    sq_w, sq_h, sq_bgra, _ = swfshape.render([((1.0, 0.0, 0.0, 1.0, 0.0, 0.0), square_shape)], 2.0)
+    assert sq_bgra[(10 * 20 + 10) * 4:(10 * 20 + 10) * 4 + 4] == bytes((202, 173, 130, 255)), "the line over the fill"
+    assert sq_bgra[(4 * 20 + 10) * 4:(4 * 20 + 10) * 4 + 4] == bytes((93, 77, 41, 255)), "the fill beside the line"
+    # strokes overlap (a quad per piece, a join per point): their union - no even-odd hole where two cross
+    cross_cover = swfshape._coverage(swfshape._stroke([(2.0, 10.0), (18.0, 10.0)], 2.0) + swfshape._stroke([(10.0, 2.0), (10.0, 18.0)], 2.0),
+                                     20, 20, nonzero=True)
+    assert cross_cover[10 * 20 + 10] == 255 and cross_cover[2 * 20 + 2] == 0, "two crossing strokes: their crossing covered"
     # Borderlands 1's files (project.json's bl1, the original game): its packages (version 584: upk_bl1), a level's
     # map anchor, its map rendered from the menu movie's vector frame (bl1map.py)
     bl1_cooked = (project.path("bl1") / "WillowGame" / "CookedPC") if project.path("bl1") else None
@@ -1133,6 +1143,10 @@ def check_helios_tracker() -> None:  # noqa: PLR0915
     assert profile_bl2.map_name(profile_wi) == "Sanctuary_P" and profile_bl1.map_name(profile_wi) == "arid_p"
     profile_menu = ns(_path_name=lambda: "menumap.TheWorld:PersistentLevel.WorldInfo_0", StreamingLevels=[])
     assert profile_bl1.map_name(profile_menu) == "menumap" and profile_bl1.level_key(profile_menu, "menumap") == ("menumap",)
+    # BL1's level names: its level list's entries, as properties (gd_globals.General.LevelList, offline)
+    profile_levels = ns(LevelList=[ns(PersistentMap="arid_p", LevelName="Arid Badlands"), ns(PersistentMap="Arid_SkagGully_P", LevelName="Skag Gully")])
+    assert profile_bl1.level_name_in(profile_levels, "Arid_P") == "Arid Badlands" and profile_bl1.level_name_in(profile_levels, "Nope_P") == ""
+    assert profile_bl2.level_name_in(ns(GetFriendlyLevelNameFromMapName=lambda m: {"Ice_P": "Three Horns - Divide"}.get(m, "")), "Ice_P") == "Three Horns - Divide"
     # BL1's map placement (bl1map.placement: from its anchor and its shape's size alone) against the game's own: Arid's
     # map objects, world -> TransformedLocation (0-1) x ClipSize (tools/probes/probe_bl1_map.txt) - within 1.5 movie px
     from helios_tracker import bl1map as placement_map  # noqa: PLC0415

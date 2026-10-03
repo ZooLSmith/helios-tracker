@@ -49,6 +49,11 @@ class Profile:
         """The persistent level's map name ("Sanctuary_P"), from the world info."""
         return str(wi.GetStreamingPersistentMapName())
 
+    def level_name_in(self, level_list: Any, map_name: str) -> str:
+        """A map's name as the game shows it, from one of its level lists (a LevelDependencyList: the base game's
+        GD_Globals.General.LevelList, one per DLC - each knowing only its own maps), "" if it doesn't know it."""
+        return str(level_list.GetFriendlyLevelNameFromMapName(map_name))
+
     def level_key(self, wi: Any, map_name: str) -> tuple:
         """What tells levels apart, read every second (cheap): another one = a new level."""
         from . import levelmap  # noqa: PLC0415
@@ -115,6 +120,12 @@ class Borderlands1(Profile):
             if level is not None and level.Class.Name == "LevelStreamingPersistent":
                 return str(level.PackageName)
         return wi._path_name().split(".", 1)[0]
+
+    def level_name_in(self, level_list: Any, map_name: str) -> str:
+        # its lists' entries, read as properties: {PersistentMap 'arid_p', LevelName 'Arid Badlands' (the game's text,
+        # localized)...} - gd_globals.General.LevelList, offline (.agent/bl1.md "Level names")
+        want = map_name.lower()
+        return next((str(entry.LevelName) for entry in level_list.LevelList if str(entry.PersistentMap).lower() == want), "")
 
     def level_key(self, wi: Any, map_name: str) -> tuple:
         return (map_name,)  # (one map anchor per area: found at the change - levelmap.landmark)

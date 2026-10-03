@@ -87,6 +87,11 @@ says when it was seen.
   (0.3-1.4 s). What a frame shows = what it places itself: the "arid" frame also places the markers' templates
   (labeled sprites), and they stay in the frames after it - skipped. Gradient fills (arid_bunker, interlude2, trash)
   drawn in their colours' average for now.
+- **Its lines** (the user: "it seems to lack lines"): the shapes start new style lists mid-way, their lines in them -
+  Fyrestone Coliseum's 1081: 126 of its 217 edges stroked (2 px #294d5d, 0.75 px #4a8bb5, 1.25 px #82adca: the
+  outlines, the inner details); Arid's 1045: 1384, and a second fill (#346376). A first look at a shape's styles only
+  read its first list (fills only). swfshape.py draws them as Flash layers them: list by list, its fills then its
+  lines (a quad per piece, round joins: a nonzero fill - their union). 0.5-1.7 s a map.
 - **Wired in** (`levelmap.landmark`, the BL1 profile's `map_source`): at an area change, its anchor (a find_all), the
   frame rendered on the map thread, its placement from the anchor and the shape's size - the page's level message as
   BL2's (center, upp, one PF_A8R8G8B8 image).
@@ -96,8 +101,18 @@ says when it was seen.
 - No `WillowTacticalMapVolume` / `WillowMapInfo` (`GetMapInfo()` None) - BL1 places its map with its anchor.
 - From `probe_bl1.txt`, not looked at yet: hooks missing (`WillowScrollingList:HandlePopList`,
   `WillowInteractiveObject:InitializeBalanceDefinitionState`); classes missing (`PlayerSkillTree`,
-  `SkillTreeBranchDefinition`, `WillowDamageArea`, `VendingMachineExGFxMovie`, `WillowScrollingList`); the level
-  lists (`LevelDependencyList.LevelList`) empty - no level names from them.
+  `SkillTreeBranchDefinition`, `WillowDamageArea`, `VendingMachineExGFxMovie`, `WillowScrollingList`). (Its
+  "LevelList={}" was the probe's printer: an unrealsdk array has a `_type` - printed as an empty struct.)
+
+## Level names (offline, 2026-10-03)
+
+- `gd_globals.General.LevelList` (a LevelDependencyList, `gd_globals.upk`): `LevelList[]` = 28 entries {PersistentMap
+  'arid_p', LevelName 'Arid Badlands', SecondaryMaps, ConnectedPersistents, LoadingMovieName 'loading_arid',
+  CompletedQuestStat...} - Skag Gully, Headstone Mine, New Haven, ... ('arid_intro_p' is 'Arid Badlands' too). Read as
+  properties (games.py `level_name_in`; BL2 calls GetFriendlyLevelNameFromMapName). The DLCs' lists:
+  `dlcN_PackageDefinition.Levels.LevelList`.
+- The map screen's "THE ARID BADLANDS": the menu movie's own ActionScript (`_parent.zone = "THE ARID BADLANDS"` in its
+  "themap" frames) - hard-coded English; the level list's is the game's localized text.
 - Everything the probe lists: the classes the mod reads (pickups, interactive objects, missions, skills, shops) and
   their fields - so far only the level check, the object scan and the video hook have run into differences.
 - **Missions**: built differently from BL2's (the user) - to look at after the map.

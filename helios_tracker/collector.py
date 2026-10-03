@@ -149,16 +149,16 @@ _level_names: dict[str, str] = {}
 
 
 def level_name(map_name: str) -> str:
-    """The level's name as the game shows it (the map screen's): LevelDependencyList
-    .GetFriendlyLevelNameFromMapName - one list for the base game (GD_Globals.General.LevelList) and
-    one per DLC, each knowing only its own maps (tools/probes/probe_area.txt: "Ice_P" -> "Three Horns -
-    Divide"). Cached per map; "" if none knows it."""
+    """The level's name as the game shows it (the map screen's): its LevelDependencyLists, each read the game's
+    way (games.py level_name_in - BL2: GetFriendlyLevelNameFromMapName) - one list for the base game
+    (GD_Globals.General.LevelList) and one per DLC, each knowing only its own maps (tools/probes/probe_area.txt:
+    "Ice_P" -> "Three Horns - Divide"). Cached per map; "" if none knows it."""
     if (cached := _level_names.get(map_name)) is None:
         cached = ""
         for lst in try_(lambda: list(unrealsdk.find_all("LevelDependencyList", exact=False)), []) or []:
             if str(lst.Name).startswith("Default__"):
                 continue
-            if cached := try_(lambda lst=lst: str(lst.GetFriendlyLevelNameFromMapName(map_name)), "") or "":
+            if cached := try_(lambda lst=lst: games.GAME.level_name_in(lst, map_name), "") or "":
                 break
         _level_names[map_name] = cached
     return cached
