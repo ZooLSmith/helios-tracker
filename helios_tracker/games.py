@@ -52,6 +52,9 @@ class Profile:
     exe_depth = 2  # the game's folder: this many up from its executable's (Binaries/Win32/Borderlands2.exe)
     gibbed_prefix = "BL2"  # a gear's code for Gibbed's save editor: "BL2(...)" ("": no editor)
     vending_class = "WillowVendingMachineBase"  # what a vending machine is (shops.py: the class or a superclass)
+    # a function the game calls every frame, for the updater's one-shot reload (__init__.RELOAD_HOOK: not from inside
+    # the mod's own PostRender hook, which the reload removes)
+    tick_function = "WillowGame.WillowGameViewportClient:Tick"
     vending_titles = "VendingMachineExGFxMovie"  # the vending menu, its default object's shop titles (None: none)
     # the item kinds whose card stats are the game's list (WillowItem.UIStatModifiers: inspector._ui_stats) - BL2's other
     # kinds are worked out from their own properties (inspector._stats)
@@ -311,6 +314,9 @@ class Borderlands1(Profile):
     # its machines: WillowVendingMachine, right under WillowInteractiveObject - BL2's stock as is (ShopInventory: 30
     # slots, FeaturedItem, ShopType, the game's SecondsUntilShopsReset; no ShopTimerRate) - tools/probes/probe_bl1_vending.txt
     vending_class = "WillowVendingMachine"
+    # its WillowGameViewportClient has no Tick of its own (WillowGame.u, offline: PostRender only) - the engine's
+    # (Engine.u's GameViewportClient:Tick): the updater's reload never ran there
+    tick_function = "Engine.GameViewportClient:Tick"
     vending_titles = None  # its menu (VendingMachineGFxMovie): no shop titles (PersonOrShopLabels empty)
     # its equipped items: one class (WillowEquipAbleItem) - the shield's card stats in UIStatModifiers as BL2's (probe_bl1_pause:
     # ShieldMaxValue 50, ShieldOnIdleRegenerationRate 7.5); its grenade mods' and com decks': theirs too (the same class)

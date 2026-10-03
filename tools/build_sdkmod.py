@@ -6,7 +6,7 @@
 #                                          folder would win over the .sdkmod), the .sdkmod copied beside it
 #   python tools/build_sdkmod.py dev       back to the junction: the .sdkmod removed, the junction renamed back
 #                                          (or linked again: link_mod.py)
-# Add "tps" for the Pre-Sequel (project.json's tps). Double-clickable: tools/use_sdkmod.bat, tools/use_dev.bat.
+# Add "tps" for the Pre-Sequel, "bl1" for Borderlands 1 (project.json's keys). Double-clickable: tools/use_sdkmod.bat, tools/use_dev.bat.
 import re
 import shutil
 import subprocess
@@ -51,7 +51,7 @@ def sdk_mods(key: str) -> "project.Path":
 
 def main() -> None:
     args = sys.argv[1:]
-    key = "tps" if "tps" in args else "game"
+    key = next((k for k in ("tps", "bl1") if k in args), "game")  # (project.json's keys: the Pre-Sequel, Borderlands 1)
     action = next((a for a in args if a in ("install", "dev")), "build")
     if action == "build":
         build()

@@ -1235,6 +1235,8 @@ def check_helios_tracker() -> None:  # noqa: PLR0915
     finally:
         game_profiles.GAME = real_profile
     assert profile_bl1.vending_titles is None and profile_bl2.vending_titles == "VendingMachineExGFxMovie"
+    # the updater's one-shot reload: a function each game calls every frame (BL1's viewport client has no Tick)
+    assert (profile_bl2.tick_function, profile_bl1.tick_function) == ("WillowGame.WillowGameViewportClient:Tick", "Engine.GameViewportClient:Tick")
     # the price: BL2's call (item, controller, quantity), BL1's (item, quantity) - no controller
     priced = ns(GetSellingPriceForInventory=lambda *a: 1000 + len(a))
     assert (profile_bl2.selling_price(priced, "item", "pc"), profile_bl1.selling_price(priced, "item", "pc")) == (1003, 1002)

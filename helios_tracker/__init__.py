@@ -306,7 +306,7 @@ def _start_check(auto: bool) -> None:
 # The automatic path reloads by itself: from a one-shot hook on another function (the queue drains in our PostRender
 # hook, which the reload removes - not done from inside it), the next frame; the new module says it (the old one's
 # message would never be hidden: its hook is gone) - the tag handed over on sys.
-RELOAD_HOOK = ("WillowGame.WillowGameViewportClient:Tick", "helios_tracker.auto_reload")
+RELOAD_HOOK = (games.GAME.tick_function, "helios_tracker.auto_reload")  # (each game's: games.py)
 _UPDATED = "_helios_tracker_updated"  # sys attribute: the tag just installed by the automatic path, for the new module
 
 

@@ -164,8 +164,9 @@ says when it was seen.
   `waypointmarkers`: the waypoint actors collected, as a BL2 co-op client's) - every picked-up mission's, flagged
   tracked. A definition with several (the food's 4 WP_SkagPearls, numbers 1, 2, 3, 3): all of them - which the game
   shows while in progress: not seen.
-- **Hooks**: `WillowGameViewportClient:Tick` doesn't exist (BL1: `Engine.GameViewportClient:Tick`) - the mod's
-  auto-reload hook (`RELOAD_HOOK`) uses BL2's.
+- **Hooks**: `WillowGameViewportClient:Tick` doesn't exist (BL1: `Engine.GameViewportClient:Tick`) - the updater's
+  one-shot reload (`RELOAD_HOOK`) takes the profile's `tick_function` - an update installed and reloaded by itself
+  (the user: `use_sdkmod.bat bl1`, `fake_release.py bl1`).
 
 ## Objects (2026-10-03: probe_bl1_npc.txt, offline)
 
