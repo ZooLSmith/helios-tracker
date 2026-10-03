@@ -105,7 +105,7 @@ says when it was seen.
   yet, so what they should look like isn't known. swfshape.py reads their gradient records (linear / radial / focal:
   a matrix, colour stops) but fills each shape with its stops' average colour - a flat tone where the game may
   show a fade. Look at one of those areas in game (its map screen) before drawing real gradients (each pixel's
-  colour from the gradient's matrix and stops) - it may not be worth it.
+  colour from the gradient's matrix and stops) - it may not be worth it. Deferred (the user's call: to revisit later).
 - No `WillowTacticalMapVolume` / `WillowMapInfo` (`GetMapInfo()` None) - BL1 places its map with its anchor.
 - From `probe_bl1.txt`, not looked at yet: hooks missing (`WillowScrollingList:HandlePopList`,
   `WillowInteractiveObject:InitializeBalanceDefinitionState`); classes missing (`PlayerSkillTree`,
