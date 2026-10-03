@@ -5,6 +5,10 @@
 const ICONS = {
   check: `<path d="M2.4 6.4 4.9 8.9 9.7 3.4" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>`,
   diamond: `<path d="M6 1.6 10.4 6 6 10.4 1.6 6Z" fill="currentColor"/>`,
+  // a one-time objective's checkbox (BL1's HUD: "Barricade destroyed: [ ]" - game.js objectiveBox), empty / ticked
+  box: `<rect x="2.2" y="2.2" width="7.6" height="7.6" rx="1.2" fill="none" stroke="currentColor" stroke-width="1.3"/>`,
+  boxChecked: `<rect x="2.2" y="2.2" width="7.6" height="7.6" rx="1.2" fill="none" stroke="currentColor" stroke-width="1.3"/>` +
+    `<path d="M3.9 6.1 5.4 7.6 8.2 4.4" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/>`,
   objective: `<path d="M6 1 11 6 6 11 1 6Z" fill="currentColor"/><circle cx="6" cy="6" r="1.5" style="fill: var(--map-ink)"/>`, // the map's objective marker (an active mission)
   checkCircle: `<circle cx="6" cy="6" r="4.8" fill="currentColor"/>` + // ready to turn in: a check in a disc
     `<path d="M3.7 6.2 5.3 7.8 8.4 4.4" fill="none" style="stroke: var(--bg)" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>`,
