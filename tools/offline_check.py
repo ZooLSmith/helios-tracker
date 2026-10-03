@@ -1753,6 +1753,12 @@ def check_helios_tracker() -> None:  # noqa: PLR0915
     vend_hover = ns(InteractiveObjectDefinition=ns(StatusMenuMapInfoBoxHeader="Bullets Etc."))
     assert c._shops._name(vend_hover, "items") == "Bullets Etc.", "the map hover's name"
     assert c._shops._name(ns(InteractiveObjectDefinition=ns(StatusMenuMapInfoBoxHeader="")), "weapons") == "Marcus Munitions"
+    # no name of the game's (BL1's machines: no map header, no shop titles): its definition's, as the map object's
+    vend_mod.unrealsdk.find_class = lambda name: ns(ClassDefaultObject=ns(ItemsShopTitle=""))
+    vend_nameless = ns(Class=ns(Name="WillowVendingMachine"), InteractiveObjectDefinition=ns(
+        Name="InteractiveObj_VendingMachine_GrenadesAndAmmo", StatusMenuMapInfoBoxHeader=""))
+    assert c._shops._named(vend_nameless, "other") == {"n": "VendingMachine GrenadesAndAmmo", "raw": 1}, c._shops._named(vend_nameless, "other")
+    vend_mod.unrealsdk.find_class = lambda name: ns(ClassDefaultObject=ns(WeaponsShopTitle="Marcus Munitions"))
     assert [(it["n"], it["v"]) for it in vend_rec["items"]] == [("Unkempt Harold", 669)], vend_rec["items"]  # (the machine's price)
     assert vend_rec["basics"] == [{"n": "SMG Ammo", "k": "ammo", "v": 10}], vend_rec.get("basics")
     assert (vend_rec["feat"]["n"], vend_rec["feat"]["v"], vend_rec["feat"]["k"]) == ("Adaptive Shield", 766, "shield"), vend_rec["feat"]

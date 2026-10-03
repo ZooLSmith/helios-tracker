@@ -28,7 +28,7 @@ from unrealsdk.unreal import WeakPointer
 
 from .inspector import _item
 from . import games
-from .util import addr, field, item_name, log_error, named, pickup_kind, try_
+from .util import addr, def_name, field, item_name, log_error, named, pickup_kind, try_
 
 KINDS = {"SType_Weapons": "weapons", "SType_Items": "items", "SType_Health": "health", "SType_BlackMarket": "blackmarket"}
 TITLES = {"weapons": "WeaponsShopTitle", "items": "ItemsShopTitle", "health": "HealthShopTitle"}
@@ -82,6 +82,12 @@ class ShopReader:
             self._titles = {k: str(try_(lambda f=f: getattr(cdo, f), "") or "") for k, f in TITLES.items()} if cdo is not None else {}
         return self._titles.get(kind, "")
 
+    def _named(self, io: Any, kind: str) -> dict[str, Any]:
+        """A machine's name record (util.named): the game's (_name) - else its definition's own name, as the map object's
+        ("VendingMachine GrenadesAndAmmo": what it sells - BL1's machines have no map header, no shop titles; their name
+        is on their texture only), not its class's (every machine "Vending Machine ?" - the user)."""
+        return named(self._name(io, kind), def_name(try_(lambda: io.InteractiveObjectDefinition)), str(io.Class.Name))
+
     def _name(self, io: Any, kind: str) -> str:
         """A machine's name: its map hover's (its definition's StatusMenuMapInfoBoxHeader), else its menu's title."""
         return try_(lambda: str(io.InteractiveObjectDefinition.StatusMenuMapInfoBoxHeader), "") or self._title(kind)
@@ -127,7 +133,7 @@ class ShopReader:
                 if kind in LEFT_OUT:
                     continue
                 loc = io.Location
-                machine: dict[str, Any] = {"i": addr(io), **named(self._name(io, kind), str(io.Class.Name)), "k": kind,
+                machine: dict[str, Any] = {"i": addr(io), **self._named(io, kind), "k": kind,
                                            "x": round(loc.X), "y": round(loc.Y), "z": round(loc.Z)}
                 currency = CURRENCIES.get(try_(lambda io=io: games.GAME.shop_currency(io), "") or "", "other")  # (games.py)
                 if currency != "cash":

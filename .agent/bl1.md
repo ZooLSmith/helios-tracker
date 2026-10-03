@@ -187,6 +187,9 @@ says when it was seen.
   `FeaturedItem`, `ShopType` SType_Items / SType_Health / SType_Weapons, `GetSellingPriceForInventory`; the timer
   `Game.SecondsUntilShopsReset` (922 s) / `GRI.SecondsUntilShopsReset`, no `ShopTimerRate` (1). Its menu
   (VendingMachineGFxMovie) has no shop titles. games.py `vending_class` / `vending_titles`.
+  No name of theirs anywhere in its text (the vending menu's: tabs and prompts only; no map header) - the name is on
+  their texture: they're named by their definition, as guessed ("Vending Machine Grenades And Ammo ?" - shops.py
+  `_named`; the class's gave every machine "Vending Machine ?").
 - **Exploding barrels**: no BehaviorProviderDefinition - behaviour sets (`DefaultBehaviorSet`, `ExtraBehaviorSets[]`:
   `InteractiveObjectBehaviorSet` - OnKilled, OnTakeDamage... arrays of behaviours, CustomEvents / TimerEvents /
   CounterEvents of reactions with `Behaviors[]`); the barrel's `Behavior_Explode` (its `Definition.DamageTypeDef` as
