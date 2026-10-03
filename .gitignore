@@ -5,13 +5,16 @@ __pycache__/
 tools/probes/*.txt
 
 # Mod logs
-helios_tracker/helios_tracker.log
-helios_tracker/helios_crash.log
+helios_tracker/helios_tracker*.log
+helios_tracker/helios_crash*.log
 helios_tracker/autoexec.log
 
 # Personal startup scripts (tunnel commands, tokens)
 helios_tracker/autoexec.ps1
 helios_tracker/-autoexec.ps1
+
+# The debug measurements' switch (paths.DIAGNOSTICS): local - never in a release
+helios_tracker/diagnostics
 
 # The game files' index (gamescan.py): local
 helios_tracker/.cache/

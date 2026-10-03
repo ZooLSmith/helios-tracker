@@ -397,8 +397,33 @@ bottom-left message).
 - **Per-update / per-pass reads go through `util.field(obj, name)`** (the property looked up once per
   class, then `_get_field`: 1-2 us instead of 15-24 us by name - tools/probes/probe_perf.txt); structs held
   in hand (`loc.X`) and `_get_address()` are cheap already. Function calls cost ~18 us: cache them.
-  Slow tasks are logged every 30 s (`helios_tracker.log`), `state` with its parts (skills / pawns /
-  pickups / json) and the counts.
+  Slow tasks are logged every 30 s (`helios_tracker_<game>.log`), `state` with its parts (skills / pawns /
+  pickups / json - pawns.info / pawns.players, pickups.info / pickups.items: new descriptions, the players' part, gear
+  items built) and the counts (pawns, pickups, new descriptions, vitals read by function calls); `scan objects` with
+  its parts (odds, find, shops, sight, the rest of the loop, tracker, waypoints, exits, areas, publish).
+- **Debug measurements: `paths.DIAGNOSTICS`** - on in a folder install (dev), off in a `.sdkmod`; a `diagnostics` file
+  in the data folder (`sdk_mods/.helios_tracker/`, or the package folder: gitignored) overrides it ("on" / "off"), read
+  at load. It switches frames.py (the frame report, its canary) and the slow-task report's breakdowns (`state.pawns.*`,
+  `state.pickups.*`, `scan objects.*`, `object records.*`); the plain slow-task report stays on.
+- `frames.py` (debug: `paths.DIAGNOSTICS`): frame times - what the game feels, beside our tasks' times. Each frame timed between PostRender
+  calls, with our hooks' time in it (every hook's body: `with FRAMES.ours()`), the tasks that ran, and the server
+  threads' work (requests, stream messages built under the hub's lock, catch-ups / snapshots, bytes sent): they share
+  the game's Python, so while one holds the GIL our hooks wait - and a canary thread's lateness (it wakes every 10 ms:
+  late while our hooks weren't running = something else held the GIL). A spike (over 2x the usual frame and 10 ms past
+  it): "ours" (our hooks took half the excess), "server" (its threads worked through a quarter of it - likely the GIL),
+  "gil" (the canary late by half the excess: Python elsewhere - another mod, a thread of ours not measured), "game"
+  (none: the GIL free - not Python). Logged every 30 s when there were spikes: the usual frame; per class the spikes,
+  how many over 50 / 100 ms, the time lost; the 3 worst.
+- The tick's periodic tasks (missions, areas, shops, looted, players, the mission log's start, incomplete records)
+  start only while the tick is under `TICK_BUDGET` (5 ms, state included), else the next tick - one a whole period late
+  runs anyway. Their 1 s timers used to fire together: ~15 ms every second. After a pickup scan the descriptions
+  (`_info`: names, allegiances) are refreshed `INFO_REFRESH_PER_TICK` per tick, not all on the next one. `looted`,
+  `domes`, `object health`: a slot each (together: a 15 ms tick); `looted` checks `LOOTED_PER_PASS` containers a pass
+  on the host (the usability hook tells it at once - the check is a safety net), all of them on a co-op client.
+- A players pass builds gear cards for at most `inspector.ITEMS_SECONDS` (at least one): the rest at the next pass,
+  `PLAYERS_RETRY` later - a half-built pass isn't published (`players_complete`). A whole backpack at once was 80-560 ms.
+- An object record over `RECORD_SLOW_MS` reports its parts in the slow-task report (`object records.names` / `exit` /
+  `kind` / `buff` / `loot` / `odds`), one over `RECORD_NAMED_MS` its definition too (`object record <name>`).
 - `server.py`: stdlib `ThreadingHTTPServer`; `/` (page, read per request: `paths.read`),
   `/<path>.js|css|png|svg|woff2` (any module / stylesheet / image / font under `web/`: `img/favicon.png` = the tab icon,
   64 x 64, the logo; `fonts/helios-h-*.woff2` = the panel title's "H", the logo as a font of one letter - see base.css;
@@ -427,8 +452,8 @@ downloaded update. Everything written is built on the player's machine from thei
 
 | File (under `DATA`) | Written by | What | Kept until |
 |---|---|---|---|
-| `helios_tracker.log` | `util.log` | diagnostics: errors with tracebacks, slow tasks every 30 s, level loads | past 1 MB at a load: started over |
-| `helios_crash.log` | `util.start_crash_log` | faulthandler: every thread's Python stack at a native crash | grows (a line per load) |
+| `helios_tracker_<game>.log` | `util.log` | diagnostics: errors with tracebacks, slow tasks and frame spikes every 30 s, level loads - one per game (`games.GAME.key`: bl2, tps, aodk, bl1) | past 1 MB at a load: started over |
+| `helios_crash_<game>.log` | `util.start_crash_log` | faulthandler: every thread's Python stack at a native crash - one per game | grows (a line per load) |
 | `.cache/scan.json` | `gamescan` (in the worker) | the game packages' index: per package its exports' names / numbers / rectangles, no art (~0.5 MB) | its `VERSION` changes (all scanned again); a package's size / date changes (that one again) |
 | `.cache/assets/<2 hex>/<sha1>.bin` | `gamework` | decoded game assets, one per job: fonts (TTF), icons and textures (PNG), item card images (PNG) | never cleaned: the name hashes `VERSION`, the job and its packages' sizes / dates (a patch or a new `VERSION`: a new file; the old one stays) |
 | `.cache/element_frames.json` | `inspector` | which item card frame each damage type uses, learned from seen items (`{"DAMAGE_TYPE_Incindiary": "fire"}`) | grows |

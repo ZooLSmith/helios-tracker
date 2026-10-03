@@ -21,6 +21,7 @@ import html
 import json
 import math
 import re
+import time
 import zlib
 from pathlib import Path
 from typing import Any
@@ -76,6 +77,11 @@ class _ItemCache:
 _backpack_cache = _ItemCache()
 # Equipped items' static data (name, parts...) by the same key: only their stats are re-read
 _equipped_cache = _ItemCache()
+# A players pass builds gear cards (function calls: a few ms each - a whole backpack in one pass: 80-560 ms, a hitch) for
+# at most ITEMS_SECONDS, at least one; the rest at the next pass - the collector retries soon, publishing only a complete
+# pass (players_complete).
+ITEMS_SECONDS = 0.004
+_items_pass = {"deadline": float("inf"), "built": 0, "left": False}  # (outside a pass: no limit)
 # Skill trees by controller address: re-read only when the points spent change
 _skills_cache: dict[int, tuple[Any, dict[str, Any]]] = {}
 _grids: dict[tuple[str, int], list[dict[str, Any]]] = {}  # branch grids (static per class)
@@ -401,9 +407,28 @@ def _item(inv: Any, equipped: bool, ctrl: Any = None) -> dict[str, Any]:
     return item
 
 
-def _equipped_item(inv: Any) -> dict[str, Any]:
-    """An equipped item: static data from the cache, stats (owner's bonuses) and slot read now."""
-    static = _equipped_cache.get(inv) or _equipped_cache.put(inv, _item(inv, True))
+def _cached_item(cache: _ItemCache, inv: Any, equipped: bool) -> dict[str, Any] | None:
+    """An item's card from the cache - else built, if the pass has time left (ITEMS_SECONDS; at least one per pass);
+    None: left for the next pass (players_complete says so)."""
+    if (record := cache.get(inv)) is not None:
+        return record
+    if _items_pass["built"] and time.perf_counter() > _items_pass["deadline"]:
+        _items_pass["left"] = True
+        return None
+    _items_pass["built"] += 1
+    return cache.put(inv, _item(inv, equipped))
+
+
+def players_complete() -> bool:
+    """Whether the last read_players built every card it met (else: some left for the next pass)."""
+    return not _items_pass["left"]
+
+
+def _equipped_item(inv: Any) -> dict[str, Any] | None:
+    """An equipped item: static data from the cache, stats (owner's bonuses) and slot read now (None: its card left
+    for the next pass)."""
+    if (static := _cached_item(_equipped_cache, inv, True)) is None:
+        return None
     item = {**static, "stats": _stats(inv, static["k"])}
     if item["k"] == "weapon":
         item.pop("slot", None)
@@ -418,7 +443,8 @@ def _chain(first: Any, equipped: bool) -> list[dict[str, Any]]:
         if inv is None:
             break
         try:
-            out.append(_equipped_item(inv) if equipped else _item(inv, equipped))
+            if (item := _equipped_item(inv) if equipped else _item(inv, equipped)) is not None:
+                out.append(item)
         except Exception as ex:  # noqa: BLE001
             log_error("inspect item", ex)
         inv = try_(lambda i=inv: field(i, "Inventory"))
@@ -436,7 +462,8 @@ def _inventory(pawn: Any, player: dict[str, Any]) -> None:
                 continue
             seen.add(key)
             try:
-                equipped.append(_equipped_item(inv))
+                if (item := _equipped_item(inv)) is not None:
+                    equipped.append(item)
             except Exception as ex:  # noqa: BLE001
                 log_error("inspect item", ex)
         equipped.sort(key=lambda it: (it["k"] != "weapon", it.get("slot", 9), it["k"]))
@@ -451,7 +478,8 @@ def _inventory(pawn: Any, player: dict[str, Any]) -> None:
         if inv is None:
             continue
         try:
-            backpack.append(_backpack_cache.get(inv) or _backpack_cache.put(inv, _item(inv, False)))
+            if (item := _cached_item(_backpack_cache, inv, False)) is not None:
+                backpack.append(item)
         except Exception as ex:  # noqa: BLE001
             log_error("inspect backpack item", ex)
     player["equipped"] = equipped
@@ -1145,6 +1173,7 @@ def read_players(world_info: Any, me: Any, pc: Any = None) -> list[dict[str, Any
     """Every player pawn in the level, with what can be read of their gear and skills."""
     for cache in (_backpack_cache, _equipped_cache):
         cache.sweep()  # the items destroyed since (sold, used, gone with a level)
+    _items_pass.update(deadline=time.perf_counter() + ITEMS_SECONDS, built=0, left=False)
     players = []
     me_addr = addr(me) if me is not None else None
     # Who hosts: us unless we're a client (NetMode 3); then the party leader (the host's player info
@@ -1189,5 +1218,6 @@ def read_players(world_info: Any, me: Any, pc: Any = None) -> list[dict[str, Any
         except Exception as ex:  # noqa: BLE001
             log_error("inspect player", ex)
         pawn = try_(lambda p=pawn: field(p, "NextPawn"))
+    _items_pass["deadline"] = float("inf")  # (the pass over: cards asked elsewhere are built)
     players.sort(key=lambda p: (not p["local"], p["n"].lower()))
     return players

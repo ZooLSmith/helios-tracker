@@ -2628,6 +2628,71 @@ def check_helios_tracker() -> None:  # noqa: PLR0915
           f" world->map within {js['err']:.3f} px of the probe samples")
 
 
+def check_frames() -> None:
+    """Frame times (frames.py): a spike - over twice the usual frame and 10 ms past it - classed by what filled it: our
+    hooks (ours), the server's threads working through it (server: the GIL), the canary late (gil: Python held it
+    elsewhere), or none (game); a gap (a loading screen) isn't a frame; a hook inside another counts once."""
+    import time  # noqa: PLC0415
+
+    from helios_tracker.frames import Frames  # noqa: PLC0415
+
+    frame_clock = Frames(enabled=True)
+    frame_at = 100.0
+    for _ in range(60):  # a steady 60 fps: the usual frame
+        frame_clock.frame(frame_at)
+        frame_at += 1 / 60
+    assert abs(frame_clock.usual - 1000 / 60) < 0.1 and not frame_clock._spikes, "steady frames: no spike"
+
+    def stalled(ms: float, ours_ms: float = 0.0, server_ms: float = 0.0, late_ms: float = 0.0) -> str:
+        nonlocal frame_at
+        frame_clock.frame(frame_at)  # (the frame starts)
+        if ours_ms:
+            frame_clock._ours += ours_ms / 1000
+        if server_ms:
+            frame_clock.server_work("request", server_ms / 1000)
+        if late_ms:
+            frame_clock.late(late_ms / 1000)
+        frame_at += ms / 1000
+        frame_clock.frame(frame_at)  # (the next one: this one measured)
+        return frame_clock._spikes[-1]["kind"]
+
+    assert stalled(80, ours_ms=40) == "ours", "our hooks took most of it"
+    assert stalled(80, server_ms=30) == "server", "the server's threads worked through it (the GIL)"
+    assert stalled(80, late_ms=60) == "gil", "the canary late: Python held the GIL elsewhere"
+    assert stalled(120) == "game", "none: the GIL free - not Python"
+    spikes_before = len(frame_clock._spikes)
+    frame_clock.frame(frame_at)
+    frame_at += 0.020  # 20 ms: not twice the usual 16.7
+    frame_clock.frame(frame_at)
+    assert len(frame_clock._spikes) == spikes_before, "a slightly long frame isn't a spike"
+    frame_at += 5.0  # a loading screen: a gap, not a frame
+    frame_clock.frame(frame_at)
+    assert frame_clock._gaps == 1 and len(frame_clock._spikes) == spikes_before
+    with frame_clock.ours():
+        with frame_clock.ours():  # (a hook of ours inside another, through the game)
+            pass
+    assert frame_clock._depth == 0 and frame_clock._ours < 0.01, "nested hooks: the outer one counts"
+    frame_clock.task("scan objects", 40.0)
+    frame_clock.task("tiny", 0.1)
+    assert frame_clock._tasks == [("scan objects", 40.0)], "only the tasks worth naming"
+    frame_summary = frame_clock.summary()
+    assert ("4 spikes: ours 1 (1 > 50 ms, 0 > 100 ms" in frame_summary and "gil 1 (" in frame_summary
+            and "game 1 (1 > 50 ms, 1 > 100 ms" in frame_summary and "1 request" in frame_summary), frame_summary
+    frame_clock.start_canary()  # (a real thread: wakes, says how late, stops)
+    time.sleep(0.05)
+    frame_clock.stop_canary()
+    assert frame_clock._canary is None
+    frames_off = Frames(enabled=False)  # (a .sdkmod: paths.DIAGNOSTICS off) - nothing measured, no canary
+    frames_off.start_canary()
+    frames_off.frame(1.0)
+    with frames_off.ours():
+        frames_off.task("scan objects", 40.0)
+    frames_off.server_work("request", 0.1)
+    frames_off.frame(2.0)
+    assert frames_off._canary is None and not frames_off._spikes and not frames_off._tasks and not frames_off._server
+    print(f"  frame times: spikes classed ours / server / gil / game, gaps apart - \"{frame_summary[:90]}...\"")
+
+
 def check_script() -> None:
     """The user script's lookup: autoexec.ps1 in the data folder (paths.DATA - sdk_mods/.helios_tracker/ beside a
     .sdkmod, the mod's folder in a folder install), its log beside it; the old place beside the .sdkmod: not looked at."""
@@ -2649,7 +2714,8 @@ def check_script() -> None:
 
 def check_sdkmod() -> None:
     """paths.py run from inside a .sdkmod (a zip, imported in a child Python): it finds the zip, reads the page's
-    files out of it, and writes to sdk_mods/.helios_tracker/ - created, not a folder the loader would import."""
+    files out of it, and writes to sdk_mods/.helios_tracker/ - created, not a folder the loader would import; the debug
+    measurements off (paths.DIAGNOSTICS), unless a `diagnostics` file there says "on"."""
     import subprocess  # noqa: PLC0415
     import tempfile  # noqa: PLC0415
     import zipfile  # noqa: PLC0415
@@ -2666,15 +2732,20 @@ def check_sdkmod() -> None:
             "import sys; sys.path.insert(0, sys.argv[1])\n"
             "from helios_tracker import paths\n"
             "print(paths.SDKMOD); print(paths.DATA); print(len(paths.read('web/index.html') or b''));"
-            " print(paths.read('web/nothing.js'))\n"
+            " print(paths.read('web/nothing.js')); print(paths.DIAGNOSTICS)\n"
         )
         out = subprocess.run([sys.executable, "-c", child, str(sdkmod)], capture_output=True, text=True, check=True)
-        found, data, size, missing = out.stdout.split("\n")[:4]
+        found, data, size, missing, diagnostics = out.stdout.split("\n")[:5]
         assert Path(found) == sdkmod, out.stdout
         assert Path(data) == sdk_mods / ".helios_tracker" and Path(data).is_dir(), data
         assert int(size) == len((ROOT / "helios_tracker" / "web" / "index.html").read_bytes()), size
         assert missing == "None", missing
-    print("  .sdkmod: page files read out of the zip, logs / caches in sdk_mods/.helios_tracker/")
+        assert diagnostics == "False", "a .sdkmod: no debug measurements"
+        (Path(data) / "diagnostics").write_text("on\n")  # (a player's, for a bug report)
+        out = subprocess.run([sys.executable, "-c", child, str(sdkmod)], capture_output=True, text=True, check=True)
+        assert out.stdout.split("\n")[4] == "True", "the diagnostics file turns them on"
+    print("  .sdkmod: page files read out of the zip, logs / caches in sdk_mods/.helios_tracker/, no debug measurements"
+          " (unless its diagnostics file says on)")
 
 
 def check_updater() -> None:
@@ -2864,6 +2935,7 @@ def check_ingame_text() -> None:
 def main() -> None:
     _install_fakes()
     check_helios_tracker()
+    check_frames()
     check_script()
     check_sdkmod()
     check_updater()

@@ -21,6 +21,7 @@ the Hub, the server threads only read them.
 import json
 import re
 import threading
+import time
 from collections import deque
 from http import HTTPStatus
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
@@ -28,6 +29,7 @@ from pathlib import Path
 from typing import Any
 
 from . import bl1map, gamefonts, games, gamescan, paths
+from .frames import FRAMES
 from .gameicons import icon_png, texture_by_path
 
 # The page's files: paths.read("web/...") (a folder, or inside the .sdkmod).
@@ -139,9 +141,11 @@ class _Records:
                 if version > seen:
                     touched |= ids
                     reordered |= moved
+            FRAMES.server_count("catch-up")
             parts = [self._rec_json(rid, r) for rid, r in self.recs.items() if rid in touched]
             gone = sorted(rid for rid in touched if rid not in self.recs)  # (gone since - or came and went: the page ignores those)
             return self._message(seen, parts, gone, reordered, whole=True)
+        FRAMES.server_count("snapshot")
         return f'{{"v":{self.version},"full":1,"m":{self.meta_json},"set":[{",".join(self._rec_json(rid, r) for rid, r in self.recs.items())}]}}'
 
     def snapshot(self) -> dict[str, Any]:
@@ -205,12 +209,15 @@ class Hub:
         """Channels newer than `seen` (updated in place), waiting up to `timeout` for one."""
         with self._cond:
             self._cond.wait_for(lambda: self.closed or self._newer(seen), timeout)
+            start = time.perf_counter()
             out = []
             for channel, (version, payload) in self._channels.items():
                 if seen.get(channel) != version:
                     recs = self._records.get(channel)
                     out.append((channel, recs.since(seen.get(channel)) if recs is not None else payload))
                     seen[channel] = version
+            if out:  # (the messages built under the lock: the collector's publish waits meanwhile)
+                FRAMES.server_work("stream", time.perf_counter() - start)
             return out
 
     def _newer(self, seen: dict[str, int]) -> bool:
@@ -235,18 +242,29 @@ class _Handler(BaseHTTPRequestHandler):
 
     def do_GET(self) -> None:  # noqa: N802
         path = self.path.split("?", 1)[0]
+        if path == "/events":  # (a stream: its messages are timed as they're built - Hub.wait)
+            try:
+                self._events()
+            except (ConnectionError, TimeoutError):
+                pass  # tab closed / navigated away
+            return
         if path.startswith("/font/") and games.FONT_LIBRARY in games.GAME.features:
             gamefonts.FONTS.wait(SCAN_WAIT)  # (its font library's catalogue: read as the server starts)
         if (path.startswith(("/font/", "/icon/", "/cardicon/", "/texture/")) and games.SCAN in games.GAME.features
                 and not gamescan.ready()):
             gamescan.wait(SCAN_WAIT)  # (the game's files not indexed yet: a page just opened - its scan's running)
+        start = time.perf_counter()  # (after the waits: they hold no GIL - the work from here may)
+        try:
+            self._get(path)
+        finally:
+            FRAMES.server_work("request", time.perf_counter() - start)
+
+    def _get(self, path: str) -> None:
         try:
             if path in ("/", "/index.html"):
                 self._send(HTTPStatus.OK, "text/html; charset=utf-8", paths.read("web/index.html") or b"")
             elif (m := STATIC.fullmatch(path)) and (data := paths.read("web" + path)) is not None:
                 self._send(HTTPStatus.OK, TYPES[m[1]], data)
-            elif path == "/events":
-                self._events()
             elif path.startswith("/image/"):
                 self._image(path)
             elif (m := FONT.fullmatch(path)) and (data := (self.server.hub.fonts or {}).get(m[1])) is not None:
@@ -308,9 +326,14 @@ class _Handler(BaseHTTPRequestHandler):
                     return
                 if not updates:
                     self.wfile.write(b": keepalive\n\n")
+                sent = 0
                 for channel, payload in updates:
-                    self.wfile.write(f"event: {channel}\ndata: {payload}\n\n".encode())
+                    data = f"event: {channel}\ndata: {payload}\n\n".encode()
+                    sent += len(data)
+                    self.wfile.write(data)
                 self.wfile.flush()
+                if sent:
+                    FRAMES.server_work("write", 0.0, sent)  # (the bytes; the write itself waits without the GIL)
         finally:
             hub.connected(-1)
 

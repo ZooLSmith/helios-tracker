@@ -27,12 +27,13 @@ from unrealsdk.unreal import BoundFunction, UObject, WrappedStruct
 from .collector import Collector, game_language
 from .gamedir import cooked_dir
 from . import gamecards, gamefonts, gameicons, games, gamescan, gamework, i18n, updater
+from .frames import FRAMES
 from .script import start_script
 from .server import Hub, TrackerServer
 from .i18n import t
 from .util import log, log_error, start_log
 
-start_log()
+start_log(games.GAME.key)  # (one log per game: helios_tracker_bl2.log...)
 i18n.set_game_language(game_language())  # (the in-game text: options, the updater's boxes)
 
 _STALE = "_helios_tracker_server"  # sys attribute: the running server, across module reloads
@@ -503,6 +504,7 @@ _collector.on_page = lambda: _scan_game_files()
 
 def _on_enable() -> None:
     _collector.reset()
+    FRAMES.start_canary()  # (frames.py: tells a GIL held outside our hooks)
     _serving[0] = True
     _start()
     _announce_update()
@@ -514,6 +516,7 @@ def _on_disable() -> None:
         _serving[0] = False
         _stop_locked()
     _stop_worker()
+    FRAMES.stop_canary()
     _collector.reset()
 
 
@@ -537,67 +540,75 @@ _next = [0.0]
 
 @hook("WillowGame.WillowGameViewportClient:PostRender", Type.POST)
 def on_post_render(obj: UObject, args: WrappedStruct, ret: Any, func: BoundFunction) -> None:  # noqa: ARG001
-    now = time.monotonic()
-    if _ui_queue or _toast_until[0]:
-        _drain_ui(now)
-    if now < _next[0]:
-        return
-    _collector.rate = max(1.0, float(rate.value))
-    _next[0] = now + 1.0 / _collector.rate
-    try:
-        _collector.tick(now)
-    except Exception as ex:  # noqa: BLE001
-        log_error("tick", ex)
+    FRAMES.frame(time.perf_counter())  # (a frame starts: the one before is measured - frames.py)
+    with FRAMES.ours():
+        now = time.monotonic()
+        if _ui_queue or _toast_until[0]:
+            _drain_ui(now)
+        if now < _next[0]:
+            return
+        _collector.rate = max(1.0, float(rate.value))
+        _next[0] = now + 1.0 / _collector.rate
+        try:
+            _collector.tick(now)
+        except Exception as ex:  # noqa: BLE001
+            log_error("tick", ex)
 
 
 @hook("WillowGame.WillowScrollingList:HandlePopList", Type.POST)
 def on_menu_back(obj: UObject, args: WrappedStruct, ret: Any, func: BoundFunction) -> None:  # noqa: ARG001
     """Leaving an options screen (the mod menu saves there too): the Port slider moved - the server restarted once."""
-    if _port_changed[0]:
-        _port_changed[0] = False
-        _restart_soon()
+    with FRAMES.ours():
+        if _port_changed[0]:
+            _port_changed[0] = False
+            _restart_soon()
 
 
 @hook("WillowGame.WillowPlayerController:ClientPlayBinkMovie", Type.PRE)
 def on_bink_movie(obj: UObject, args: WrappedStruct, ret: Any, func: BoundFunction) -> None:  # noqa: ARG001
     """A cutscene video starting: the game renders nothing until it's over (tools/probes/probe_cutscene_watch.txt)."""
-    try:
-        _collector.movie_started(obj, str(args.MovieName), games.GAME.movie_no_skip(args))
-    except Exception as ex:  # noqa: BLE001
-        log_error("movie hook", ex)
+    with FRAMES.ours():
+        try:
+            _collector.movie_started(obj, str(args.MovieName), games.GAME.movie_no_skip(args))
+        except Exception as ex:  # noqa: BLE001
+            log_error("movie hook", ex)
 
 
 @hook("WillowGame.WillowPickup:PostBeginPlay", Type.POST)
 def on_pickup_spawn(obj: UObject, args: WrappedStruct, ret: Any, func: BoundFunction) -> None:  # noqa: ARG001
     """New pickups (loot drops...) as they appear: replaces frequent find_all scans (hitches)."""
-    try:
-        _collector.pickup_spawned(obj)
-    except Exception as ex:  # noqa: BLE001
-        log_error("pickup hook", ex)
+    with FRAMES.ours():
+        try:
+            _collector.pickup_spawned(obj)
+        except Exception as ex:  # noqa: BLE001
+            log_error("pickup hook", ex)
 
 
 @hook("WillowGame.WillowInteractiveObject:PostBeginPlay", Type.POST)
 def on_object_spawn(obj: UObject, args: WrappedStruct, ret: Any, func: BoundFunction) -> None:  # noqa: ARG001
-    try:
-        _collector.object_spawned(obj)
-    except Exception as ex:  # noqa: BLE001
-        log_error("object spawn hook", ex)
+    with FRAMES.ours():
+        try:
+            _collector.object_spawned(obj)
+        except Exception as ex:  # noqa: BLE001
+            log_error("object spawn hook", ex)
 
 
 @hook("WillowGame.WillowInteractiveObject:InitializeBalanceDefinitionState", Type.POST)
 def on_object_balance(obj: UObject, args: WrappedStruct, ret: Any, func: BoundFunction) -> None:  # noqa: ARG001
     """The balance (behind the display name) can be set after the spawn: refresh the record."""
-    try:
-        _collector.object_spawned(obj)
-    except Exception as ex:  # noqa: BLE001
-        log_error("object balance hook", ex)
+    with FRAMES.ours():
+        try:
+            _collector.object_spawned(obj)
+        except Exception as ex:  # noqa: BLE001
+            log_error("object balance hook", ex)
 
 
 def _on_usability(obj: UObject) -> None:
-    try:
-        _collector.object_usability_changed(obj)
-    except Exception as ex:  # noqa: BLE001
-        log_error("object usability hook", ex)
+    with FRAMES.ours():
+        try:
+            _collector.object_usability_changed(obj)
+        except Exception as ex:  # noqa: BLE001
+            log_error("object usability hook", ex)
 
 
 @hook("WillowGame.WillowInteractiveObject:SetUsability", Type.POST)
@@ -613,10 +624,11 @@ def on_change_usability(obj: UObject, args: WrappedStruct, ret: Any, func: Bound
 
 @hook("WillowGame.WillowInteractiveObject:Destroyed", Type.PRE)
 def on_object_destroyed(obj: UObject, args: WrappedStruct, ret: Any, func: BoundFunction) -> None:  # noqa: ARG001
-    try:
-        _collector.object_destroyed(obj)
-    except Exception as ex:  # noqa: BLE001
-        log_error("object destroyed hook", ex)
+    with FRAMES.ours():
+        try:
+            _collector.object_destroyed(obj)
+        except Exception as ex:  # noqa: BLE001
+            log_error("object destroyed hook", ex)
 
 
 # endregion

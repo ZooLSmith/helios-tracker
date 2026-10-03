@@ -12,8 +12,9 @@ says when it was seen.
   locked). Its profile: `games.py` `Borderlands1`.
 - Dev link: `project.json`'s optional `bl1` entry (the install), then `python tools/link_mod.py bl1`. Loading it
   after the game started: `pyexec helios_tracker/reload.py`.
-- The SDK's own log: `<bl1>/Binaries/Plugins/unrealsdk.log` (pyunrealsdk v1.10.0 seen); the mod's log is the shared
-  one (`helios_tracker/helios_tracker.log`, through the junction: a BL1 session's paths say `...\Borderlands\sdk_mods\...`).
+- The SDK's own log: `<bl1>/Binaries/Plugins/unrealsdk.log` (pyunrealsdk v1.10.0 seen); the mod's log is its own
+  (`helios_tracker/helios_tracker_bl1.log`, `helios_crash_bl1.log` - one per game since 2026-10-03; before, the shared
+  `helios_tracker.log`: a BL1 session's paths say `...\Borderlands\sdk_mods\...`).
 - Probe: `tools/probes/probe_bl1.py` (read-only: env, the hooked functions, the classes the mod uses, the level's map
   info, the player, the main classes' fields, samples) -> `probe_bl1.txt`. Not run yet.
 

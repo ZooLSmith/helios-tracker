@@ -5,6 +5,9 @@ written to a real folder. No SDK imports: the game files' worker (gamework.py, a
 - Written (logs, .cache/): DATA - the package folder itself (dev: the repo, gitignored), or, from a .sdkmod,
   sdk_mods/.helios_tracker/ (the loader skips dot names: any other folder there it imports as a mod). Also the
   place for a downloaded update, before it replaces the .sdkmod.
+- DIAGNOSTICS: the debug measurements on (frames.py's frame report and its canary, the slow-task report's
+  breakdowns) - a folder install (dev) yes, a .sdkmod (what players run) no; a `diagnostics` file in DATA says
+  otherwise ("on" / "off": a player's for a bug report, a dev's to measure without them). Read at load.
 """
 
 import zipfile
@@ -31,6 +34,17 @@ if SDKMOD:
         DATA.mkdir(parents=True, exist_ok=True)
     except OSError:
         pass
+
+
+def _diagnostics() -> bool:
+    try:
+        said = (DATA / "diagnostics").read_text(encoding="utf-8").strip().lower()
+    except OSError:
+        return SDKMOD is None  # (no file: the install says)
+    return said in ("on", "1", "true", "yes")
+
+
+DIAGNOSTICS = _diagnostics()
 
 
 def read(rel: str) -> bytes | None:

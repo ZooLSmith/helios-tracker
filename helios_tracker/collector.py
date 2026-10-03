@@ -22,13 +22,16 @@ from mods_base import ENGINE, get_pc
 from unrealsdk.unreal import WeakPointer
 
 from .amounts import pickup_amount
-from .inspector import buff_info, element_frame, explosion_info, ground_item, is_gear, plant_info, read_players
+from .inspector import (buff_info, element_frame, explosion_info, ground_item, is_gear, plant_info, players_complete,
+                        read_players)
 from . import games, levelmap, lootodds
 from .gamedir import game_dir
 from .missions import MissionLog, mission_id
 from .missions import objective_index as _mission_index
 from .shops import ShopReader
 from .skills import SkillReader
+from .frames import FRAMES
+from .paths import DIAGNOSTICS
 from .server import Hub
 from .util import (addr, call_str, clear_fields, def_name, exp_level, field, item_name, log, log_error, named,
                    pickup_kind, player_info, rarity_table, reader, try_)
@@ -51,13 +54,25 @@ SCENE_RECHECK = 1.0  # s: an in-engine cutscene's Matinees - how long they still
 SCENE_DRIFT = 0.5  # s: the page's count this far from the scene's real position - sent again
 AREAS_EVERY = 1.0  # s between reads of the discovered areas (pc.DiscoveredWorldAreas: ~50 structs)
 LOOTED_EVERY = 1.0  # s between checks of unlooted containers (two property reads each, round robin)
-LOOTED_PER_PASS = 60
+LOOTED_PER_PASS = 15  # containers checked per pass, round robin (the host: the usability hook says it at once - this
+                     # is the safety net; ~0.1 ms each)
+LOOTED_PER_PASS_CLIENT = 60  # (a co-op client: no hook - the check is how it learns: all of them, each pass)
 SHOPS_EVERY = 2.0  # s between vending machine reads (their stock: new items only after a sale / restock)
 SHOPS_RETRY = 0.1  # s: item records left to build (a few ms per pass) - the next pass this soon
+PLAYERS_RETRY = 0.1  # s: gear cards left to build (inspector.ITEMS_SECONDS per pass) - the next pass this soon
 SLOW_MS = 4.0  # a task taking longer than this on the game thread is reported (it can cause a hitch)
 RECORDS_SECONDS = 0.002  # per tick, building the records of newly found interactive objects (a scan's backlog)
 INCOMPLETE_EVERY = 1.0  # s between retries of object records built before their definition arrived
 SLOW_REPORT_EVERY = 30.0  # s between console reports of slow tasks
+# A tick's periodic tasks (missions, areas, shops, looted...) start only while the tick (state included) is under
+# this: the others wait for the next tick - their 1 s timers used to fire in the same tick, ~15 ms every second
+# (frames.py's report). One a whole period late runs anyway (never starved at a low refresh rate).
+TICK_BUDGET = 0.005  # s
+INFO_REFRESH_PER_TICK = 2  # descriptions (names, allegiances) dropped per tick after a scan, rebuilt as read
+RECORD_SLOW_MS = 5.0  # an object record taking this long: its parts reported (the slow-task report)
+RECORD_NAMED_MS = 20.0  # ...and this long: its definition named too
+# the last object record's parts (s): names, exit, kind (plant / explosion), buff, loot (its pools), odds
+_record_parts: dict[str, float] = {}
 
 
 class _Timings:
@@ -82,6 +97,7 @@ class _Timings:
         except Exception as ex:  # noqa: BLE001
             log_error(name, ex)
         ms = (time.perf_counter() - start) * 1000
+        FRAMES.task(name, ms)  # (the frame's breakdown: frames.py)
         if ms > SLOW_MS:
             self._slow.setdefault(name, []).append(ms)
         now = time.monotonic()
@@ -318,6 +334,7 @@ class Collector:
         self._skills = SkillReader()  # every player's action skill, timed effects, melee cooldown
         self._state_n = 0
         self._info: dict[int, dict[str, Any]] = {}  # per-actor cached name/kind, by address
+        self._stale_info: list[int] = []  # their addresses to refresh, a few per tick (after a scan: _scan)
         # pawns the game has had as its boss (GRI.BossPawn, the boss bar's) this level: (level id, address)
         self._boss_pawns: set[tuple[Any, int]] = set()
         self._pools_sent: tuple[int, int] | None = None  # (lootodds.version, POOLS' size) when last sent (None: send it)
@@ -334,6 +351,8 @@ class Collector:
         self._domes: dict[tuple[int, str], WeakPointer] = {}  # the Pre-Sequel's air dome bubbles: their on / off re-read
         self._damageable: dict[tuple[int, str], WeakPointer] = {}  # objects with health (barrels...): re-read
         self._next_looted = 0.0
+        self._next_domes = 0.0
+        self._next_health = 0.0
         # The level's discovery areas (static records, found by the objects scan) and the areas payload
         self._areas: list[dict[str, Any]] = []
         self._areas_json = ""
@@ -345,6 +364,12 @@ class Collector:
 
     def tick(self, now: float) -> None:
         run = self._timings.run
+        started = time.perf_counter()
+
+        def due(next_at: float, every: float) -> bool:
+            """A periodic task due: now, if the tick has room left (TICK_BUDGET) - or it's a whole period late."""
+            return now >= next_at and (time.perf_counter() - started < TICK_BUDGET or now >= next_at + every)
+
         # A cutscene video: the game renders no frame while one plays - frames again after a gap: it's over
         # (or skipped). Frames can go on for a moment after its start (a fade): those don't end it.
         if self._video_at:
@@ -386,7 +411,7 @@ class Collector:
             self._next_missions = 0.0  # it (re)finds the mission tracker: read the markers now
             heavy = True
         run("state", self._publish_state, now)
-        if self._incomplete and now >= self._next_incomplete:  # built before their definition: again (not every 120 s)
+        if self._incomplete and due(self._next_incomplete, INCOMPLETE_EVERY):  # built before their definition: again (not every 120 s)
             self._next_incomplete = now + INCOMPLETE_EVERY
             for key, ptr in list(self._incomplete.items()):
                 if ptr() is None:  # gone meanwhile
@@ -398,32 +423,34 @@ class Collector:
         if self._objects_dirty:
             self._objects_dirty = False
             run("objects", self._publish_objects)
-        if now >= self._next_players and not heavy:
+        if due(self._next_players, PLAYERS_EVERY) and not heavy:
             self._next_players = now + PLAYERS_EVERY
             run("players", self._publish_players)
             heavy = True
         # The mission log's full pass: a slice per tick until it's done (never one long hitch)
-        if self._tracker is not None and (self._log.in_cycle or (now >= self._next_log and not heavy)):
+        if self._tracker is not None and (self._log.in_cycle or (due(self._next_log, MISSION_LOG_EVERY) and not heavy)):
             if not self._log.in_cycle:
                 self._next_log = now + MISSION_LOG_EVERY
             run("mission log", self._full_log)
-        if now >= self._next_missions:
+        if due(self._next_missions, MISSIONS_EVERY):
             self._next_missions = now + MISSIONS_EVERY
             run("missions", self._publish_missions)
-        if now >= self._next_areas and (self._areas or (self._level or {}).get("fog")):
+        if due(self._next_areas, AREAS_EVERY) and (self._areas or (self._level or {}).get("fog")):
             self._next_areas = now + AREAS_EVERY
             run("areas", self._publish_areas)
-        if now >= self._next_shops and not heavy:
+        if due(self._next_shops, SHOPS_EVERY) and not heavy:
             self._next_shops = now + SHOPS_EVERY
             run("shops", self._publish_shops, now)
-        if now >= self._next_looted and (self._unlooted or self._domes or self._damageable):
+        # (each its own slot: together they made a 15 ms tick)
+        if self._unlooted and due(self._next_looted, LOOTED_EVERY):
             self._next_looted = now + LOOTED_EVERY
-            if self._unlooted:
-                run("looted", self._check_looted)
-            if self._domes:
-                run("domes", self._check_domes)
-            if self._damageable:
-                run("object health", self._check_health)
+            run("looted", self._check_looted)
+        if self._domes and due(self._next_domes, LOOTED_EVERY):
+            self._next_domes = now + LOOTED_EVERY
+            run("domes", self._check_domes)
+        if self._damageable and due(self._next_health, LOOTED_EVERY):
+            self._next_health = now + LOOTED_EVERY
+            run("object health", self._check_health)
 
     def _check_level(self) -> None:
         wi = ENGINE.GetCurrentWorldInfo()
@@ -597,7 +624,9 @@ class Collector:
 
     def _scan(self) -> None:
         """Every SCAN_EVERY: the pickups (their positions are read per tick)."""
-        self._info = {}  # names / allegiances can change: re-resolved lazily
+        # names / allegiances can change: every description re-resolved - a few per tick (INFO_REFRESH_PER_TICK), not
+        # all on the next one (40 pickups: ~25 ms in one tick)
+        self._stale_info = list(self._info)
         self._pickups = {
             p._get_address(): WeakPointer(p)
             for p in unrealsdk.find_all("WillowPickup", exact=False)
@@ -733,18 +762,28 @@ class Collector:
         mission tracker."""
         objects = {}
         records = self._object_records
+        t0 = time.perf_counter()  # (the slow report's breakdown: its parts below)
         # the host's live designer attributes (common gear's weight modifier...): changed - the containers' odds again
         odds_changed = try_(lambda: lootodds.refresh(ENGINE.GetCurrentWorldInfo()), False)
-        for io in unrealsdk.find_all("WillowInteractiveObject", exact=False):
+        t_odds = time.perf_counter()
+        found = list(unrealsdk.find_all("WillowInteractiveObject", exact=False))
+        t_find = time.perf_counter()
+        shops_s = sight_s = 0.0
+        for io in found:
             try:
                 key = (io._get_address(), str(io.Name))
+                t_shops = time.perf_counter()
                 if self._in_world(io):
                     self._shops.note(io)
+                shops_s += time.perf_counter() - t_shops
                 if key not in records or key in self._incomplete:  # new / built too early: (again) later, a few per tick
                     self._pending_records.setdefault(key, WeakPointer(io))
                     if key not in records:
                         continue
-                if (record := records[key]) is not None and not Collector._out_of_sight(io) and not io.bDeleteMe:
+                t_sight = time.perf_counter()
+                visible = (record := records[key]) is not None and not Collector._out_of_sight(io) and not io.bDeleteMe
+                sight_s += time.perf_counter() - t_sight
+                if visible:
                     objects[key] = record
                     if record.get("lootable") and not record.get("looted"):
                         self._unlooted.setdefault(key, WeakPointer(io))
@@ -758,24 +797,39 @@ class Collector:
             except Exception as ex:  # noqa: BLE001
                 log_error("interactive object", ex)
         self._objects = objects
+        t_loop = time.perf_counter()
         if self._tracker is None or self._tracker() is None:  # one per game: only look it up again if gone
             self._tracker = next(
                 (WeakPointer(t) for t in unrealsdk.find_all("MissionTracker", exact=False) if not t.Name.startswith("Default__")),
                 None,
             )
+        t_tracker = time.perf_counter()
         # A co-op client has no mission waypoint components: its markers come from the waypoint actors - as BL1's
         # always (games.WAYPOINT_MARKERS)
         wi = ENGINE.GetCurrentWorldInfo()
         client = self._client = getattr(try_(lambda: wi.NetMode), "name", "") == "NM_Client"
         self._waypoints = [WeakPointer(w) for w in unrealsdk.find_all("WillowWaypoint", exact=False)
                            if not w.Name.startswith("Default__")] if client or games.WAYPOINT_MARKERS in games.GAME.features else []
+        t_waypoints = time.perf_counter()
         self._exits = [WeakPointer(x) for x in unrealsdk.find_all("PersistentTransitionLandmark", exact=False)
                        if not x.Name.startswith("Default__")] if games.WAYPOINT_MARKERS in games.GAME.features else []
+        t_exits = time.perf_counter()
         self._areas = [] if games.DISCOVERY not in games.GAME.features else [
             a for w in unrealsdk.find_all("WorldDiscoveryArea", exact=False)
             if (a := try_(lambda w=w: self._area_record(w) if self._in_world(w) else None))]
+        t_areas = time.perf_counter()
         self._next_areas = 0.0
         self._publish_objects()
+        t_end = time.perf_counter()
+        if DIAGNOSTICS and (t_end - t0) * 1000 > SLOW_MS:  # slow: which part (and how many objects) - debug only
+            loop_s = t_loop - t_find
+            for part, part_s in (("odds", t_odds - t0), ("find", t_find - t_odds), ("shops", shops_s), ("sight", sight_s),
+                                 ("loop rest", loop_s - shops_s - sight_s), ("tracker", t_tracker - t_loop),
+                                 ("waypoints", t_waypoints - t_tracker), ("exits", t_exits - t_waypoints),
+                                 ("areas", t_areas - t_exits), ("publish", t_end - t_areas)):
+                if part_s * 1000 > 1.0:
+                    self._timings.add("scan objects." + part, part_s * 1000)
+            self._timings.size("objects", len(found))
 
     @staticmethod
     def _area_record(area: Any) -> dict[str, Any]:
@@ -822,7 +876,14 @@ class Collector:
             if io is None or (key in records and key not in self._incomplete):
                 continue
             try:
+                built_at = time.perf_counter()
                 records[key] = self._object_record(io, self._client) if self._in_world(io) else None
+                if DIAGNOSTICS and (ms := (time.perf_counter() - built_at) * 1000) > RECORD_SLOW_MS:  # (why - debug only)
+                    for name, part_s in _record_parts.items():
+                        if part_s * 1000 > 1.0:
+                            self._timings.add("object records." + name, part_s * 1000)
+                    if ms > RECORD_NAMED_MS and records[key] is not None:
+                        self._timings.add(f"object record {records[key].get('d') or '?'}", ms)
                 self._note_incomplete(key, io)
                 self._note_giver(key[0], io, try_(lambda io=io: games.GAME.object_directives(io), []))
                 if (record := records[key]) is not None and not Collector._out_of_sight(io) and not io.bDeleteMe:
@@ -941,7 +1002,7 @@ class Collector:
     def _check_looted(self) -> None:
         """Containers opened since: flagged looted (the page shows them in their own layer)."""
         changed = False
-        for key in list(self._unlooted)[:LOOTED_PER_PASS]:
+        for key in list(self._unlooted)[:LOOTED_PER_PASS_CLIENT if self._client else LOOTED_PER_PASS]:
             io = self._unlooted.pop(key)()
             record = self._object_records.get(key)
             if io is None or record is None:
@@ -1040,6 +1101,15 @@ class Collector:
 
     @staticmethod
     def _object_record(io: Any, client: bool = False) -> dict[str, Any]:
+        _record_parts.clear()
+        mark = time.perf_counter()
+
+        def part(name: str) -> None:  # (the time since the last mark: this part's)
+            nonlocal mark
+            now = time.perf_counter()
+            _record_parts[name] = _record_parts.get(name, 0.0) + now - mark
+            mark = now
+
         loc = io.Location
         definition = try_(lambda: io.InteractiveObjectDefinition)
         # The game's name for it, in the game's language (e.g. "Incendiary Barrel"): a map exit's where it leads (a
@@ -1062,10 +1132,12 @@ class Collector:
             "y": round(loc.Y),
             "z": round(loc.Z),
         }
+        part("names")
         # a map exit (Borderlands 1's map changers: no name of their own - their level script's destination, as the game
         # names that area: games.py object_destination)
         if (destination := try_(lambda: games.GAME.object_destination(io), "") or "") and (area := level_name(destination)):
             record["exit"] = area
+        part("exit")
         # an air dome's bubble (the Pre-Sequel's): its breathable area and whether it's on (its definition "_On" either
         # way - the name isn't the state)
         if definition is not None and "AirDome_Bubble" in str(definition.Name) and (dome := Collector._dome(io)):
@@ -1086,6 +1158,7 @@ class Collector:
             record.update(plant)
         elif definition is not None and (explosion := try_(lambda: explosion_info(definition), {})):
             record.update(explosion)
+        part("kind")
         # a buff you use (the Pre-Sequel's Moxxtails, BL2's shrines: inspector.buff_info) - not a container, whatever loot
         # list its balance has (the Moxxtails': EpicChestRedLoot, never handed out). The other objects activating a skill
         # (a switch console, the Space Hurps, BL2's whiskey barrel, the raid bosses' ooze / orb...) spawn nothing and have
@@ -1098,13 +1171,17 @@ class Collector:
         lootable = Collector._lootable(io, balance)
         if definition is not None and try_(lambda: buff_info(definition, lootable), False):
             record["buff"] = 1
+            part("buff")
         elif lootable:
+            part("buff")
             record["lootable"] = 1
             if try_(lambda: io.bCanBeUsed[0], 0):
                 record["usable"] = 1  # for the usability hook: usable, then not = opened
             pools, slots, lists = loot_info(io, balance)
+            part("loot")
             if odds := try_(lambda: lootodds.container_odds(io, balance)):
                 record["odds"] = odds  # each configuration's chance, its pools (their entries: the lootpools payload)
+            part("odds")
             if pools:
                 record["loot"] = pools
             if lists:
@@ -1244,14 +1321,21 @@ class Collector:
         all_cinematic = try_(lambda: bool(field(wi.GRI, "bAllInCinematicMode")), False)  # every player in a cutscene
         self._note_boss(wi)
         t_skills = time.perf_counter()
+        for _ in range(min(INFO_REFRESH_PER_TICK, len(self._stale_info))):
+            self._info.pop(self._stale_info.pop(), None)  # (rebuilt when next read; gone ones: just dropped)
         players = []  # player pawns seen this update (the skill reader forgets the others)
         pawns = []
         infos: list[dict[str, Any]] = []  # id, kind, name, level, max health / shield: sent apart, on change
         health = {}
+        # the slow report's breakdown: descriptions built (new pawns - every one after a scan's reset), the players'
+        # part, vitals read through function calls
+        info_s = players_s = 0.0
+        info_n = vitals_n = 0
         pawn = wi.PawnList
         for n in range(MAX_PAWNS):
             if pawn is None:
                 break
+            t_pawn = time.perf_counter()
             try:
                 # Vehicle seats (a turret's gunner seat...) are pawns of their own, at the vehicle: the
                 # vehicle and its passengers are already shown
@@ -1264,7 +1348,11 @@ class Collector:
                 if not get("bDeleteMe") and not get("bIsDead") and not hidden and not self._is_seat(pawn):
                     key = pawn._get_address()
                     new = key not in self._info  # (its description not cached yet: first seen, or since the last scan)
+                    t_info = time.perf_counter()
                     info = self._pawn_info(pawn, me)
+                    if new:
+                        info_s += time.perf_counter() - t_info
+                        info_n += 1
                     is_player = info["k"] in ("me", "player")
                     loc = get("Location")
                     # Driving, a player's properties go wrong (seen: max health = health): the functions
@@ -1288,6 +1376,7 @@ class Collector:
                         hp = self._health.get(key)
                         if hp is None or not stagger:
                             hp = self._vitals(pawn)
+                            vitals_n += 1
                     elif is_player and hp[3] and try_(lambda: get("Controller")) is not None:
                         # a player's shield from the functions: ShieldVar / ShieldMaxVar drop the fraction (57.70 read
                         # 57, the game showed 58 - its log's "vitals check"); ours, or everyone's on the host (a
@@ -1335,6 +1424,8 @@ class Collector:
                     if extra:
                         row.append(extra)
                     pawns.append(row)
+                    if is_player:
+                        players_s += time.perf_counter() - t_pawn
             except Exception as ex:  # noqa: BLE001
                 log_error("pawn", ex)
             pawn = try_(lambda p=pawn: field(p, "NextPawn"))
@@ -1344,6 +1435,8 @@ class Collector:
         pickups = []
         items: dict[str, dict[str, Any]] = {}  # the gear pickups' items (their cards: "items"), by id
         budget = ITEMS_PER_UPDATE
+        pickup_info_s = items_s = 0.0
+        pickup_info_n = 0
         for key, ptr in list(self._pickups.items()):
             p = ptr()
             if p is None:
@@ -1354,13 +1447,20 @@ class Collector:
                 if get("bDeleteMe") or get("bHidden"):
                     continue
                 loc = get("Location")
+                new_pickup = p._get_address() not in self._info
+                t_info = time.perf_counter()
                 pickup = {**self._pickup_info(p), "x": round(loc.X), "y": round(loc.Y), "z": round(loc.Z)}
+                if new_pickup:
+                    pickup_info_s += time.perf_counter() - t_info
+                    pickup_info_n += 1
                 # Gear: its item's record (its card: stats, parts - the page's panel when it's clicked; the backpack's
                 # own, by the item's address: dropped / picked up, the same item) - built a few per update (function
                 # calls: a boss's loot pile over a few updates); its type / element icons' keys on the map marker
                 inv = try_(lambda get=get: get("Inventory"))
                 if inv is not None and self._is_gear(inv):
+                    t_item = time.perf_counter()
                     item, built = try_(lambda inv=inv: ground_item(inv, budget > 0), (None, False))
+                    items_s += time.perf_counter() - t_item
                     budget -= built
                     if item is not None:
                         items[item["i"]] = item
@@ -1388,6 +1488,14 @@ class Collector:
                     self._timings.add("state." + part, ms)
             self._timings.size("pawns", len(pawns))
             self._timings.size("pickups", len(pickups))
+            if DIAGNOSTICS:  # (the finer breakdown: debug only - paths.DIAGNOSTICS)
+                for part, part_s in (("pawns.info", info_s), ("pawns.players", players_s), ("pickups.info", pickup_info_s),
+                                     ("pickups.items", items_s)):
+                    if part_s * 1000 > 1.0:
+                        self._timings.add("state." + part, part_s * 1000)
+                self._timings.size("new pawn infos", info_n)
+                self._timings.size("new pickup infos", pickup_info_n)
+                self._timings.size("vitals calls", vitals_n)
 
     @staticmethod
     def _down_state(pawn: Any) -> str:
@@ -1811,6 +1919,9 @@ class Collector:
         if wi is None or pc is None:
             return
         players = read_players(wi, try_(lambda: games.GAME.local_pawn(pc)), pc)
+        if not players_complete():  # gear cards left to build (a budget per pass): not half a player - soon again
+            self._next_players = time.monotonic() + PLAYERS_RETRY
+            return
         self.hub.publish_records("players", "players", players, {"level": self.level_id})  # (only the fields that changed go out)
 
     # endregion

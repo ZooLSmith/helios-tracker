@@ -11,6 +11,7 @@ from .paths import DATA
 
 # Diagnostics (errors with tracebacks, slow tasks) also go here: the game console can't be copied.
 # Kept across sessions (a crash doesn't lose it) until it grows past LOG_MAX_BYTES.
+# One per game (start_log: helios_tracker_bl2.log...): a dev install is one folder for every game (the junction).
 # HELIOS_TRACKER_LOG overrides the path (tools/offline_check.py: a temp file, not the real log)
 LOG_FILE = Path(os.environ.get("HELIOS_TRACKER_LOG") or DATA / "helios_tracker.log")
 LOG_MAX_BYTES = 1_000_000
@@ -26,8 +27,13 @@ def log(message: str) -> None:
         pass
 
 
-def start_log() -> None:
-    """Called when the mod loads: marks the session, and starts over if the file got big."""
+def start_log(game: str) -> None:
+    """Called when the mod loads, with the game's key (games.GAME.key: "bl2", "tps"...): its own log and crash log
+    (helios_tracker_bl2.log, helios_crash_bl2.log); marks the session, and starts over if the file got big."""
+    global LOG_FILE, CRASH_FILE  # noqa: PLW0603 - (set once per load: the game is known by then)
+    if not os.environ.get("HELIOS_TRACKER_LOG"):
+        LOG_FILE = DATA / f"helios_tracker_{game}.log"
+    CRASH_FILE = LOG_FILE.with_name(f"helios_crash_{game}.log")
     try:
         if LOG_FILE.exists() and LOG_FILE.stat().st_size > LOG_MAX_BYTES:
             LOG_FILE.unlink()
