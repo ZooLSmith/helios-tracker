@@ -246,4 +246,8 @@ says when it was seen.
   always placed as `inicon<N>` (the inventory list's `inventory.selections.inicon1..14`, the mission reward's
   `missions.reward_weap.inicon14`, the vending item of the day's `topLevel_mc.inicon2`), in the menu movie (bl1map
   `item_icon`): frames `WeaponTypeDefinition.ScaleformFrameName` ("repeater"...), items' `WillowInventory.ZippyFrame`
-  ("shield", "grenade", "comm" - a property, no GetZippyFrame: games.py `zippy_frame`).
+  ("shield", "grenade", "comm" - a property, no GetZippyFrame: games.py `zippy_frame`). Behind each, its kind's shape
+  (depth 1, kept from frame to frame: a square behind the weapons - placed with the first frame, "repeater" -, a
+  diamond behind mods / class mods / shields, a burst behind grenades / ammo, a circle, an octagon): not drawn, the
+  user's call - only what the frame shows that no other frame does (drawn as the frames place them, the pistol had
+  its square, the sniper not).

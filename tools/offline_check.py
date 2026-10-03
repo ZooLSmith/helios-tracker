@@ -813,6 +813,16 @@ def check_helios_tracker() -> None:  # noqa: PLR0915
         assert bl1_logo_w == bl1map.ICON_SIZE and bl1_logo_h < bl1_logo_w and any(bl1_logo_px[3::4]), (bl1_logo_w, bl1_logo_h)
         assert bl1map.item_icon(bl1_cooked, "sniper") and bl1map.item_icon(bl1_cooked, "shield") and bl1map.item_icon(bl1_cooked, "comm")
         assert bl1map.item_icon(bl1_cooked, "nope") is None
+        # (its kind's square - placed with the first frame, "repeater", kept by the next ones - not drawn: only the
+        # item's own drawing - the user)
+        bl1_icons_movie = bl1map._menu_movie(bl1_cooked)
+        bl1_icon_clip = next(c for tags in bl1_icons_movie.sprites.values() for code, body in tags if code == 26
+                             for c, _m, n in [bl1map._place2(body)] if n and bl1map.ITEM_ICON.fullmatch(n))
+        assert len(bl1_icons_movie.display_list(bl1_icon_clip, "sniper", carried=True)) == 2, "the square behind it too"
+        assert len(bl1_icons_movie.display_list(bl1_icon_clip, "sniper")) == 1, "(its frame only places the rifle)"
+        bl1_pistol_w, bl1_pistol_h, bl1_pistol_px = bl1map.item_icon(bl1_cooked, "repeater")
+        assert bl1_pistol_px[3] == 0 and bl1_pistol_h < bl1_pistol_w, "the pistol without its square"
+        assert bl1map.item_icon(bl1_cooked, "health"), "its cross: also what the empty frame after it shows"
         bl1_item_png = bl1_work.run_job(json.dumps({"do": "itemicon", "cooked": str(bl1_cooked), "label": "repeater"}))
         assert bl1_item_png[:8] == b"\x89PNG\r\n\x1a\n", bl1_item_png[:16]
         assert bl1map.card_icon(bl1_cooked, bl1_brand_keys, "corazza") is None, "no logo of its own in the movie"

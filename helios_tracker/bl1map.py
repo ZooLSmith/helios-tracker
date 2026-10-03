@@ -8,6 +8,7 @@ one image, placed in the map sprite's px - the page draws it like any map image.
 
 import math
 import re
+from collections import Counter
 import struct
 import threading
 from dataclasses import dataclass
@@ -65,7 +66,7 @@ class _Movie:
                 return sid
         return None
 
-    def display_list(self, sid: int, label: str | None = None) -> list[tuple[int, Affine]]:
+    def display_list(self, sid: int, label: str | None = None, carried: bool = False) -> list[tuple[int, Affine]]:
         """What a sprite's frame `label` places itself (None: its first frame) - (character id, matrix) by depth. Not
         what earlier frames left there: the map sprite's "arid" frame places the markers' templates (objective,
         player...), still there in the frames after - the map tab's code moves them, they aren't the area's art."""
@@ -88,7 +89,7 @@ class _Movie:
                 shown.pop(struct.unpack_from("<H", body)[0], None)
             elif code == 1 and at_label:  # the frame's end
                 break
-        return [shown[d] for d in sorted(own) if d in shown]
+        return [shown[d] for d in sorted(shown if carried else own) if d in shown]
 
     def frame_tags(self, sid: int, label: str) -> list[tuple[int, bytes]]:
         """A sprite's frame's own tags, by its label (case-insensitive) - a label it doesn't have: its first frame, where
@@ -294,7 +295,22 @@ def item_icon(cooked: Path, label: str) -> tuple[int, int, bytes] | None:
                    for cid, _matrix, name in [_place2(body)] if name and ITEM_ICON.fullmatch(name) and cid in movie.sprites), None)
     if sprite is None or not any(code == 43 and _cstr(body, 0)[0].lower() == label.lower() for code, body in movie.sprites[sprite]):
         return None
-    layers = movie.layers(sprite, label)
+    # the item's own drawing: what its frame shows that no other frame does - not its kind's shape behind it (depth
+    # 1, kept from frame to frame: a square behind the weapons, placed with the first, "repeater"; a diamond behind the
+    # mods, class mods, shields; a burst behind the grenades, ammo; a circle, an octagon) - the user: no shape behind
+    # (drawn as the frames place them, the pistol had its square, the sniper not)
+    # (the frames placing something: one placing nothing - "instahealth" - shows the one before's, health's cross)
+    labels = [_cstr(body, 0)[0] for code, body in movie.sprites[sprite] if code == 43]
+    shown_in = Counter(cid for other in labels if movie.display_list(sprite, other)
+                       for cid in {c for c, _m in movie.display_list(sprite, other, carried=True)})
+    layers: list[tuple[Affine, Shape]] = []
+    for cid, matrix in movie.display_list(sprite, label, carried=True):
+        if shown_in[cid] > 1:
+            continue
+        if cid in movie.shapes:
+            layers.append((matrix, movie.shape(cid)))
+        elif cid in movie.sprites:
+            layers += movie.layers(cid, None, matrix)
     return _icon(layers) if layers else None
 
 

@@ -25,7 +25,7 @@ from . import paths
 
 HERE = Path(__file__).parent
 ASSETS = paths.DATA / ".cache" / "assets"
-VERSION = 1  # the rendering's: another number = every asset decoded again
+VERSION = 2  # the rendering's: another number = every asset decoded again (2: BL1's item icons with their back shape)
 JOB_TIMEOUT = 300.0  # s a job may take in the worker (the first scan: ~5 s)
 
 _lock = threading.Lock()
