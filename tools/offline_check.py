@@ -969,7 +969,7 @@ def check_helios_tracker() -> None:  # noqa: PLR0915
     def pawn(addr: int, name: str, x: float, y: float, nxt: object = None, enemy: bool = False) -> object:
         return ns(
             _get_address=lambda: addr, Name=name, Class=ns(Name="WillowAIPawn", _get_address=lambda: 0xC100), bDeleteMe=False,
-            bIsDead=False,
+            bIsDead=False, bHidden=False,
             Location=ns(X=x, Y=y, Z=3690.0), Rotation=ns(Yaw=16384), GetMaxHealth=lambda: 100.0,
             GetHealth=lambda: 40.0, IsEnemy=lambda other: enemy, GetExpLevel=lambda: 12,
             GetShieldStrength=lambda: 25.0, GetMaxShieldStrength=lambda: 50.0 if enemy else 0.0,
@@ -981,7 +981,10 @@ def check_helios_tracker() -> None:  # noqa: PLR0915
             NextPawn=nxt, PlayerReplicationInfo=None,
         )
 
-    seat = pawn(0x210, "seat", 10000.0, 3000.0)  # a vehicle's turret seat: not shown
+    # hidden (bHidden): not in the game's world - BL1's bus stop Claptrap, parked for a later scene: not shown
+    hidden_npc = pawn(0x220, "claptrap", 9000.0, 3000.0)
+    hidden_npc.bHidden = True
+    seat = pawn(0x210, "seat", 10000.0, 3000.0, nxt=hidden_npc)  # a vehicle's turret seat: not shown
     seat.Class = ns(Name="WillowWeaponPawn", SuperField=None, _get_address=lambda: 0xC200)  # (seats: by class address)
     enemy = pawn(0x200, "bullymong", 10000.0, 3000.0, nxt=seat, enemy=True)
     me = pawn(0x100, "me", 10635.4, 5702.0, nxt=enemy)
@@ -1211,6 +1214,7 @@ def check_helios_tracker() -> None:  # noqa: PLR0915
     assert state["pawns"][0][:4] == ["100", 10635, 5702, 3690], ("[id, x, y, z]", state["pawns"][0])
     assert json.dumps(state["pawns"]).count("100.0") == 0, ("health: no .0", state["pawns"])
     kinds = {p["n"]: p["k"] for p in state_pawns}
+    assert "Claptrap" not in kinds, ("a hidden pawn: not shown", kinds)
     assert all(("r" in p) == (p["k"] in ("me", "player")) for p in state_pawns), ("a heading: the players' only", state_pawns)
     assert not any(p.get("raw") for p in state_pawns), state_pawns  # both have game names
     assert all(p.get("l") == 12 for p in state_pawns), state_pawns

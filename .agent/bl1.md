@@ -150,8 +150,11 @@ says when it was seen.
   - an `InteractiveNPCDefinition`, its `DisplayName` empty even at run time (and the bounty boards'): the game has no
   name on them ("Dr Zed ?" is the rule's guess). The page's NPC layer, drawn as the NPC pawns' ring (model.js
   objectCategory: their class). Claptrap's "talk" object's definition (`gd_ClapTrap.NPC.NPC_ClapTrapFirestone`) has
-  one, "Claptrap"; its pawns (4 in Arid: `gd_ClapTrap.Character.Pawn_NPCClapTrap`) none. Firestone's two pawns: one
-  not seen in game (`WillowAIPawn_10`, a matinee group 'Claptrap_BB_04', bHidden False) - `probe_bl1_hidden.py`.
+  one, "Claptrap"; its pawns (4 in Arid: `gd_ClapTrap.Character.Pawn_NPCClapTrap`) none. The one not seen in game
+  (the user: near X -5231, Y 44076): the bus stop's, `Arid_BusStop...WillowAIPawn_9`, **bHidden True** - parked for a
+  later scene. The collector now skips hidden pawns, every game's (not a player: hidden while respawning). (Firestone's
+  two, both seen: the one following the player - a matinee group, on the navigation network - and a settler parked up
+  on a mesh with no collision, Z 744: `probe_bl1_hidden.txt`.)
 - **Chests**: their balances `gd_Balance_Treasure.ChestGrades.ObjectGrade_TreasureChest` (3 grades) / `_Awesome` /
   `_Custom` / `_Custom_Rider`, `ObjectGrade_StrongBox*`, `ObjectGrade_Crate_Metal*`, lootables (Cashbox, Dumpster,
   Toilet...); no DisplayName stored in their grades. The big red chest: `InteractiveObj_TreasureChest` (up to 6 items:

@@ -1243,7 +1243,11 @@ class Collector:
                 # vehicle and its passengers are already shown
                 # (reader(): the per-update reads through properties looked up once - ~10x cheaper)
                 get = reader(pawn)
-                if not get("bDeleteMe") and not get("bIsDead") and not self._is_seat(pawn):
+                # Hidden (bHidden): not in the game's world - BL1's bus stop Claptrap, parked hidden for a later scene
+                # (tools/probes/probe_bl1_npc.txt); as the pickups' and objects' - but a player: hidden while
+                # respawning, shown where they'll come back (_respawn_state)
+                hidden = get("bHidden") and self._pawn_info(pawn, me)["k"] not in ("me", "player")
+                if not get("bDeleteMe") and not get("bIsDead") and not hidden and not self._is_seat(pawn):
                     key = pawn._get_address()
                     new = key not in self._info  # (its description not cached yet: first seen, or since the last scan)
                     info = self._pawn_info(pawn, me)
