@@ -286,3 +286,13 @@ says when it was seen.
 - **Barrels' element icons**: a damage type's icon is its element's mark (`damage_type_frame`: "exp0") - not
   learned from the weapons (BL2's `.cache/element_frames.json`: a BL1 weapon's "fire1" had been saved as Incindiary's,
   the BL2 barrels' table - the feature `learnedelements`, not BL1's).
+- **Missions not picked up** (probe_bl1_tracker.txt; games.py `mission_entries`, `_NotPickedUp`): the log has only
+  the missions picked up, the tracker's MissionList only the active one (its 166 MissionObservers: the level's
+  mission objects) - but every MissionDefinition is loaded (218: base game and the four DLCs). The log reads the
+  player's entries then every other one, not started (BL2's log lists the whole playthrough so): dependencies,
+  the mission tree, "available" as BL2's; its giver the game's `MissionGiver` text. Offered (`kick`): the game's
+  `GetMissionEligibility` (16 eligible of 205: T.K. Has More Work, Keep Your Insides Inside, each DLC's first...).
+  The "!" stays the game's word alone (mission_offered), not the log's dependencies.
+- **A mission's area** (games.py `mission_home`): no TravelStation (all fell in "other" - the user) - its waypoints'
+  level: the turn-in's (`TurnInWaypointDefinition.PersistentLevelName`, usually its giver: T.K. Has More Work's
+  WP_Al), else the target's, named by the level lists (as the map's title). `GameStageRegion`: a technical name only.

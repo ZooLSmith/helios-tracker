@@ -1631,8 +1631,9 @@ class Collector:
                 for mission, begins, ends in directives:
                     mid = mission_id(mission)
                     state = states.get(mid, "")
-                    if begins and state != "end" and try_(lambda m=mission, s=state, i=mid: games.GAME.mission_offered(pc, m, s, i in logged), False):
-                        state = "begin"  # (each game's: games.py)
+                    if state != "end":  # can be picked up now: each game's word (games.py mission_offered - BL1's: the game's eligibility)
+                        offered = try_(lambda m=mission, s=state, i=mid: games.GAME.mission_offered(pc, m, s, i in logged), False)
+                        state = "begin" if begins and offered else ""
                     if ((state == "begin" and begins) or (state == "end" and ends)) and all(e["i"] != mid for e in listed):
                         entry = {"i": mid, **named(try_(lambda m=mission: str(m.MissionName), ""), def_name(mission))}
                         if state == "end":

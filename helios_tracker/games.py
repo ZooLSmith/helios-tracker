@@ -120,6 +120,13 @@ class Profile:
         opened = any(state >> n & 1 for n in opened_bits) if opened_bits else state == 7
         return opened and (client or not try_(lambda: io.bCanBeUsed[0], 1))
 
+    def mission_home(self, mdef: Any) -> dict[str, str] | None:
+        """A mission's area for the page ({"a": its name as the game shows it, "map": its map}): where its giver is -
+        its TravelStation (missions.station: StationDisplayName, StationLevelName)."""
+        from .missions import station  # noqa: PLC0415
+
+        return station(mdef.TravelStation)
+
     def object_directives(self, io: Any) -> list[Any]:
         """An interactive object's missions it gives / takes back ({MissionDefinition, bBeginsMission, bEndsMission}):
         its Directives' (a MissionDirectivesDefinition - the bounty board, tools/probes/probe_bounty.txt)."""
@@ -318,6 +325,7 @@ class Borderlands1(Profile):
     def __init__(self) -> None:
         self._branch_names: dict[int, dict[str, str]] = {}  # CharacterName -> its branches' names (branch_names)
         self._skill_clips: dict[int, tuple[str, str]] = {}  # CharacterName -> (the skill clip, its frame) (_skill_clip)
+        self._missions: list[Any] = []  # every MissionDefinition loaded (_mission_definitions)
 
     def map_name(self, wi: Any) -> str:
         # The world is "Loader" in every area (tools/probes/probe_bl1.txt): the area is streamed in, the first of its
@@ -356,15 +364,28 @@ class Borderlands1(Profile):
         return out
 
     def mission_entries(self, tracker: Any) -> Any:
-        # The tracker's MissionList is bare definitions (its active ones): the player's own, per playthrough -
+        # The tracker's MissionList is bare definitions (its active one): the player's own, per playthrough -
         # WillowPlayerController.MissionPlaythroughData[] = MissionPlaythroughInfo {PlayThroughNumber, ActiveMission,
         # MissionList: [{MissionDef, Status, Objectives: [{StatId, CurrentAmount}]}]} - the one of the playthrough
         # played (WillowGameReplicationInfo.HostCurrentPlaythrough: the array's entries all said PlayThroughNumber 0 -
-        # tools/probes/probe_bl1_missions.txt). Only the missions the player has (no not started ones).
+        # tools/probes/probe_bl1_missions.txt). Only the missions the player has picked up: then every other mission
+        # the game has loaded, not started (BL2's log lists the whole playthrough so) - every MissionDefinition is
+        # loaded, the base game's and the DLCs' (tools/probes/probe_bl1_tracker.txt: 218), each as a _NotPickedUp.
         from mods_base import ENGINE, get_pc  # noqa: PLC0415
 
+        pc = get_pc()
         playthrough = int(ENGINE.GetCurrentWorldInfo().GRI.HostCurrentPlaythrough)
-        return get_pc().MissionPlaythroughData[playthrough].MissionList
+        log = list(pc.MissionPlaythroughData[playthrough].MissionList)
+        picked = {e.MissionDef._get_address() for e in log if e.MissionDef is not None}
+        return log + [_NotPickedUp(d, pc) for d in self._mission_definitions() if d._get_address() not in picked]
+
+    def _mission_definitions(self) -> list[Any]:
+        """Every MissionDefinition loaded - a find_all (it walks every object): once, kept (static game data)."""
+        import unrealsdk  # noqa: PLC0415
+
+        if not self._missions:
+            self._missions = [d for d in unrealsdk.find_all("MissionDefinition", exact=False) if not d.Name.startswith("Default__")]
+        return self._missions
 
     def mission_objectives(self, mdef: Any) -> list[tuple[int, Any]]:
         # Objectives[] = MissionObjectiveData structs {StatId, ObjectiveCount, ProgressMessage}: keyed by their index
@@ -387,6 +408,20 @@ class Borderlands1(Profile):
         # = no longer usable (tools/probes/probe_bl1_looted.txt: the looted containers False, a toilet not searched
         # yet True). (A co-op client's: not seen.)
         return not bool(io.bCanBeUsed)
+
+    def mission_home(self, mdef: Any) -> dict[str, str] | None:
+        # No TravelStation (every mission fell in the page's "other" - the user): its waypoints' level - where it's
+        # handed in (TurnInWaypointDefinition: usually its giver - T.K. Has More Work's WP_Al), else where it's done
+        # (TargetWaypointDefinition) - their PersistentLevelName, named as the map's title is (the level lists' text:
+        # collector.level_name). Its GameStageRegion has no name of its own (gd_GameStages.Arid.Arid__A). None: no
+        # waypoint, or a level no list knows.
+        from .collector import level_name  # noqa: PLC0415
+
+        for waypoint in (mdef.TurnInWaypointDefinition, mdef.TargetWaypointDefinition):
+            level = str(waypoint.PersistentLevelName) if waypoint is not None else ""
+            if level and level.lower() != "none" and (name := level_name(level)):
+                return {"a": name, "map": level}
+        return None
 
     def object_directives(self, io: Any) -> list[Any]:
         # On the object itself: WillowInteractiveObject.MissionDirectives (tools/probes/probe_bl1_givers.txt: the bounty
@@ -665,6 +700,25 @@ class Borderlands1(Profile):
 
     def hide_message(self) -> None:
         pass
+
+
+class _NotPickedUp:
+    """A Borderlands 1 mission not in the player's log, read as a log entry not started (missions._live: Status,
+    bHeardKickoff, no progress) - Borderlands1.mission_entries. Offered (the page's "kick", BL2's bHeardKickoff: its
+    giver offered it): the game's word - it can be picked up now, the controller's GetMissionEligibility ME_Eligible
+    (tools/probes/probe_bl1_tracker.txt: 16 of the 205 not picked up - T.K. Has More Work, each DLC's first...); read
+    when asked (the log's full pass: not started ones)."""
+
+    Status = "MS_NotStarted"
+    Objectives = ()
+
+    def __init__(self, mission: Any, pc: Any) -> None:
+        self.MissionDef = mission
+        self._pc = pc
+
+    @property
+    def bHeardKickoff(self) -> bool:  # noqa: N802 - (the log entry's field it stands in for)
+        return getattr(self._pc.GetMissionEligibility(self.MissionDef), "name", "") == "ME_Eligible"
 
 
 def make_profile(name: str) -> Profile:

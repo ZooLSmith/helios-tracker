@@ -1325,6 +1325,21 @@ def check_helios_tracker() -> None:  # noqa: PLR0915
     assert not profile_bl1.mission_offered(bl1_board_pc, "tk", "", True), "eligible but picked up already"
     assert not profile_bl1.mission_offered(bl1_board_pc, "other", "", False)
     assert profile_bl2.mission_offered(None, "m", "begin", False) and not profile_bl2.mission_offered(None, "m", "", False)
+    # its missions not picked up: the log's entries, then every other mission loaded, not started - offered: eligible
+    # a mission's area: its turn-in waypoint's level (else its target's), named as the map's title is
+    real_level_name = sys.modules["helios_tracker.collector"].level_name
+    sys.modules["helios_tracker.collector"].level_name = lambda m: {"Arid_P": "Arid Badlands"}.get(m, "")
+    try:
+        assert profile_bl1.mission_home(ns(TurnInWaypointDefinition=ns(PersistentLevelName="Arid_P"), TargetWaypointDefinition=None)) == {
+            "a": "Arid Badlands", "map": "Arid_P"}
+        assert profile_bl1.mission_home(ns(TurnInWaypointDefinition=ns(PersistentLevelName="None"),
+                                           TargetWaypointDefinition=ns(PersistentLevelName="Arid_P")))["a"] == "Arid Badlands"
+        assert profile_bl1.mission_home(ns(TurnInWaypointDefinition=None, TargetWaypointDefinition=ns(PersistentLevelName="Nowhere_P"))) is None
+    finally:
+        sys.modules["helios_tracker.collector"].level_name = real_level_name
+    bl1_offered = game_profiles._NotPickedUp("tk", bl1_board_pc)
+    assert profile_bl1.mission_status(bl1_offered) == "NotStarted" and profile_bl1.mission_progress(bl1_offered) == ()
+    assert bl1_offered.bHeardKickoff and not game_profiles._NotPickedUp("other", bl1_board_pc).bHeardKickoff
     assert profile_bl2.element_frame(ns(ElementalFrame="shock"), "weapon") == "shock" and profile_bl2.element_frame(ns(ElementalFrame="None"), "weapon") == ""
     assert profile_bl2.zippy_frame(ns(GetZippyFrame=lambda: "comm")) == "comm"
     assert profile_bl1.item_card_level(bl1_gun, 6) == 4 and profile_bl2.item_card_level(bl1_gun, 6) == 6
