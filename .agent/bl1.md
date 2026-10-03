@@ -154,7 +154,9 @@ says when it was seen.
   (the user: near X -5231, Y 44076): the bus stop's, `Arid_BusStop...WillowAIPawn_9`, **bHidden True** - parked for a
   later scene. The collector now skips hidden pawns, every game's (not a player: hidden while respawning). (Firestone's
   two, both seen: the one following the player - a matinee group, on the navigation network - and a settler parked up
-  on a mesh with no collision, Z 744: `probe_bl1_hidden.txt`.)
+  on a mesh with no collision, Z 744: `probe_bl1_hidden.txt`.) That settler is a **green Claptrap inside a wall** (the
+  user, with noclip: drawn, its LastRenderTime fresh; its own body material) - a leftover in the level, really there:
+  the map shows it, rightly.
 - **Chests**: their balances `gd_Balance_Treasure.ChestGrades.ObjectGrade_TreasureChest` (3 grades) / `_Awesome` /
   `_Custom` / `_Custom_Rider`, `ObjectGrade_StrongBox*`, `ObjectGrade_Crate_Metal*`, lootables (Cashbox, Dumpster,
   Toilet...); no DisplayName stored in their grades. The big red chest: `InteractiveObj_TreasureChest` (up to 6 items:
