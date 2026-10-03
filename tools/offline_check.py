@@ -787,6 +787,11 @@ def check_helios_tracker() -> None:  # noqa: PLR0915
         (bl1_bunker_img,) = bl1map.load_map(bl1_cooked, "arid_bunker")  # (gradient fills)
         assert bl1_bunker_img.width == 1504, bl1_bunker_img.width
         assert bl1map.load_map(bl1_cooked, "no_such_frame") == []
+        # a DLC area's map: its anchor's DLCMap, a movie of its own (the Underdome lobby's: dlc2_maps.dlcmap_lobby)
+        if (bl1_cooked / "DLC" / "DLC2").is_dir():
+            (bl1_lobby_img,) = bl1map.load_map(bl1_cooked, "dlcmap1", "dlc2_maps.dlcmap_lobby")
+            assert bl1_lobby_img.width > 100 and bl1_map_alpha(bl1_lobby_img) > 0.1, (bl1_lobby_img.width, bl1_lobby_img.height)
+            assert bl1map.load_map(bl1_cooked, "dlcmap1", "nope_maps.dlcmap_nope") == []
         # the skill menu's branch names (games.Borderlands1.branch_names): the "skills" clip's character frame's texts
         bl1_hunter = bl1map.clip_texts(bl1_cooked, "skills", "mordecai")
         assert bl1_hunter["tree1.text"] == "$<StringAliasMap:skills_hunter_branch1>" and bl1_hunter["tree3.text"].endswith("hunter_branch3>"), bl1_hunter

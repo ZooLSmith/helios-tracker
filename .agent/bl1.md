@@ -56,8 +56,11 @@ says when it was seen.
   (the walkable area's silhouette - Arid: 780 x 352 movie px, 523 edge runs; New Haven 545 x 503 + a `#82adca` line).
   Rasterized, its edges are the texture's painted lines (magenta borders, yellow buildings, the cyan road): the
   textures are the top-down renders the shapes were traced on, at a low opacity at most. The "arid" frame also places
-  the shared marker symbols (objective, rstation, poi, transition, player, buddy). The DLCs: `dlcmap1` here, and
-  their own `dlcN_maps.upk` / `dlcN_TacticalMaps.upk` (not looked at).
+  the shared marker symbols (objective, rstation, poi, transition, player, buddy). The DLCs: their anchors'
+  `MapFrame` is "dlcmap1" (the menu's slot) and their `DLCMap` a movie of its own (`dlc2_maps.dlcmap_lobby`, in
+  `DLC/DLCn/...`): its root places the area's clip ("themap") - drawn the same way (bl1map `_render_dlc`). The
+  Underdome lobby's anchor is turned 179.5 degrees with DrawScale3D -7.0: a half turn = the scale's signs flipped
+  (levelmap.landmark), upright. Its placement on the page: the base game's maths - right, the right way up (the user).
 - **Map textures**: `Packages/Environments/Env_TacticalMaps.upk` (27 Texture2D, DXT1, 1024 x 512 / 1024, the top mip
   inline as an LZO chunk - bulk flag 0x10).
 - **World -> map**: the map tab's code, `WillowGFxHelperMap` (WillowGame.u): `Anchor` (the level's anchor),

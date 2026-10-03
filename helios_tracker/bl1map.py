@@ -39,15 +39,18 @@ class _Movie:
         self.shapes: dict[int, tuple[int, bytes]] = {}
         self.sprites: dict[int, list[tuple[int, bytes]]] = {}
         self.root_named: dict[str, int] = {}  # the movie's own placements with a name: name -> character id
+        self.root: list[tuple[int, Affine]] = []  # what the movie itself places (its first frame), by depth order
         for code, body in _movie_tags(raw):
             if code in SHAPE_CODES:
                 self.shapes[struct.unpack_from("<H", body)[0]] = (code, body)
             elif code == 39:  # DefineSprite: id, frame count, its tags
                 self.sprites[struct.unpack_from("<H", body)[0]] = list(_tags(body, 4))
             elif code == 26:
-                cid, _matrix, name = _place2(body)
+                cid, matrix, name = _place2(body)
                 if name and cid is not None:
                     self.root_named.setdefault(name, cid)
+                if cid is not None:
+                    self.root.append((cid, matrix or IDENTITY))
         self._parsed: dict[int, Shape] = {}
 
     def shape(self, cid: int) -> Shape:
@@ -427,6 +430,7 @@ class Anchor:
     scale_y: float
     texture_x: int  # TextureSizeX / Y: the texture the shape was traced on
     texture_y: int
+    dlc_map: str = ""  # DLCMap: a DLC area's own map movie ("dlc2_maps.dlcmap_lobby" - its MapFrame "dlcmap1", the menu's slot)
 
 
 def placement(anchor: Anchor, clip: tuple[float, float]) -> tuple[list[float], float]:
@@ -450,19 +454,40 @@ _rendered: dict[tuple[str, str, float], list[MapImage]] = {}  # (cooked, frame, 
 KEEP_RENDERED = 4
 
 
-def load_map(cooked: Path, map_frame: str) -> list[MapImage]:
+def load_map(cooked: Path, map_frame: str, dlc_map: str = "") -> list[MapImage]:
     """The level's map (its anchor's MapFrame) as one image, its bounds in the map sprite's px. [] when the menu movie
     has no such frame (a DLC's map: its own movie, not read yet)."""
-    key = (str(cooked), map_frame.lower(), (cooked / MENU_PACKAGE).stat().st_mtime)
+    key = (str(cooked), (dlc_map or map_frame).lower(), (cooked / MENU_PACKAGE).stat().st_mtime)
     with _lock:
         if key in _rendered:
             return _rendered[key]
-    images = _render(cooked, map_frame)
+    images = _render_dlc(cooked, dlc_map) if dlc_map else _render(cooked, map_frame)
     with _lock:
         _rendered[key] = images
         while len(_rendered) > KEEP_RENDERED:
             del _rendered[next(iter(_rendered))]
     return images
+
+
+def _render_dlc(cooked: Path, dlc_map: str) -> list[MapImage]:
+    """A DLC area's map: its anchor's DLCMap, a movie of its own in the DLC's package ("dlc2_maps.dlcmap_lobby": its
+    root places the area's clip, "themap" - the status menu loads it in its "dlcmap1" slot, the anchor's MapFrame) -
+    what its root places, drawn like a base area's frame. [] if its package isn't found."""
+    package, _, name = dlc_map.partition(".")
+    path = next((cooked / "DLC").rglob(f"{package}.upk"), None) if (cooked / "DLC").is_dir() else None
+    if path is None or not name:
+        return []
+    movie = _movie(path, name)
+    layers: list[tuple[Affine, Shape]] = []
+    for cid, matrix in movie.root:
+        if cid in movie.shapes:
+            layers.append((matrix, movie.shape(cid)))
+        elif cid in movie.sprites:
+            layers += movie.layers(cid, None, matrix)
+    if not layers:
+        return []
+    w, h, bgra, bounds = render(layers, SCALE)
+    return [MapImage(name, "PF_A8R8G8B8", w, h, bgra, bounds)]
 
 
 def _render(cooked: Path, map_frame: str) -> list[MapImage]:

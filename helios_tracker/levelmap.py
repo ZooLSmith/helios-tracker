@@ -126,17 +126,24 @@ def landmark(wi: Any, map_name: str) -> MapSource | None:
         log(f"no map for {map_name}: no LevelLandmarkAnchor in it")
         return None
     scale = anchor.DrawScale
-    numbers = bl1map.Anchor(str(anchor.MapFrame), anchor.Location.X, anchor.Location.Y, anchor.Rotation.Yaw,
-                            scale * anchor.DrawScale3D.X, scale * anchor.DrawScale3D.Y,
-                            anchor.TextureSizeX, anchor.TextureSizeY)
-    if abs(numbers.yaw) > 182:  # (1 degree: the page's map doesn't turn - bl1map.placement)
-        log(f"map anchor of {map_name} turned {numbers.yaw * 360 / 65536:.1f} degrees: its map placed unturned")
+    yaw = int(anchor.Rotation.Yaw)
+    # a half turn: the texture's quad turned 180 degrees = its scale's two signs flipped (the Underdome lobby's anchor:
+    # 179.5 degrees, DrawScale3D -7.0 - upright, as the game draws it); other turns: placed unturned (the page's map
+    # doesn't turn - bl1map.placement)
+    half_turn = abs(abs(yaw % 65536 - 32768)) <= 182
+    flip = -1.0 if half_turn else 1.0
+    dlc_map = anchor.DLCMap
+    numbers = bl1map.Anchor(str(anchor.MapFrame), anchor.Location.X, anchor.Location.Y, yaw,
+                            flip * scale * anchor.DrawScale3D.X, flip * scale * anchor.DrawScale3D.Y,
+                            anchor.TextureSizeX, anchor.TextureSizeY, dlc_map._path_name() if dlc_map is not None else "")
+    if not half_turn and abs(((yaw + 32768) % 65536) - 32768) > 182:  # (1 degree)
+        log(f"map anchor of {map_name} turned {yaw * 360 / 65536:.1f} degrees: its map placed unturned")
     cooked = gamedir.cooked_dir()
 
     def load() -> MapResult:
         if cooked is None:
             raise FileNotFoundError("couldn't find the game's WillowGame/CookedPC")
-        images = bl1map.load_map(cooked, numbers.frame)
+        images = bl1map.load_map(cooked, numbers.frame, numbers.dlc_map)  # (a DLC area's: its own movie)
         if not images:
             return MapResult([])
         x0, x1, y0, y1 = images[0].bounds
