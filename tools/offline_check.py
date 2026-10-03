@@ -805,6 +805,21 @@ def check_helios_tracker() -> None:  # noqa: PLR0915
                                                     "parts": ["skills", "lilith", "icon24", "on", "off"]}))
         assert bl1_icon_png[:8] == b"\x89PNG\r\n\x1a\n", bl1_icon_png[:16]
         assert bl1map.MENU_ICON.fullmatch("menu.skills.mordecai.icon17.on.off") and not bl1map.MENU_ICON.fullmatch("menu.a.b")
+        # its item card icons (games.Borderlands1.card_icon_png): the card movie's sprite holding a kind's keys - the
+        # manufacturers' logos; the type's: the menus' item icon clip ("inicon": weapon types and items' ZippyFrame)
+        bl1_brand_keys = ["anshin", "atlas", "corazza", "dahl", "eridan", "gearbox", "hyperion", "jakobs", "maliwan",
+                          "pangolin", "s_and_s", "tediore", "torgue", "vladof"]
+        bl1_logo_w, bl1_logo_h, bl1_logo_px = bl1map.card_icon(bl1_cooked, bl1_brand_keys, "jakobs")
+        assert bl1_logo_w == bl1map.ICON_SIZE and bl1_logo_h < bl1_logo_w and any(bl1_logo_px[3::4]), (bl1_logo_w, bl1_logo_h)
+        assert bl1map.item_icon(bl1_cooked, "sniper") and bl1map.item_icon(bl1_cooked, "shield") and bl1map.item_icon(bl1_cooked, "comm")
+        assert bl1map.item_icon(bl1_cooked, "nope") is None
+        bl1_item_png = bl1_work.run_job(json.dumps({"do": "itemicon", "cooked": str(bl1_cooked), "label": "repeater"}))
+        assert bl1_item_png[:8] == b"\x89PNG\r\n\x1a\n", bl1_item_png[:16]
+        assert bl1map.card_icon(bl1_cooked, bl1_brand_keys, "corazza") is None, "no logo of its own in the movie"
+        assert bl1map.card_icon(bl1_cooked, ["nope"], "jakobs") is None
+        bl1_logo_png = bl1_work.run_job(json.dumps({"do": "cardicon", "cooked": str(bl1_cooked), "keys": bl1_brand_keys,
+                                                    "label": "s_and_s"}))
+        assert bl1_logo_png[:8] == b"\x89PNG\r\n\x1a\n", bl1_logo_png[:16]
         print(f"  BL1: packages (584), the arena's map anchor, its map rendered {bl1_arena_img.width} x {bl1_arena_img.height}")
     # A DLC map: its package is under DLC/<code name>/{Lic,Compat}/Content (gamedir.package_path)
     from helios_tracker import gamedir  # noqa: PLC0415
@@ -1256,6 +1271,8 @@ def check_helios_tracker() -> None:  # noqa: PLR0915
     assert profile_bl1.action_skill_locked(bl1_ctrl), "Bloodwing at Grade 0: locked"
     # BL1's item cards show the level the item needs (probe_bl1_levels: ExpLevel 6, its card 4), BL2's its level
     bl1_gun = ns(GetControllerPlayerExpLevelRequiredToUse=lambda c: 4)
+    assert profile_bl1.zippy_frame(ns(ZippyFrame="shield")) == "shield", "BL1's card type frame: a property"
+    assert profile_bl2.zippy_frame(ns(GetZippyFrame=lambda: "comm")) == "comm"
     assert profile_bl1.item_card_level(bl1_gun, 6) == 4 and profile_bl2.item_card_level(bl1_gun, 6) == 6
     bl1_player = {"local": True}
     sys.modules["helios_tracker.inspector"]._skills_from_player_skills(bl1_ctrl, bl1_player, {})

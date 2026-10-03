@@ -237,3 +237,13 @@ says when it was seen.
   has frames per element. Rendered with swfshape - only what the "on" and "off" frames both place: the drawing (each state has its own
   tile under it, "on"'s notched at the bottom right for the rank - the user: "the background is strange"). `SkillDefinition.ScaleformFrameName`
   is the HUD's popup icons only (GfxHUD.upk sprite 147, 19 skills).
+- **Card icons** (games.py `card_icon_png`, bl1map `card_icon`, /cardicon/<kind>/<key>.png as BL2's): no files scan -
+  the item card's movie (inworld_ui.upk `weapon_card.weapon_card`), vector sprites, a frame per key: the
+  manufacturers' (`FlashLabelName`: "jakobs", "s_and_s"...; Corazza has no frame), its "zippy" (a Claptrap holding
+  the gun / item - not used: the user wants the item's icon), the elements' per tech level ("fire0".."shock4": not
+  read yet), grenade types, com deck classes. The sprite: the one whose labels hold the most of the kind's keys, then
+  the fewest others. The type's icon: the item's silhouette - the clip the game's scripts send to an item's frame,
+  always placed as `inicon<N>` (the inventory list's `inventory.selections.inicon1..14`, the mission reward's
+  `missions.reward_weap.inicon14`, the vending item of the day's `topLevel_mc.inicon2`), in the menu movie (bl1map
+  `item_icon`): frames `WeaponTypeDefinition.ScaleformFrameName` ("repeater"...), items' `WillowInventory.ZippyFrame`
+  ("shield", "grenade", "comm" - a property, no GetZippyFrame: games.py `zippy_frame`).

@@ -102,6 +102,24 @@ class Profile:
         """The level an item's card shows, from its level (ExpLevel / GetExpLevel()): BL2's, as is."""
         return level
 
+    def zippy_frame(self, inv: Any) -> str:
+        """An item's card type frame ("Artifact", "comm"...): IItemCardable.GetZippyFrame() (a call -
+        tools/probes/probe_zippy.txt)."""
+        return str(inv.GetZippyFrame())
+
+    def card_icon_png(self, kind: str, key: str) -> bytes | None:
+        """An item card icon (/cardicon/<kind>/<key>.png) as a PNG, or None: the game's UI movies' (gamecards.py, from
+        the files scan). The server's threads: no SDK."""
+        from . import gamecards  # noqa: PLC0415
+
+        return gamecards.card_png(kind, key)
+
+    def card_icons_ready(self) -> bool:
+        """Whether card_icon_png can find icons (the page asks only then): the scan done, the keys known."""
+        from . import gamecards  # noqa: PLC0415
+
+        return gamecards.ready()
+
     def selling_price(self, machine: Any, inv: Any, pc: Any) -> int:
         """What a vending machine asks for one of an item (the price its menu shows): GetSellingPriceForInventory(item,
         controller, quantity) - scaled to the player."""
@@ -223,6 +241,7 @@ BL1_BEHAVIOR_ARRAYS = ("OnSpawn", "OnBehaviorSetEnabled", "OnBehaviorSetDisabled
                        "OnTakeDamage", "OnKilled")
 BL1_REACTION_ARRAYS = ("CustomEvents", "TimerEvents", "CounterEvents")
 BL1_EQUIP_KINDS = {"EQUIPLOC_Shield": "shield", "EQUIPLOC_MOD": "grenade", "EQUIPLOC_Deck": "classmod"}  # (com decks)
+BL1_CARD_KINDS = ("manufacturer", "type")  # its card icons read (Borderlands1.card_icon_png)
 # a tree branch -> the skill clip's text field naming it: tree1..3 sit under treeLeft / treeCenter / treeRight (the
 # skill clip's placements, x 21.75 / 199.75 / 378.75 against 17.2 / 195.4 / 339.2 - its movie, offline)
 BL1_BRANCH_TEXTS = {"SKILLBRANCH_Left": "tree1.text", "SKILLBRANCH_Middle": "tree2.text", "SKILLBRANCH_Right": "tree3.text"}
@@ -317,6 +336,30 @@ class Borderlands1(Profile):
 
     def mission_number(self, mdef: Any) -> int:
         return int(mdef.PlotMissionNumber)
+
+    def zippy_frame(self, inv: Any) -> str:
+        # No GetZippyFrame: a property, WillowInventory.ZippyFrame (a name - Engine.u, offline)
+        return str(inv.ZippyFrame)
+
+    def card_icon_png(self, kind: str, key: str) -> bytes | None:
+        # No files scan (its packages: version 584): its movies' sprites, drawn - the manufacturers' from its card's
+        # movie (bl1map.card_icon), the type's: the item's icon, the menus' (bl1map.item_icon - not its card's
+        # "zippy" art, a Claptrap holding it: the user); its elements' (frames "fire0".."shock4": the element and its
+        # tech level, x2 / x4 drawn) not read yet
+        from . import bl1map, gamecards, gamedir  # noqa: PLC0415
+
+        cooked = gamedir.cooked_dir()
+        if kind not in BL1_CARD_KINDS or cooked is None:
+            return None
+        if kind == "type":
+            return bl1map.item_icon_png(cooked, key)
+        return bl1map.card_icon_png(cooked, gamecards.keys(kind), key)
+
+    def card_icons_ready(self) -> bool:
+        # (the movie read on demand: once the keys are known - the first players' read)
+        from . import gamecards  # noqa: PLC0415
+
+        return all(gamecards.keys(kind) for kind in BL1_CARD_KINDS)
 
     def item_card_level(self, inv: Any, level: int) -> int:
         # Its card shows the level the item needs, not its ExpLevel (the user: weapons of ExpLevel 6, their cards 4 -

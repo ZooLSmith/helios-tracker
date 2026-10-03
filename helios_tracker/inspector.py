@@ -98,7 +98,7 @@ def _kind(inv: Any) -> str:
 def card_keys(inv: Any, kind: str | None = None) -> dict[str, str]:
     """Its item card icons' keys, the game's (gamecards.py serves them: /cardicon/<kind>/<key>.png): "mf" its
     manufacturer's FlashLabelName ("maliwan"), "wt" a weapon's type's ScaleformFrameName ("pistol" - a property),
-    another item's type frame from the card's own IItemCardable.GetZippyFrame() ("Artifact", "comm",
+    another item's type frame from the card's own IItemCardable.GetZippyFrame() (games.py zippy_frame: "Artifact", "comm",
     "Customization_Head": tools/probes/probe_zippy.txt; a call - once per definition, cached; the game calls it for a ground
     item's card too), "el" its ElementalFrame ("shock" - an identifier: the game has no display name for it,
     tools/probes/probe_weapon_card2.txt). Those it has. Also for the pickups on the map (their type icon)."""
@@ -114,7 +114,7 @@ def card_keys(inv: Any, kind: str | None = None) -> dict[str, str]:
         definition = try_(lambda: data.ItemDefinition) if data is not None else None
         zkey = (str(try_(lambda: inv.Class.Name, "")), definition._get_address() if definition is not None else addr(inv))
         if zkey not in _zippy:
-            _zippy[zkey] = str(try_(lambda: inv.GetZippyFrame(), "") or "")
+            _zippy[zkey] = str(try_(lambda: games.GAME.zippy_frame(inv), "") or "")
         if _zippy[zkey].lower() not in ("", "none"):
             out["wt"] = _zippy[zkey].lower()
     if (element := try_(lambda: str(inv.ElementalFrame), "") or "").lower() not in ("", "none"):

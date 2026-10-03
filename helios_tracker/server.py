@@ -28,7 +28,6 @@ from pathlib import Path
 from typing import Any
 
 from . import bl1map, games, gamescan, paths
-from .gamecards import card_png
 from .gameicons import icon_png, texture_by_path
 
 # The page's files: paths.read("web/...") (a folder, or inside the .sdkmod).
@@ -254,7 +253,7 @@ class _Handler(BaseHTTPRequestHandler):
                 self._send(HTTPStatus.OK, "image/png", data)
             elif (m := ICON.fullmatch(path)) and (data := icon_png(m[1])) is not None:
                 self._send(HTTPStatus.OK, "image/png", data)
-            elif (m := CARD_ICON.fullmatch(path)) and (data := card_png(m[1], m[2])) is not None:
+            elif (m := CARD_ICON.fullmatch(path)) and (data := games.GAME.card_icon_png(m[1], m[2])) is not None:
                 self._send(HTTPStatus.OK, "image/png", data)
             elif (m := TEXTURE.fullmatch(path)) and (data := texture_by_path(m[1])) is not None:
                 self._send(HTTPStatus.OK, "image/png", data)

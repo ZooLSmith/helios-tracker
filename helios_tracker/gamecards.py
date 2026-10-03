@@ -106,6 +106,12 @@ def set_keys(kind: str, keys: set[str]) -> None:
     _changed()
 
 
+def keys(kind: str) -> set[str]:
+    """The game's keys for a kind, as set_keys got them (lower case) - empty until the first players' read."""
+    with _lock:
+        return set(_keys.get(kind, ()))
+
+
 def set_index(index: dict[str, list[Art]]) -> None:
     """The arts by label, from gamescan's one pass (cached)."""
     global _index  # noqa: PLW0603

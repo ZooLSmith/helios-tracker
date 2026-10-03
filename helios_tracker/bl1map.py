@@ -118,21 +118,26 @@ class _Movie:
         return out
 
 
-_movies: dict[tuple[str, float], _Movie] = {}  # (package file, mtime) -> its parsed menu movie (one: kept)
+_movies: dict[tuple[str, str, float], _Movie] = {}  # (package file, movie, mtime) -> it parsed (the menu's, the card's)
 _lock = threading.Lock()
 
 
 def _menu_movie(cooked: Path) -> _Movie:
-    path = cooked / MENU_PACKAGE
-    key = (str(path), path.stat().st_mtime)
+    return _movie(cooked / MENU_PACKAGE, MENU_MOVIE)
+
+
+def _movie(path: Path, name: str) -> _Movie:
+    """A package's Scaleform movie, parsed - kept (one per movie: a patched package, read again)."""
+    key = (str(path), name, path.stat().st_mtime)
     with _lock:
         if key not in _movies:
             pkg = Bl1Package(path)
             try:
-                idx = pkg.find(MENU_MOVIE, "GFxMovieInfo")
+                idx = pkg.find(name, "GFxMovieInfo")
                 if idx is None:
-                    raise FileNotFoundError(f"{MENU_MOVIE} not in {path.name}")
-                _movies.clear()
+                    raise FileNotFoundError(f"{name} not in {path.name}")
+                for old in [k for k in _movies if k[:2] == key[:2]]:
+                    del _movies[old]
                 _movies[key] = _Movie(_movie_raw(pkg, idx))
             finally:
                 pkg.close()
@@ -256,9 +261,78 @@ def clip_icon(cooked: Path, clip: str, frame: str, name: str, label: str, other:
             layers += movie.layers(cid, None, matrix)
     if not layers:
         return None
+    return _icon(layers)
+
+
+def _icon(layers: list[tuple[Affine, Shape]]) -> tuple[int, int, bytes]:
+    """Shapes drawn ICON_SIZE on their larger side: (width, height, BGRA)."""
     _w, _h, _bgra, (x0, x1, y0, y1) = render(layers, 1.0)
     w, h, bgra, _bounds = render(layers, ICON_SIZE / max(x1 - x0, y1 - y0, 1e-6))
     return w, h, bgra
+
+
+# The item card's movie (the game's card, on the ground and in the menus: inworld_ui.upk weapon_card.weapon_card -
+# its "inventory" clip): its icons as BL2's card's, one sprite per kind, a frame per key - the manufacturers' (frames
+# "jakobs", "s_and_s"... = ManufacturerDefinition.FlashLabelName), vector shapes. (Its type art, the "zippy" - a
+# Claptrap holding the gun / item - isn't the item's icon: item_icon.) .agent/bl1.md
+CARD_PACKAGE = Path("Packages") / "Interface" / "inworld_ui.upk"  # under WillowGame/CookedPC
+CARD_MOVIE = "weapon_card.weapon_card"
+
+
+# An item's icon (its silhouette): the clip the game's scripts send to an item's frame - always placed as "inicon<N>":
+# the inventory list's entries (inventory.selections.inicon1..14), the mission reward's (missions.reward_weap
+# .inicon14.gotoAndStop - QuestAcceptGFxMovie.SetRewardCard), the vending machine's item of the day (topLevel_mc
+# .inicon2 - VendingMachineGFxMovie) - in the menu movie; frames "repeater", "sniper"... (WeaponTypeDefinition
+# .ScaleformFrameName), "shield", "grenade", "comm"... (WillowInventory.ZippyFrame)
+ITEM_ICON = re.compile(r"inicon[0-9]+")
+
+
+def item_icon(cooked: Path, label: str) -> tuple[int, int, bytes] | None:
+    """An item's icon drawn (_icon): the menu movie's ITEM_ICON clip at its frame `label`. None if no such frame."""
+    movie = _menu_movie(cooked)
+    sprite = next((cid for tags in movie.sprites.values() for code, body in tags if code == 26
+                   for cid, _matrix, name in [_place2(body)] if name and ITEM_ICON.fullmatch(name) and cid in movie.sprites), None)
+    if sprite is None or not any(code == 43 and _cstr(body, 0)[0].lower() == label.lower() for code, body in movie.sprites[sprite]):
+        return None
+    layers = movie.layers(sprite, label)
+    return _icon(layers) if layers else None
+
+
+def card_icon(cooked: Path, keys: list[str], label: str) -> tuple[int, int, bytes] | None:
+    """An item card icon drawn (_icon): the card movie's sprite listing a kind's keys (the game's: `keys`) - the one
+    whose frame labels hold the most of them, then the fewest others (the menus have lists alike with more: the
+    shops', the pickups') - at its frame `label`. None if no sprite has one of them, or no such frame."""
+    movie = _movie(cooked / CARD_PACKAGE, CARD_MOVIE)
+    want = {k.lower() for k in keys}
+    best, best_score = None, (0, 0)
+    for sid, tags in movie.sprites.items():
+        labels = {_cstr(body, 0)[0].lower() for code, body in tags if code == 43}
+        score = (len(labels & want), -len(labels - want))
+        if score[0] and score > best_score:
+            best, best_score = sid, score
+    if best is None:
+        return None
+    layers = movie.layers(best, label)
+    return _icon(layers) if layers else None
+
+
+def card_icon_png(cooked: Path, keys: set[str], label: str) -> bytes | None:
+    """card_icon as a PNG, or None - rendered by gamework (cached on disk). The server's threads: no SDK."""
+    from . import gamework  # noqa: PLC0415
+
+    if not keys or not re.fullmatch(r"[A-Za-z0-9_]+", label or ""):
+        return None
+    return gamework.asset({"do": "cardicon", "cooked": str(cooked), "keys": sorted(keys), "label": label.lower()},
+                          [cooked / CARD_PACKAGE])
+
+
+def item_icon_png(cooked: Path, label: str) -> bytes | None:
+    """item_icon as a PNG, or None - rendered by gamework (cached on disk). The server's threads: no SDK."""
+    from . import gamework  # noqa: PLC0415
+
+    if not re.fullmatch(r"[A-Za-z0-9_]+", label or ""):
+        return None
+    return gamework.asset({"do": "itemicon", "cooked": str(cooked), "label": label.lower()}, [cooked / MENU_PACKAGE])
 
 
 def menu_icon_png(path: str) -> bytes | None:

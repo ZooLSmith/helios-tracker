@@ -67,14 +67,28 @@ def run_job(job: str) -> bytes:
     if do == "menuicon":  # (Borderlands 1's skill icons: bl1map.menu_icon_png)
         from . import bl1map  # noqa: PLC0415
 
-        drawn = bl1map.clip_icon(Path(j["cooked"]), *j["parts"])
-        if drawn is None:
-            return b""
-        w, h, bgra = drawn
-        rgba = bytearray(bgra)
-        rgba[0::4], rgba[2::4] = bgra[2::4], bgra[0::4]
-        return gameicons.png(w, h, bytes(rgba))
+        return _bgra_png(bl1map.clip_icon(Path(j["cooked"]), *j["parts"]))
+    if do == "cardicon":  # (Borderlands 1's item card icons: bl1map.card_icon_png)
+        from . import bl1map  # noqa: PLC0415
+
+        return _bgra_png(bl1map.card_icon(Path(j["cooked"]), j["keys"], j["label"]))
+    if do == "itemicon":  # (Borderlands 1's item icons: bl1map.item_icon_png)
+        from . import bl1map  # noqa: PLC0415
+
+        return _bgra_png(bl1map.item_icon(Path(j["cooked"]), j["label"]))
     raise ValueError(f"unknown job {do!r}")
+
+
+def _bgra_png(drawn: tuple[int, int, bytes] | None) -> bytes:
+    """A drawing (width, height, BGRA) as a PNG - b"" for none."""
+    from . import gameicons  # noqa: PLC0415
+
+    if drawn is None:
+        return b""
+    w, h, bgra = drawn
+    rgba = bytearray(bgra)
+    rgba[0::4], rgba[2::4] = bgra[2::4], bgra[0::4]
+    return gameicons.png(w, h, bytes(rgba))
 
 
 def _start() -> bool:

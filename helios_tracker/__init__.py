@@ -368,7 +368,7 @@ _collector = Collector(_hub)  # not `collector`: that would shadow the submodule
 def _publish_assets() -> None:
     """The game assets the server can serve now ("assets": the page asks for item card icons only once they're there -
     before, a 404). Any thread (gamecards.listener: the files' scan, the first players' read)."""
-    payload = '{"cards":%d,"textures":%d}' % (gamecards.ready(), gameicons.textures_ready())
+    payload = '{"cards":%d,"textures":%d}' % (games.GAME.card_icons_ready(), gameicons.textures_ready())
     if payload != _assets_sent[0]:  # (only when it changed: the three kinds' keys come one by one)
         _assets_sent[0] = payload
         _hub.publish("assets", payload)
