@@ -1157,6 +1157,10 @@ def read_players(world_info: Any, me: Any, pc: Any = None) -> list[dict[str, Any
         try:
             # the class first (cheap): the player info (slow reads) only for players
             pri = player_info(pawn) if "PlayerPawn" in str(pawn.Class.Name) else None  # the vehicle's while driving
+            if pri is None and me is not None and pc is not None and addr(pawn) == me_addr:
+                # (ours: the controller's own - Borderlands 1's driver pawn has none in a vehicle, nor its seat:
+                # tools/probes/probe_bl1_driving.txt - left out, the list lost us)
+                pri = try_(lambda: pc.PlayerReplicationInfo)
             if pri is not None and not field(pawn, "bDeleteMe"):
                 # Driving, the controller possesses the vehicle and the player pawn's own is None:
                 # through the vehicle, and ours is always the local player controller

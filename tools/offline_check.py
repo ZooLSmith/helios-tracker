@@ -816,6 +816,17 @@ def check_helios_tracker() -> None:  # noqa: PLR0915
                                                     "parts": ["skills", "lilith", "icon24", "on", "off"]}))
         assert bl1_icon_png[:8] == b"\x89PNG\r\n\x1a\n", bl1_icon_png[:16]
         assert bl1map.MENU_ICON.fullmatch("menu.skills.mordecai.icon17.on.off") and not bl1map.MENU_ICON.fullmatch("menu.a.b")
+        # its fonts: its font library's DefineFont3 (bl1fonts.py, swffont.py) - WillowBody, WillowHead, Brush Script Std
+        from helios_tracker import bl1fonts  # noqa: PLC0415
+        bl1_font_list = bl1fonts.catalogue(bl1_cooked)
+        assert {"willowbody", "willowhead"} <= set(bl1_font_list) and bl1_font_list["willowbody"][5] == "swffont", bl1_font_list
+        bl1_body = bl1fonts.font(*bl1_font_list["willowbody"][2:5])
+        bl1_glyph_a = next(g for g in bl1_body.glyphs if g.code == ord("A"))
+        assert bl1_body.em == 1024 and len(bl1_body.glyphs) > 200 and len(bl1_glyph_a.contours) == 2 and bl1_glyph_a.advance > 0, (
+            bl1_body.em, len(bl1_body.glyphs), bl1_glyph_a)
+        bl1_body_ttf = bl1_work.run_job(json.dumps({"do": "swffont", "package": str(bl1_font_list["willowbody"][2]),
+                                                    "export": bl1_font_list["willowbody"][3], "n": bl1_font_list["willowbody"][4]}))
+        assert bl1_body_ttf[:4] == b"\x00\x01\x00\x00" and b"glyf" in bl1_body_ttf[:400], bl1_body_ttf[:16]
         # its item card icons (games.Borderlands1.card_icon_png): the card movie's sprite holding a kind's keys - the
         # manufacturers' logos; the type's: the menus' item icon clip ("inicon": weapon types and items' ZippyFrame)
         bl1_brand_keys = ["anshin", "atlas", "corazza", "dahl", "eridan", "gearbox", "hyperion", "jakobs", "maliwan",
@@ -1205,7 +1216,7 @@ def check_helios_tracker() -> None:  # noqa: PLR0915
     profile_bl2, profile_tps, profile_bl1 = (game_profiles.make_profile(n) for n in ("BL2", "TPS", "BL1"))
     assert type(game_profiles.GAME) is type(profile_bl2), "the fake mods_base's game: BL2"
     assert profile_tps.features == profile_bl2.features | {"oxygen", "jumppads"} and profile_tps.packages == "CookedPCConsole"
-    assert profile_bl1.features == {"tacmap", "waypointmarkers"} and profile_bl1.packages == "CookedPC" and profile_bl1.gibbed_prefix == ""
+    assert profile_bl1.features == {"tacmap", "waypointmarkers", "fontlibrary"} and profile_bl1.packages == "CookedPC" and profile_bl1.gibbed_prefix == ""
     assert (profile_bl2.exe_depth, profile_bl1.exe_depth) == (2, 1), "Binaries/Win32/Borderlands2.exe, Binaries/Borderlands.exe"
     # BL1's world is "Loader" in every area: the area is its first LevelStreamingPersistent (tools/probes/probe_bl1.txt);
     # none (the main menu): the world's own package
@@ -1323,9 +1334,18 @@ def check_helios_tracker() -> None:  # noqa: PLR0915
     # a barrel's element (its explosion's damage type): its element's mark ("exp0") - not learned from the weapons
     assert profile_bl1.damage_type_frame("DAMAGE_TYPE_Explosive") == "exp0" and profile_bl1.damage_type_frame("DAMAGE_TYPE_Unknown") == ""
     assert game_profiles.LEARNED_ELEMENTS in profile_bl2.features and game_profiles.LEARNED_ELEMENTS not in profile_bl1.features
+    assert game_profiles.FONT_LIBRARY in profile_bl1.features and game_profiles.FONT_LIBRARY not in profile_bl2.features
     # its containers looted: no longer usable (probe_bl1_looted: bCanBeUsed a flag, no animation state)
     assert profile_bl1.is_looted(ns(bCanBeUsed=False), False) and not profile_bl1.is_looted(ns(bCanBeUsed=True), False)
     # its quest givers: their missions on the object; one offered = eligible (the game's word) and not picked up yet
+    # its local player in a vehicle: no MyWillowPawn - the driver of the pawn it controls (the vehicle, or its seat)
+    bl1_me = ns(Name="WillowPlayerPawn_0")
+    assert profile_bl1.local_pawn(ns(MyWillowPawn=None, Pawn=ns(Driver=bl1_me))) is bl1_me
+    assert profile_bl1.local_pawn(ns(MyWillowPawn=bl1_me, Pawn=ns(Driver=None))) is bl1_me
+    assert profile_bl2.local_pawn(ns(MyWillowPawn=bl1_me)) is bl1_me
+    # its vehicles' names: their own fields (no VehicleDef, no GetCustomizableName - the record had failed)
+    assert profile_bl1.vehicle_name(ns(DisplayName="", VehicleNameString="Runner")) == "Runner"
+    assert profile_bl2.vehicle_name(ns(VehicleDef=ns(DisplayName="Runner"))) == "Runner"
     assert profile_bl1.object_directives(ns(MissionDirectives=["d"])) == ["d"] and profile_bl2.object_directives(ns(Directives=ns(MissionDirectives=["d"]))) == ["d"]
     bl1_eligibility = enum.IntEnum("EMissionEligibility", ["ME_Eligible", "ME_Ineligible_Level", "ME_Ineligible_Dependencies", "ME_Ineligible_Other"], start=0)
     bl1_board_pc = ns(GetMissionEligibility=lambda m: bl1_eligibility.ME_Eligible if m == "tk" else bl1_eligibility.ME_Ineligible_Other)

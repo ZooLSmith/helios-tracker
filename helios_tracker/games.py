@@ -28,6 +28,8 @@ WAYPOINT_MARKERS = "waypointmarkers"
 # a damage type's element icon learned from the weapons seen (inspector.learn_frame: their card frame next to their
 # damage type) - else the profile's damage_type_frame
 LEARNED_ELEMENTS = "learnedelements"
+# its UI fonts from a font library movie of its own, without the files scan (Profile.font_catalogue - BL1's)
+FONT_LIBRARY = "fontlibrary"
 
 _PROFILES: dict[str, type["Profile"]] = {}
 
@@ -129,6 +131,17 @@ class Profile:
         from .missions import station  # noqa: PLC0415
 
         return station(mdef.TravelStation)
+
+    def local_pawn(self, pc: Any) -> Any:
+        """The local player's own pawn (the player, not the vehicle they drive): its MyWillowPawn."""
+        return pc.MyWillowPawn
+
+    def vehicle_name(self, pawn: Any) -> str:
+        """A vehicle's name as the game shows it ("" for none): its VehicleClassDefinition's DisplayName (localized),
+        else its GetCustomizableName()."""
+        from .util import call_str  # noqa: PLC0415
+
+        return str(pawn.VehicleDef.DisplayName) or call_str(pawn.GetCustomizableName)
 
     def object_directives(self, io: Any) -> list[Any]:
         """An interactive object's missions it gives / takes back ({MissionDefinition, bBeginsMission, bEndsMission}):
@@ -326,7 +339,7 @@ class Borderlands1(Profile):
     damage_presentation = "gd_AttributePresentation.Weapons.AttrPresent_WeaponDamage"
     # no WorldDiscoveryArea class (the log: "Couldn't find class"); its packages not indexed (gamescan reads BL2's)
     # (its element icons: its card clip's frames, its damage types' known - damage_type_frame: nothing to learn)
-    features = (Profile.features - {DISCOVERY, SCAN, MISSION_STEPS, LEARNED_ELEMENTS}) | {WAYPOINT_MARKERS}
+    features = (Profile.features - {DISCOVERY, SCAN, MISSION_STEPS, LEARNED_ELEMENTS}) | {WAYPOINT_MARKERS, FONT_LIBRARY}
 
     def __init__(self) -> None:
         self._branch_names: dict[int, dict[str, str]] = {}  # CharacterName -> its branches' names (branch_names)
@@ -429,6 +442,22 @@ class Borderlands1(Profile):
                 return {"a": name, "map": level}
         return None
 
+    def local_pawn(self, pc: Any) -> Any:
+        # In a vehicle its MyWillowPawn is None, its Pawn the vehicle (driving) or its seat (a turret: a
+        # WillowWeaponPawn) - tools/probes/probe_bl1_driving.txt: the page lost track of the player meanwhile, listed
+        # their pawn as another player ("Player", then twice getting out). Then: that pawn's Driver (UE3's
+        # Vehicle.Driver - the player's pawn)
+        if (pawn := pc.MyWillowPawn) is not None:
+            return pawn
+        return pc.Pawn.Driver if pc.Pawn is not None else None
+
+    def vehicle_name(self, pawn: Any) -> str:
+        # No VehicleDef, no GetCustomizableName (the log: "no attribute 'GetCustomizableName'" - its record failed, its
+        # vehicles never on the page; tools/probes/probe_bl1_vehicles.txt: WillowVehicle_WheeledVehicle, in PawnList, not
+        # hidden): WillowVehicle's DisplayName, else its VehicleNameString (WillowGame.u, offline - both "" in its .int
+        # defaults: likely none, the page's "?" then)
+        return str(pawn.DisplayName) or str(pawn.VehicleNameString)
+
     def object_directives(self, io: Any) -> list[Any]:
         # On the object itself: WillowInteractiveObject.MissionDirectives (tools/probes/probe_bl1_givers.txt: the bounty
         # board's 15, Dr. Zed's 11 - a WillowInteractiveNPC, an interactive object) - no Directives
@@ -466,6 +495,13 @@ class Borderlands1(Profile):
         from . import gamecards  # noqa: PLC0415
 
         return all(gamecards.keys(kind) for kind in BL1_CARD_KINDS if kind != "element")
+
+    def font_catalogue(self, cooked: Any) -> dict[str, tuple]:
+        # Its fonts: Packages/Fonts/Fonts_en.upk's movie (bl1fonts.py: DefineFont3 - WillowBody, WillowHead, Brush
+        # Script Std); no scan finds them (its packages: version 584) - the page had no WillowBody (/font 404s)
+        from . import bl1fonts  # noqa: PLC0415
+
+        return bl1fonts.catalogue(cooked)
 
     def damage_type_frame(self, enum: str) -> str:
         # A damage type's element icon (a barrel's explosion - collector.py): its element's frames' first, the mark

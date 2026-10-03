@@ -60,6 +60,10 @@ def run_job(job: str) -> bytes:
         return b""
     if do == "font":
         return gamefonts.font_ttf(Path(j["package"]), j["export"], j["n"])
+    if do == "swffont":  # (Borderlands 1's font library: bl1fonts.py)
+        from . import bl1fonts  # noqa: PLC0415
+
+        return bl1fonts.font_ttf(Path(j["package"]), j["export"], j["n"])
     if do == "icon":
         return gameicons.texture_png(Path(j["package"]), j["export"])
     if do == "card":

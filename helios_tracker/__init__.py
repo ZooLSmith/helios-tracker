@@ -454,6 +454,8 @@ def _start_locked(new_port: int | None, new_lan: bool | None) -> None:
     log(f"live map at {where}")
     setattr(sys, _STALE_SCRIPT, start_script(port_value))
     _hub.fonts = gamefonts.FONTS  # (its catalogue from the game files' scan: when a page connects)
+    if games.FONT_LIBRARY in games.GAME.features:
+        _scan_game_files()  # (a font library, no scan: read now - a few headers - not when a page connects, after its fonts)
 
 
 _scan_started = [False]
@@ -463,7 +465,12 @@ def _scan_game_files() -> None:
     """The game files' index (fonts, item card / skill icons: gamescan.py - one pass, cached on disk), once per
     session, when a page first connects (not at every game start); a thread waiting on gamework's subinterpreter
     (the scan itself runs there, beside the game - or here, politely, without one)."""
-    if _scan_started[0] or games.SCAN not in games.GAME.features:
+    if _scan_started[0]:
+        return
+    if games.SCAN not in games.GAME.features:
+        if games.FONT_LIBRARY in games.GAME.features:  # (Borderlands 1: its font library, no scan - games.py)
+            _scan_started[0] = True
+            threading.Thread(target=_load_font_library, name="helios_tracker fonts", daemon=True).start()
         return
     _scan_started[0] = True
     # the game's language (Core.Object's static GetLanguage: "INT", "RUS"... - read here, on the game thread): its font
@@ -480,6 +487,15 @@ def _scan_game_files() -> None:
             log_error("game files scan", ex)
 
     threading.Thread(target=scan, name="helios_tracker game files", daemon=True).start()
+
+
+def _load_font_library() -> None:
+    """A game without the scan: its fonts' catalogue from its own font library (games.py font_catalogue)."""
+    try:
+        gamefonts.set_catalogue(games.GAME.font_catalogue(cooked_dir()))
+        log(f"game fonts: {', '.join(gamefonts.FONTS.names()) or 'none'}")
+    except Exception as ex:  # noqa: BLE001
+        log_error("game fonts", ex)
 
 
 _collector.on_page = lambda: _scan_game_files()

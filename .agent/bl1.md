@@ -308,3 +308,15 @@ says when it was seen.
   decks are one class, `WillowEquipAbleItem` (game.js `bl1.gearClasses`; its `WillowUsableItem`: ammo, health, not
   gear). Without it an "Explosive Bouncing Bettie" showed as "Equip Able Item ?", no rarity, no card (the user). The
   collector's own test (inspector.is_gear) goes by kind: `equip_kind` already made it gear.
+- **Fonts** (bl1fonts.py, swffont.py; the feature `fontlibrary`): the menus' movies import their fonts (their own
+  DefineFont3 tags: 0 glyphs) from a library, `Packages/Fonts/Fonts_en.upk`'s movie `Fonts_en`: WillowBody (the
+  page's text font, BL2's too), WillowHead (its headings), Brush Script Std - 1284 glyphs each, standard SWF
+  DefineFont3 (tag 75; BL2's: Scaleform's compacted 1005) - read by swffont.py (twips: / 20, EM 1024), written as
+  TrueType by gamefonts.to_ttf, by gamework's "swffont" job (cached on disk); the catalogue set when a page
+  connects (no scan). Fonts_en only (no other language's library in the install).
+- **In a vehicle** (probe_bl1_driving.txt; games.py `local_pawn`, `vehicle_name`): the controller's `MyWillowPawn` is
+  None, its `Pawn` the vehicle (`WillowVehicle_WheeledVehicle`) or the seat (a turret: `WillowWeaponPawn`) - the
+  local player is that pawn's `Driver`; their pawn has no player info meanwhile: the controller's (inspector
+  read_players). Before: the page lost track of the player, listed them as "Player", twice getting out. Its
+  vehicles: no VehicleDef / GetCustomizableName (their record failed: none on the page) - `DisplayName` /
+  `VehicleNameString`, both "" in its .int: the "?" name.

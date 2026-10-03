@@ -636,7 +636,7 @@ class Collector:
         a pause / resume, a length changing by over a second, the page's count drifting (SCENE_DRIFT)."""
         if self._video_at:
             return
-        pawn = try_(lambda: field(pc, "MyWillowPawn")) or try_(lambda: field(pc, "Pawn"))
+        pawn = try_(lambda: games.GAME.local_pawn(pc)) or try_(lambda: field(pc, "Pawn"))
         background = (str((self._level or {}).get("map", "")).lower() == "menumap" or pawn is None
                       or try_(lambda: self._in_menu(pawn), False))
         on = not background and try_(lambda: bool(field(pc, "bCinematicMode")) and bool(field(pc, "bKismetEnabledCinematicMode")), False)
@@ -1126,9 +1126,9 @@ class Collector:
         if kind in ("me", "player"):
             name = named(try_(lambda: str(player_info(pawn).PlayerName), ""), "Player")
         elif kind == "vehicle":
-            # Its own name (VehicleClassDefinition.DisplayName, localized) - GetTargetName gives the
-            # driver's once someone drives it
-            name = named(try_(lambda: str(pawn.VehicleDef.DisplayName), "") or call_str(pawn.GetCustomizableName),
+            # Its own name (each game's: games.py vehicle_name) - GetTargetName gives the driver's once someone
+            # drives it
+            name = named(try_(lambda: games.GAME.vehicle_name(pawn), "") or "",
                          def_name(try_(lambda: pawn.VehicleDef)), str(pawn.Class.Name))
         else:
             # Its balance's DisplayName (games.py pawn_name - BL2: per playthrough, BL1: per grade): what GetTargetName
@@ -1216,7 +1216,7 @@ class Collector:
         wi = ENGINE.GetCurrentWorldInfo()
         if pc is None or wi is None:
             return
-        me = try_(lambda: pc.MyWillowPawn)
+        me = try_(lambda: games.GAME.local_pawn(pc))  # (each game's: games.py)
         view_yaw = try_(lambda: pc.Rotation.Yaw, 0)
         self._state_n += 1
         t0 = time.perf_counter()
@@ -1792,7 +1792,7 @@ class Collector:
         pc = get_pc(possibly_loading=True)
         if wi is None or pc is None:
             return
-        players = read_players(wi, try_(lambda: pc.MyWillowPawn), pc)
+        players = read_players(wi, try_(lambda: games.GAME.local_pawn(pc)), pc)
         self.hub.publish_records("players", "players", players, {"level": self.level_id})  # (only the fields that changed go out)
 
     # endregion

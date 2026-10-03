@@ -393,13 +393,22 @@ class GameFonts:
 
     def __init__(self, catalogue: dict | None = None) -> None:
         self._lock = threading.Lock()
+        self._ready = threading.Event()  # (a catalogue set: the server's font requests wait for it - wait)
         self._ttf: dict[str, bytes | None] = {}
-        self.catalogue: dict[str, tuple[str, int, Path, int, int]] = catalogue or {}  # slug -> (name, glyphs, package, export, n)
+        # slug -> (name, glyphs, package, export, n[, the gamework job: "font" - a compacted font -, Borderlands 1's
+        # "swffont" - a DefineFont3: bl1fonts.catalogue])
+        self.catalogue: dict[str, tuple] = catalogue or {}
 
     def set_catalogue(self, catalogue: dict) -> None:
         with self._lock:
             self.catalogue = catalogue
             self._ttf = {}
+        self._ready.set()
+
+    def wait(self, timeout: float) -> bool:
+        """Waits for a catalogue (a page asks for its fonts as it loads - before the catalogue's there, a 404 it never
+        asks again: Borderlands 1's, from its font library - __init__._load_font_library)."""
+        return self._ready.wait(timeout)
 
     def names(self) -> list[str]:
         return [name for name, *_ in self.catalogue.values()]
@@ -412,8 +421,8 @@ class GameFonts:
             entry = self.catalogue.get(slug)
         data = None
         if entry is not None:
-            _name, _count, path, idx, n = entry
-            data = gamework.asset({"do": "font", "package": str(path), "export": idx, "n": n}, [path])
+            _name, _count, path, idx, n, *job = entry
+            data = gamework.asset({"do": job[0] if job else "font", "package": str(path), "export": idx, "n": n}, [path])
         with self._lock:
             self._ttf[slug] = data
         return data if data is not None else default

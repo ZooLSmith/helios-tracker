@@ -27,7 +27,7 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from typing import Any
 
-from . import bl1map, games, gamescan, paths
+from . import bl1map, gamefonts, games, gamescan, paths
 from .gameicons import icon_png, texture_by_path
 
 # The page's files: paths.read("web/...") (a folder, or inside the .sdkmod).
@@ -235,6 +235,8 @@ class _Handler(BaseHTTPRequestHandler):
 
     def do_GET(self) -> None:  # noqa: N802
         path = self.path.split("?", 1)[0]
+        if path.startswith("/font/") and games.FONT_LIBRARY in games.GAME.features:
+            gamefonts.FONTS.wait(SCAN_WAIT)  # (its font library's catalogue: read as the server starts)
         if (path.startswith(("/font/", "/icon/", "/cardicon/", "/texture/")) and games.SCAN in games.GAME.features
                 and not gamescan.ready()):
             gamescan.wait(SCAN_WAIT)  # (the game's files not indexed yet: a page just opened - its scan's running)
