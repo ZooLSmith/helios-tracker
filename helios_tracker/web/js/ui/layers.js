@@ -3,12 +3,12 @@
 // Pickups, Containers) is a row that folds / turns on and off the layers under it. Rebuilt on any
 // structural change (fold, open / close, language); one set of delegated handlers on #layers.
 import { $, esc } from "../dom.js";
+import { gameData } from "../game.js";
 import { t } from "../i18n.js";
 import { icon } from "../icons.js";
 import { LAYERS, LAYER_GROUPS, LAYER_SETTINGS, layerInGame, layerNameKey } from "../model.js";
 import { invalidate } from "../scheduler.js";
 import { layerCfg, saveSettings, settings } from "../settings.js";
-import { S } from "../state.js";
 import { tipAttrs } from "./hovertip.js";
 
 // The layer's marker as drawn on the map (12 px SVG)
@@ -26,7 +26,7 @@ function layerIcon(l) {
   const coin = coinOf("$");
   const missionItem = `<polygon points="6,0.8 11.2,6 6,11.2 0.8,6" fill="${c}" ${o}/>`; // (the map's diamond)
   const shape = l.rarity ? triangle : l.id === "pickup.mission" ? missionItem : l.id === "giver" ? bang : l.id === "pickup.cash" ? coin
-    : l.id === "pickup.eridium" && S.level?.game === "tps" ? coinOf("m") : l.id.startsWith("pickup") ? dot : {
+    : l.id === "pickup.eridium" && gameData().eridiumGlyph ? coinOf(gameData().eridiumGlyph) : l.id.startsWith("pickup") ? dot : {
     player: `<polygon points="6,1 10.3,10.8 6,8.3 1.7,10.8" fill="${c}" ${o}/>`,
     enemy: `<polygon points="6,1 11,6 6,11 1,6" fill="${c}" ${o}/>`,
     npc: `<circle cx="6" cy="6" r="3.9" fill="none" style="stroke: var(--map-outline-soft)" stroke-width="2.3"/><circle cx="6" cy="6" r="3.9" fill="none" stroke="${c}" stroke-width="1.3"/>`,
@@ -93,7 +93,7 @@ function settingHtml(l, key) {
 
 function folderHtml(l) {
   const closed = settings.ui.closedGroups.includes(foldKey(l.id));
-  const children = LAYERS.filter((c) => c.parent === l.id && layerInGame(c, S.level?.game));
+  const children = LAYERS.filter((c) => c.parent === l.id && layerInGame(c));
   return `<div class="lrow lfolder"><label class="row"><input type="checkbox" class="lbox" data-folder="${l.id}">` +
     `<span class="sw">${layerIcon(l)}</span><span class="lname">${layerName(l)}</span><span class="count" data-count="${l.id}"></span></label>` +
     `<button class="lcfg" data-fold="${foldKey(l.id)}">${icon(closed ? "chevronRight" : "chevronDown")}</button></div>` +
@@ -118,7 +118,7 @@ export function renderLayers() {
     const closed = settings.ui.closedGroups.includes(g);
     return `<div class="lgroup${closed ? " closed" : ""}"><div class="lghead" data-fold="${g}">` +
       `<span class="lgname">${esc(t("lgroup." + g))}</span><span class="lgfold">${icon(closed ? "chevronRight" : "chevronDown")}</span></div>` +
-      `<div class="lgbody">${LAYERS.filter((l) => l.group === g && !l.parent && layerInGame(l, S.level?.game)).map(rowHtml).join("")}</div></div>`;
+      `<div class="lgbody">${LAYERS.filter((l) => l.group === g && !l.parent && layerInGame(l)).map(rowHtml).join("")}</div></div>`;
   }).join("");
   syncBoxes();
   invalidate(); // the counts are filled by the next frame

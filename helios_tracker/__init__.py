@@ -20,12 +20,13 @@ import time
 from typing import Any
 
 from mods_base import BoolOption, ButtonOption, HiddenOption, SliderOption, build_mod, hook
-from ui_utils import OptionBox, OptionBoxButton, hide_coop_message, show_coop_message
+from ui_utils import OptionBox, OptionBoxButton
 from unrealsdk.hooks import Type, add_hook, remove_hook
 from unrealsdk.unreal import BoundFunction, UObject, WrappedStruct
 
-from .collector import Collector, cooked_dir, game_language
-from . import gamecards, gamefonts, gameicons, gamescan, gamework, i18n, updater
+from .collector import Collector, game_language
+from .gamedir import cooked_dir
+from . import gamecards, gamefonts, gameicons, games, gamescan, gamework, i18n, updater
 from .script import start_script
 from .server import Hub, TrackerServer
 from .i18n import t
@@ -106,7 +107,7 @@ open_page = ButtonOption(
 # (ui_utils.OptionBox) shows it - "Checking for updates..." (Cancel), then the answer; a newer one: asked first
 # (Download and Install / Not Now: nothing downloaded before), "Downloading vX...", then Reload Now / Later - each box
 # replacing the last (an open box's text can't be changed through ui_utils) - and the bottom-left message
-# (show_coop_message) says what the automatic path did.
+# (games.GAME.show_message) says what the automatic path did.
 # The checks run in a thread; what they show goes through _ui_queue, drained on the game thread by on_post_render.
 
 UPDATE_EVERY = 24 * 3600  # s between automatic checks
@@ -126,7 +127,7 @@ def _on_game_thread(fn: Any) -> None:
 
 def _toast(text: str) -> None:
     def show() -> None:
-        show_coop_message(text)
+        games.GAME.show_message(text, TOAST_FOR)
         _toast_until[0] = time.monotonic() + TOAST_FOR
 
     _on_game_thread(show)
@@ -142,7 +143,7 @@ def _drain_ui(now: float) -> None:
     if _toast_until[0] and now > _toast_until[0]:
         _toast_until[0] = 0.0
         try:
-            hide_coop_message()
+            games.GAME.hide_message()
         except Exception as ex:  # noqa: BLE001
             log_error("update message", ex)
 
@@ -462,7 +463,7 @@ def _scan_game_files() -> None:
     """The game files' index (fonts, item card / skill icons: gamescan.py - one pass, cached on disk), once per
     session, when a page first connects (not at every game start); a thread waiting on gamework's subinterpreter
     (the scan itself runs there, beside the game - or here, politely, without one)."""
-    if _scan_started[0]:
+    if _scan_started[0] or games.SCAN not in games.GAME.features:
         return
     _scan_started[0] = True
     # the game's language (Core.Object's static GetLanguage: "INT", "RUS"... - read here, on the game thread): its font
@@ -545,7 +546,7 @@ def on_menu_back(obj: UObject, args: WrappedStruct, ret: Any, func: BoundFunctio
 def on_bink_movie(obj: UObject, args: WrappedStruct, ret: Any, func: BoundFunction) -> None:  # noqa: ARG001
     """A cutscene video starting: the game renders nothing until it's over (tools/probes/probe_cutscene_watch.txt)."""
     try:
-        _collector.movie_started(obj, str(args.MovieName), bool(args.bForceNoSkip))
+        _collector.movie_started(obj, str(args.MovieName), games.GAME.movie_no_skip(args))
     except Exception as ex:  # noqa: BLE001
         log_error("movie hook", ex)
 

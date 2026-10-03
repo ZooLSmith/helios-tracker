@@ -34,7 +34,8 @@ from typing import Any
 
 from . import gamework
 from .gameicons import decode_dxt, png
-from .tacmap import _Bits, _matrix, _movie_raw, _rect, _shape_bitmap, _tags, opened, texture
+from .swf import _Bits, _matrix, _movie_raw, _rect, _shape_bitmap, _tags
+from .upk import opened, texture
 
 KINDS = ("manufacturer", "type", "element")
 MIN_SCORE = 3  # a list must share this many labels with a kind's keys (a manufacturer / type list, not a stray frame)

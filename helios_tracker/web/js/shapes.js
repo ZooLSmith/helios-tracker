@@ -13,7 +13,7 @@ const TOKENS = { bg: "bg", grid: "grid", shield: "shield", health: "health", dea
 export function initColors() {
   for (const [k, token] of Object.entries(TOKENS)) COLORS[k] = tokenColor("--" + token);
   COLORS.mapFilter = tokenRaw("--map-filter") || "none"; // (the theme's map tint: draw.js mapCanvas)
-  setLayerColors(tokenColor, S.level?.game); // (a game's own layer colours: the level's game)
+  setLayerColors(tokenColor); // (the game's own layer colours: game.js)
 }
 
 // The last marker drawn: its half-width / half-height (px, drawn) - every marker shape records its own (drew), and its

@@ -327,10 +327,17 @@ bottom-left message).
 
 ## How it works
 
+- `games.py`: the game running, as a profile (BL2's, the Pre-Sequel's, Assault on Dragon Keep's, BL1's) - picked
+  once at import from mods_base's game. Its features (`tacmap`, `discovery`, `scan`, `oxygen`, `jumppads`) say which systems
+  the game has; its methods are the APIs that differ (the map name, a video's no-skip flag, the bottom-left message);
+  its `packages` the cooked folder read (BL1: none yet). The rest of the mod asks it, never which game it is.
 - `collector.py` (game thread, from `WillowGameViewportClient:PostRender`, rate-limited):
-  - level: every 1 s, `ENGINE.GetCurrentWorldInfo()` -> `GetStreamingPersistentMapName()`,
-    `GetMapInfo()` -> `TacticalMapMovie` + `TacticalMapVolume`. A change publishes the `level`
-    payload and starts the map extraction thread.
+  - level: every 1 s, `ENGINE.GetCurrentWorldInfo()` -> `games.GAME.map_name()` (BL2:
+    `GetStreamingPersistentMapName()`; BL1: its streamed area) and `level_key()` (BL2: + the map volume's path). A
+    change publishes the `level` payload (with the profile's `game` key and `features`) and, with the `tacmap`
+    feature, takes the profile's `map_source()` (`levelmap.py`: BL2's `tactical` - `GetMapInfo()` ->
+    `TacticalMapVolume` + `TacticalMapMovie`; BL1's `landmark` - the area's LevelLandmarkAnchor): its placement now,
+    its images (and anything only the files tell: BL1's center / upp) from the map thread.
   - pawns: `WorldInfo.PawnList` / `NextPawn`, every update. Kind: me (`pc.MyWillowPawn`),
     `WillowPlayerPawn`, `WillowVehicle`, `IsEnemy(me)` -> enemy, else npc. Names: PRI.PlayerName
     / the balance's `PlayThroughs[].DisplayName` (a property: the name functions crashed the game) / AIClass. Health: `GetHealth()` / `GetMaxHealth()`.
@@ -338,9 +345,17 @@ bottom-left message).
     3 s (walks every object - never per update); pickups held as WeakPointers, positions read per
     update; objects are static (sent as their own `objects` payload on change).
   - Per-actor name / kind cached by address, re-resolved at each scan.
-- `tacmap.py` (background thread, files only): reads the level's `<Map>_P.upk` from
-  `WillowGame/CookedPCConsole` (LZO, both package layouts), the SwfMovie's image placements and the
-  Texture2D top mips (raw DXT - the page decodes them). ~0.3-0.5 s per level, cached.
+- Game files (pure Python, no SDK: the map thread, gamework's worker, offline_check):
+  - `upk.py`: UE3 packages in BL2's format (832; the Pre-Sequel's too) - LZO, both package layouts, names / imports /
+    exports, tagged properties, textures' top mips, the worker's open-package cache. `upk_bl1.py`: Borderlands 1's
+    format (584), a subclass overriding only what differs (class attributes, one chunk hook, actors' state frame).
+    Each game's code opens its packages with its own reader: no version switch.
+  - `swf.py`: Scaleform movies' tags, bit reader, rectangles, matrices (tacmap, gamecards, gamefonts, swfshape).
+  - `tacmap.py` (BL2 / TPS): reads the level's `<Map>_P.upk` from `WillowGame/CookedPCConsole`, the SwfMovie's
+    image placements and the Texture2D top mips (raw DXT - the page decodes them). ~0.3-0.5 s per level, cached.
+  - `bl1map.py` (BL1): the level's map frame (its LevelLandmarkAnchor's `MapFrame`) out of the menu movie
+    (`status_menu`), its vector shapes rendered by `swfshape.py` into one BGRA image (`PF_A8R8G8B8`, 2 px per movie
+    px, anti-aliased) - the page draws it like BL2's. 0.3-1.4 s per level.
 - `inspector.py` (game thread, every 2 s, only sent on change): each player pawn's gear
   (`InvManager.InventoryChain` / `ItemChain`), backpack (`InvManager.Backpack`) and skills
   (`pawn.Controller.PlayerSkillTree`); falls back to `pawn.Weapon` when there's no InvManager. Seen in game
@@ -436,6 +451,8 @@ js/settings.js    what's remembered (one object, validated, legacy migration)
 js/i18n.js        t(), num(), applyI18n(), setLanguage()    js/dom.js  $, esc... (small DOM / HTML helpers)
 js/geo.js         world <-> map, yaw (pure)        js/dxt.js    texture decoding (pure)
 js/model.js       LAYERS / LAYER_GROUPS / LAYER_SETTINGS, rarity, names, object categories (pure)
+js/game.js        the game running (the level's "game" / "features": setGame, hasFeature) and each game's own
+                  page data (gameData: rarity tiers, gear layers, eridium's sign) - nothing else names a game (pure)
 js/data.js        SSE /events -> S (onLevel, onState, onObjects, onPlayers, onMissions...)
 js/scheduler.js   invalidate(): frame requests per the Refresh rate setting
 js/view.js        canvas, W/H, toScreen / toMap, fit, zoom, follow, turning, the compass

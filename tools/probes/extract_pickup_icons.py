@@ -30,7 +30,7 @@ def main() -> None:
     sys.modules["helios_tracker"] = package
     from helios_tracker.gamecards import engine_packages  # noqa: PLC0415
     from helios_tracker.gameicons import decode_dxt, png  # noqa: PLC0415
-    from helios_tracker.tacmap import Package, _texture  # noqa: PLC0415
+    from helios_tracker.upk import Package, _texture  # noqa: PLC0415
 
     cooked = project.require(project.cooked_dir(), "the game's cooked packages (project.json: game.path)")
     paths = sorted(set(re.findall(r"= ([A-Za-z0-9_]+\.[A-Za-z0-9_.]+) \[Texture2D\]", PROBE.read_text(encoding="utf-8"))))

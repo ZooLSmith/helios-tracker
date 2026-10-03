@@ -19,7 +19,7 @@ from pathlib import Path
 from typing import Any
 
 from . import gamework
-from .tacmap import _texture, opened
+from .upk import _texture, opened
 
 # a skill icon's object path: the four classes' "SharedSkillIcons_Soldier.SkillIcon-Able", the DLC classes'
 # "UI_Lilac_SharedSkillIcons_Psyc.SkillIcon-Psycho01" / "UI_Tulip_SharedSkillIcons_Mech..."
@@ -62,7 +62,7 @@ def textures_ready() -> bool:
 def texture_by_path(path: str) -> bytes | None:
     """An always-loaded texture by its object path ("fx_shared_items.Textures.ItemCards.Credits": a pickup's icon) as
     a PNG, or None (not one of them, won't decode, not indexed yet: not kept). Decoded by gamework (cached on disk);
-    its pixels in a texture file cache (.tfc) too (tacmap._texture). Thread-safe."""
+    its pixels in a texture file cache (.tfc) too (upk._texture). Thread-safe."""
     if not TEXTURE_PATH.fullmatch(path or ""):
         return None
     key = path.lower()

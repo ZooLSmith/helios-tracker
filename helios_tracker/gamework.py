@@ -36,8 +36,8 @@ import sys, types
 pkg = types.ModuleType("helios_work")
 pkg.__path__ = [mod_dir]
 sys.modules["helios_work"] = pkg
-from helios_work import gamework, tacmap
-tacmap.keep_open(True)  # (packages / atlases kept between jobs: a session's icons out of one atlas)
+from helios_work import gamework, upk
+upk.keep_open(True)  # (packages / atlases kept between jobs: a session's icons out of one atlas)
 while True:
     job = jobs.get()
     if job is None:
@@ -106,15 +106,15 @@ def _in_worker(job: str) -> bytes:
 
 def _polite(job: str) -> bytes:
     """In process: the thread yields to the game thread (1 ms switches, a pause after each decompressed block)."""
-    from . import gamescan, tacmap  # noqa: PLC0415
+    from . import gamescan, upk  # noqa: PLC0415
 
     old = sys.getswitchinterval()
     sys.setswitchinterval(gamescan.SWITCH_INTERVAL)
-    tacmap.set_pause(gamescan.PAUSE)
+    upk.set_pause(gamescan.PAUSE)
     try:
         return run_job(job)
     finally:
-        tacmap.set_pause(0)
+        upk.set_pause(0)
         sys.setswitchinterval(old)
 
 

@@ -26,9 +26,9 @@ from typing import Any
 
 import unrealsdk
 from unrealsdk.unreal import WeakPointer
-from mods_base import Game, get_pc
+from mods_base import get_pc
 
-from . import amounts, gamecards, paths
+from . import amounts, gamecards, games, paths
 
 from .skills import skill_icon
 from .util import addr, call_str, def_name, field, item_name, log, log_error, named, player_info, try_
@@ -120,9 +120,6 @@ def card_keys(inv: Any, kind: str | None = None) -> dict[str, str]:
     return out
 
 
-GIBBED_PREFIXES = {"BL2": "BL2", "TPS": "BLOZ"}  # Gibbed's save editors' code prefix per game (none: no code)
-
-
 def gibbed_code(inv: Any) -> str:
     """Its code for Gibbed's save editors ("BL2(hwAAAAAB...)", the Pre-Sequel's "BLOZ(...)"), or "". The body is the
     game's own item serial - what a save holds: the native CreateSerialNumber()'s Buffer, the packed bits before the
@@ -130,7 +127,7 @@ def gibbed_code(inv: Any) -> str:
     (PackedDataHelper.Encode): the unique id cleared (then the scrambling, seeded by it, does nothing), the check
     written (CRC32 of the 40 bytes with 0xFFFF in its place, its halves xored), the trailing 0xFF bytes dropped,
     base64. A call, once per item record (they're cached)."""
-    prefix = GIBBED_PREFIXES.get(getattr(Game.get_current(), "name", ""), "")
+    prefix = games.GAME.gibbed_prefix
     serial = try_(lambda: inv.CreateSerialNumber()) if prefix else None
     if serial is None or _enum_name(try_(lambda: serial.State, "")) != "SNS_Full":
         return ""

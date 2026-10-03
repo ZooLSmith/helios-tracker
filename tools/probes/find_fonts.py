@@ -12,10 +12,16 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))  # tools/: project.py
 import project  # noqa: E402
 
-_spec = importlib.util.spec_from_file_location("tacmap", Path(__file__).resolve().parents[2] / "helios_tracker" / "tacmap.py")
-_tacmap = importlib.util.module_from_spec(_spec)
-_spec.loader.exec_module(_tacmap)
-Package, _Bits, _rect, _tags = _tacmap.Package, _tacmap._Bits, _tacmap._rect, _tacmap._tags
+# upk.py / swf.py alone (the package's __init__ needs the SDK)
+def _alone(name):  # noqa: ANN001, ANN202
+    spec = importlib.util.spec_from_file_location(name, Path(__file__).resolve().parents[2] / "helios_tracker" / f"{name}.py")
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
+
+
+_upk, _swf = _alone("upk"), _alone("swf")
+Package, _Bits, _rect, _tags = _upk.Package, _swf._Bits, _swf._rect, _swf._tags
 
 COOKED = project.require(project.cooked_dir(), "The game's CookedPCConsole")
 OUT = Path(__file__).with_suffix(".txt")

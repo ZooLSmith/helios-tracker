@@ -12,31 +12,27 @@ The page does the conversion; the level payload carries c, upp and the volume's 
 
 import json
 import math
-import sys
 import struct
 import threading
 import time
-from pathlib import Path
 from typing import Any
 
 import unrealsdk
-import mods_base
 from mods_base import ENGINE, get_pc
 from unrealsdk.unreal import WeakPointer
 
 from .amounts import pickup_amount
 from .inspector import buff_info, element_frame, explosion_info, ground_item, is_gear, plant_info, read_players
-from . import lootodds
+from . import games, levelmap, lootodds
+from .gamedir import game_dir
 from .missions import MissionLog, mission_id
 from .missions import objective_index as _mission_index
 from .shops import ShopReader
 from .skills import SkillReader
 from .server import Hub
-from .tacmap import MapFog, MapImage, load_fog, load_tactical_map
 from .util import (addr, call_str, clear_fields, def_name, exp_level, field, item_name, log, log_error, named,
                    pickup_kind, player_info, rarity_table, reader, try_)
 
-MOVIE_SCALE = 4  # movie px per volume "pixel": UnrealUnitsPerPixel is 32, the fit gave 128 uu / px
 LEVEL_CHECK_EVERY = 1.0  # s
 SCAN_EVERY = 120.0  # s between full pickup scans: a safety net, new ones come from the spawn hook
                     # (each find_all walks every object in the game: ~10 ms, a hitch - measured)
@@ -98,12 +94,6 @@ class _Timings:
             self._sizes.clear()
 
 
-def _game_name() -> str:
-    """The game the mod runs in, for the page ("bl2", "tps": its labels' Pre-Sequel variants - i18n.js), "" unknown."""
-    return try_(lambda: mods_base.Game.get_current().name.lower(), "") or ""
-
-
-GAME = _game_name()
 _language: list[str] = []
 
 
@@ -130,52 +120,17 @@ def _vital_max(value: float) -> float:
     return int(value) if value.is_integer() else value
 
 
-def cooked_dir() -> Path | None:
-    """WillowGame/CookedPCConsole of this install (the mod folder may be a junction elsewhere)."""
-    candidates = [Path(sys.executable).parent.parent.parent]  # Binaries/Win32/Borderlands2.exe
-    candidates += list(Path(__file__).absolute().parents)  # sdk_mods/helios_tracker/... (unresolved)
-    for base in candidates:
-        d = base / "WillowGame" / "CookedPCConsole"
-        if d.is_dir():
-            return d
-    return None
-
-
-# DLC packages: <game>/DLC/<code name>/{Lic,Compat}/Content/*.upk (seen: DLC/Sage/Lic/Content/
-# Sage_Underground_P.upk) - file name (lower case) -> path, listed once (the DLCs don't change while
-# the game runs)
-_dlc_packages: dict[str, Path] | None = None
-
-
-def package_path(file_name: str) -> Path | None:
-    """A cooked package by file name: the base game's (WillowGame/CookedPCConsole), else a DLC's. Files
-    only (the map extraction thread)."""
-    global _dlc_packages  # noqa: PLW0603
-    cooked = cooked_dir()
-    if cooked is None:
-        return None
-    if (path := cooked / file_name).is_file():
-        return path
-    if _dlc_packages is None:
-        _dlc_packages = {}
-        for content in sorted((cooked.parent.parent / "DLC").glob("*/*/Content")):
-            for pkg in content.glob("*.upk"):
-                _dlc_packages.setdefault(pkg.name.lower(), pkg)
-    return _dlc_packages.get(file_name.lower())
-
-
 def movie_length(name: str) -> float | None:
     """A cutscene video's length (s), from its Bink file's header (frames, then the frame rate as
     numerator / denominator at 28 / 32): <game>/WillowGame/Movies/<name>.bik, else a DLC's
     (DLC/<code name>/<Lic...>/Movies: Orchid_Intro.bik, 1948 frames at 29.97 = 65.0 s - the 65 s the game
     rendered nothing, tools/probes/probe_cutscene_watch.txt). None if not found / not a Bink file. The game names some with
     their extension ('TC_Marcus.bik', 'MegaIntro' without): dropped first (it looked for 'TC_Marcus.bik.bik')."""
-    cooked = cooked_dir()
+    game = game_dir()
     if name and name.lower().endswith(".bik"):
         name = name[:-4]
-    if cooked is None or not name:
+    if game is None or not name:
         return None
-    game = cooked.parent.parent
     for folder in [game / "WillowGame" / "Movies", *sorted((game / "DLC").glob("*/*/Movies"))]:
         path = folder / f"{name}.bik"
         if path.is_file():
@@ -300,32 +255,6 @@ def loot_info(io: Any, balance: Any) -> tuple[list[str], int, list[str]]:
     return list(dict.fromkeys(pools)), slots, []
 
 
-class _ImageCache:
-    """Extracted map images and fog of war per (package file, mtime, movie): revisiting a level is free."""
-
-    def __init__(self, size: int = 4) -> None:
-        self._size = size
-        self._items: dict[tuple[str, float, str], tuple[list[MapImage], MapFog | None]] = {}
-        self._lock = threading.Lock()
-
-    def get(self, pkg_file: Path, movie: str) -> tuple[list[MapImage], MapFog | None]:
-        key = (str(pkg_file).lower(), pkg_file.stat().st_mtime, movie.lower())
-        with self._lock:
-            if key in self._items:
-                return self._items[key]
-        images = load_tactical_map(pkg_file, movie)
-        try:
-            fog = load_fog(pkg_file, movie)
-        except Exception as ex:  # noqa: BLE001 - the map still shows without its fog
-            log_error("fog of war extraction", ex)
-            fog = None
-        with self._lock:
-            self._items[key] = (images, fog)
-            while len(self._items) > self._size:
-                del self._items[next(iter(self._items))]
-        return images, fog
-
-
 class Collector:
     def __init__(self, hub: Hub) -> None:
         self.hub = hub
@@ -334,8 +263,7 @@ class Collector:
         self.level_id = int(time.time() * 1000) % 1_000_000_000
         self._lock = threading.Lock()  # guards level_id / _level against the extraction thread
         self._level: dict[str, Any] | None = None
-        self._level_key: tuple[str, str | None] | None = None
-        self._images = _ImageCache()
+        self._level_key: tuple | None = None
         self.on_page: Any = None  # called when a page connects (the mod sets it: the game files' scan)
         self._video_at = 0.0  # a cutscene video started (monotonic time): cleared once the frames come back
         self._video_len: float | None = None
@@ -498,11 +426,8 @@ class Collector:
         wi = ENGINE.GetCurrentWorldInfo()
         if wi is None:
             return
-        name = str(wi.GetStreamingPersistentMapName())
-        info = wi.GetMapInfo()
-        vol = info.TacticalMapVolume if info is not None else None
-        movie = info.TacticalMapMovie if info is not None else None
-        key = (name, vol._path_name() if vol is not None else None)
+        name = games.GAME.map_name(wi)
+        key = games.GAME.level_key(wi, name)
         if key == self._level_key:
             return
         self._clear_contents()
@@ -516,29 +441,17 @@ class Collector:
                                  "rarity": try_(rarity_table, {}) or {}}  # the game's rarity colours
         if not game_name:
             level["raw"] = 1  # a made-up name (the page marks it)
-        if vol is None or movie is None:
+        # its map: where it sits, how its images load - the game's own way (games.py map_source, levelmap.py)
+        source = games.GAME.map_source(wi, name) if games.TACMAP in games.GAME.features else None
+        if source is None:
             level["status"] = "none"
-            log(f"no map for {name}: its map info {try_(lambda: info._path_name()) if info is not None else None},"
-                f" TacticalMapVolume {vol is not None}, TacticalMapMovie {movie is not None}")
         else:
-            bounds = vol.BrushComponent.Bounds
-            c = bounds.Origin
-            level.update(
-                status="loading",
-                center=[c.X, c.Y],
-                upp=vol.UnrealUnitsPerPixel * MOVIE_SCALE,
-                north=vol.NorthOffsetInDegreesClockwise,
-                # The mapped level's vertical range (the volume's box): below it = fallen off the map
-                # (the game only destroys what goes under KillZ, which can be far lower)
-                zmin=round(c.Z - bounds.BoxExtent.Z),
-                zmax=round(c.Z + bounds.BoxExtent.Z),
-                killz=try_(lambda: round(wi.KillZ)),
-            )
+            level.update(status="loading", **source.placement)
         self._set_level(level)
-        if level["status"] == "loading":
+        if source is not None:
             threading.Thread(
                 target=self._extract,
-                args=(dict(level), name, movie._path_name()),
+                args=(dict(level), name, source),
                 name="helios_tracker map",
                 daemon=True,
             ).start()
@@ -550,22 +463,21 @@ class Collector:
             if keep_lv and "lv" not in level and self._level and self._level.get("id") == level["id"] and "lv" in self._level:
                 level = {**level, "lv": self._level["lv"]}  # (the map thread's copy predates the area's level)
             self._level = level
-            self.hub.publish("level", json.dumps({**level, **({"game": GAME} if GAME else {}),
+            self.hub.publish("level", json.dumps({**level, "game": games.GAME.key, "features": sorted(games.GAME.features),
                                                   **({"lang": _language[0]} if _language and _language[0] else {})}))
 
-    def _extract(self, level: dict[str, Any], map_name: str, movie: str) -> None:
-        """Background thread: files only, no UObjects."""
+    def _extract(self, level: dict[str, Any], map_name: str, source: levelmap.MapSource) -> None:
+        """Background thread: files only, no UObjects (the source's load)."""
         level_id = level["id"]
         try:
-            package = package_path(f"{map_name}.upk")  # the base game's, or a DLC's
-            if package is None:
-                raise FileNotFoundError(f"couldn't find {map_name}.upk (WillowGame/CookedPCConsole, DLC/*/*/Content)")
-            images, fog = self._images.get(package, movie)
+            result = source.load()
         except Exception as ex:  # noqa: BLE001
             log_error("map extraction", ex)
             level.update(status="error", error=f"{type(ex).__name__}: {ex}")
             self._set_level(level)
             return
+        images, fog = result.images, result.fog
+        level.update(result.placement)  # (what only the files tell: BL1's center / upp)
         self.hub.set_images(level_id, [img.data for img in images] + ([fog.blob.data] if fog else []))
         if fog:  # the game's fog of war: its blob (the image after the map's) and where it goes, per area
             level["fog"] = {
@@ -590,7 +502,7 @@ class Collector:
         ]
         level["status"] = "ready" if images else "none"
         if not images:
-            log(f"no map for {map_name}: {movie} in {package} held no image")
+            log(f"no map for {map_name}: {source.key}'s held no image")
         self._set_level(level)
 
     # endregion
@@ -853,8 +765,9 @@ class Collector:
         client = self._client = getattr(try_(lambda: wi.NetMode), "name", "") == "NM_Client"
         self._waypoints = [WeakPointer(w) for w in unrealsdk.find_all("WillowWaypoint", exact=False)
                            if not w.Name.startswith("Default__")] if client else []
-        self._areas = [a for w in unrealsdk.find_all("WorldDiscoveryArea", exact=False)
-                       if (a := try_(lambda w=w: self._area_record(w) if self._in_world(w) else None))]
+        self._areas = [] if games.DISCOVERY not in games.GAME.features else [
+            a for w in unrealsdk.find_all("WorldDiscoveryArea", exact=False)
+            if (a := try_(lambda w=w: self._area_record(w) if self._in_world(w) else None))]
         self._next_areas = 0.0
         self._publish_objects()
 
@@ -1376,7 +1289,7 @@ class Collector:
                         loc = spot
                     # Its description ("pawninfo": sent on change) with its max health / shield (they rarely change)
                     hp_max, sh_max = _vital_max(hp[1]), _vital_max(hp[3])
-                    oxygen = self._oxygen(pawn) if is_player else None  # (the Pre-Sequel's Oz meter; BL2: none)
+                    oxygen = self._oxygen(pawn) if is_player and games.OXYGEN in games.GAME.features else None  # (the Oz meter)
                     infos.append({**info, **({"m": hp_max} if hp_max else {}), **({"sm": sh_max} if sh_max else {}),
                                   **({"om": _vital_max(oxygen[1])} if oxygen else {})})
                     extra = {

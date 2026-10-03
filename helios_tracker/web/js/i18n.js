@@ -35,7 +35,7 @@ export function setLanguage(pref) {
   applyI18n();
 }
 
-// The game the mod runs in ("tps": the Pre-Sequel - the level message's "game", data.js): a label with a twin for it
+// The game the mod runs in (game.js gameKey, "tps": the Pre-Sequel - set by game.js setGame): a label with a twin for it
 // ("group.relic.tps": "OZ KITS", the Pre-Sequel's own word - its Oz kits are BL2's relics' class) uses the twin
 let variant = "";
 export function setVariant(game) { variant = game || ""; }

@@ -2,6 +2,7 @@
 import { $ } from "./dom.js";
 import { decodeTexture } from "./dxt.js";
 import { setGameLanguage, setVariant, t } from "./i18n.js";
+import { gameKey, setGame } from "./game.js";
 import { objectCategory, setRarityTable } from "./model.js";
 import { initColors } from "./shapes.js";
 import { invalidate } from "./scheduler.js";
@@ -99,7 +100,8 @@ function reloadWhenBack() {
 }
 
 function onLevel(level) {
-  setVariant(level.game); // (the Pre-Sequel's words for its labels: i18n.js)
+  const gameChanged = setGame(level.game, level.features); // (its layers, colours, data: game.js)
+  setVariant(gameKey()); // (its words for its labels: i18n.js)
   if (setGameLanguage(level.lang)) languageChanged(); // (the page's language on "Auto": the game's)
   invalidate();
   const changed = !S.level || S.level.id !== level.id;
@@ -110,10 +112,9 @@ function onLevel(level) {
     S.shops = null; S.shopTimer = null; renderShops();
   }
   const wasReady = S.level && S.level.id === level.id && S.level.status === "ready";
-  const gameChanged = (S.level?.game || "") !== (level.game || "");
   S.level = level;
   if (gameChanged) { initColors(); renderLayers(); } // (a game's own layers and colours: model.js layerInGame, setLayerColors)
-  if (level.rarity) setRarityTable(level.rarity, level.game); // (tiers by colour entry: each game's own table)
+  if (level.rarity) setRarityTable(level.rarity); // (tiers by colour entry: the game's own table, game.js)
   renderLevel();
   renderMessage();
   if (level.status === "ready" && !wasReady) loadImages(level);

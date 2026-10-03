@@ -1,4 +1,5 @@
 // What things are: layers, rarities, names, object categories. Pure (no DOM): tested offline under Node.
+import { gameData, gameKey, hasFeature } from "./game.js";
 
 // Per-layer settings: what each one is (the panel builds its controls from this) and its default.
 // A layer lists the ones that apply to it (LAYERS[].settings) and may change a default.
@@ -15,17 +16,8 @@ export const LAYER_SETTINGS = {
 };
 const COMMON = ["names", "nameSize", "size", "floors", "range"]; // (the panel's order: other floors just before max distance)
 
-// RarityLevel -> [name key, colour]. The game's own, sent with the level (setRarityTable): its colour
-// per level and its colour entry - levels sharing an entry are one tier (5 and 7-10: legendary,
-// tools/probes/probe_rarity3.txt). The names are ours (the game has none for rarities: the user confirmed
-// them in game), by colour entry; an entry without one shows its number ("Rarity 503") in its colour.
-const TIER_BY_ENTRY = { 0: "misc", 1: "common", 2: "uncommon", 3: "rare", 4: "epic", 5: "legendary", 6: "etech",
-  7: "legendary", 12: "pearl", 13: "seraph", 17: "effervescent" };
-// The Pre-Sequel's table (its Startup.upk GD_Globals.General.Globals RarityLevelColors, offline): 19 entries - 505 one
-// (entry 17: BL2 has none, its 506 there), 506 entry 18; 501's pink (entry 13, BL2's Seraph's) is its Glitch; no
-// pearlescent, no effervescent (the user) - 500 / 505 / 506 unnamed ("Rarity 500")
-const TIER_BY_ENTRY_TPS = { 0: "misc", 1: "common", 2: "uncommon", 3: "rare", 4: "epic", 5: "legendary", 6: "etech",
-  7: "legendary", 13: "glitch" };
+// RarityLevel -> [name key, colour]. The game's own, sent with the level (setRarityTable): its colour per level and
+// its colour entry, the entry's tier name from the game's own table (game.js tierByEntry).
 // Before the game's table (or without it): the usual levels, in the game's colours
 const RARITY = {
   0: ["misc", "#cdc1af"], 1: ["common", "#ffffff"], 2: ["uncommon", "#3dd20b"], 3: ["rare", "#3c8eff"],
@@ -33,14 +25,12 @@ const RARITY = {
   501: ["seraph", "#ff9ab8"], 506: ["effervescent", "#f2ffa1"],
 };
 let gameRarity = {}; // "level" -> [colour entry, "#rrggbb"]
-let rarityGame = ""; // the game the table is from (the level's "game": "bl2", "tps")
-export function setRarityTable(table, game = "") {
+export function setRarityTable(table) {
   gameRarity = table && typeof table === "object" ? table : {};
-  rarityGame = game || "";
 }
 export function rarity(q) {
-  const game = gameRarity[String(q)];
-  if (game) return [(rarityGame === "tps" ? TIER_BY_ENTRY_TPS : TIER_BY_ENTRY)[game[0]] || "unknown", game[1]];
+  const own = gameRarity[String(q)];
+  if (own) return [gameData().tierByEntry[own[0]] || "unknown", own[1]];
   return RARITY[q] || (q > 500 ? ["pearl", RARITY[500][1]] : ["unknown", "#e0e0e0"]);
 }
 const RARITY_COLOR = { ...Object.fromEntries(Object.values(RARITY)), glitch: "#ff9ab8" }; // (Glitch: 501's, the Pre-Sequel's)
@@ -56,12 +46,9 @@ export function rainbowAt(ms) {
 // The panel's categories, in order
 export const LAYER_GROUPS = ["characters", "loot", "missions", "services", "places", "map"]; // ("world" before: split, too generic)
 
-// Gear on the ground: a layer per rarity (misc: rarity 0 and unknown levels), in the Gear folder
+// Gear on the ground: a layer per rarity (misc: rarity 0 and unknown levels), in the Gear folder - the ones the game
+// has (game.js rarities)
 const LOOT_RARITIES = ["common", "uncommon", "rare", "epic", "legendary", "etech", "pearl", "seraph", "glitch", "effervescent", "misc"];
-// a rarity's layer in one game only: BL2's pearlescent, Seraph, effervescent; the Pre-Sequel's Glitch - and its E-tech
-// gear in the Legendary layer (its one E-tech item: the Monster Trap, a mission grenade mod - the user; the item
-// keeps its own rarity: name, colour)
-const RARITY_GAME = { pearl: "bl2", seraph: "bl2", effervescent: "bl2", glitch: "tps", etech: "bl2" };
 // Other pickups: a layer per kind (the collector's "pk", from the game's inventory card; "mission": a
 // mission item - ECHO logs, objects an objective asks for - in the objectives' green), in the Pickups
 // folder; anything else (other currencies...) is "other"
@@ -69,7 +56,8 @@ const PICKUP_KINDS = ["ammo", "cash", "eridium", "health", "oxygen", "mission", 
 
 // Map layers, in panel order within their category. "on": shown by default; toggle: false = can't
 // be hidden (players), only configured. folder: a row holding the layers whose parent it is (no
-// settings of its own; its box turns them all on / off). rarity: named by the game's rarity.
+// settings of its own; its box turns them all on / off). rarity: named by the game's rarity. needs: the game's feature
+// it shows (games.py / game.js: the row hidden in a game without it).
 // legacy: the id whose on / off the old storage kept (the single Loot layer, now one per rarity).
 export const LAYERS = [
   { id: "player", group: "characters", toggle: false, settings: ["names", "nameSize", "size", "floors"], defaults: { names: true } },
@@ -77,8 +65,7 @@ export const LAYERS = [
   { id: "npc", group: "characters", on: true, settings: COMMON },
   { id: "vehicle", group: "characters", on: true, settings: COMMON },
   { id: "gear", group: "loot", folder: true, settings: [] },
-  ...LOOT_RARITIES.map((r) => ({ id: "loot." + r, group: "loot", parent: "gear", legacy: "loot", rarity: r, color: RARITY_COLOR[r], on: true, settings: COMMON,
-    ...(RARITY_GAME[r] ? { game: RARITY_GAME[r] } : {}) })),
+  ...LOOT_RARITIES.map((r) => ({ id: "loot." + r, group: "loot", parent: "gear", legacy: "loot", rarity: r, color: RARITY_COLOR[r], on: true, settings: COMMON })),
   // not gear: no real rarity (made-up levels, for their colour in game)
   { id: "pickups", group: "loot", folder: true, settings: [] },
   // (Other last: the buffs before it)
@@ -88,7 +75,7 @@ export const LAYERS = [
     ...(k === "other" ? [{ id: "buff", group: "loot", parent: "pickups", on: true, tip: "layer.buffTip", settings: COMMON }] : []),
     { id: "pickup." + k, group: "loot", parent: "pickups", legacy: "loot", on: true,
       settings: k === "cash" || k === "eridium" ? ["names", "nameSize", "amounts", "amountSize", ...COMMON.slice(2)] : COMMON,
-      ...(k === "other" ? { tip: "layer.pickup.otherTip" } : {}), ...(k === "oxygen" ? { game: "tps" } : {}) }]),
+      ...(k === "other" ? { tip: "layer.pickup.otherTip" } : {}), ...(k === "oxygen" ? { needs: "oxygen" } : {}) }]),
   { id: "containers", group: "loot", folder: true, settings: [] },
   { id: "chest", group: "loot", parent: "containers", on: true, settings: COMMON },
   { id: "weaponchest", group: "loot", parent: "containers", on: true, settings: COMMON },
@@ -105,31 +92,32 @@ export const LAYERS = [
   { id: "station", group: "services", on: false, settings: COMMON },
   // Places: things in the level
   // the Pre-Sequel's jump pads (and geysers): the class OzPlayerJumpPad
-  { id: "jumppad", group: "places", on: true, game: "tps", settings: COMMON },
+  { id: "jumppad", group: "places", on: true, needs: "jumppads", settings: COMMON },
   // what explodes (barrels...: both games) - in its element's colour, its health under it when hurt
   { id: "explosive", group: "places", on: true, settings: COMMON },
   // what gives oxygen (the Pre-Sequel's): air domes (their breathable area - on: filled; off, their generator's button
   // not pushed: dashed), their generators, oxygen fissures
-  { id: "oxygen", group: "places", on: true, game: "tps", settings: COMMON },
+  { id: "oxygen", group: "places", on: true, needs: "oxygen", settings: COMMON },
   // the Cult of the Vault symbols (IO_VaultRoy: clicked to discover, a challenge - tools/probes/probe_directors.txt;
   // discovered ones not told apart yet)
   { id: "vaultsymbol", group: "places", on: true, settings: COMMON },
   { id: "other", group: "places", on: false, settings: COMMON },
   // Map: the level's areas (the game's discovery areas, tools/probes/probe_discovery.txt): their names, the ones not
   // discovered yet dimmed; the fog of war: the game's fog pieces over the areas not discovered (its count)
-  { id: "area", group: "map", on: true, settings: ["size", "opacity"] },
-  { id: "fog", group: "map", on: false, settings: ["opacity"] },
+  { id: "area", group: "map", on: true, needs: "discovery", settings: ["size", "opacity"] },
+  { id: "fog", group: "map", on: false, needs: "discovery", settings: ["opacity"] },
 ];
 export const LAYER_COLOR = Object.fromEntries(LAYERS.map((l) => [l.id, l.color]));
 
-/** Whether a layer is listed in `game` (the level message's "game": "bl2", "tps"): a layer with a "game" only in that
- *  one (the Pre-Sequel's oxygen canisters); the game not known yet: not those. */
-export function layerInGame(l, game) { return !l.game || l.game === game; }
+/** Whether a layer is listed in the game running (game.js): a rarity's if the game has it, one that "needs" a
+ *  feature if the game has that (the Pre-Sequel's oxygen); the game not known yet: neither. */
+export function layerInGame(l) { return l.rarity ? gameData().rarities.includes(l.rarity) : !l.needs || hasFeature(l.needs); }
 
-/** The layers' colours, from the page's tokens (base.css --layer-<id>, "." as "-"; a game's own first:
- *  --layer-<id>-<game>, the Pre-Sequel's cyan moonstones): read(name) -> the value (shapes.js initColors). The rarity
- *  layers keep the game's. */
-export function setLayerColors(read, game = "") {
+/** The layers' colours, from the page's tokens (base.css --layer-<id>, "." as "-"; the game's own first:
+ *  --layer-<id>-<game key>, the Pre-Sequel's cyan moonstones): read(name) -> the value (shapes.js initColors). The
+ *  rarity layers keep the game's. */
+export function setLayerColors(read) {
+  const game = gameKey();
   for (const l of LAYERS) {
     if (l.rarity) continue;
     const token = "--layer-" + l.id.replace(".", "-");
@@ -144,8 +132,8 @@ export const layerNameKey = (l) => (l.rarity ? "rarity." + l.rarity : "layer." +
 /** The layer of a pickup: its rarity's for gear, else its kind's ("pickup.ammo"...). */
 export function lootLayer(p) {
   if (!isGear(p.c)) return "pickup." + (PICKUP_KINDS.includes(p.pk) ? p.pk : "other");
-  const [key] = rarity(p.q || 0);
-  if (key === "etech" && rarityGame === "tps") return "loot.legendary"; // (the Pre-Sequel: E-tech in the Legendary layer)
+  const [tier] = rarity(p.q || 0);
+  const key = gameData().rarityLayer[tier] || tier; // (a tier shown in another's layer: the Pre-Sequel's E-tech)
   return LOOT_RARITIES.includes(key) ? "loot." + key : "loot.misc";
 }
 

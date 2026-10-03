@@ -18,7 +18,7 @@ import threading
 from pathlib import Path
 
 from . import gamecards, gamefonts, gameicons, gamework, paths
-from .tacmap import Package
+from .upk import Package
 
 CACHE = paths.DATA / ".cache" / "scan.json"
 VERSION = 5  # the cache's layout: another number = scanned again (2: the card arts' layers; 3: the textures; 4: skill

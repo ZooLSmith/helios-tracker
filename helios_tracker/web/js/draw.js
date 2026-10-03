@@ -1,6 +1,7 @@
 // One frame: the map images, then the markers bottom to top (quest areas, objects, quest markers,
 // loot, pawns), each styled by its layer's settings; records what's where (S.hits) for hover /
 // click, updates the layer counts.
+import { gameData } from "./game.js";
 import { UU_PER_METER, mapTurn, worldToMap, yawToAngle } from "./geo.js";
 import { FLOOR_UU, LAYERS, LAYER_COLOR, chestTier, isGear, isGoldenChest, lootLayer, nameText, rainbowAt, rarity } from "./model.js";
 import { num } from "./i18n.js";
@@ -385,7 +386,7 @@ export function draw() {
     else if (layer === "pickup.mission" && p.ms?.k === "gives") bang(sx, sy, LAYER_COLOR[layer], st.k);
     else if (layer === "pickup.mission") diamond(sx, sy, 6 * st.k, LAYER_COLOR[layer]);
     else if (layer === "pickup.cash") coin(sx, sy, LAYER_COLOR[layer], st.k); // money: a "$" disc
-    else if (layer === "pickup.eridium" && S.level?.game === "tps") coin(sx, sy, LAYER_COLOR[layer], st.k, "m"); // moonstones: an "m" disc (the game's own sign for them: a small m)
+    else if (layer === "pickup.eridium" && gameData().eridiumGlyph) coin(sx, sy, LAYER_COLOR[layer], st.k, gameData().eridiumGlyph); // moonstones: an "m" disc (game.js)
     else dot(sx, sy, 3.5 * st.k, LAYER_COLOR[layer]); // not gear (ammo, cash...): its kind's colour, no rarity
     const markR = lastMark(); // (label() clears it: the amount's line uses it too)
     if (st.names) label(sx, sy, nameText(p), isGear(p.c) ? color : LAYER_COLOR[layer], p.raw, st.ns); // (past its marker: shapes.js drew)

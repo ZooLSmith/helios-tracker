@@ -687,7 +687,7 @@ Southern Shelf's `_P` alone: 404 `StaticMesh`, 4131 `StaticMeshComponent`, 11 `T
 - **The Pre-Sequel's rarity table** (offline: Startup.upk, GD_Globals.General.Globals RarityLevelColors - its
   MinLevel / MaxLevel / Color, BGRA): 19 entries, BL2's 18 plus 505's (entry 17: a peach) - so 506 is its entry 18 (the
   legendary orange), not 17. 500 cyan (entry 12), 501 pink (13: BL2's Seraph colour - the Pre-Sequel's Glitch, the
-  user), 503 a purple (15). The page names the Pre-Sequel's tiers from its own entries (model.js TIER_BY_ENTRY_TPS).
+  user), 503 a purple (15). The page names the Pre-Sequel's tiers from its own entries (game.js: its tierByEntry).
   What uses the levels (offline, every definition's BaseRarity / Rarity - AttributeInitializationData: its
   BaseValueConstant, or an attribute's ConstantAttributeValueResolver): gear 1-5 (GD_Balance_Inventory.Rarity_Item
   .ItemRarity1_Common..5_Legendary: 1..5), Glitch = a glitch attachment's +497 (GD_Ma_Weapons.Rarity

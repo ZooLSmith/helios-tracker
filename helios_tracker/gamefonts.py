@@ -30,7 +30,8 @@ from dataclasses import dataclass
 from pathlib import Path
 
 from . import gamework
-from .tacmap import Package, _Bits, _rect, _tags, opened
+from .swf import _Bits, _rect, _tags
+from .upk import Package, opened
 
 
 

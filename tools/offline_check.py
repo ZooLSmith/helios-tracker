@@ -185,6 +185,23 @@ const lootLayers = [[1, "WillowWeapon"], [5, "WillowShield"], [500, "WillowArtif
 setRarityTable({ "5": [5, "#ffb400"], "9": [7, "#ffb400"], "501": [13, "#ff9ab8"], "503": [15, "#9132c8"] });
 const gameRarity = [5, 9, 501, 503].map((q) => rarity(q)).concat([lootLayer({ q: 9, c: "WillowWeapon" })]);
 setRarityTable(null);
+// The game (game.js: the level message's "game" and "features" - games.py): each game's own tiers and layers; a level
+// message with the same game and features (in any order) isn't a change (the layers / colours not rebuilt)
+const { setGame } = await load("js/game.js");
+const { layerInGame } = await load("js/model.js");
+const gameIds = ["loot.pearl", "loot.glitch", "loot.etech", "oxygen", "pickup.oxygen", "jumppad", "area", "fog", "enemy"];
+const gameShown = () => gameIds.filter((id) => layerInGame(LAYERS.find((l) => l.id === id)));
+const gameNone = gameShown(); // (before the level message: no game's own layers)
+const gameSwitch = [setGame("tps", ["discovery", "oxygen", "jumppads", "tacmap"]), setGame("tps", ["tacmap", "jumppads", "oxygen", "discovery"])];
+setRarityTable({ "501": [13, "#ff9ab8"], "6": [6, "#ca00a8"] });
+const gameTps = { shown: gameShown(), glitch: rarity(501)[0], etech: lootLayer({ q: 6, c: "WillowWeapon" }) };
+setGame("bl1", []);
+const gameBl1 = gameShown();
+setGame("bl2", ["discovery", "tacmap"]);
+const gameBl2 = { shown: gameShown(), seraph: rarity(501)[0], etech: lootLayer({ q: 6, c: "WillowWeapon" }) };
+setGame("", []);
+setRarityTable(null);
+const gameOut = { gameNone, gameSwitch, gameTps, gameBl1, gameBl2 };
 const unknownSettings = LAYERS.flatMap((l) => l.settings.filter((k) => !LAYER_SETTINGS[k]).map((k) => l.id + "." + k));
 // Missions: state (available = every mission it needs done), the tree, objective states
 const { missionTree, objectiveStates, missionCounts, missionAreas } = await load("js/missions.js");
@@ -369,7 +386,7 @@ Object.assign(S, { detail: null, pickups: [], groundItems: new Map() });
 const missionsOut = { deltaOut, lootDetailRenders, rowsOut, shotCostOut, bonusOut, statsOut, lookOut, vaultCat, healthShown, variantWords, stepOrder, hitPicks, items, fallback, where, tooHigh, finish, difficulty, best, search, infoHtml, areas, gameText, story: flat(tree.story), other: flat(tree.other), counts: missionCounts(log),
   objectives: objectiveStates(log[1]).map((s) => s.state) };
 console.log(JSON.stringify({ sha: crypto.createHash("sha256").update(rgba).digest("hex"), err, back, right, raw, modules, missions: missionsOut,
-  migrated, checked: { enemy: checked.layers.enemy, view: checked.view, openLayers: checked.ui.openLayers, drawer: checked.ui.drawer, badDrawer }, i18nKeys, unknownSettings, lootLayers, gameRarity, freeRects }));
+  migrated, checked: { enemy: checked.layers.enemy, view: checked.view, openLayers: checked.ui.openLayers, drawer: checked.ui.drawer, badDrawer }, i18nKeys, unknownSettings, lootLayers, gameRarity, gameOut, freeRects }));
 """
 
 
@@ -402,6 +419,12 @@ def _dxt5_rgba(w: int, h: int, data: bytes) -> bytes:
                 px[o : o + 3] = bytes(cols[(cb >> (2 * k)) & 3])
                 px[o + 3] = al[(abits >> (3 * k)) & 7]
     return bytes(px)
+
+
+def bl1_map_alpha(img) -> float:  # noqa: ANN001
+    """The share of a rendered BGRA map image that's (mostly) opaque."""
+    alpha = img.data[3::4]
+    return sum(1 for a in alpha if a > 128) / len(alpha)
 
 
 def check_helios_tracker() -> None:  # noqa: PLR0915
@@ -699,28 +722,71 @@ def check_helios_tracker() -> None:  # noqa: PLR0915
     gamework.stop()
     scan_tmp.cleanup()
     # A cutscene video's length from its Bink header (a DLC's: Captain Scarlett's intro, 65.0 s)
-    real_cooked_dir = col.cooked_dir
-    col.cooked_dir = lambda: GAME_COOKED
+    real_game_dir = col.game_dir
+    col.game_dir = lambda: GAME_COOKED.parent.parent
     if (GAME_COOKED.parent.parent / "DLC" / "Orchid").is_dir():
         assert col.movie_length("Orchid_Intro") == 65.0, col.movie_length("Orchid_Intro")
     # (the game names some with their extension: the Marcus intro came as 'TC_Marcus.bik' - its length was lost)
     if (GAME_COOKED.parent / "Movies" / "TC_Marcus.bik").is_file():
         assert col.movie_length("TC_Marcus.bik") == col.movie_length("TC_Marcus") == 19.3, col.movie_length("TC_Marcus.bik")
     assert col.movie_length("NoSuchMovie") is None
-    col.cooked_dir = real_cooked_dir
-    # A DLC map: its package is under DLC/<code name>/{Lic,Compat}/Content (the collector's package_path)
-    real_cooked = col.cooked_dir
-    col.cooked_dir = lambda: GAME_COOKED
+    # BL1 (project.json's bl1, the original game): its Movies found from the game folder - no CookedPCConsole there
+    if (bl1_game := project.path("bl1")) is not None and (bl1_game / "WillowGame" / "Movies" / "VoG_Transition_Movie.bik").is_file():
+        col.game_dir = lambda: bl1_game
+        assert col.movie_length("VoG_Transition_Movie") == 70.2, col.movie_length("VoG_Transition_Movie")
+    col.game_dir = real_game_dir
+    # Vector shapes -> images (swfshape.py, BL1's map): a 10 x 10 square from (5, 5) in a 20 x 20 image - inside opaque,
+    # outside clear, a border at half a pixel half covered
+    from helios_tracker import swfshape  # noqa: PLC0415
+    square_cover = swfshape._coverage([(5, 5, 5, 15), (15, 5, 15, 15)], 20, 20)
+    assert square_cover[10 * 20 + 10] == 255 and square_cover[2 * 20 + 2] == 0 and square_cover[10 * 20 + 4] == 0, "a square's inside / outside"
+    half_cover = swfshape._coverage([(5.5, 5, 5.5, 15), (15, 5, 15, 15)], 20, 20)
+    assert half_cover[10 * 20 + 5] == 128 and half_cover[10 * 20 + 6] == 255, ("half a pixel: half its alpha", half_cover[10 * 20 + 5])
+    square_shape = swfshape.Shape((5.0, 15.0, 5.0, 15.0), [(41, 77, 93, 255)],
+                                  [(0, 1, [(5.0, 5.0), (15.0, 5.0), (15.0, 15.0), (5.0, 15.0), (5.0, 5.0)])])
+    sq_w, sq_h, sq_bgra, sq_bounds = swfshape.render([((1.0, 0.0, 0.0, 1.0, 0.0, 0.0), square_shape)], 2.0)
+    assert (sq_w, sq_h, sq_bounds) == (20, 20, (5.0, 15.0, 5.0, 15.0)) and sq_bgra[(10 * 20 + 10) * 4:(10 * 20 + 10) * 4 + 4] == bytes((93, 77, 41, 255)), \
+        ("a filled square, BGRA, 2 px per movie px", sq_w, sq_h, sq_bounds)
+    # Borderlands 1's files (project.json's bl1, the original game): its packages (version 584: upk_bl1), a level's
+    # map anchor, its map rendered from the menu movie's vector frame (bl1map.py)
+    bl1_cooked = (project.path("bl1") / "WillowGame" / "CookedPC") if project.path("bl1") else None
+    if bl1_cooked is not None and bl1_cooked.is_dir():
+        from helios_tracker import bl1map, upk  # noqa: PLC0415
+        from helios_tracker.upk_bl1 import Bl1Package  # noqa: PLC0415
+        bl1_tex = Bl1Package(bl1_cooked / "Packages" / "Environments" / "Env_TacticalMaps.upk")
+        bl1_arena_tex = upk._texture(bl1_tex, bl1_tex.find("Arid.arid-arena", "Texture2D"))
+        assert bl1_arena_tex[:3] == ("PF_DXT1", 1024, 1024) and len(bl1_arena_tex[3]) == 1024 * 1024 // 2, bl1_arena_tex[:3]
+        bl1_tex.close()
+        bl1_level = Bl1Package(bl1_cooked / "Maps" / "Arid" / "W_Arid_Farmstead.umap")  # (raw-stored chunks)
+        assert len(bl1_level.exports) == 7722, len(bl1_level.exports)
+        bl1_level.close()
+        bl1_arena = Bl1Package(bl1_cooked / "Maps" / "Arid" / "Arid_Arena_Coliseum_P.umap")
+        bl1_anchor = next(i for i in range(len(bl1_arena.exports)) if bl1_arena.class_name(i) == "LevelLandmarkAnchor")
+        bl1_anchor_props, _ = bl1_arena.actor_properties(bl1_arena.export_data(bl1_anchor))
+        assert bl1_arena.ref_path(struct.unpack("<i", bl1_anchor_props["Texture"][1])[0]) == "Env_TacticalMaps.Arid.arid-arena"
+        assert bl1_anchor_props["MapFrame"][1][4:-1] == b"arid_arena" and struct.unpack("<f", bl1_anchor_props["DrawScale"][1])[0] == 13.0
+        bl1_arena.close()
+        (bl1_arena_img,) = bl1map.load_map(bl1_cooked, "arid_arena")
+        assert (bl1_arena_img.format, bl1_arena_img.width, bl1_arena_img.height) == ("PF_A8R8G8B8", 463, 906), (bl1_arena_img.width, bl1_arena_img.height)
+        assert bl1_map_alpha(bl1_arena_img) > 0.3, "the arena's walkable area filled"
+        (bl1_bunker_img,) = bl1map.load_map(bl1_cooked, "arid_bunker")  # (gradient fills)
+        assert bl1_bunker_img.width == 1504, bl1_bunker_img.width
+        assert bl1map.load_map(bl1_cooked, "no_such_frame") == []
+        print(f"  BL1: packages (584), the arena's map anchor, its map rendered {bl1_arena_img.width} x {bl1_arena_img.height}")
+    # A DLC map: its package is under DLC/<code name>/{Lic,Compat}/Content (gamedir.package_path)
+    from helios_tracker import gamedir  # noqa: PLC0415
+    real_cooked = gamedir.cooked_dir
+    gamedir.cooked_dir = lambda: GAME_COOKED
     try:
-        dlc = col.package_path("Sage_Underground_P.upk")
+        dlc = gamedir.package_path("Sage_Underground_P.upk")
         assert dlc is not None and "DLC" in dlc.parts, dlc
-        assert col.package_path("Sanctuary_P.upk") == GAME_COOKED / "Sanctuary_P.upk" and col.package_path("Nope_P.upk") is None
+        assert gamedir.package_path("Sanctuary_P.upk") == GAME_COOKED / "Sanctuary_P.upk" and gamedir.package_path("Nope_P.upk") is None
         t = time.perf_counter()
         (img,) = load_tactical_map(dlc, "Sage_UI_TacticalMap_Undergrnd.Undergrnd_P")
         assert (img.format, img.width, img.height) == ("PF_DXT5", 1024, 644), img
         print(f"  Sage_Underground_P (DLC): {img.name} {img.width}x{img.height} ({time.perf_counter() - t:.2f} s)")
     finally:
-        col.cooked_dir = real_cooked
+        gamedir.cooked_dir = real_cooked
     # A map drawn from a part of its texture (a GFx DefineSubImage, its image's id 0): the Pre-Sequel's ComFacility_P
     tps_cooked = project.path("tps")
     tps_facility = tps_cooked / "WillowGame" / "CookedPCConsole" / "ComFacility_P.upk" if tps_cooked else None
@@ -970,7 +1036,7 @@ def check_helios_tracker() -> None:  # noqa: PLR0915
     )
     col.ENGINE = ns(GetCurrentWorldInfo=lambda: wi)
     col.get_pc = lambda **k: ns(MyWillowPawn=me, Rotation=ns(Yaw=0))
-    col.cooked_dir = lambda: GAME_COOKED
+    gamedir.cooked_dir = lambda: GAME_COOKED
     barrel = ns(  # an interactive object whose display name comes from its balance definition
         Name="WillowInteractiveObject_3", Outer=ns(Class=ns(Name="Level")), bDeleteMe=False, bHidden=False,
         Location=ns(X=9000.0, Y=1000.0, Z=3690.0), InteractiveObjectDefinition=ns(Name="IO_FireBarrel"),
@@ -1050,6 +1116,39 @@ def check_helios_tracker() -> None:  # noqa: PLR0915
             break
         time.sleep(0.05)
     assert level["status"] == "ready" and level["upp"] == 128.0 and level["center"] == [-3072.0, -10240.0], level
+    # the game and its features, for the page (games.py -> game.js)
+    assert level["game"] == "bl2" and level["features"] == ["discovery", "scan", "tacmap"], (level.get("game"), level.get("features"))
+    # The games' profiles (games.py): one per game, by mods_base's name; each other game only what differs from BL2
+    from helios_tracker import games as game_profiles  # noqa: PLC0415
+    profile_bl2, profile_tps, profile_bl1 = (game_profiles.make_profile(n) for n in ("BL2", "TPS", "BL1"))
+    assert type(game_profiles.GAME) is type(profile_bl2), "the fake mods_base's game: BL2"
+    assert profile_tps.features == profile_bl2.features | {"oxygen", "jumppads"} and profile_tps.packages == "CookedPCConsole"
+    assert profile_bl1.features == {"tacmap"} and profile_bl1.packages == "CookedPC" and profile_bl1.gibbed_prefix == ""
+    assert (profile_bl2.exe_depth, profile_bl1.exe_depth) == (2, 1), "Binaries/Win32/Borderlands2.exe, Binaries/Borderlands.exe"
+    # BL1's world is "Loader" in every area: the area is its first LevelStreamingPersistent (tools/probes/probe_bl1.txt);
+    # none (the main menu): the world's own package
+    profile_wi = ns(GetStreamingPersistentMapName=lambda: "Sanctuary_P", _path_name=lambda: "Loader.TheWorld:PersistentLevel.WorldInfo_1",
+                    StreamingLevels=[ns(Class=ns(Name="LevelStreamingPersistent"), PackageName="arid_p"),
+                                     ns(Class=ns(Name="LevelStreamingKismet"), PackageName="arid_env")])
+    assert profile_bl2.map_name(profile_wi) == "Sanctuary_P" and profile_bl1.map_name(profile_wi) == "arid_p"
+    profile_menu = ns(_path_name=lambda: "menumap.TheWorld:PersistentLevel.WorldInfo_0", StreamingLevels=[])
+    assert profile_bl1.map_name(profile_menu) == "menumap" and profile_bl1.level_key(profile_menu, "menumap") == ("menumap",)
+    # BL1's map placement (bl1map.placement: from its anchor and its shape's size alone) against the game's own: Arid's
+    # map objects, world -> TransformedLocation (0-1) x ClipSize (tools/probes/probe_bl1_map.txt) - within 1.5 movie px
+    from helios_tracker import bl1map as placement_map  # noqa: PLC0415
+    arid_anchor = placement_map.Anchor("Arid", -28388.717, -10011.951, 32, 58.2, 233.131, 1024, 512)
+    arid_center, arid_upp = placement_map.placement(arid_anchor, (779.5, 352.2))
+    for (wx, wy), (mu, mv) in (((-11696.0, 32992.0), (0.860, 0.241)), ((-45536.0, -2512.0), (0.563, 0.871)),
+                               ((-4980.142, -68936.484), (0.006, 0.122)), ((-12118.424, 32065.379), (0.852, 0.249)),
+                               ((-46811.902, -29426.098), (0.338, 0.896))):
+        arid_mx, arid_my = (wy - arid_center[1]) / arid_upp, -(wx - arid_center[0]) / arid_upp
+        assert abs(arid_mx - mu * 779.5) < 1.5 and abs(arid_my - mv * 352.2) < 1.5, ((wx, wy), (arid_mx, arid_my), (mu * 779.5, mv * 352.2))
+    assert profile_bl2.movie_no_skip(ns(bForceNoSkip=1)) is True and profile_bl1.movie_no_skip(ns()) is False
+    try:
+        game_profiles.make_profile("BL3")
+        raise AssertionError("an unknown game: no profile")
+    except RuntimeError:
+        pass
     assert (level["zmin"], level["zmax"]) == (-4096, 12288), level
     fog = level.get("fog")
     assert fog and fog["url"] == f"/image/{level['id']}/1" and fog["pieces"][0][0] == "sanctuary_pwda_1", fog  # (the fake level: Sanctuary)
@@ -1105,12 +1204,12 @@ def check_helios_tracker() -> None:  # noqa: PLR0915
     # Keep (no Gibbed editor), nor for a serial not full, nor without one (the fake shield)
     law_code = "BL2(hwAAAADNoQCHRwJABoFAQsOIhRENIwHG/////9Iw/v9Pw4hAgg3j)"
     assert gun["gib"] == law_code, gun.get("gib")
-    game_fake = sys.modules["mods_base"].Game
-    game_fake.current = ns(name="TPS")
+    from helios_tracker import games  # noqa: PLC0415
+    games.GAME = games.make_profile("TPS")
     assert stats_insp.gibbed_code(weapon) == "BLOZ" + law_code.removeprefix("BL2"), stats_insp.gibbed_code(weapon)
-    game_fake.current = ns(name="AoDK")
+    games.GAME = games.make_profile("AoDK")
     assert stats_insp.gibbed_code(weapon) == "", "no Gibbed editor for Assault on Dragon Keep"
-    game_fake.current = ns(name="BL2")
+    games.GAME = games.make_profile("BL2")
     skin_serial = ns(State=serial_state.SNS_Full, Buffer=tuple(bytes.fromhex(  # a BanditTech skin's: 16 bytes left
         "07a3123038ffff0021014208e0ff04c2" + "ff" * 24)))
     assert stats_insp.gibbed_code(ns(CreateSerialNumber=lambda: skin_serial)) == "BL2(BwAAAADUWgAhAUII4P8Ewg==)"
@@ -2076,6 +2175,14 @@ def check_helios_tracker() -> None:  # noqa: PLR0915
     ], js["freeRects"]
     assert js["gameRarity"] == [["legendary", "#ffb400"], ["legendary", "#ffb400"], ["seraph", "#ff9ab8"],
                                 ["unknown", "#9132c8"], "loot.legendary"], js["gameRarity"]
+    game_out = js["gameOut"]
+    assert game_out["gameNone"] == ["enemy"], game_out["gameNone"]
+    assert game_out["gameSwitch"] == [True, False], ("the same features in another order: no change", game_out["gameSwitch"])
+    assert game_out["gameTps"] == {"shown": ["loot.glitch", "oxygen", "pickup.oxygen", "jumppad", "area", "fog", "enemy"],
+                                   "glitch": "glitch", "etech": "loot.legendary"}, game_out["gameTps"]
+    assert game_out["gameBl1"] == ["enemy"], ("BL1: no discovery areas, no BL2 / TPS tiers", game_out["gameBl1"])
+    assert game_out["gameBl2"] == {"shown": ["loot.pearl", "loot.etech", "area", "fog", "enemy"], "seraph": "seraph",
+                                   "etech": "loot.etech"}, game_out["gameBl2"]
     assert mig["layers"]["player"] == {"names": True, "nameSize": 100, "floors": "show", "size": 100}, mig["layers"]["player"]
     assert mig["view"]["zoom"] == 2.5 and mig["view"]["motion"] == 0, mig["view"]
     assert mig["ui"]["lang"] == "fr" and mig["ui"]["inspectorTab"] == "skills", mig["ui"]
