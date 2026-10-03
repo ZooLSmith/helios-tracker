@@ -365,7 +365,7 @@ def _item(inv: Any, equipped: bool, ctrl: Any = None) -> dict[str, Any]:
         "k": kind,
         "c": str(inv.Class.Name),
         "q": try_(lambda: int(inv.RarityLevel), 0),
-        "l": try_(lambda: int(inv.ExpLevel), 0),
+        "l": try_(lambda: games.GAME.item_card_level(inv, int(inv.ExpLevel)), 0),  # (the card's: games.py)
         "v": try_(lambda: int(inv.MonetaryValue), 0),
         "e": equipped,
         "stats": _stats(inv, kind),
@@ -973,6 +973,78 @@ def _skills(ctrl: Any, player: dict[str, Any], bonuses: dict[str, list[list[Any]
     player.update(result)
 
 
+BL1_BRANCHES = {"SKILLBRANCH_First": "FirstBranch", "SKILLBRANCH_Left": "LeftBranch", "SKILLBRANCH_Middle": "MiddleBranch",
+                "SKILLBRANCH_Right": "RightBranch"}  # a branch's state -> its static data in the class's PlayerSkillSet
+
+
+def _skills_from_player_skills(ctrl: Any, player: dict[str, Any], bonuses: dict[str, list[list[Any]]] | None = None,
+                               branch_names: dict[str, str] | None = None) -> None:
+    """A Borderlands 1 player's skill tree, as _skills's record (tools/probes/probe_bl1_skills.txt): no PlayerSkillTree -
+    the controller's SkillTreeBranches[] = {BranchIndex (SKILLBRANCH_First: the action skill alone; Left / Middle / Right),
+    PointsSpentInBranch, Tiers[]: {TierIndex, PlayerSkillIndexList (-1: an empty cell)}}, each index into PlayerSkills[] =
+    {Definition, Grade...} (the tree's ~25 among input "skills", proficiencies...); the points a tier asks: the class's
+    PlayerSkillSet's <Branch>.Tiers[].PointsToUnlockNextTier (5). Its branches' names: `branch_names` (the skill menu's -
+    games.Borderlands1.branch_names), else their own technical name, marked as a guess."""
+    entries = try_(lambda: list(ctrl.PlayerSkills), None) if ctrl is not None else None
+    branch_states = try_(lambda: list(ctrl.SkillTreeBranches), None) if ctrl is not None else None
+    if not entries or not branch_states:
+        player["skillsWhy"] = "unavailable" if player["local"] else "coopClient"
+        return
+    points = sum(try_(lambda b=b: int(b.PointsSpentInBranch), 0) or 0 for b in branch_states)
+    bonuses = bonuses or {}
+    ctrl_key = ctrl._get_address()
+    branch_names = branch_names or {}
+    cache_key = (points, tuple(sorted((k, tuple(map(tuple, v))) for k, v in bonuses.items())), tuple(sorted(branch_names.items())))
+    cached = _skills_cache.get(ctrl_key)
+    if cached is not None and cached[0] == cache_key:
+        player.update(cached[1])
+        return
+    skill_set = try_(lambda: ctrl.PlayerClass.PlayerSkillSet)
+    trees = []
+    for state in branch_states:
+        branch_name = _enum_name(try_(lambda s=state: s.BranchIndex, ""))
+        static_tiers = try_(lambda n=branch_name: list(getattr(skill_set, BL1_BRANCHES[n]).Tiers), []) or []
+        tiers, flat, spent = [], [], 0
+        for tier in try_(lambda s=state: list(s.Tiers), []) or []:
+            index = try_(lambda t=tier: int(t.TierIndex), 0)
+            need = try_(lambda i=index: int(static_tiers[i].PointsToUnlockNextTier), 0) if index < len(static_tiers) else 0
+            cells: list[dict[str, Any] | None] = []
+            for slot in try_(lambda t=tier: list(t.PlayerSkillIndexList), []) or []:
+                entry = entries[slot] if 0 <= slot < len(entries) else None
+                sd = try_(lambda e=entry: e.Definition) if entry is not None else None
+                if sd is None:
+                    cells.append(None)
+                    continue
+                info = _static_info(sd, lambda d: {
+                    **named(try_(lambda: str(d.SkillName), ""), def_name(d)),
+                    "m": try_(lambda: int(d.MaxGrade), 0),
+                    "d": try_(lambda: str(d.SkillDescription), ""),
+                })
+                grade = try_(lambda e=entry: int(e.Grade), 0) or 0
+                skill = {**info, "g": grade, "t": index + 1}
+                sources = bonuses.get(try_(lambda: str(sd.Name), "").lower(), [])  # (a class mod's ranks, as BL2's)
+                if bonus := sum(ranks for ranks, _name in sources):
+                    skill["b"], skill["bs"] = bonus, sources
+                effective = grade + bonus if grade > 0 else 0
+                if effective > 0 and (fx := _skill_stats(sd, ctrl, effective)):
+                    skill["fx"] = fx
+                if grade < info["m"] and (fxn := _skill_stats(sd, ctrl, grade + bonus + 1)):
+                    skill["fxn"] = fxn
+                cells.append(skill)
+                flat.append(skill)
+                spent += grade
+            tiers.append({"need": need, "cells": cells})
+        if not flat:
+            continue
+        tree = {**named(branch_names.get(branch_name, ""), branch_name), "pts": spent, "skills": flat, "tiers": tiers}
+        if branch_name == "SKILLBRANCH_First":
+            tree["root"] = True  # (the action skill's: not a tree of its own)
+        trees.append(tree)
+    result = {"skills": trees, "skillPoints": points}
+    _skills_cache[ctrl_key] = (cache_key, result)
+    player.update(result)
+
+
 def _branch_grid(bd: Any) -> list[dict[str, Any]]:
     """A branch's skill grid, as the skill tree menu draws it (static per class: cached).
 
@@ -1099,7 +1171,7 @@ def read_players(world_info: Any, me: Any, pc: Any = None) -> list[dict[str, Any
                         f" next={try_(lambda: pri.ExpPointsNextLevelAt)} level={try_(lambda: pri.ExpLevel)}")
                 _card_keys()
                 _inventory(pawn, player)
-                _skills(ctrl, player, try_(lambda p=pawn: _skill_bonuses(p), {}))
+                games.GAME.read_skills(ctrl, player, try_(lambda p=pawn: _skill_bonuses(p), {}))  # (each game's tree: games.py)
                 players.append(player)
         except Exception as ex:  # noqa: BLE001
             log_error("inspect player", ex)

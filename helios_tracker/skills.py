@@ -37,6 +37,7 @@ from typing import Any
 
 from unrealsdk.unreal import WeakPointer
 
+from . import games
 from .util import def_name, field, log, try_
 
 SKILLS_EVERY = 0.2  # s between reads of the skill manager (every player's running skills)
@@ -190,7 +191,7 @@ class SkillReader:
             if not action_name:  # the host, another player: SavedSkillTreeSkill has no name - their tree's
                 action_name = try_(lambda: _tree_names(pc)[2], "") or ""
             cached = (now + MAX_EVERY, try_(lambda: float(pc.GetSkillCooldownTime()), 0.0),
-                      try_(lambda: float(pc.GetMeleeSkillCooldownTime()), 0.0), action_name, _action_locked(pc))
+                      try_(lambda: float(pc.GetMeleeSkillCooldownTime()), 0.0), action_name, try_(lambda: games.GAME.action_skill_locked(pc), False))
             self._max[key] = cached
         _, action_max, melee_max, action_name, locked = cached
         out: dict[str, Any] = {}

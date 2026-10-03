@@ -102,6 +102,7 @@ function reloadWhenBack() {
 function onLevel(level) {
   const gameChanged = setGame(level.game, level.features); // (its layers, colours, data: game.js)
   setVariant(gameKey()); // (its words for its labels: i18n.js)
+  document.documentElement.dataset.game = gameKey(); // (its own colours: base.css :root[data-game=...])
   if (setGameLanguage(level.lang)) languageChanged(); // (the page's language on "Auto": the game's)
   invalidate();
   const changed = !S.level || S.level.id !== level.id;

@@ -36,11 +36,16 @@ class _Movie:
     def __init__(self, raw: bytes) -> None:
         self.shapes: dict[int, tuple[int, bytes]] = {}
         self.sprites: dict[int, list[tuple[int, bytes]]] = {}
+        self.root_named: dict[str, int] = {}  # the movie's own placements with a name: name -> character id
         for code, body in _movie_tags(raw):
             if code in SHAPE_CODES:
                 self.shapes[struct.unpack_from("<H", body)[0]] = (code, body)
             elif code == 39:  # DefineSprite: id, frame count, its tags
                 self.sprites[struct.unpack_from("<H", body)[0]] = list(_tags(body, 4))
+            elif code == 26:
+                cid, _matrix, name = _place2(body)
+                if name and cid is not None:
+                    self.root_named.setdefault(name, cid)
         self._parsed: dict[int, Shape] = {}
 
     def shape(self, cid: int) -> Shape:
@@ -84,6 +89,21 @@ class _Movie:
                 break
         return [shown[d] for d in sorted(own) if d in shown]
 
+    def frame_tags(self, sid: int, label: str) -> list[tuple[int, bytes]]:
+        """A sprite's frame's own tags, by its label (case-insensitive) - a label it doesn't have: its first frame, where
+        a gotoAndStop to it leaves the clip (the skill clip's first frame is "roland_combat": Roland's "roland" stays
+        there)."""
+        frames: list[list[tuple[int, bytes]]] = [[]]
+        found = None
+        for code, body in self.sprites[sid]:
+            if code == 1:  # ShowFrame: the frame's end
+                frames.append([])
+                continue
+            if code == 43 and found is None and _cstr(body, 0)[0].lower() == label.lower():
+                found = len(frames) - 1
+            frames[-1].append((code, body))
+        return frames[found or 0]
+
     def layers(self, sid: int, label: str | None = None, m: Affine = IDENTITY, depth: int = 0) -> list[tuple[Affine, Shape]]:
         """The shapes a sprite's frame draws (its sprites' first frames, recursively), with their matrices."""
         out: list[tuple[Affine, Shape]] = []
@@ -116,6 +136,89 @@ def _menu_movie(cooked: Path) -> _Movie:
             finally:
                 pkg.close()
         return _movies[key]
+
+
+def _literal_sets(action: bytes) -> dict[str, str]:
+    """A DoAction's literal member assignments - `tree1.text = "$<StringAliasMap:skills_hunter_branch1>"`, AVM1: push
+    "tree1"; getVariable; push "text", "$<...>"; setMember (the skill clip's frames: their constant pool, Push, GetVariable,
+    SetMember, Stop / Play only) -> {"tree1.text": "$<...>"}. Any other action: the reading stops there (what came before kept)."""
+    pool: list[str] = []
+    stack: list[str | None] = []
+    out: dict[str, str] = {}
+    o = 0
+    while o < len(action) and action[o]:
+        code = action[o]
+        size = struct.unpack_from("<H", action, o + 1)[0] if code >= 0x80 else 0
+        body = action[o + 3 : o + 3 + size]
+        o += 3 + size if code >= 0x80 else 1
+        if code == 0x88:  # ConstantPool
+            pool, at = [], 2
+            for _ in range(struct.unpack_from("<H", body)[0]):
+                text, at = _cstr(body, at)
+                pool.append(text)
+        elif code == 0x96:  # Push: a string or a constant only (anything else: not a literal - None)
+            at = 0
+            while at < len(body):
+                kind, at = body[at], at + 1
+                if kind == 0:
+                    text, at = _cstr(body, at)
+                    stack.append(text)
+                elif kind in (8, 9):
+                    index = body[at] if kind == 8 else struct.unpack_from("<H", body, at)[0]
+                    at += 1 if kind == 8 else 2
+                    stack.append(pool[index] if index < len(pool) else None)
+                else:
+                    at += {1: 4, 2: 0, 3: 0, 4: 1, 5: 1, 6: 8, 7: 4}.get(kind, len(body))
+                    stack.append(None)
+        elif (code == 0x1C and stack) or code in (0x06, 0x07):  # GetVariable: the name stays (its path); Play, Stop
+            pass
+        elif code == 0x4F and len(stack) >= 3:  # SetMember: object, member, value
+            value, member, obj = stack.pop(), stack.pop(), stack.pop()
+            if None not in (obj, member, value):
+                out[f"{obj}.{member}"] = value
+        else:
+            break
+    return out
+
+
+def clip_texts(cooked: Path, clip: str, frame: str) -> dict[str, str]:
+    """What the menu movie's clip `clip` (the movie's placement of that name: the skill tree's "skills" -
+    SkillTreeGFxDefinition.SkillMovieClip) sets in its frame `frame` (the character's: SkillTreeGFxHelper
+    .GetCharacterName(), its Flash_SetCharacter's gotoAndStop) - {"tree1.text": "$<StringAliasMap:skills_hunter_branch1>",
+    "charclass.text": ...}: the frame's ActionScript's literal assignments. {} if the movie has no such clip."""
+    movie = _menu_movie(cooked)
+    sprite = movie.root_named.get(clip)
+    if sprite not in movie.sprites:
+        return {}
+    out: dict[str, str] = {}
+    for code, body in movie.frame_tags(sprite, frame):
+        if code == 12:  # DoAction
+            out.update(_literal_sets(body))
+    return out
+
+
+_clip_texts: dict[tuple[str, str, str], dict[str, str] | None] = {}  # (cooked, clip, frame) -> its texts (None: being read)
+
+
+def clip_texts_later(cooked: Path, clip: str, frame: str) -> dict[str, str] | None:
+    """clip_texts without waiting (the game thread asks: the movie read on a thread of its own the first time) - None
+    until it's read; {} if it failed."""
+    key = (str(cooked), clip, frame.lower())
+    with _lock:
+        if key in _clip_texts:
+            return _clip_texts[key]
+        _clip_texts[key] = None
+
+    def read() -> None:
+        try:
+            texts = clip_texts(cooked, clip, frame)
+        except Exception:  # noqa: BLE001 - the movie unreadable: none (its fallback names)
+            texts = {}
+        with _lock:
+            _clip_texts[key] = texts
+
+    threading.Thread(target=read, name="helios_tracker menu movie", daemon=True).start()
+    return None
 
 
 @dataclass(frozen=True)

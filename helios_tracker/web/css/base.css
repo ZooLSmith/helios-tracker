@@ -93,6 +93,9 @@
   --tree-0-hi: #369341; --tree-0-main: #426122; --tree-0-shadow: #363d20;
   --tree-1-hi: #249ccc; --tree-1-main: #3f597d; --tree-1-shadow: #292946;
   --tree-2-hi: #a13837; --tree-2-main: #552b19; --tree-2-shadow: #231614;
+  /* a tree's greyed part's brightness (drawer.css --t-dim): the same grey for all three - grayscale() of green's /
+     blue's main ~86 / 255, red's ~51 (darker): x 0.6, x 0.6, as is (~52 each) */
+  --tree-0-dim: .6; --tree-1-dim: .6; --tree-2-dim: 1;
   --skill-done: #04cc04; /* a skill maxed: its outline and rank dots */
   --skill-part: #d46a00; /* a skill with points, not maxed */
   --skill-bonus: #4aa8ff; /* bonus ranks from gear (a class mod's): blue, like the game's */
@@ -175,6 +178,18 @@
   --layer-other: #7f8f99;
   color-scheme: dark;
 }
+/* Borderlands 1's skill trees (data.js: the level's game on the root): its own colours, one tone each - the status
+   menu's treeLeft / treeCenter / treeRight clips' fills (menus_ingame_redux.upk, offline): left slate blue, middle
+   red-brown, right green (BL2's: green, blue, red) */
+:root[data-game="bl1"] {
+  --tree-0-hi: #4b6778; --tree-0-main: #4b6778; --tree-0-shadow: #4b6778;
+  --tree-1-hi: #703f31; --tree-1-main: #703f31; --tree-1-shadow: #703f31;
+  --tree-2-hi: #3d6b3d; --tree-2-main: #3d6b3d; --tree-2-shadow: #3d6b3d;
+  /* the same grey as BL2's (~52): grayscale() of the blue ~98, the red-brown ~72, the green ~94 (BL2's dims made
+     the green - its third tree, BL2's dark red's 1 - brighter than the others, the user) */
+  --tree-0-dim: .53; --tree-1-dim: .72; --tree-2-dim: .55;
+}
+
 * { box-sizing: border-box; }
 /* the bars' patterns sliding left one tile per cycle (the sheen and the colour stay) */
 @keyframes pat-sh { from { background-position: 0 0, 0 50%, 0 0; } to { background-position: 0 0, -18px 50%, 0 0; } }

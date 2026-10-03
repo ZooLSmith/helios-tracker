@@ -1194,7 +1194,7 @@ class Collector:
             "q": try_(lambda: int(p.InventoryRarityLevel), 0),
         }
         if inv is not None and (level := exp_level(inv)):
-            info["l"] = level
+            info["l"] = try_(lambda: games.GAME.item_card_level(inv, level), level)  # (the card's: games.py)
         kind = pickup_kind(inv)
         # its own icon (the game's: its definition's PickupFlagIcon - fx_shared_items...Credits, Ammo_SMG...: the
         # tooltip / panel, served by /texture/<path>.png) - any usable item's, of a known kind or not ("other")

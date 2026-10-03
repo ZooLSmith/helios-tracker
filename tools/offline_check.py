@@ -787,6 +787,11 @@ def check_helios_tracker() -> None:  # noqa: PLR0915
         (bl1_bunker_img,) = bl1map.load_map(bl1_cooked, "arid_bunker")  # (gradient fills)
         assert bl1_bunker_img.width == 1504, bl1_bunker_img.width
         assert bl1map.load_map(bl1_cooked, "no_such_frame") == []
+        # the skill menu's branch names (games.Borderlands1.branch_names): the "skills" clip's character frame's texts
+        bl1_hunter = bl1map.clip_texts(bl1_cooked, "skills", "mordecai")
+        assert bl1_hunter["tree1.text"] == "$<StringAliasMap:skills_hunter_branch1>" and bl1_hunter["tree3.text"].endswith("hunter_branch3>"), bl1_hunter
+        assert bl1map.clip_texts(bl1_cooked, "skills", "roland")["tree2.text"].endswith("soldier_branch2>"), "no 'roland' label: the first frame"
+        assert bl1map.clip_texts(bl1_cooked, "nope", "mordecai") == {}
         print(f"  BL1: packages (584), the arena's map anchor, its map rendered {bl1_arena_img.width} x {bl1_arena_img.height}")
     # A DLC map: its package is under DLC/<code name>/{Lic,Compat}/Content (gamedir.package_path)
     from helios_tracker import gamedir  # noqa: PLC0415
@@ -1222,6 +1227,32 @@ def check_helios_tracker() -> None:  # noqa: PLR0915
         ns(MinLevel=16, MaxLevel=49, Color=ns(R=145, G=50, B=200))]))
     assert bl1_rarity["12"] == [3, "#2f78ff"] and bl1_rarity["18"] == [4, "#9132c8"] and bl1_rarity["0"][0] == 0 and "-1" not in bl1_rarity, bl1_rarity
     assert profile_bl2.shop_currency(ns(FormOfCurrency=enum.IntEnum("ECurrencyType", ["CURRENCY_Credits", "CURRENCY_Eridium"], start=0).CURRENCY_Eridium)) == "CURRENCY_Eridium"
+    # BL1's skills (tools/probes/probe_bl1_skills.txt): its action skill locked at Grade 0 (PlayerSkills[ActionSkillPlayerSkillIndex]);
+    # its tree from SkillTreeBranches' tiers - indices into PlayerSkills (-1: an empty cell), the points a tier asks from
+    # the class's PlayerSkillSet, the First branch (the action skill alone) the root
+    branch_enum = enum.IntEnum("ESkillBranch", ["SKILLBRANCH_None", "SKILLBRANCH_First", "SKILLBRANCH_Left"], start=0)
+    bloodwing = ns(_get_address=lambda: 0x5B1, Name="A_LaunchBloodwing", SkillName="Bloodwing", MaxGrade=1, SkillDescription="")
+    focus = ns(_get_address=lambda: 0x5B2, Name="Focus", SkillName="Focus", MaxGrade=5, SkillDescription="Increases accuracy")
+    bl1_skills = [ns(Definition=ns(_get_address=lambda: 0x5B0, Name="Fire", SkillName="Fire", MaxGrade=12, SkillDescription=""), Grade=0),
+                  ns(Definition=bloodwing, Grade=0), ns(Definition=focus, Grade=2)]
+    bl1_ctrl = ns(_get_address=lambda: 0x5C0, PlayerSkills=bl1_skills, ActionSkillPlayerSkillIndex=1, SkillTreeBranches=[
+        ns(BranchIndex=branch_enum.SKILLBRANCH_First, PointsSpentInBranch=0, Tiers=[ns(TierIndex=0, PlayerSkillIndexList=[-1, 1])]),
+        ns(BranchIndex=branch_enum.SKILLBRANCH_Left, PointsSpentInBranch=2, Tiers=[ns(TierIndex=0, PlayerSkillIndexList=[2, -1])])],
+        PlayerClass=ns(PlayerSkillSet=ns(FirstBranch=ns(Tiers=[ns(PointsToUnlockNextTier=1)]),
+                                         LeftBranch=ns(Tiers=[ns(PointsToUnlockNextTier=5)]))))
+    assert profile_bl1.action_skill_locked(bl1_ctrl), "Bloodwing at Grade 0: locked"
+    # BL1's item cards show the level the item needs (probe_bl1_levels: ExpLevel 6, its card 4), BL2's its level
+    bl1_gun = ns(GetControllerPlayerExpLevelRequiredToUse=lambda c: 4)
+    assert profile_bl1.item_card_level(bl1_gun, 6) == 4 and profile_bl2.item_card_level(bl1_gun, 6) == 6
+    bl1_player = {"local": True}
+    sys.modules["helios_tracker.inspector"]._skills_from_player_skills(bl1_ctrl, bl1_player, {})
+    bl1_root, bl1_left = bl1_player["skills"]
+    assert bl1_player["skillPoints"] == 2 and bl1_root.get("root") and [c and c["n"] for c in bl1_root["tiers"][0]["cells"]] == [None, "Bloodwing"], bl1_player
+    assert bl1_left["pts"] == 2 and bl1_left["tiers"] == [{"need": 5, "cells": [bl1_left["skills"][0], None]}] and bl1_left["skills"][0]["g"] == 2, bl1_left
+    assert bl1_left["raw"] == 1, "no game name for its branches: its own, marked"
+    bl1_named = {"local": True}
+    sys.modules["helios_tracker.inspector"]._skills_from_player_skills(bl1_ctrl, bl1_named, {}, {"SKILLBRANCH_Left": "SNIPER"})
+    assert bl1_named["skills"][1]["n"] == "SNIPER" and "raw" not in bl1_named["skills"][1], bl1_named["skills"][1]
     # BL1's pawn names: its balance's grade's (GradeIndex), none without a balance - then its own AIPawnName as the guess
     bl1_skag = ns(BalanceDefinitionState=ns(GradeIndex=1, BalanceDefinition=ns(Grades=[
         ns(GradeModifiers=ns(DisplayName="Skag Pup")), ns(GradeModifiers=ns(DisplayName="Adult Skag"))])), AIPawnName="None")

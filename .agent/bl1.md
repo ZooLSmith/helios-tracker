@@ -210,3 +210,29 @@ says when it was seen.
   (gd_MapChangeObjects.Default_MapChanger - no destination of its own: the level's scripting). A mission whose
   waypoint definition is in another area (its PersistentLevelName) is marked on the exit leading there (the user: the
   game's marker on the map changer).
+
+## Skills, item levels, icons (2026-10-03: probe_bl1_skills.txt, probe_bl1_branches.txt, probe_bl1_levels.txt, offline)
+
+- **Tree**: no PlayerSkillTree - the controller's `PlayerSkills[]` and `SkillTreeBranches[]` (inspector
+  `_skills_from_player_skills`); the action skill locked at Grade 0 (`PlayerSkills[ActionSkillPlayerSkillIndex]`).
+  Two columns per branch, the last tier one skill (centered on the page). Its colors (base.css `data-game="bl1"`):
+  left slate blue, middle red-brown, right green - the status menu's treeLeft / treeCenter / treeRight fills; their
+  greyed part's dims (`--tree-N-dim`) bring each to BL2's grey (~52).
+- **Branch names** (games.py `branch_names`): no definition has one - the menu's movie sets them per character.
+  `SkillTreeGFxHelper.GetCharacterName()` (script: a switch on CurrentCharacter, a CharacterNames like
+  `PlayerClass.CharacterName` - 0 roland, 1 mordecai, 2 lilith, 3 brick; called on one we construct) is the frame
+  its clip (`SkillTreeGFxDefinition.SkillMovieClip`: "skills", the status menu's sprite 934) goes to; that frame's
+  ActionScript sets `tree1.text = "$<StringAliasMap:skills_hunter_branch1>"` (bl1map `clip_texts`: the frame's literal
+  assignments); `WillowUIDataStore_StringAliasMap.MenuInputMapArray` (DefaultGame.ini) maps it to
+  `<Strings:WillowGame.SkillTreeMovie.SkillsHunterBranch1String>`, `Object.Localize` gives SNIPER (DEU SCHARFSCH.,
+  ESN TIRADOR...). tree1 / 2 / 3 sit under treeLeft / Center / Right. The clip's first frame is "roland_combat"
+  (no "roland": Roland's gotoAndStop leaves it there, soldier keys).
+- **Item levels**: the card shows the level the item needs, not its ExpLevel (6 -> 4):
+  `WillowInventory.GetControllerPlayerExpLevelRequiredToUse(controller)` (Engine.u, script: ExpLevel +
+  FFloor(PlayerUseLevelBonus) if the definition's bUsesPlayerLevelRequirement) - games.py `item_card_level`.
+  `ManufacturerGradeIndex`: 0 on every item.
+- **Skill icons** (not built yet): vector clips in the status menu movie - in the skill clip's character frame, each
+  cell's clip by the layout's name (ui_skill_tree.upk `SkillTreeLayout`'s SkillTreeNavDefinitions: `IconClipName`
+  "icon17" = Left tier 2 entry 1...), its frames "off" / "on" / "none" (`IconOnName`...); the elemental cell (icon1)
+  has frames per element. Rendered offline with swfshape: Mordecai's 22 other cells, as the game draws them. `SkillDefinition.ScaleformFrameName`
+  is the HUD's popup icons only (GfxHUD.upk sprite 147, 19 skills).

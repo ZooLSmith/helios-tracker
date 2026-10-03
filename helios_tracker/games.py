@@ -12,6 +12,7 @@ The page gets the profile's key and features in the level message (collector.py)
 New game: its class here, registered under mods_base's name for it (Game.<NAME>); .agent/<game>.md for what was seen.
 """
 
+import re
 from typing import Any
 
 # The features (systems some games have, others don't); the page reads the same names (game.js)
@@ -97,6 +98,10 @@ class Profile:
         """Its number in the story (the page's order)."""
         return int(mdef.MissionNumber)
 
+    def item_card_level(self, inv: Any, level: int) -> int:
+        """The level an item's card shows, from its level (ExpLevel / GetExpLevel()): BL2's, as is."""
+        return level
+
     def selling_price(self, machine: Any, inv: Any, pc: Any) -> int:
         """What a vending machine asks for one of an item (the price its menu shows): GetSellingPriceForInventory(item,
         controller, quantity) - scaled to the player."""
@@ -115,6 +120,20 @@ class Profile:
             if index >= 0 and rgb != (0, 0, 0):  # (-1: not a colour entry; black: an empty one)
                 out[str(level)] = [index, "#{:02x}{:02x}{:02x}".format(*rgb)]
         return out
+
+    def read_skills(self, ctrl: Any, player: dict[str, Any], bonuses: dict[str, Any]) -> None:
+        """A player's skill tree into their record ("skills": trees -> tiers -> cells, "skillPoints"): BL2's PlayerSkillTree
+        (inspector._skills)."""
+        from .inspector import _skills  # noqa: PLC0415
+
+        _skills(ctrl, player, bonuses)
+
+    def action_skill_locked(self, pc: Any) -> bool:
+        """Whether the player's action skill isn't unlocked yet (its cooldown then reads "ready"): BL2's tree's
+        SKILL_TYPE_Action skill at Grade 0 (skills._action_locked)."""
+        from .skills import _action_locked  # noqa: PLC0415
+
+        return _action_locked(pc)
 
     def card_line_value(self, entry: Any, pres: Any, item: Any) -> tuple[float, int] | None:
         """An item card line's number as the game shows it, (value, decimals) - None: the page works it out from the
@@ -204,6 +223,11 @@ BL1_BEHAVIOR_ARRAYS = ("OnSpawn", "OnBehaviorSetEnabled", "OnBehaviorSetDisabled
                        "OnTakeDamage", "OnKilled")
 BL1_REACTION_ARRAYS = ("CustomEvents", "TimerEvents", "CounterEvents")
 BL1_EQUIP_KINDS = {"EQUIPLOC_Shield": "shield", "EQUIPLOC_MOD": "grenade", "EQUIPLOC_Deck": "classmod"}  # (com decks)
+# a tree branch -> the skill clip's text field naming it: tree1..3 sit under treeLeft / treeCenter / treeRight (the
+# skill clip's placements, x 21.75 / 199.75 / 378.75 against 17.2 / 195.4 / 339.2 - its movie, offline)
+BL1_BRANCH_TEXTS = {"SKILLBRANCH_Left": "tree1.text", "SKILLBRANCH_Middle": "tree2.text", "SKILLBRANCH_Right": "tree3.text"}
+BL1_ALIAS = re.compile(r"\$<StringAliasMap:([^>]+)>")  # a Scaleform text naming an alias map entry
+BL1_STRINGS = re.compile(r"<Strings:([^.>]+)\.([^.>]+)\.([^>]+)>")  # a localized text's markup: package.section.key
 
 
 @profile("BL1")
@@ -226,6 +250,9 @@ class Borderlands1(Profile):
     damage_presentation = "gd_AttributePresentation.Weapons.AttrPresent_WeaponDamage"
     # no WorldDiscoveryArea class (the log: "Couldn't find class"); its packages not indexed (gamescan reads BL2's)
     features = (Profile.features - {DISCOVERY, SCAN, MISSION_STEPS}) | {WAYPOINT_MARKERS}
+
+    def __init__(self) -> None:
+        self._branch_names: dict[int, dict[str, str]] = {}  # CharacterName -> its branches' names (branch_names)
 
     def map_name(self, wi: Any) -> str:
         # The world is "Loader" in every area (tools/probes/probe_bl1.txt): the area is streamed in, the first of its
@@ -290,6 +317,14 @@ class Borderlands1(Profile):
     def mission_number(self, mdef: Any) -> int:
         return int(mdef.PlotMissionNumber)
 
+    def item_card_level(self, inv: Any, level: int) -> int:
+        # Its card shows the level the item needs, not its ExpLevel (the user: weapons of ExpLevel 6, their cards 4 -
+        # tools/probes/probe_bl1_levels.txt): WillowInventory.GetControllerPlayerExpLevelRequiredToUse(controller) - script
+        # (Engine.u, offline): ExpLevel + FFloor(its definition's PlayerUseLevelBonus) if bUsesPlayerLevelRequirement
+        from mods_base import get_pc  # noqa: PLC0415
+
+        return int(inv.GetControllerPlayerExpLevelRequiredToUse(get_pc()))
+
     def selling_price(self, machine: Any, inv: Any, pc: Any) -> int:
         # GetSellingPriceForInventory(InventoryForSale, Quantity): no controller (WillowGame.u, offline) - BL2's call with
         # one failed (no price on the page)
@@ -309,6 +344,58 @@ class Borderlands1(Profile):
             for level in range(max(0, int(entry.MinLevel)), int(entry.MaxLevel) + 1):
                 out.setdefault(str(level), [index, "#{:02x}{:02x}{:02x}".format(*rgb)])
         return out
+
+    def read_skills(self, ctrl: Any, player: dict[str, Any], bonuses: dict[str, Any]) -> None:
+        # No PlayerSkillTree: the controller's PlayerSkills[] and SkillTreeBranches[] (tools/probes/probe_bl1_skills.txt) -
+        # inspector._skills_from_player_skills; its branches' names: the skill menu's (branch_names)
+        from .inspector import _skills_from_player_skills  # noqa: PLC0415
+
+        _skills_from_player_skills(ctrl, player, bonuses, self.branch_names(ctrl))
+
+    def branch_names(self, ctrl: Any) -> dict[str, str]:
+        """The player's tree branches' names, as the skill menu shows them ("SNIPER"...: BL1_BRANCH_TEXTS' keys -> the
+        game's text), {} until its movie is read. No branch definition has one: the menu's movie sets them, per
+        character (tools/probes/probe_bl1_branches.txt; WillowGame.u, its movie, DefaultGame.ini - offline):
+        SkillTreeGFxHelper.GetCharacterName() (a switch on its CurrentCharacter, the class's CharacterName: 1 ->
+        "mordecai") is the frame its skill clip goes to (SkillTreeGFxDefinition.SkillMovieClip, "skills"); that frame's
+        ActionScript sets tree1.text to "$<StringAliasMap:skills_hunter_branch1>"; the alias map
+        (WillowUIDataStore_StringAliasMap.MenuInputMapArray, from DefaultGame.ini) has it as
+        "<Strings:WillowGame.SkillTreeMovie.SkillsHunterBranch1String>", localized: SNIPER."""
+        import unrealsdk  # noqa: PLC0415
+
+        from . import bl1map, gamedir  # noqa: PLC0415
+
+        character = ctrl.PlayerClass.CharacterName
+        cache_key = int(character)
+        if (names := self._branch_names.get(cache_key)) is not None:
+            return names
+        cooked = gamedir.cooked_dir()
+        if cooked is None:
+            return {}
+        helper = unrealsdk.construct_object("SkillTreeGFxHelper", ctrl)
+        helper.CurrentCharacter = character
+        frame = str(helper.GetCharacterName())
+        clip = str(unrealsdk.find_class("SkillTreeGFxDefinition").ClassDefaultObject.SkillMovieClip)
+        texts = bl1map.clip_texts_later(cooked, clip, frame)
+        if texts is None:
+            return {}  # (being read: asked again at the next read)
+        aliases = {str(e.FieldName): str(e.MappedText)
+                   for e in unrealsdk.find_class("WillowUIDataStore_StringAliasMap").ClassDefaultObject.MenuInputMapArray}
+        localize = unrealsdk.find_class("Object").ClassDefaultObject.Localize
+        names = {}
+        for branch, field in BL1_BRANCH_TEXTS.items():
+            alias = BL1_ALIAS.fullmatch(texts.get(field, ""))
+            strings = BL1_STRINGS.fullmatch(aliases.get(alias.group(1), "")) if alias else None
+            if strings:
+                package, section, key = strings.groups()
+                names[branch] = str(localize(section, key, package))
+        self._branch_names[cache_key] = names
+        return names
+
+    def action_skill_locked(self, pc: Any) -> bool:
+        # Its action skill: PlayerSkills[ActionSkillPlayerSkillIndex] (Bloodwing, index 36), Grade 0 until the first
+        # skill point unlocks it (probe_bl1_skills.txt: Lv 5, 1 point unspent - the page said "ready")
+        return int(pc.PlayerSkills[int(pc.ActionSkillPlayerSkillIndex)].Grade) == 0
 
     def card_line_value(self, entry: Any, pres: Any, item: Any) -> tuple[float, int] | None:
         # Its card shows the line's modifier, never its attribute's current value (tools/probes/probe_bl1_cards.txt: an
