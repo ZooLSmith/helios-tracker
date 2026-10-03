@@ -111,7 +111,10 @@ export const LAYER_COLOR = Object.fromEntries(LAYERS.map((l) => [l.id, l.color])
 
 /** Whether a layer is listed in the game running (game.js): a rarity's if the game has it, one that "needs" a
  *  feature if the game has that (the Pre-Sequel's oxygen); the game not known yet: neither. */
-export function layerInGame(l) { return l.rarity ? gameData().rarities.includes(l.rarity) : !l.needs || hasFeature(l.needs); }
+export function layerInGame(l) {
+  if (l.rarity) return gameData().rarities.includes(l.rarity);
+  return (!l.needs || hasFeature(l.needs)) && !gameData().noLayers.includes(l.id); // (each game's: game.js)
+}
 
 /** The layers' colours, from the page's tokens (base.css --layer-<id>, "." as "-"; the game's own first:
  *  --layer-<id>-<game key>, the Pre-Sequel's cyan moonstones): read(name) -> the value (shapes.js initColors). The

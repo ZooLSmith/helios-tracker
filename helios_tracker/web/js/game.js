@@ -20,6 +20,7 @@ const BL2 = {
   rarityLayer: {}, // a tier shown in another tier's layer
   eridiumGlyph: "", // its eridium's map marker: a plain dot ("": no sign)
   gearClasses: [], // its gear's classes besides the common ones (model.js isGear)
+  noLayers: [], // layers of things the game doesn't have (model.js layerInGame - besides a feature's "needs", the rarities)
   // a chest's tier from its own definition's name (2: the big chest, 1: a weapon chest), before the loot lists' names
   // (model.js chestTier: BL2's tiers are in its loot lists' names - EpicChest..., WeaponChest...)
   chestByDefinition: [],
@@ -40,7 +41,11 @@ const DATA = {
   // 4 purple, 5-7 three legendary shades (50..100), 12 pearl (500); 8-11 the pickups' (170 / 171 / 180-190: not gear)
   // its shields, grenade mods, com decks: one class, WillowEquipAbleItem (its ammo, health: WillowUsableItem, not gear)
   // - an "Explosive Bouncing Bettie" on the ground had shown as "Equip Able Item ?", no rarity (the user)
+  // what it doesn't have (its script and packages, offline - .agent/bl1.md "Layers"): no eridium (no such currency), no
+  // vault symbols (IO_VaultRoy), no buffs (shrines, buff drinks, Moxxtails), no slot machines (its mission items: usable
+  // items with bMissionItem - util.pickup_kind)
   bl1: { ...BL2, rarities: [...RARITIES, "pearl"], chestByDefinition: [[/treasurechest/i, 2]], gearClasses: ["WillowEquipAbleItem"],
+    noLayers: ["pickup.eridium", "vaultsymbol", "buff", "slots"],
     // (entry 0 white like 1: common - gear at rarity 0, a Tediore shield; BL2's entry 0 its beige "misc". The wiki: common
     // 0-4, uncommon 5-10, rare 11-15, epic 16-49, legendary 50-60 / 61-65 / 66-100 - the game's entries, checked)
     tierByEntry: { 0: "common", 1: "common", 2: "uncommon", 3: "rare", 4: "epic", 5: "legendary", 6: "legendary", 7: "legendary",

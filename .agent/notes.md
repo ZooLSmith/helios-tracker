@@ -890,3 +890,8 @@ Southern Shelf's `_P` alone: 404 `StaticMesh`, 4131 `StaticMeshComponent`, 11 `T
 - **Item card stats from the game** beyond shields (`_ui_stats`): other items' `UIStatModifiers`,
   weapons' `ItemCardModifierStats` / `ReplicatedWeaponCardModifierValues` -> their
   `AttributePresentationDefinition` text + value, instead of the hand-picked stat list. Probe first.
+- **Objects switched off without being hidden** (collector._out_of_sight): an object's behaviours can hide its mesh
+  (Behavior_ChangeVisibility: its components' `HiddenGame`) and leave the actor's `bHidden` False - BL1's T.K.'s Food
+  (Z0_MissionData.MissionObjects.MO_TKsFood, its MissionItemDefinition ID_TKsFood: used, the food picked up; then
+  unusable, its StaticMeshComponent hidden - tools/probes/probe_bl1_mission_objects.txt). Out of sight: hidden, or
+  every mesh component hidden in game (an object without a mesh: as its actor) - at the object scan (every 120 s).

@@ -228,7 +228,11 @@ def pickup_kind(inv: Any) -> str:
     if item_def is None:
         return ""
     key = item_def._get_address()
-    if (kind := _pickup_kinds.get(key)) is None:
+    if (kind := _pickup_kinds.get(key)) is None and try_(lambda: bool(item_def.bMissionItem), False):
+        # a mission item as a usable item - its definition says so (Borderlands 1's: no WillowMissionItem class -
+        # Z0_MissionData's ID_SpareVendingPart "Power Coupling": bMissionItem, the MissionObject presentation)
+        kind = _pickup_kinds[key] = "mission"
+    if kind is None:
         name = try_(lambda: str(item_def.Presentation.Name), "")
         kind = "ammo" if name.startswith("WeaponAmmo_") else PRESENTATION_KINDS.get(name, "")
         if kind == "cash":

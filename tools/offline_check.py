@@ -189,7 +189,8 @@ setRarityTable(null);
 // message with the same game and features (in any order) isn't a change (the layers / colours not rebuilt)
 const { setGame } = await load("js/game.js");
 const { layerInGame } = await load("js/model.js");
-const gameIds = ["loot.pearl", "loot.glitch", "loot.etech", "oxygen", "pickup.oxygen", "jumppad", "area", "fog", "enemy"];
+const gameIds = ["loot.pearl", "loot.glitch", "loot.etech", "oxygen", "pickup.oxygen", "jumppad", "area", "fog", "enemy",
+  "pickup.eridium", "vaultsymbol", "buff", "slots", "pickup.mission"];
 const gameShown = () => gameIds.filter((id) => layerInGame(LAYERS.find((l) => l.id === id)));
 const gameNone = gameShown(); // (before the level message: no game's own layers)
 const gameSwitch = [setGame("tps", ["discovery", "oxygen", "jumppads", "tacmap"]), setGame("tps", ["tacmap", "jumppads", "oxygen", "discovery"])];
@@ -1318,6 +1319,11 @@ def check_helios_tracker() -> None:  # noqa: PLR0915
     # BL1's item cards show the level the item needs (probe_bl1_levels: ExpLevel 6, its card 4), BL2's its level
     bl1_gun = ns(GetControllerPlayerExpLevelRequiredToUse=lambda c: 4)
     assert profile_bl1.zippy_frame(ns(ZippyFrame="shield")) == "shield", "BL1's card type frame: a property"
+    # BL1's mission items: usable items whose definition says bMissionItem (no WillowMissionItem class) - "Power Coupling"
+    from helios_tracker.util import pickup_kind as bl1_pickup_kind  # noqa: PLC0415
+    bl1_coupling = ns(Class=ns(Name="WillowUsableItem"), DefinitionData=ns(ItemDefinition=ns(
+        _get_address=lambda: 0x7C1, bMissionItem=True, Presentation=ns(Name="MissionObject"))))
+    assert bl1_pickup_kind(bl1_coupling) == "mission", bl1_pickup_kind(bl1_coupling)
     # its card element: an item's frame number (FlashTechFrame - probe_bl1_elements: an Explosive MIRV's 1.0), 0 none
     assert profile_bl1.element_frame(ns(GetTechIconFrame=lambda: 1.0), "grenade") == "1"
     assert profile_bl1.element_frame(ns(GetTechIconFrame=lambda: 0.0), "shield") == ""
@@ -1511,6 +1517,13 @@ def check_helios_tracker() -> None:  # noqa: PLR0915
                     "TravelDefinition": ns(DestinationStationDefinition=ns(DisplayName="Frostburn Canyon")),
                     "InteractiveObjectDefinition": ns(Name="LevelTravelMachine", StatusMenuMapInfoBoxHeader="Map Exit",
                                                       _path_name=lambda: "GD_GameSystemMachines.InteractiveObjects.LevelTravelMachine")})
+    # out of sight: hidden, or every mesh of it hidden in game (BL1's T.K.'s Food once picked up - its actor not hidden)
+    seen_mesh = lambda hidden: ns(Class=ns(Name="StaticMeshComponent"), HiddenGame=hidden)  # noqa: E731
+    seen_cyl = ns(Class=ns(Name="CylinderComponent"), HiddenGame=True)
+    assert col.Collector._out_of_sight(ns(bHidden=False, Components=[seen_cyl, seen_mesh(True)])), "its mesh hidden"
+    assert not col.Collector._out_of_sight(ns(bHidden=False, Components=[seen_cyl, seen_mesh(False)])), "its mesh shown"
+    assert not col.Collector._out_of_sight(ns(bHidden=False, Components=[seen_cyl])), "no mesh: as its actor"
+    assert col.Collector._out_of_sight(ns(bHidden=True, Components=[]))
     exit_rec = col.Collector._object_record(exit_io)
     assert exit_rec["n"] == "Exit to Frostburn Canyon" and "raw" not in exit_rec, exit_rec
     # a boss: the boss bar's pawn (GRI.BossPawn while bHasBossBar - Deadlift: its AI class has no bBoss), kept for the level
@@ -2536,14 +2549,17 @@ def check_helios_tracker() -> None:  # noqa: PLR0915
     assert js["gameRarity"] == [["legendary", "#ffb400"], ["legendary", "#ffb400"], ["seraph", "#ff9ab8"],
                                 ["unknown", "#9132c8"], "loot.legendary"], js["gameRarity"]
     game_out = js["gameOut"]
-    assert game_out["gameNone"] == ["enemy"], game_out["gameNone"]
+    assert game_out["gameNone"] == ["enemy", "pickup.eridium", "vaultsymbol", "buff", "slots", "pickup.mission"], game_out["gameNone"]
     assert game_out["gameSwitch"] == [True, False], ("the same features in another order: no change", game_out["gameSwitch"])
-    assert game_out["gameTps"] == {"shown": ["loot.glitch", "oxygen", "pickup.oxygen", "jumppad", "area", "fog", "enemy"],
+    assert game_out["gameTps"] == {"shown": ["loot.glitch", "oxygen", "pickup.oxygen", "jumppad", "area", "fog", "enemy",
+                                             "pickup.eridium", "vaultsymbol", "buff", "slots", "pickup.mission"],
                                    "glitch": "glitch", "etech": "loot.legendary"}, game_out["gameTps"]
-    assert game_out["gameBl1"] == ["loot.pearl", "enemy", 2, 0, "common", "common", True, False, ["jakobs", "", "", "", ""]], \
+    # (BL1: no eridium, vault symbols, buffs, slot machines - game.js noLayers; its mission items: bMissionItem)
+    assert game_out["gameBl1"] == ["loot.pearl", "enemy", "pickup.mission", 2, 0, "common", "common", True, False,
+                                   ["jakobs", "", "", "", ""]], \
         ("BL1: no discovery areas, its pearlescent (500) but no other BL2 / TPS tiers; its treasure chest big; rarity 0 common",
          game_out["gameBl1"])
-    assert game_out["gameBl2"] == {"shown": ["loot.pearl", "loot.etech", "area", "fog", "enemy"], "seraph": "seraph",
+    assert game_out["gameBl2"] == {"shown": ["loot.pearl", "loot.etech", "area", "fog", "enemy", "pickup.eridium", "vaultsymbol", "buff", "slots", "pickup.mission"], "seraph": "seraph",
                                    "etech": "loot.etech"}, game_out["gameBl2"]
     assert mig["layers"]["player"] == {"names": True, "nameSize": 100, "floors": "show", "size": 100}, mig["layers"]["player"]
     assert mig["view"]["zoom"] == 2.5 and mig["view"]["motion"] == 0, mig["view"]

@@ -329,3 +329,14 @@ says when it was seen.
   PersistentTransitionLandmarks (FromMapName / ToMapName) stand by the changers: the missions' exit markers.
 - **Shop restock timing (open)**: the game said "shop has new inventory" while the page's countdown showed 0:05
   (the user) - 5 s late; BL2's is off by about a second either way. Not looked into - notes.md "Restock: not exact".
+- **Layers** (game.js `bl1.noLayers`; model.js layerInGame): what BL1 doesn't have, from its script and packages
+  (offline): no eridium (no such currency), no vault symbols (IO_VaultRoy), no buffs (shrines, buff drinks,
+  Moxxtails), no slot machines (the user: none) - their layers hidden. Area names, fog of war: the feature
+  `discovery`, not BL1's (no WorldDiscoveryArea). Its mission items are usable items (`WillowUsableItem`, no
+  WillowMissionItem class) whose definition says `bMissionItem` (Z0_MissionData's ID_SpareVendingPart "Power
+  Coupling", presentation MissionObject): util.pickup_kind reads the flag - the mission pickups' layer, not "other".
+- **Objects switched off without being hidden** (collector._out_of_sight): an object's behaviours can hide its mesh
+  (Behavior_ChangeVisibility: its components' `HiddenGame`) and leave the actor's `bHidden` False - BL1's T.K.'s Food
+  (Z0_MissionData.MissionObjects.MO_TKsFood, its MissionItemDefinition ID_TKsFood: used, the food picked up; then
+  unusable, its StaticMeshComponent hidden - tools/probes/probe_bl1_mission_objects.txt). Out of sight: hidden, or
+  every mesh component hidden in game (an object without a mesh: as its actor) - at the object scan (every 120 s).

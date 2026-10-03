@@ -744,7 +744,7 @@ class Collector:
                     self._pending_records.setdefault(key, WeakPointer(io))
                     if key not in records:
                         continue
-                if (record := records[key]) is not None and not io.bHidden and not io.bDeleteMe:
+                if (record := records[key]) is not None and not Collector._out_of_sight(io) and not io.bDeleteMe:
                     objects[key] = record
                     if record.get("lootable") and not record.get("looted"):
                         self._unlooted.setdefault(key, WeakPointer(io))
@@ -825,7 +825,7 @@ class Collector:
                 records[key] = self._object_record(io, self._client) if self._in_world(io) else None
                 self._note_incomplete(key, io)
                 self._note_giver(key[0], io, try_(lambda io=io: games.GAME.object_directives(io), []))
-                if (record := records[key]) is not None and not io.bHidden and not io.bDeleteMe:
+                if (record := records[key]) is not None and not Collector._out_of_sight(io) and not io.bDeleteMe:
                     self._objects[key] = record
                     self._objects_dirty = True
                     if record.get("lootable") and not record.get("looted"):
@@ -861,6 +861,18 @@ class Collector:
     # the level loaded - e.g. hazards spawned when an area activates. Before the level is known, or
     # with no page open, they're left to the next scan.
 
+    @staticmethod
+    def _out_of_sight(io: Any) -> bool:
+        """Not in the game's world: hidden (bHidden), or every mesh it has hidden in game (its components' HiddenGame) -
+        an object switched off by its behaviours (Behavior_ChangeVisibility): BL1's T.K.'s Food, picked up for its
+        mission, its mesh hidden, the actor not (tools/probes/probe_bl1_mission_objects.txt - the page still showed it).
+        An object without a mesh: as its actor."""
+        if io.bHidden:
+            return True
+        meshes = [c for c in try_(lambda: list(io.Components), []) or []
+                  if c is not None and str(try_(lambda c=c: c.Class.Name, "")).endswith("MeshComponent")]
+        return bool(meshes) and all(try_(lambda c=c: bool(c.HiddenGame), False) for c in meshes)
+
     def object_spawned(self, io: Any) -> None:
         if self._level_key is None or not self.hub.clients or not self._in_world(io):
             return
@@ -869,7 +881,7 @@ class Collector:
         self._note_incomplete(key, io)
         self._note_giver(key[0], io, try_(lambda: games.GAME.object_directives(io), []))
         self._shops.note(io)
-        if not io.bHidden:
+        if not Collector._out_of_sight(io):
             self._objects[key] = record
             self._objects_dirty = True
             if record.get("lootable") and not record.get("looted"):

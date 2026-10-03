@@ -114,11 +114,15 @@ function rowHtml(l) {
 
 export function renderLayers() {
   const box = $("layers");
+  // a category, a folder: only with something the game has in it (BL1's Map: its areas and fog aren't - the user)
+  const present = (l) => layerInGame(l) && (!l.folder || LAYERS.some((c) => c.parent === l.id && layerInGame(c)));
   box.innerHTML = LAYER_GROUPS.map((g) => {
+    const rows = LAYERS.filter((l) => l.group === g && !l.parent && present(l));
+    if (!rows.length) return "";
     const closed = settings.ui.closedGroups.includes(g);
     return `<div class="lgroup${closed ? " closed" : ""}"><div class="lghead" data-fold="${g}">` +
       `<span class="lgname">${esc(t("lgroup." + g))}</span><span class="lgfold">${icon(closed ? "chevronRight" : "chevronDown")}</span></div>` +
-      `<div class="lgbody">${LAYERS.filter((l) => l.group === g && !l.parent && layerInGame(l)).map(rowHtml).join("")}</div></div>`;
+      `<div class="lgbody">${rows.map(rowHtml).join("")}</div></div>`;
   }).join("");
   syncBoxes();
   invalidate(); // the counts are filled by the next frame
