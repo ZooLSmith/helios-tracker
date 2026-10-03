@@ -149,9 +149,6 @@ says when it was seen.
   ("Stolen Food: 4/4", then "Turn in" - the user). Read by missions.py's MissionLog, unchanged, through the profile
   (`mission_entries`, `_objectives`, `_progress`, `_status`, `_number`; no `missionsteps` feature: every objective
   current). The page's mission panel and log.
-- **Objective texts end in ":"** ('Stolen Food:', 'Barricade destroyed:'): the HUD's count follows ("4/4"), or a
-  checkbox for a one-time one (the user). The page: the count as before, a checkbox for a one-time one (game.js
-  `objectiveBox` - BL2's texts have no ":", nothing there). The game's text as is.
 - **Its waypoints** (5 probe runs: turning one in, picking the next): every WillowWaypoint is bHidden (markers, not
   things). Ready to turn in: its `TurnInWaypointDefinition`'s (WP_Al: 1, at T.K.'s); active: its
   `TargetWaypointDefinition`'s (Buy Grenades, Grenade purchased 0/1 -> WP_WeaponVendor: 1, at the weapon vendor). The

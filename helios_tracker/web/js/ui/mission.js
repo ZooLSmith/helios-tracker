@@ -4,7 +4,6 @@
 import { $, esc, nameHtml } from "../dom.js";
 import { num, t } from "../i18n.js";
 import { icon } from "../icons.js";
-import { gameData } from "../game.js";
 import { cleanGameText } from "../model.js";
 import { READY, objectiveStates } from "../missions.js";
 import { S } from "../state.js";
@@ -13,8 +12,7 @@ import { openMissionLog } from "./missionlog.js";
 function objectiveHtml(s) {
   return `<div class="obj ${s.state}"><span class="oico">${icon(s.state === "done" ? "check" : "diamond")}</span>` +
     `<span class="on">${nameHtml(s.o)}${s.o.opt ? ` <span class="mopt">${esc(t("mdetail.optional"))}</span>` : ""}</span>` +
-    (s.o.c > 1 ? `<span class="ocount">${num(Math.min(s.p, s.o.c))}/${num(s.o.c)}</span>`
-      : gameData().objectiveBox ? `<span class="ocount obox">${icon(s.state === "done" ? "boxChecked" : "box")}</span>` : "") + `</div>`;
+    (s.o.c > 1 ? `<span class="ocount">${num(Math.min(s.p, s.o.c))}/${num(s.o.c)}</span>` : "") + `</div>`;
 }
 
 export function initMission() {

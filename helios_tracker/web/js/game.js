@@ -22,9 +22,6 @@ const BL2 = {
   // a chest's tier from its own definition's name (2: the big chest, 1: a weapon chest), before the loot lists' names
   // (model.js chestTier: BL2's tiers are in its loot lists' names - EpicChest..., WeaponChest...)
   chestByDefinition: [],
-  // a one-time objective (its count 1): a checkbox after its text, as the game's HUD shows it - else nothing (BL2's: its
-  // text has no ":" leading into one)
-  objectiveBox: false,
 };
 const DATA = {
   bl2: BL2,
@@ -40,9 +37,7 @@ const DATA = {
   // the user; its balances ObjectGrade_TreasureChest*); its StrongBox / Crate_Metal: not seen yet, plain containers
   // its rarity table (gd_globals RarityLevelColors, offline): entries 0 (-1..1) / 1 (2..4) white, 2 green, 3 blue,
   // 4 purple, 5-7 three legendary shades (50..100), 12 pearl (500); 8-11 the pickups' (170 / 171 / 180-190: not gear)
-  // its objectives' texts end in ":" - the HUD's count after it ("Stolen Food: 4/4"), or a checkbox for a one-time one
-  // ("Barricade destroyed: [ ]" - the user): objectiveBox
-  bl1: { ...BL2, rarities: [...RARITIES, "pearl"], chestByDefinition: [[/treasurechest/i, 2]], objectiveBox: true,
+  bl1: { ...BL2, rarities: [...RARITIES, "pearl"], chestByDefinition: [[/treasurechest/i, 2]],
     tierByEntry: { 0: "misc", 1: "common", 2: "uncommon", 3: "rare", 4: "epic", 5: "legendary", 6: "legendary", 7: "legendary",
       12: "pearl" } },
 };

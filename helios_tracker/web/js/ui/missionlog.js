@@ -6,7 +6,6 @@ import { money, num, t } from "../i18n.js";
 import { icon } from "../icons.js";
 import { GOALS, isHere, missionAreas, missionCounts, missionDifficulty, missionState, missionTree, nodeVisible, objectiveStates,
   rankMissions, rewardFor, searchMissions, whereTo } from "../missions.js";
-import { gameData } from "../game.js";
 import { cleanGameText } from "../model.js";
 import { saveSettings, settings } from "../settings.js";
 import { S, isTrackedPlayer } from "../state.js";
@@ -296,8 +295,7 @@ function detailHtml(m, tree) {
     html += `<div class="group">${esc(t("mdetail.objectives"))}</div>` + objectives.map((s) =>
       `<div class="mobj ${s.state}"><span class="mico">${icon(s.state === "done" ? "check" : "circle")}</span>` +
       `<span class="mn">${nameHtml(s.o)}${s.o.opt ? ` <span class="mopt">${esc(t("mdetail.optional"))}</span>` : ""}</span>` +
-      (s.o.c > 1 ? `<span class="mcount">${num(Math.min(s.p, s.o.c))}/${num(s.o.c)}</span>`
-        : gameData().objectiveBox ? `<span class="mcount obox">${icon(s.state === "done" ? "boxChecked" : "box")}</span>` : "") + `</div>`).join("");
+      (s.o.c > 1 ? `<span class="mcount">${num(Math.min(s.p, s.o.c))}/${num(s.o.c)}</span>` : "") + `</div>`).join("");
   }
   const reward = player ? rewardFor(m, player.lvl, localLevel()) : null;
   if (reward) {
