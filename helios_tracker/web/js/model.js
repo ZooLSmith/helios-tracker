@@ -165,6 +165,13 @@ export function nameText(o) {
 /** The page's own words in names (i18n.js fills them in: it can't be imported here - settings.js imports this). */
 export const naming = { exitTo: (area) => area };
 
+/** An item card icon's key as the page asks for it (/cardicon/<kind>/<key>.png), "" for none: the game's (an item's
+ *  "mf", "wt", "el" - its own data, as is) when it's a plain name and not "none" - the game's frame for no logo / icon,
+ *  drawn empty: nothing to fetch (it had asked for manufacturer/none.png - a 404, the user). */
+export function cardIconKey(key) {
+  return key && /^[A-Za-z0-9_]+$/.test(key) && key.toLowerCase() !== "none" ? key : "";
+}
+
 /** Real gear (goes into the inventory, has a real rarity) vs other pickups, by the item's class.
  *  Customization items (skins, heads: probe_pickups.py - RarityLevel 2 on a vehicle skin) count. */
 const GEAR_CLASSES = ["WillowWeapon", "WillowShield", "WillowGrenadeMod", "WillowClassMod", "WillowArtifact",

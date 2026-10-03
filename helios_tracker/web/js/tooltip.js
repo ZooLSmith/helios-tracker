@@ -3,7 +3,7 @@ import { $, classHtml, esc, nameHtml } from "./dom.js";
 import { UU_PER_METER, mapToWorld } from "./geo.js";
 import { money, t, num } from "./i18n.js";
 import { hitAt } from "./input.js";
-import { isGear, poolKinds, rainbowAt, rarity, shownHealth, shownMaxHealth } from "./model.js";
+import { cardIconKey, isGear, poolKinds, rainbowAt, rarity, shownHealth, shownMaxHealth } from "./model.js";
 import { settings } from "./settings.js";
 import { S, itemById, onSale, trackedPawn } from "./state.js";
 import { pickupAmount, pickupIconHtml, priceText, rarityName } from "./ui/items.js";
@@ -68,11 +68,11 @@ function renderTooltip(mePos, f) {
   // type, maker, level, element, price; its card lines and stats in the click panel
   const card = gear ? itemById(it.it) : null;
   // (its maker at the bottom - its logo, else its name there; its element's icon beside it, else its name as a line)
-  const cardIcon = (kind, key) => (card && S.assets.cards && /^[A-Za-z0-9_]+$/.test(key || "") && iconOk(`/cardicon/${kind}/${key}.png`) ? key : "");
+  const cardIcon = (kind, key) => (card && S.assets.cards && cardIconKey(key) && iconOk(`/cardicon/${kind}/${key}.png`) ? key : "");
   const brandKey = cardIcon("manufacturer", card?.mf);
   // its element's icon: gear's (its card), or an object's that explodes (a barrel: its explosion's - collector.py)
   const elementSrc = card || (it.el ? it : null);
-  const elementKey = elementSrc && S.assets.cards && /^[A-Za-z0-9_]+$/.test(elementSrc.el || "") &&
+  const elementKey = elementSrc && S.assets.cards && cardIconKey(elementSrc.el) &&
     iconOk(`/cardicon/element/${elementSrc.el}.png`) ? elementSrc.el : "";
   const kindHtml = card ? esc([rarityName(it.q), card.type || t("kind." + card.k, null, card.k)].filter(Boolean).join(" · "))
     : best.kind === "loot" ? (gear ? esc(rarityName(it.q)) + " · " : "") + classHtml(it.c || "Pickup")

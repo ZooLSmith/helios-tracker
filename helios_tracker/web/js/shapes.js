@@ -1,6 +1,6 @@
 // Marker shapes and labels, in screen px on the canvas (view.js's ctx).
 import { tokenColor, tokenRaw } from "./look.js";
-import { setLayerColors } from "./model.js";
+import { cardIconKey, setLayerColors } from "./model.js";
 import { S } from "./state.js";
 import { invalidate } from "./scheduler.js";
 import { ctx } from "./view.js";
@@ -233,7 +233,7 @@ function tintedIcon(key, color) {
 /** Gear on the ground as its item card's type icon (a rifle, a shield...) in its rarity's colour, `h` px high (wide ones
  *  capped); false (nothing drawn) until the icon's loaded / if the game has none - the caller draws its triangle. */
 export function typeIcon(x, y, key, color, h) {
-  if (!key || !/^[A-Za-z0-9_]+$/.test(key)) return false;
+  if (!cardIconKey(key)) return false;
   const c = tintedIcon(key, color);
   if (!c || !c.width || !c.height) return false;
   const w = Math.min(h * c.width / c.height, h * 2.4), hh = w * c.height / c.width;

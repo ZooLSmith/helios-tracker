@@ -205,8 +205,10 @@ gameBl1.push(gameChestTier({ d: "InteractiveObj_TreasureChest", loot: ["Pool_Che
 setRarityTable({ "0": [0, "#ffffff"], "3": [1, "#ffffff"] });
 gameBl1.push(rarity(0)[0], rarity(3)[0]);
 // its gear: also its one item class for shields, grenade mods, com decks (not its usable items: ammo, health)
-const { isGear: gameIsGear } = await load("js/model.js");
+const { isGear: gameIsGear, cardIconKey } = await load("js/model.js");
 gameBl1.push(gameIsGear("WillowEquipAbleItem"), gameIsGear("WillowUsableItem"));
+// card icon keys: "none" (the game's frame for no logo) and odd ones not fetched
+gameBl1.push([cardIconKey("jakobs"), cardIconKey("none"), cardIconKey("None"), cardIconKey("a/b"), cardIconKey(undefined)]);
 setGame("bl2", ["discovery", "tacmap"]);
 const gameBl2 = { shown: gameShown(), seraph: rarity(501)[0], etech: lootLayer({ q: 6, c: "WillowWeapon" }) };
 setGame("", []);
@@ -2538,7 +2540,7 @@ def check_helios_tracker() -> None:  # noqa: PLR0915
     assert game_out["gameSwitch"] == [True, False], ("the same features in another order: no change", game_out["gameSwitch"])
     assert game_out["gameTps"] == {"shown": ["loot.glitch", "oxygen", "pickup.oxygen", "jumppad", "area", "fog", "enemy"],
                                    "glitch": "glitch", "etech": "loot.legendary"}, game_out["gameTps"]
-    assert game_out["gameBl1"] == ["loot.pearl", "enemy", 2, 0, "common", "common", True, False], \
+    assert game_out["gameBl1"] == ["loot.pearl", "enemy", 2, 0, "common", "common", True, False, ["jakobs", "", "", "", ""]], \
         ("BL1: no discovery areas, its pearlescent (500) but no other BL2 / TPS tiers; its treasure chest big; rarity 0 common",
          game_out["gameBl1"])
     assert game_out["gameBl2"] == {"shown": ["loot.pearl", "loot.etech", "area", "fog", "enemy"], "seraph": "seraph",

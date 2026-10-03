@@ -1,7 +1,7 @@
 // Items in the inspector (gear, backpack): one expandable card each, grouped by kind.
 import { esc, nameHtml } from "../dom.js";
 import { money, num, numUpTo, t } from "../i18n.js";
-import { rarity } from "../model.js";
+import { cardIconKey, rarity } from "../model.js";
 import { S } from "../state.js";
 import { tipAttrs, tipSections } from "./hovertip.js";
 import { skillStatParts } from "./skills.js";
@@ -165,8 +165,10 @@ export function itemHtml(it, ownerLevel) {
   // (no equip slot: obvious; no maker when its logo's there, no type when its icon is - the footer's, their names
   // the icons' tooltips (and their text if an icon fails to load); its level right after its name, its price at the
   // right of that line)
-  const okKey = (key) => !!key && /^[A-Za-z0-9_]+$/.test(key);
-  const logo = okKey(it.mf), typeName = it.type || t("kind." + it.k, null, it.k);
+  const okKey = (key) => !!cardIconKey(key);
+  // (a maker key the page doesn't fetch - "none", the game's frame for no logo: its name in the logo's spot, as when a
+  // logo fails to load - cardIconKey)
+  const logo = !!it.mf, typeName = it.type || t("kind." + it.k, null, it.k);
   const meta = [okKey(it.wt) ? "" : typeName, logo ? "" : it.maker].filter(Boolean).join(" · ");
   const price = it.v ? `<span class="iprice">${esc(it.cur ? t("currency." + it.cur, { n: num(it.v) }) : money(it.v))}</span>` : "";
   // its level, after its name - red above its owner's (the game's rule: not equippable yet)
@@ -201,7 +203,9 @@ export function itemHtml(it, ownerLevel) {
   const kind = tinted(icon("element", it.el), "element", it.el) + tinted(icon("type", it.wt, typeName), "type", it.wt);
   // the manufacturer's logo: its white fill a little in the rarity's colour (--c; css: .iitint.brand)
   const brand = icon("manufacturer", it.mf, it.maker || "");
-  const icons = (brand ? `<span class="iitint brand" style="--src:url('/cardicon/manufacturer/${it.mf}.png')">${brand}</span>` : "") +
+  // (in the brand's wrapper - its tint, css .iitint.brand .ii-text - without a mask: nothing fetched)
+  const brandText = !brand && it.mf && it.maker ? `<span class="iitint brand"><span class="ii-text">${esc(it.maker)}</span></span>` : "";
+  const icons = (brand ? `<span class="iitint brand" style="--src:url('/cardicon/manufacturer/${it.mf}.png')">${brand}</span>` : brandText) +
     (kind ? `<span class="iikind">${kind}</span>` : "");
   // (effervescent - the game's RARITY_Rainbow: its name's colour cycling like the game's; css: .item.rainbow)
   return `<div class="item${S.expanded.has(it.i) ? " expanded" : ""}${tier === "effervescent" ? " rainbow" : ""}" data-id="${esc(it.i)}" ` +
