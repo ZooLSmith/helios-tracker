@@ -201,6 +201,9 @@ const gameBl1 = gameShown();
 const { chestTier: gameChestTier } = await load("js/model.js");
 gameBl1.push(gameChestTier({ d: "InteractiveObj_TreasureChest", loot: ["Pool_Chest_Weapons_Pistols", "Pool_Chest_Ammo"] }),
   gameChestTier({ d: "InteractiveObj_StrongBox" }));
+// its rarity entry 0 (-1..1, white like entry 1): common (the wiki: common 0-4) - BL2's 0 is its beige "misc"
+setRarityTable({ "0": [0, "#ffffff"], "3": [1, "#ffffff"] });
+gameBl1.push(rarity(0)[0], rarity(3)[0]);
 setGame("bl2", ["discovery", "tacmap"]);
 const gameBl2 = { shown: gameShown(), seraph: rarity(501)[0], etech: lootLayer({ q: 6, c: "WillowWeapon" }) };
 setGame("", []);
@@ -2123,12 +2126,19 @@ def check_helios_tracker() -> None:  # noqa: PLR0915
         bl1_cave = ns(_get_address=lambda: 0xF2, ToMapName="Arid_Cave_P", Location=ns(X=-26730.0, Y=-11709.0, Z=-1122.0))
         bl1_exit_markers = col.Collector._waypoint_markers(ns(_waypoints=[lambda w=w: w for w in bl1_waypoints],
                                                                _exits=[lambda: bl1_gully, lambda: bl1_cave]), ns(), 0xB102)
+        # a definition's waypoints: a numbered path - the next one only, its lowest number not completed (Bone Head's
+        # Theft's checkpoints: #1 done, #2 shown - the page had both); the same number twice: both (alternatives)
+        bl1_two.TargetWaypointDefinition = wp_vendor
+        bl1_path = [ns(**{**vars(bl1_waypoint(0xE5 + n, wp_vendor, x)), "WaypointNumber": number, "bCompleted": done})
+                    for n, (x, number, done) in enumerate([(5.0, 1, True), (6.0, 2, False), (7.0, 2, False), (8.0, 3, False)])]
+        bl1_path_markers = col.Collector._waypoint_markers(ns(_waypoints=[lambda w=w: w for w in bl1_path], _exits=[]), ns(), 0xB102)
     finally:
         mission_games.GAME = real_game
     assert [(m["x"], m["k"]) for m in bl1_exit_markers if m["k"] == "objective"] == [(-22012, "objective")], bl1_exit_markers
     assert [(m["x"], m["k"], m.get("end"), m["tracked"]) for m in bl1_markers] == [(2, "directive", 1, False), (3, "objective", None, True)], \
         ("the ready one's turn-in, the active one's target - not the pearls' (done), not another definition's", bl1_markers)
     assert bl1_markers[1]["objective"]["n"] == "Kill Nine-Toes" and bl1_markers[1]["mi"].endswith("M_TwoThings"), bl1_markers
+    assert sorted(m["x"] for m in bl1_path_markers) == [6, 7], ("the next waypoint (#2, both) - not #1 (done), not #3", bl1_path_markers)
     version = hub._channels["missionlog"][0]
     c.tick(1001.5)  # nothing changed: not published again
     assert hub._channels["missionlog"][0] == version, "mission log republished with no change"
@@ -2481,8 +2491,9 @@ def check_helios_tracker() -> None:  # noqa: PLR0915
     assert game_out["gameSwitch"] == [True, False], ("the same features in another order: no change", game_out["gameSwitch"])
     assert game_out["gameTps"] == {"shown": ["loot.glitch", "oxygen", "pickup.oxygen", "jumppad", "area", "fog", "enemy"],
                                    "glitch": "glitch", "etech": "loot.legendary"}, game_out["gameTps"]
-    assert game_out["gameBl1"] == ["loot.pearl", "enemy", 2, 0], \
-        ("BL1: no discovery areas, its pearlescent (500) but no other BL2 / TPS tiers; its treasure chest big", game_out["gameBl1"])
+    assert game_out["gameBl1"] == ["loot.pearl", "enemy", 2, 0, "common", "common"], \
+        ("BL1: no discovery areas, its pearlescent (500) but no other BL2 / TPS tiers; its treasure chest big; rarity 0 common",
+         game_out["gameBl1"])
     assert game_out["gameBl2"] == {"shown": ["loot.pearl", "loot.etech", "area", "fog", "enemy"], "seraph": "seraph",
                                    "etech": "loot.etech"}, game_out["gameBl2"]
     assert mig["layers"]["player"] == {"names": True, "nameSize": 100, "floors": "show", "size": 100}, mig["layers"]["player"]

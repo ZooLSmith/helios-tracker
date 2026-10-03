@@ -209,7 +209,10 @@ says when it was seen.
 - **Rarities**: GlobalsDefinition has only GetRarityColorForLevel (no GetRarityLevelColorsIndexforLevel): its
   `RarityLevelColors[] {MinLevel, MaxLevel, Color}` read as properties (games.py `rarity_table`) - 13 entries: -1..1 /
   2..4 white, 5..10 green, 11..15 blue, 16..49 purple, 50..60 / 61..65 / 66..100 legendary shades, 170 / 171 / 180-190
-  the pickups', 500 pearl. game.js `bl1.tierByEntry`.
+  the pickups', 500 pearl. game.js `bl1.tierByEntry` - checked against the wiki (common 0-4, uncommon 5-10, rare
+  11-15, epic 16-49, legendary 50-60 / 61-65 / 66-100): entry 0 (-1..1) is common, white like entry 1 (a rarity 0
+  Tediore shield; it had been BL2's "misc"). The wiki's pearlescent "101+": the table has 500 only (101-169: no
+  entry, no tier).
 - **Card lines** (WeaponCardModifierStats): the game shows the line's modifier, never its attribute's current value -
   remapped (`bValueRemappingEnabled`: the zoom's -100..0 onto -10..0), its sign flipped if `bDisplayAsInverse` (BL2's:
   a reciprocal), x 100 if a percentage, rounded by its RoundingMode (Float: one decimal, a percentage whole). An SG330:
@@ -297,3 +300,7 @@ says when it was seen.
 - **A mission's area** (games.py `mission_home`): no TravelStation (all fell in "other" - the user) - its waypoints'
   level: the turn-in's (`TurnInWaypointDefinition.PersistentLevelName`, usually its giver: T.K. Has More Work's
   WP_Al), else the target's, named by the level lists (as the map's title). `GameStageRegion`: a technical name only.
+- **Objective markers: a path** (probe_bl1_waypoints.txt): a waypoint definition's WillowWaypoints are numbered
+  (`WaypointNumber`, 0 a single one) and passed (`bCompleted`) - the game shows the next one, the lowest number not
+  done (Bone Head's Theft's WP_Checkpoint: #1 done, #2 shown; the page had both - "Digistruct Module:" twice, the
+  user). The same number twice: alternatives, both (T.K.'s Food's two #3).

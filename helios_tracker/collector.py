@@ -1540,8 +1540,8 @@ class Collector:
         waypoint definition (WillowWaypoint.WaypointDefinition) - its TargetWaypointDefinition while it's Active (an
         "objective": its first objective not done), its TurnInWaypointDefinition once it's ReadyToTurnIn (where to hand it
         in: a "directive", "end") - tools/probes/probe_bl1_missions.txt: Buy Grenades, active -> WP_WeaponVendor, its one
-        waypoint at the weapon vendor; Nine-Toes: T.K.'s Food ready -> WP_Al, at T.K.'s. Every waypoint of the definition
-        (the food's: 4 - which ones the game shows while it's in progress: not seen). The waypoints are all bHidden
+        waypoint at the weapon vendor; Nine-Toes: T.K.'s Food ready -> WP_Al, at T.K.'s. A definition's waypoints are a
+        numbered path: the next one only (below). The waypoints are all bHidden
         (markers, not things): not a reason to leave one out. A definition in another area (its PersistentLevelName - Nine-
         Toes: Take Him Down's WP_NineToes, 'Arid_SkagGully_P'): the exit leading there, as the game marks it - the area's
         PersistentTransitionLandmark whose ToMapName it is (tools/probes/probe_bl1_exits.txt: by the map changer); further
@@ -1591,18 +1591,29 @@ class Collector:
                         markers.append({**marker_at(exit_mark, mission, kind, entry), "i": f"x{addr(exit_mark)}-{mission_id(mission)}"})
                     except Exception as ex:  # noqa: BLE001
                         log_error("exit marker", ex)
+        # a definition's waypoints: a path, numbered (WillowWaypoint.WaypointNumber; 0: a single one) - the game shows the
+        # next one, its lowest number not bCompleted (tools/probes/probe_bl1_waypoints.txt: Bone Head's Theft's
+        # WP_Checkpoint #1 done, #2 the one shown - the page had both, "Digistruct Module:" twice - the user); the same
+        # number twice: alternatives, both (T.K.'s Food's two #3)
+        candidates: dict[int, list[tuple[int, Any]]] = {}  # definition address -> (number, waypoint) not completed
         for ptr in self._waypoints:
             w = ptr()
             if w is None:
                 continue
-            try:
-                definition = w.WaypointDefinition
-                if definition is None or (hit := wanted.get(definition._get_address())) is None:
+            definition = try_(lambda w=w: w.WaypointDefinition)
+            if definition is None or definition._get_address() not in wanted or try_(lambda w=w: bool(w.bCompleted), False):
+                continue
+            candidates.setdefault(definition._get_address(), []).append((try_(lambda w=w: int(w.WaypointNumber), 0) or 0, w))
+        for key, found in candidates.items():
+            mission, kind, entry = wanted[key]
+            first = min(number for number, _w in found)
+            for number, w in found:
+                if number != first:
                     continue
-                mission, kind, entry = hit
-                markers.append(marker_at(w, mission, kind, entry))
-            except Exception as ex:  # noqa: BLE001
-                log_error("waypoint marker", ex)
+                try:
+                    markers.append(marker_at(w, mission, kind, entry))
+                except Exception as ex:  # noqa: BLE001
+                    log_error("waypoint marker", ex)
         return markers
 
     def _npc_givers(self, active_addr: int | None, skip: set[int]) -> list[dict[str, Any]]:

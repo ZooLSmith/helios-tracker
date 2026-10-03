@@ -33,12 +33,14 @@ const DATA = {
   tps: { ...BL2, tierByEntry: { 0: "misc", 1: "common", 2: "uncommon", 3: "rare", 4: "epic", 5: "legendary", 6: "etech",
     7: "legendary", 13: "glitch" }, rarities: [...RARITIES, "glitch"], rarityLayer: { etech: "legendary" }, eridiumGlyph: "m" },
   aodk: { ...BL2, rarities: RARITIES }, // (BL2's engine; its own gear not checked: the common tiers only)
-  // (its rarities not checked yet: .agent/bl1.md). Its big red chest: InteractiveObj_TreasureChest (up to 6 items -
+  // (its rarities checked against the wiki: .agent/bl1.md). Its big red chest: InteractiveObj_TreasureChest (up to 6 items -
   // the user; its balances ObjectGrade_TreasureChest*); its StrongBox / Crate_Metal: not seen yet, plain containers
   // its rarity table (gd_globals RarityLevelColors, offline): entries 0 (-1..1) / 1 (2..4) white, 2 green, 3 blue,
   // 4 purple, 5-7 three legendary shades (50..100), 12 pearl (500); 8-11 the pickups' (170 / 171 / 180-190: not gear)
   bl1: { ...BL2, rarities: [...RARITIES, "pearl"], chestByDefinition: [[/treasurechest/i, 2]],
-    tierByEntry: { 0: "misc", 1: "common", 2: "uncommon", 3: "rare", 4: "epic", 5: "legendary", 6: "legendary", 7: "legendary",
+    // (entry 0 white like 1: common - gear at rarity 0, a Tediore shield; BL2's entry 0 its beige "misc". The wiki: common
+    // 0-4, uncommon 5-10, rare 11-15, epic 16-49, legendary 50-60 / 61-65 / 66-100 - the game's entries, checked)
+    tierByEntry: { 0: "common", 1: "common", 2: "uncommon", 3: "rare", 4: "epic", 5: "legendary", 6: "legendary", 7: "legendary",
       12: "pearl" } },
 };
 const UNKNOWN = { ...BL2, rarities: RARITIES }; // before the level message (or a game the page doesn't know)
