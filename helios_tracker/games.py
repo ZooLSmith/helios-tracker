@@ -47,6 +47,8 @@ class Profile:
     packages = "CookedPCConsole"  # WillowGame/<this>: its cooked packages, the folder the mod reads (None: none read)
     exe_depth = 2  # the game's folder: this many up from its executable's (Binaries/Win32/Borderlands2.exe)
     gibbed_prefix = "BL2"  # a gear's code for Gibbed's save editor: "BL2(...)" ("": no editor)
+    vending_class = "WillowVendingMachineBase"  # what a vending machine is (shops.py: the class or a superclass)
+    vending_titles = "VendingMachineExGFxMovie"  # the vending menu, its default object's shop titles (None: none)
     features: frozenset[str] = frozenset({TACMAP, DISCOVERY, SCAN, MISSION_STEPS})
 
     def map_name(self, wi: Any) -> str:
@@ -167,6 +169,10 @@ class Borderlands1(Profile):
     packages = "CookedPC"  # its packages: version 584 (BL2's 832) - read with upk_bl1.Bl1Package (its map: bl1map.py)
     exe_depth = 1  # Binaries/Borderlands.exe
     gibbed_prefix = ""
+    # its machines: WillowVendingMachine, right under WillowInteractiveObject - BL2's stock as is (ShopInventory: 30
+    # slots, FeaturedItem, ShopType, the game's SecondsUntilShopsReset; no ShopTimerRate) - tools/probes/probe_bl1_vending.txt
+    vending_class = "WillowVendingMachine"
+    vending_titles = None  # its menu (VendingMachineGFxMovie): no shop titles (PersonOrShopLabels empty)
     # no WorldDiscoveryArea class (the log: "Couldn't find class"); its packages not indexed (gamescan reads BL2's)
     features = (Profile.features - {DISCOVERY, SCAN, MISSION_STEPS}) | {WAYPOINT_MARKERS}
 

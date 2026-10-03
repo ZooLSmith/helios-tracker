@@ -1166,6 +1166,17 @@ def check_helios_tracker() -> None:  # noqa: PLR0915
                                          CustomEvents=[ns(Behaviors=[bl1_explode])]),
                     ExtraBehaviorSets=[])
     assert profile_bl1.object_behaviors(bl1_barrel) == [bl1_explode]
+    # BL1's vending machines: their own class (no WillowVendingMachineBase), no shop titles in its menu
+    from helios_tracker import shops as profile_shops  # noqa: PLC0415
+    bl1_machine = ns(Class=ns(Name="WillowVendingMachine", SuperField=ns(Name="WillowInteractiveObject", SuperField=None)))
+    assert not profile_shops.is_machine(bl1_machine), "BL2's profile: not its machine class"
+    real_profile = game_profiles.GAME
+    game_profiles.GAME = profile_bl1
+    try:
+        assert profile_shops.is_machine(bl1_machine), "BL1's profile: its machines' own class"
+    finally:
+        game_profiles.GAME = real_profile
+    assert profile_bl1.vending_titles is None and profile_bl2.vending_titles == "VendingMachineExGFxMovie"
     # BL1's pawn names: its balance's grade's (GradeIndex), none without a balance - then its own AIPawnName as the guess
     bl1_skag = ns(BalanceDefinitionState=ns(GradeIndex=1, BalanceDefinition=ns(Grades=[
         ns(GradeModifiers=ns(DisplayName="Skag Pup")), ns(GradeModifiers=ns(DisplayName="Adult Skag"))])), AIPawnName="None")

@@ -181,6 +181,12 @@ says when it was seen.
   (its sublevels streamed in - Arid_Firestone, arid_tunnel... - and their spawners), BL2 has more of them with the
   level. The map shows what exists (the scan, the pickup spawn hook): not a bug. Showing them earlier would be guessing
   the game's rolls - no.
+- **Vending machines** (probe_bl1_vending.txt, Fyrestone's 3): `WillowVendingMachine`, right under
+  WillowInteractiveObject - no WillowVendingMachineBase (shops.py looked for it: not a shop, the page's container view).
+  The rest is BL2's: `ShopInventory` a 30-slot array (items, then None - an offline read had shown its element type),
+  `FeaturedItem`, `ShopType` SType_Items / SType_Health / SType_Weapons, `GetSellingPriceForInventory`; the timer
+  `Game.SecondsUntilShopsReset` (922 s) / `GRI.SecondsUntilShopsReset`, no `ShopTimerRate` (1). Its menu
+  (VendingMachineGFxMovie) has no shop titles. games.py `vending_class` / `vending_titles`.
 - **Exploding barrels**: no BehaviorProviderDefinition - behaviour sets (`DefaultBehaviorSet`, `ExtraBehaviorSets[]`:
   `InteractiveObjectBehaviorSet` - OnKilled, OnTakeDamage... arrays of behaviours, CustomEvents / TimerEvents /
   CounterEvents of reactions with `Behaviors[]`); the barrel's `Behavior_Explode` (its `Definition.DamageTypeDef` as

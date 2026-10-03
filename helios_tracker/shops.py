@@ -27,13 +27,13 @@ import unrealsdk
 from unrealsdk.unreal import WeakPointer
 
 from .inspector import _item
+from . import games
 from .util import addr, field, item_name, log_error, named, pickup_kind, try_
 
 KINDS = {"SType_Weapons": "weapons", "SType_Items": "items", "SType_Health": "health", "SType_BlackMarket": "blackmarket"}
 TITLES = {"weapons": "WeaponsShopTitle", "items": "ItemsShopTitle", "health": "HealthShopTitle"}
 LEFT_OUT = ("blackmarket",)  # Crazy Earl: nothing to list (his stock is per player, made when opened)
 CURRENCIES = {"CURRENCY_Credits": "cash", "CURRENCY_Eridium": "eridium"}
-MACHINE_CLASS = "WillowVendingMachineBase"
 BUILD_SECONDS = 0.003  # per pass, building new item records (a level's first pass has ~70: one hitch otherwise)
 TIMER_DRIFT = 1.0  # s: the page's countdown this far from the game's - sent again
 ALWAYS_SOLD = ("ammo", "health")  # every machine always has them (ammo, health vials): a price list, not item cards
@@ -46,7 +46,7 @@ def _enum_name(value: Any) -> str:
 def is_machine(obj: Any) -> bool:
     cls = try_(lambda: obj.Class)
     while cls is not None:
-        if str(try_(lambda c=cls: c.Name, "")) == MACHINE_CLASS:
+        if str(try_(lambda c=cls: c.Name, "")) == games.GAME.vending_class:  # (each game's: games.py)
             return True
         cls = try_(lambda c=cls: c.SuperField)  # (never raises: the collector's object scan calls it on everything)
     return False
@@ -75,8 +75,9 @@ class ShopReader:
         self._sent = None
 
     def _title(self, kind: str) -> str:
-        if self._titles is None:  # the vending menu's localized titles (static)
-            cls = try_(lambda: unrealsdk.find_class("VendingMachineExGFxMovie"))
+        if self._titles is None:  # the vending menu's localized titles (static; games.py: its class, if it has them)
+            title_class = games.GAME.vending_titles
+            cls = try_(lambda: unrealsdk.find_class(title_class)) if title_class else None
             cdo = try_(lambda: cls.ClassDefaultObject) if cls is not None else None
             self._titles = {k: str(try_(lambda f=f: getattr(cdo, f), "") or "") for k, f in TITLES.items()} if cdo is not None else {}
         return self._titles.get(kind, "")
