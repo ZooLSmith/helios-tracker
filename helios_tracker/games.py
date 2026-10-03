@@ -253,6 +253,7 @@ class Borderlands1(Profile):
 
     def __init__(self) -> None:
         self._branch_names: dict[int, dict[str, str]] = {}  # CharacterName -> its branches' names (branch_names)
+        self._skill_clips: dict[int, tuple[str, str]] = {}  # CharacterName -> (the skill clip, its frame) (_skill_clip)
 
     def map_name(self, wi: Any) -> str:
         # The world is "Loader" in every area (tools/probes/probe_bl1.txt): the area is streamed in, the first of its
@@ -350,7 +351,45 @@ class Borderlands1(Profile):
         # inspector._skills_from_player_skills; its branches' names: the skill menu's (branch_names)
         from .inspector import _skills_from_player_skills  # noqa: PLC0415
 
-        _skills_from_player_skills(ctrl, player, bonuses, self.branch_names(ctrl))
+        _skills_from_player_skills(ctrl, player, bonuses, self.branch_names(ctrl), self.skill_icons(ctrl))
+
+    def _skill_clip(self, ctrl: Any) -> tuple[str, str]:
+        """The skill menu's clip and the player's frame of it: ("skills", "mordecai") - SkillTreeGFxDefinition
+        .SkillMovieClip, and SkillTreeGFxHelper.GetCharacterName() (a switch on CurrentCharacter: the class's
+        CharacterName - on one we construct; tools/probes/probe_bl1_branches.txt). Its Flash_SetCharacter's gotoAndStop."""
+        import unrealsdk  # noqa: PLC0415
+
+        character = ctrl.PlayerClass.CharacterName
+        if (found := self._skill_clips.get(int(character))) is None:
+            helper = unrealsdk.construct_object("SkillTreeGFxHelper", ctrl)
+            helper.CurrentCharacter = character
+            clip = str(unrealsdk.find_class("SkillTreeGFxDefinition").ClassDefaultObject.SkillMovieClip)
+            found = self._skill_clips[int(character)] = (clip, str(helper.GetCharacterName()))
+        return found
+
+    def skill_icons(self, ctrl: Any) -> dict[tuple[str, int, int], str]:
+        """The tree's cells' icons: (branch, tier, cell) -> a menu icon path ("menu.skills.mordecai.icon17.on.off":
+        bl1map.MENU_ICON, served as /icon/<path>.png). No icon of their own on the skills (SkillDefinition
+        .ScaleformFrameName: the HUD's popups, a few skills): the skill menu's cells - the class's SkillTreeLayout
+        (ui_skill_tree.upk: <Branch>.Tiers[].Skills[], one SkillTreeNavDefinition per cell, in order) names each cell's
+        clip (IconClipName, "icon17"), placed in the player's frame of the skill clip, drawn at its frame
+        SkillTreeGFxDefinition.IconOnName ("on") - what its IconOffName frame shows too (its drawing, not the state's
+        tile: bl1map.clip_icon) - offline, .agent/bl1.md."""
+        import unrealsdk  # noqa: PLC0415
+
+        from .inspector import BL1_BRANCHES  # noqa: PLC0415
+
+        clip, frame = self._skill_clip(ctrl)
+        layout = ctrl.PlayerClass.PlayerSkillSet.SkillTreeLayout
+        movie_def = unrealsdk.find_class("SkillTreeGFxDefinition").ClassDefaultObject
+        on, off = str(movie_def.IconOnName), str(movie_def.IconOffName)
+        icons = {}
+        for branch, field in BL1_BRANCHES.items():
+            for tier, tier_data in enumerate(getattr(layout, field).Tiers):
+                for cell, nav in enumerate(tier_data.Skills):
+                    if nav is not None:
+                        icons[(branch, tier, cell)] = f"menu.{clip}.{frame}.{nav.IconClipName}.{on}.{off}"
+        return icons
 
     def branch_names(self, ctrl: Any) -> dict[str, str]:
         """The player's tree branches' names, as the skill menu shows them ("SNIPER"...: BL1_BRANCH_TEXTS' keys -> the
@@ -365,17 +404,13 @@ class Borderlands1(Profile):
 
         from . import bl1map, gamedir  # noqa: PLC0415
 
-        character = ctrl.PlayerClass.CharacterName
-        cache_key = int(character)
+        cache_key = int(ctrl.PlayerClass.CharacterName)
         if (names := self._branch_names.get(cache_key)) is not None:
             return names
         cooked = gamedir.cooked_dir()
         if cooked is None:
             return {}
-        helper = unrealsdk.construct_object("SkillTreeGFxHelper", ctrl)
-        helper.CurrentCharacter = character
-        frame = str(helper.GetCharacterName())
-        clip = str(unrealsdk.find_class("SkillTreeGFxDefinition").ClassDefaultObject.SkillMovieClip)
+        clip, frame = self._skill_clip(ctrl)
         texts = bl1map.clip_texts_later(cooked, clip, frame)
         if texts is None:
             return {}  # (being read: asked again at the next read)

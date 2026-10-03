@@ -792,6 +792,19 @@ def check_helios_tracker() -> None:  # noqa: PLR0915
         assert bl1_hunter["tree1.text"] == "$<StringAliasMap:skills_hunter_branch1>" and bl1_hunter["tree3.text"].endswith("hunter_branch3>"), bl1_hunter
         assert bl1map.clip_texts(bl1_cooked, "skills", "roland")["tree2.text"].endswith("soldier_branch2>"), "no 'roland' label: the first frame"
         assert bl1map.clip_texts(bl1_cooked, "nope", "mordecai") == {}
+        # its skill icons (games.Borderlands1.skill_icons): the cell's clip in the character's frame, its "on" frame drawn
+        # (the drawing only: what its "on" and "off" frames both show - not their state's tile, notched at the
+        # bottom right: transparent corners then)
+        bl1_icon_w, bl1_icon_h, bl1_icon_px = bl1map.clip_icon(bl1_cooked, "skills", "mordecai", "icon17", "on", "off")
+        assert max(bl1_icon_w, bl1_icon_h) == bl1map.ICON_SIZE and any(bl1_icon_px[3::4]), (bl1_icon_w, bl1_icon_h)
+        assert bl1_icon_px[3] == 0, "the top left corner: no tile"
+        assert bl1map.clip_icon(bl1_cooked, "skills", "mordecai", "icon99", "on", "off") is None
+        assert bl1map.clip_icon(bl1_cooked, "skills", "mordecai", "icon17", "nope", "off") is None
+        from helios_tracker import gamework as bl1_work  # noqa: PLC0415
+        bl1_icon_png = bl1_work.run_job(json.dumps({"do": "menuicon", "cooked": str(bl1_cooked),
+                                                    "parts": ["skills", "lilith", "icon24", "on", "off"]}))
+        assert bl1_icon_png[:8] == b"\x89PNG\r\n\x1a\n", bl1_icon_png[:16]
+        assert bl1map.MENU_ICON.fullmatch("menu.skills.mordecai.icon17.on.off") and not bl1map.MENU_ICON.fullmatch("menu.a.b")
         print(f"  BL1: packages (584), the arena's map anchor, its map rendered {bl1_arena_img.width} x {bl1_arena_img.height}")
     # A DLC map: its package is under DLC/<code name>/{Lic,Compat}/Content (gamedir.package_path)
     from helios_tracker import gamedir  # noqa: PLC0415
@@ -1253,6 +1266,11 @@ def check_helios_tracker() -> None:  # noqa: PLR0915
     bl1_named = {"local": True}
     sys.modules["helios_tracker.inspector"]._skills_from_player_skills(bl1_ctrl, bl1_named, {}, {"SKILLBRANCH_Left": "SNIPER"})
     assert bl1_named["skills"][1]["n"] == "SNIPER" and "raw" not in bl1_named["skills"][1], bl1_named["skills"][1]
+    bl1_iconed = {"local": True}
+    sys.modules["helios_tracker.inspector"]._skills_from_player_skills(
+        bl1_ctrl, bl1_iconed, {}, {}, {("SKILLBRANCH_Left", 0, 0): "menu.skills.mordecai.icon4.on"})
+    assert bl1_iconed["skills"][1]["tiers"][0]["cells"][0]["ic"] == "menu.skills.mordecai.icon4.on", bl1_iconed["skills"][1]
+    assert "ic" not in bl1_iconed["skills"][0]["tiers"][0]["cells"][1], "no icon for that cell: none"
     # BL1's pawn names: its balance's grade's (GradeIndex), none without a balance - then its own AIPawnName as the guess
     bl1_skag = ns(BalanceDefinitionState=ns(GradeIndex=1, BalanceDefinition=ns(Grades=[
         ns(GradeModifiers=ns(DisplayName="Skag Pup")), ns(GradeModifiers=ns(DisplayName="Adult Skag"))])), AIPawnName="None")

@@ -978,13 +978,15 @@ BL1_BRANCHES = {"SKILLBRANCH_First": "FirstBranch", "SKILLBRANCH_Left": "LeftBra
 
 
 def _skills_from_player_skills(ctrl: Any, player: dict[str, Any], bonuses: dict[str, list[list[Any]]] | None = None,
-                               branch_names: dict[str, str] | None = None) -> None:
+                               branch_names: dict[str, str] | None = None,
+                               icons: dict[tuple[str, int, int], str] | None = None) -> None:
     """A Borderlands 1 player's skill tree, as _skills's record (tools/probes/probe_bl1_skills.txt): no PlayerSkillTree -
     the controller's SkillTreeBranches[] = {BranchIndex (SKILLBRANCH_First: the action skill alone; Left / Middle / Right),
     PointsSpentInBranch, Tiers[]: {TierIndex, PlayerSkillIndexList (-1: an empty cell)}}, each index into PlayerSkills[] =
     {Definition, Grade...} (the tree's ~25 among input "skills", proficiencies...); the points a tier asks: the class's
     PlayerSkillSet's <Branch>.Tiers[].PointsToUnlockNextTier (5). Its branches' names: `branch_names` (the skill menu's -
-    games.Borderlands1.branch_names), else their own technical name, marked as a guess."""
+    games.Borderlands1.branch_names), else their own technical name, marked as a guess; its cells' icons: `icons`
+    ((branch, tier, cell) -> an icon path - games.Borderlands1.skill_icons)."""
     entries = try_(lambda: list(ctrl.PlayerSkills), None) if ctrl is not None else None
     branch_states = try_(lambda: list(ctrl.SkillTreeBranches), None) if ctrl is not None else None
     if not entries or not branch_states:
@@ -993,7 +995,7 @@ def _skills_from_player_skills(ctrl: Any, player: dict[str, Any], bonuses: dict[
     points = sum(try_(lambda b=b: int(b.PointsSpentInBranch), 0) or 0 for b in branch_states)
     bonuses = bonuses or {}
     ctrl_key = ctrl._get_address()
-    branch_names = branch_names or {}
+    branch_names, icons = branch_names or {}, icons or {}
     cache_key = (points, tuple(sorted((k, tuple(map(tuple, v))) for k, v in bonuses.items())), tuple(sorted(branch_names.items())))
     cached = _skills_cache.get(ctrl_key)
     if cached is not None and cached[0] == cache_key:
@@ -1009,7 +1011,7 @@ def _skills_from_player_skills(ctrl: Any, player: dict[str, Any], bonuses: dict[
             index = try_(lambda t=tier: int(t.TierIndex), 0)
             need = try_(lambda i=index: int(static_tiers[i].PointsToUnlockNextTier), 0) if index < len(static_tiers) else 0
             cells: list[dict[str, Any] | None] = []
-            for slot in try_(lambda t=tier: list(t.PlayerSkillIndexList), []) or []:
+            for cell, slot in enumerate(try_(lambda t=tier: list(t.PlayerSkillIndexList), []) or []):
                 entry = entries[slot] if 0 <= slot < len(entries) else None
                 sd = try_(lambda e=entry: e.Definition) if entry is not None else None
                 if sd is None:
@@ -1022,6 +1024,8 @@ def _skills_from_player_skills(ctrl: Any, player: dict[str, Any], bonuses: dict[
                 })
                 grade = try_(lambda e=entry: int(e.Grade), 0) or 0
                 skill = {**info, "g": grade, "t": index + 1}
+                if ic := icons.get((branch_name, index, cell)):
+                    skill["ic"] = ic
                 sources = bonuses.get(try_(lambda: str(sd.Name), "").lower(), [])  # (a class mod's ranks, as BL2's)
                 if bonus := sum(ranks for ranks, _name in sources):
                     skill["b"], skill["bs"] = bonus, sources

@@ -231,8 +231,9 @@ says when it was seen.
   `WillowInventory.GetControllerPlayerExpLevelRequiredToUse(controller)` (Engine.u, script: ExpLevel +
   FFloor(PlayerUseLevelBonus) if the definition's bUsesPlayerLevelRequirement) - games.py `item_card_level`.
   `ManufacturerGradeIndex`: 0 on every item.
-- **Skill icons** (not built yet): vector clips in the status menu movie - in the skill clip's character frame, each
+- **Skill icons** (games.py `skill_icons`, bl1map `clip_icon`, served as /icon/menu....png): vector clips in the status menu movie - in the skill clip's character frame, each
   cell's clip by the layout's name (ui_skill_tree.upk `SkillTreeLayout`'s SkillTreeNavDefinitions: `IconClipName`
   "icon17" = Left tier 2 entry 1...), its frames "off" / "on" / "none" (`IconOnName`...); the elemental cell (icon1)
-  has frames per element. Rendered offline with swfshape: Mordecai's 22 other cells, as the game draws them. `SkillDefinition.ScaleformFrameName`
+  has frames per element. Rendered with swfshape - only what the "on" and "off" frames both place: the drawing (each state has its own
+  tile under it, "on"'s notched at the bottom right for the rank - the user: "the background is strange"). `SkillDefinition.ScaleformFrameName`
   is the HUD's popup icons only (GfxHUD.upk sprite 147, 19 skills).

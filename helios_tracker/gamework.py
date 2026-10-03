@@ -64,6 +64,16 @@ def run_job(job: str) -> bytes:
         return gameicons.texture_png(Path(j["package"]), j["export"])
     if do == "card":
         return gamecards.layers_png(j["layers"])
+    if do == "menuicon":  # (Borderlands 1's skill icons: bl1map.menu_icon_png)
+        from . import bl1map  # noqa: PLC0415
+
+        drawn = bl1map.clip_icon(Path(j["cooked"]), *j["parts"])
+        if drawn is None:
+            return b""
+        w, h, bgra = drawn
+        rgba = bytearray(bgra)
+        rgba[0::4], rgba[2::4] = bgra[2::4], bgra[0::4]
+        return gameicons.png(w, h, bytes(rgba))
     raise ValueError(f"unknown job {do!r}")
 
 

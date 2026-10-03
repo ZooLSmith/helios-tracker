@@ -27,7 +27,7 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from typing import Any
 
-from . import gamescan, paths
+from . import bl1map, games, gamescan, paths
 from .gamecards import card_png
 from .gameicons import icon_png, texture_by_path
 
@@ -38,6 +38,7 @@ TYPES = {"js": "text/javascript; charset=utf-8", "css": "text/css; charset=utf-8
          "svg": "image/svg+xml", "woff2": "font/woff2"}
 FONT = re.compile(r"/font/([a-z0-9-]+)\.ttf")
 ICON = re.compile(r"/icon/((?:UI_[A-Za-z0-9]+_)?SharedSkillIcons_[A-Za-z0-9_]+\.[A-Za-z0-9_-]+)\.png", re.I)
+MENU_ICON = re.compile(r"/icon/(menu(?:\.[A-Za-z0-9_]+){5})\.png")  # a menu movie's icon (bl1map.MENU_ICON: BL1's skills)
 CARD_ICON = re.compile(r"/cardicon/(manufacturer|type|element)/([A-Za-z0-9_]+)\.png")
 TEXTURE = re.compile(r"/texture/([A-Za-z0-9_]+(?:\.[A-Za-z0-9_-]+)+)\.png")  # an always-loaded texture by path (gameicons)
 SCAN_WAIT = 30.0  # s a font / icon request waits for the game files' index (gamescan) before giving up
@@ -235,7 +236,8 @@ class _Handler(BaseHTTPRequestHandler):
 
     def do_GET(self) -> None:  # noqa: N802
         path = self.path.split("?", 1)[0]
-        if path.startswith(("/font/", "/icon/", "/cardicon/", "/texture/")) and not gamescan.ready():
+        if (path.startswith(("/font/", "/icon/", "/cardicon/", "/texture/")) and games.SCAN in games.GAME.features
+                and not gamescan.ready()):
             gamescan.wait(SCAN_WAIT)  # (the game's files not indexed yet: a page just opened - its scan's running)
         try:
             if path in ("/", "/index.html"):
@@ -248,6 +250,8 @@ class _Handler(BaseHTTPRequestHandler):
                 self._image(path)
             elif (m := FONT.fullmatch(path)) and (data := (self.server.hub.fonts or {}).get(m[1])) is not None:
                 self._send(HTTPStatus.OK, "font/ttf", data)
+            elif (m := MENU_ICON.fullmatch(path)) and (data := bl1map.menu_icon_png(m[1])) is not None:
+                self._send(HTTPStatus.OK, "image/png", data)
             elif (m := ICON.fullmatch(path)) and (data := icon_png(m[1])) is not None:
                 self._send(HTTPStatus.OK, "image/png", data)
             elif (m := CARD_ICON.fullmatch(path)) and (data := card_png(m[1], m[2])) is not None:

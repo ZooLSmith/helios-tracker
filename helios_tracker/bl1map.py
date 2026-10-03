@@ -7,6 +7,7 @@ one image, placed in the map sprite's px - the page draws it like any map image.
 """
 
 import math
+import re
 import struct
 import threading
 from dataclasses import dataclass
@@ -219,6 +220,57 @@ def clip_texts_later(cooked: Path, clip: str, frame: str) -> dict[str, str] | No
 
     threading.Thread(target=read, name="helios_tracker menu movie", daemon=True).start()
     return None
+
+
+# A menu clip's icon, as the skill tree's cells name them: "menu.<clip>.<frame>.<placement>.<label>.<other>" -
+# "menu.skills.mordecai.icon17.on.off" (games.Borderlands1.skill_icons): the root's clip "skills", its frame
+# "mordecai", the clip placed there as "icon17", drawn at its frame "on" - what its frame "off" shows too
+MENU_ICON = re.compile(r"menu" + r"\.([A-Za-z0-9_]+)" * 5)
+ICON_SIZE = 128  # px, the larger side (BL2's skill icons: 64 x 64 textures)
+
+
+def clip_icon(cooked: Path, clip: str, frame: str, name: str, label: str, other: str) -> tuple[int, int, bytes] | None:
+    """A menu icon (MENU_ICON's parts) drawn: (width, height, BGRA) - its shapes rendered (swfshape), ICON_SIZE on its
+    larger side. Only what its frames `label` and `other` both place: a skill icon's clip has a tile per state under
+    its drawing ("on": a dark tile notched at its bottom right - the cell's rank goes there -, "off": another; the
+    page draws the cell's state itself, the user: "the background is strange") - the drawing, the same in both. None
+    if the movie has no such clip / placement / frame (a frame it doesn't have: nothing drawn)."""
+    movie = _menu_movie(cooked)
+    sprite = movie.root_named.get(clip)
+    if sprite not in movie.sprites:
+        return None
+    placed = None
+    for code, body in movie.frame_tags(sprite, frame):
+        if code == 26:
+            cid, _matrix, placed_name = _place2(body)
+            if placed_name == name and cid is not None:
+                placed = cid
+    if placed not in movie.sprites:
+        return None
+    shared = {cid for cid, _matrix in movie.display_list(placed, other)}
+    layers: list[tuple[Affine, Shape]] = []
+    for cid, matrix in movie.display_list(placed, label):
+        if cid in shared and cid in movie.shapes:
+            layers.append((matrix, movie.shape(cid)))
+        elif cid in shared and cid in movie.sprites:
+            layers += movie.layers(cid, None, matrix)
+    if not layers:
+        return None
+    _w, _h, _bgra, (x0, x1, y0, y1) = render(layers, 1.0)
+    w, h, bgra, _bounds = render(layers, ICON_SIZE / max(x1 - x0, y1 - y0, 1e-6))
+    return w, h, bgra
+
+
+def menu_icon_png(path: str) -> bytes | None:
+    """A menu icon (its MENU_ICON path) as a PNG, or None - rendered by gamework (its subinterpreter; cached on disk).
+    The server's threads: no SDK."""
+    from . import gamedir, gamework  # noqa: PLC0415
+
+    m = MENU_ICON.fullmatch(path)
+    cooked = gamedir.cooked_dir()
+    if m is None or cooked is None:
+        return None
+    return gamework.asset({"do": "menuicon", "cooked": str(cooked), "parts": list(m.groups())}, [cooked / MENU_PACKAGE])
 
 
 @dataclass(frozen=True)
