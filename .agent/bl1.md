@@ -86,7 +86,7 @@ says when it was seen.
   even-odd as they come, came out striped) into one BGRA image in the map sprite's px. All 26 base-game frames render
   (0.3-1.4 s). What a frame shows = what it places itself: the "arid" frame also places the markers' templates
   (labeled sprites), and they stay in the frames after it - skipped. Gradient fills (arid_bunker, interlude2, trash)
-  drawn in their colours' average for now.
+  drawn in their colours' average for now (Not checked yet: never seen in game).
 - **Its lines** (the user: "it seems to lack lines"): the shapes start new style lists mid-way, their lines in them -
   Fyrestone Coliseum's 1081: 126 of its 217 edges stroked (2 px #294d5d, 0.75 px #4a8bb5, 1.25 px #82adca: the
   outlines, the inner details); Arid's 1045: 1384, and a second fill (#346376). A first look at a shape's styles only
@@ -98,6 +98,11 @@ says when it was seen.
 
 ## Not checked yet
 
+- **The maps with gradient fills** (arid_bunker, interlude2, trash - 3 of the 26 base-game frames): not seen in game
+  yet, so what they should look like isn't known. swfshape.py reads their gradient records (linear / radial / focal:
+  a matrix, colour stops) but fills each shape with its stops' average colour - a flat tone where the game may
+  show a fade. Look at one of those areas in game (its map screen) before drawing real gradients (each pixel's
+  colour from the gradient's matrix and stops) - it may not be worth it.
 - No `WillowTacticalMapVolume` / `WillowMapInfo` (`GetMapInfo()` None) - BL1 places its map with its anchor.
 - From `probe_bl1.txt`, not looked at yet: hooks missing (`WillowScrollingList:HandlePopList`,
   `WillowInteractiveObject:InitializeBalanceDefinitionState`); classes missing (`PlayerSkillTree`,
