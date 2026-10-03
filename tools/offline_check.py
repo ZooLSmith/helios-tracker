@@ -1504,6 +1504,13 @@ def check_helios_tracker() -> None:  # noqa: PLR0915
                                                         _path_name=lambda: "GD_Co_AirDome.InteractiveObjects.IO_OxygenCracks")})
     oxygen_rec = col.Collector._object_record(oxygen_io)
     assert oxygen_rec["n"] == "Oxygen Source" and "raw" not in oxygen_rec, oxygen_rec
+    # a map exit (a LevelTravelStation): where it leads, the game's words - its header only says "Map Exit" (the user)
+    exit_io = ns(**{**vars(oxygen_io), "_get_address": lambda: 0x5F1, "LevelTravelMapDisplayName": "Exit to %s",
+                    "TravelDefinition": ns(DestinationStationDefinition=ns(DisplayName="Frostburn Canyon")),
+                    "InteractiveObjectDefinition": ns(Name="LevelTravelMachine", StatusMenuMapInfoBoxHeader="Map Exit",
+                                                      _path_name=lambda: "GD_GameSystemMachines.InteractiveObjects.LevelTravelMachine")})
+    exit_rec = col.Collector._object_record(exit_io)
+    assert exit_rec["n"] == "Exit to Frostburn Canyon" and "raw" not in exit_rec, exit_rec
     # a boss: the boss bar's pawn (GRI.BossPawn while bHasBossBar - Deadlift: its AI class has no bBoss), kept for the level
     boss_gri = ns(bHasBossBar=False, BossPawn=ns(_get_address=lambda: 0xB055))
     c._note_boss(ns(GRI=boss_gri))

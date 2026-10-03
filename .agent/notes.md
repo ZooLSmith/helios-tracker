@@ -576,6 +576,8 @@ Southern Shelf's `_P` alone: 404 `StaticMesh`, 4131 `StaticMeshComponent`, 11 `T
   station's LevelTravelMapDisplayName "Exit to %s", %s its TravelDefinition (LevelTravelStationDefinition
   GD_LevelTravelStations.Zone1.IceToIceCanyon) -> DestinationStationDefinition -> DisplayName ("Frostburn Canyon"; also
   StationDisplayName, StationLevelName icecanyon_p) - tools/probes/probe_waypoint_exit.txt, Three Horns Divide.
+  The exit object's own name too (collector._object_record): its map header (StatusMenuMapInfoBoxHeader) only says
+  "Map Exit" (the page showed that) - the same "Exit to <destination>" first.
 - **Elemental plants** (BL2's Firemelon, Acidolus, Shock Cactus; the Pre-Sequel's Cryo Vine _Normal / _Medium / _Large -
   GD_ElementalPlants): the game groups them - their definition's Allegiance GD_AI_Allegiance.Allegiance_ElementalPlant,
   no other object's (both games' packages). Like barrels, but shot empty they recharge (bDestroyWhenKilled False). Their

@@ -1030,12 +1030,14 @@ class Collector:
     def _object_record(io: Any, client: bool = False) -> dict[str, Any]:
         loc = io.Location
         definition = try_(lambda: io.InteractiveObjectDefinition)
-        # The game's name for it, in the game's language (e.g. "Incendiary Barrel"): the balance's
-        # DefaultDisplayName, else its definition's StatusMenuMapInfoBoxHeader (what the game's map shows on hover: the
-        # Pre-Sequel's "Oxygen Source", "Air Dome Generator" - no balance name, no target name), else what targeting
-        # it shows
+        # The game's name for it, in the game's language (e.g. "Incendiary Barrel"): a map exit's where it leads (a
+        # LevelTravelStation's "Exit to Frostburn Canyon" - _exit_text; its map header only "Map Exit": the user), the
+        # balance's DefaultDisplayName, else its definition's StatusMenuMapInfoBoxHeader (what the game's map shows on
+        # hover: the Pre-Sequel's "Oxygen Source", "Air Dome Generator" - no balance name, no target name), else what
+        # targeting it shows
         balance = try_(lambda: io.BalanceDefinitionState.BalanceDefinition)
-        display = (try_(lambda: str(balance.DefaultDisplayName), "")
+        display = (Collector._exit_text(io)
+                   or try_(lambda: str(balance.DefaultDisplayName), "")
                    or (try_(lambda: str(definition.StatusMenuMapInfoBoxHeader), "") if definition is not None else "")
                    or call_str(io.GetTargetName))
         record = {
