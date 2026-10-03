@@ -3,7 +3,8 @@ Loot odds: a container's chances, from its loot data - for the click panel's "Ca
 record, the pools in the objects payload's `pools`).
 
 Game thread only (the collector builds them with an object's record: static data, cached). Everything is read as
-properties, nothing is called (tools/probes/probe_loot_odds*.txt, .agent/notes.md "Loot odds"):
+properties, nothing is called (tools/probes/probe_loot_odds*.txt, .agent/notes.md "Loot odds") - through util.field
+(objects and structs: a pool tree's first reading took 64 ms by name - a Bullymong pile's, 2026-10-03):
 - a container picks ONE loot configuration by weight (each its `Weight`), then rolls each of its ItemAttachments'
   ItemPool; a pool picks ONE of its BalancedItems by weight (`Probability`): an item balance or a sub-pool;
 - a weight is an AttributeInitializationData: its InitializationDefinition's value, else its BaseValueAttribute's,
@@ -21,7 +22,7 @@ These rules are inferred from the data, not checked against the game's own draws
 
 from typing import Any
 
-from .util import try_
+from .util import field, try_
 
 MAX_DEPTH = 6  # pool nesting followed
 MAX_ENTRIES = 40  # a pool's entries sent
@@ -79,11 +80,11 @@ def refresh(world_info: Any) -> bool:
     """The host's live designer attributes read again (a co-op client has none: the base values); True if they
     changed - then every cached value, container and pool is forgotten (worked out again with the new ones)."""
     global version  # noqa: PLW0603
-    game = try_(lambda: world_info.Game)
+    game = try_(lambda: field(world_info, "Game"))
     live = {}
-    for inst in (try_(lambda: list(game.DesignerAttributes), []) or []) if game is not None else []:
-        path = str(try_(lambda i=inst: i.DesignerAttributeDefinitionPathName, "") or "")
-        value = try_(lambda i=inst: float(i.Value))
+    for inst in (try_(lambda: list(field(game, "DesignerAttributes")), []) or []) if game is not None else []:
+        path = str(try_(lambda i=inst: field(i, "DesignerAttributeDefinitionPathName"), "") or "")
+        value = try_(lambda i=inst: float(field(i, "Value")))
         if path and value is not None:
             live[path] = round(value, 6)
     if live == _designer:
@@ -101,15 +102,15 @@ def data_value(data: Any, depth: int = 0) -> Val | None:
     """An AttributeInitializationData's value, or None (unknown)."""
     if data is None or depth > 8:
         return None
-    scale = try_(lambda: float(data.BaseValueScaleConstant), 1.0)
-    init = try_(lambda: data.InitializationDefinition)
-    attr = try_(lambda: data.BaseValueAttribute)
+    scale = try_(lambda: float(field(data, "BaseValueScaleConstant")), 1.0)
+    init = try_(lambda: field(data, "InitializationDefinition"))
+    attr = try_(lambda: field(data, "BaseValueAttribute"))
     if init is not None:
         base = _init_value(init, depth + 1)
     elif attr is not None:
         base = attr_value(attr, depth + 1)
     else:
-        const = try_(lambda: float(data.BaseValueConstant))
+        const = try_(lambda: float(field(data, "BaseValueConstant")))
         base = Val(const) if const is not None else None
     return base.times(scale) if base is not None else None
 
@@ -120,11 +121,11 @@ def _init_value(init: Any, depth: int) -> Val | None:
         return _inits[key]
     _inits[key] = None  # (a cycle: unknown)
     value = None
-    formula = try_(lambda: init.ValueFormula)
-    enabled = lambda s: bool(try_(lambda: s.bEnabled, False))  # noqa: E731
-    if (formula is not None and enabled(formula) and not enabled(try_(lambda: init.ConditionalInitialization))
-            and not enabled(try_(lambda: init.RandomVariance))):
-        terms = [data_value(try_(lambda n=n: getattr(formula, n)), depth) for n in ("Multiplier", "Level", "Power", "Offset")]
+    formula = try_(lambda: field(init, "ValueFormula"))
+    enabled = lambda s: bool(try_(lambda: field(s, "bEnabled"), False))  # noqa: E731
+    if (formula is not None and enabled(formula) and not enabled(try_(lambda: field(init, "ConditionalInitialization")))
+            and not enabled(try_(lambda: field(init, "RandomVariance")))):
+        terms = [data_value(try_(lambda n=n: field(formula, n)), depth) for n in ("Multiplier", "Level", "Power", "Offset")]
         if all(t is not None for t in terms):
             mult, level, power, offset = terms
             if power.lo is None:  # (a power depending on a condition: not seen - unknown)
@@ -143,27 +144,27 @@ def attr_value(attr: Any, depth: int = 0) -> Val | None:
     value = None
     if str(attr.Class.Name) == "DesignerAttributeDefinition":
         live = _designer.get(str(try_(attr._path_name, "") or ""))  # the host's live value, else its base
-        value = Val(live) if live is not None else data_value(try_(lambda: attr.BaseValue), depth)
+        value = Val(live) if live is not None else data_value(try_(lambda: field(attr, "BaseValue")), depth)
     else:
-        resolvers = try_(lambda: list(attr.ValueResolverChain), []) or []
+        resolvers = try_(lambda: list(field(attr, "ValueResolverChain")), []) or []
         r = resolvers[0] if len(resolvers) == 1 else None
         kind = str(try_(lambda: r.Class.Name, "")) if r is not None else ""
         if kind == "ConstantAttributeValueResolver":
-            const = try_(lambda: float(r.ConstantValue))
+            const = try_(lambda: float(field(r, "ConstantValue")))
             value = Val(const) if const is not None else None
         elif kind == "AmmoDropWeightAttributeValueResolver":
-            above = data_value(try_(lambda: r.AboveThresholdWeight), depth)
-            low_min = data_value(try_(lambda: r.MinBelowThresholdWeight), depth)
-            low_max = data_value(try_(lambda: r.MaxBelowThresholdWeight), depth)
+            above = data_value(try_(lambda: field(r, "AboveThresholdWeight")), depth)
+            low_min = data_value(try_(lambda: field(r, "MinBelowThresholdWeight")), depth)
+            low_max = data_value(try_(lambda: field(r, "MaxBelowThresholdWeight")), depth)
             if above is not None and low_min is not None and low_max is not None:
-                value = Val(above.n, (low_min.n, low_max.n), condition_of(try_(lambda: r.Resource)))
+                value = Val(above.n, (low_min.n, low_max.n), condition_of(try_(lambda: field(r, "Resource"))))
     _inits[key] = value
     return value
 
 
 def _stage(pool: Any) -> int | None:
     """A pool's minimum game stage (its MinGameStageRequirement attribute's value), or None."""
-    attr = try_(lambda: pool.MinGameStageRequirement)
+    attr = try_(lambda: field(pool, "MinGameStageRequirement"))
     value = attr_value(attr) if attr is not None else None
     return round(value.n) if value is not None and value.lo is None else None
 
@@ -193,8 +194,8 @@ def _pct(x: float | None) -> float | None:
 def _item_text(item: Any) -> str:
     """An item entry's name as the game has it: its ItemName (a usable item's definition - BuffDrink_OxygenInstant:
     "Oxygen Canister"), or its balance's InventoryDefinition's; "" without (a weapon's: from its parts - none here)."""
-    for obj in (item, try_(lambda: item.InventoryDefinition)):
-        if obj is not None and (text := str(try_(lambda o=obj: o.ItemName, "") or "")) and text != "None":
+    for obj in (item, try_(lambda: field(item, "InventoryDefinition"))):
+        if obj is not None and (text := str(try_(lambda o=obj: field(o, "ItemName"), "") or "")) and text != "None":
             return text
     return ""
 
@@ -211,12 +212,12 @@ def add_pool(pool: Any, pools: dict[str, dict[str, Any]], depth: int = 0) -> str
         return key
     record: dict[str, Any] = {"n": str(pool.Name)}
     pools[key] = record  # (before the sub-pools: a cycle ends here)
-    entries = (try_(lambda: list(pool.BalancedItems), []) or [])[:MAX_ENTRIES]
-    weights = [data_value(try_(lambda e=e: e.Probability)) for e in entries]
+    entries = (try_(lambda: list(field(pool, "BalancedItems")), []) or [])[:MAX_ENTRIES]
+    weights = [data_value(try_(lambda e=e: field(e, "Probability"))) for e in entries]
     rows = []
     for entry, w, (share, low) in zip(entries, weights, _shares(weights)):
-        sub = try_(lambda e=entry: e.ItmPoolDefinition)
-        item = try_(lambda e=entry: e.InvBalanceDefinition)
+        sub = try_(lambda e=entry: field(e, "ItmPoolDefinition"))
+        item = try_(lambda e=entry: field(e, "InvBalanceDefinition"))
         target = sub if sub is not None else item
         row: dict[str, Any] = {"n": str(try_(lambda t=target: t.Name, "?"))}
         if sub is None and (text := _item_text(item)):
@@ -246,11 +247,11 @@ def container_odds(io: Any, balance: Any) -> list[dict[str, Any]]:
     key = try_(lambda: balance._get_address()) if balance is not None else None
     if key is not None and key in _containers:
         return _containers[key]
-    configs = list(try_(lambda: list(balance.DefaultLoot), []) or []) if balance is not None else []
-    for lst in (try_(lambda: list(balance.DefaultIncludedLootLists), []) or []) if balance is not None else []:
-        configs += try_(lambda l=lst: list(l.LootData), []) or []
+    configs = list(try_(lambda: list(field(balance, "DefaultLoot")), []) or []) if balance is not None else []
+    for lst in (try_(lambda: list(field(balance, "DefaultIncludedLootLists")), []) or []) if balance is not None else []:
+        configs += try_(lambda l=lst: list(field(l, "LootData")), []) or []
     if not configs:
-        configs = try_(lambda: list(io.Loot), []) or []
+        configs = try_(lambda: list(field(io, "Loot")), []) or []
         key = None  # (the object's own: not per type)
     odds = configs_odds(configs, POOLS) if configs else []
     if key is not None:
@@ -262,12 +263,12 @@ def configs_odds(configs: Any, pools: dict[str, dict[str, Any]]) -> list[dict[st
     """Loot configurations -> each one's chance (%, its if-low range and condition) and its pools ([key, how many]),
     the pools added to `pools`."""
     configs = try_(lambda: list(configs), []) or []
-    weights = [data_value(try_(lambda c=c: c.Weight)) for c in configs]
+    weights = [data_value(try_(lambda c=c: field(c, "Weight"))) for c in configs]
     out = []
     for cfg, w, (share, low) in zip(configs, weights, _shares(weights)):
         counts: dict[str, int] = {}
-        for att in try_(lambda c=cfg: list(c.ItemAttachments), []) or []:
-            pool = try_(lambda a=att: a.ItemPool)
+        for att in try_(lambda c=cfg: list(field(c, "ItemAttachments")), []) or []:
+            pool = try_(lambda a=att: field(a, "ItemPool"))
             if pool is not None:
                 key = add_pool(pool, pools)
                 counts[key] = counts.get(key, 0) + 1

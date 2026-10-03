@@ -400,6 +400,26 @@ worked out from the item definition by the attribute system, all of it readable 
 - Not seen yet: eridium, health (the collector tries eridium the same way; health left out - its amount may be a share
   of max health). The picker's own bonuses (skills, relics) aren't counted.
 
+## Pickups at rest (probe_pickup_rest.py, in game, BL2, 2026-10-03)
+
+Whether a dropped pickup says it stopped moving - the collector reads every pickup each tick (`state.pickups`: ~4 ms a
+tick with 45 of them); one at rest could be read less often.
+
+- **`WillowPickup.bPickupAtRest`** (a property): False while it moves, True once it has **fully stopped** - two drops:
+  a weapon on flat ground (speed 538 -> 0 at 5.45 s, the flag at 6.47 s) and one thrown on a slope (sliding down slowly,
+  speed 93 -> 25 -> 7 -> 0.2, still False; 0.0 at 6.71 s, the flag at 6.96 s). Set 0.25-1 s after the stop (a check on a
+  timer, it seems), never while it still slides. The game also lowers its net updates then (`NetUpdateFrequency` 8 -> 3,
+  `bForceNetUpdate`).
+- `Physics` stays `PHYS_RigidBody` at rest (not the signal); `bForceRBToSleep` turns True later (`MaxRBAwakeTime` 15 s
+  after the drop). Pickups placed with the level: `PHYS_None`, `bUseRBPhysics` False, `bPickupAtRest` True from the start.
+- Its functions (listed, not called): `PickupAtRest()` (likely what sets the flag - an event a hook could follow),
+  `CheckForRigidBodySleepState`, `ConvertRigidBodyToFixed` / `ConvertFixedToRigidBody`, `OnSleepRBPhysics` /
+  `OnWakeRBPhysics`, `Landed`.
+- Not seen yet: whether the flag goes back to False when resting loot is pushed (an explosion: `ConvertFixedToRigidBody`
+  suggests it can wake).
+- (The probe read the first pickup's SkeletalMeshComponent fields on the others' components too - other classes: junk
+  values, ignored.)
+
 ## Level geometry for a 3D map (offline, the level's packages, 2026-09-25 - parked: design.md)
 
 What a level's `<Map>_*.upk` packages hold (the persistent one + every sublevel: `_Dynamic`, `_Freighter`, `_Light`...;

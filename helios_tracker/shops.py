@@ -57,6 +57,7 @@ class ShopReader:
 
     def __init__(self) -> None:
         self._machines: dict[tuple[int, str], WeakPointer] = {}
+        self._machine_classes: dict[int, bool] = {}  # class address -> a vending machine's (the reader: one per level)
         # item records by (address, name): an item never changes while it's for sale (sold / restocked: a new object)
         self._items: dict[tuple[int, str], dict[str, Any]] = {}
         self._titles: dict[str, str] | None = None
@@ -65,7 +66,13 @@ class ShopReader:
         self.pending = False  # item records left to build: read again soon
 
     def note(self, io: Any) -> None:
-        if is_machine(io):
+        # (per class, once a level: is_machine walks the class chain - every object of every full scan, 3-14 ms)
+        cls_key = try_(lambda: io.Class._get_address())
+        if (machine := self._machine_classes.get(cls_key)) is None:
+            machine = is_machine(io)
+            if cls_key is not None:
+                self._machine_classes[cls_key] = machine
+        if machine:
             self._machines[(io._get_address(), str(io.Name))] = WeakPointer(io)
 
     def forget(self, key: tuple[int, str]) -> None:

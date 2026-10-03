@@ -132,6 +132,18 @@ def _prop(cls: Any, props: dict[str, Any], name: str) -> Any:
     return prop
 
 
+_struct_types: dict[type, bool] = {}  # Python type -> a WrappedStruct (its fields' owner: _type) - else a UObject (Class)
+
+
+def _owner(obj: Any) -> Any:
+    """Where obj's properties are found: a struct's type (WrappedStruct._type), an object's class - which one told by
+    its Python type, once (a UObject's missing attribute would cost a by-name lookup each time)."""
+    kind = type(obj)
+    if (is_struct := _struct_types.get(kind)) is None:
+        is_struct = _struct_types[kind] = hasattr(kind, "_type")
+    return obj._type if is_struct else obj.Class
+
+
 def reader(obj: Any) -> Any:
     """field() bound to one object: `get = reader(pawn); get("Location")`. Its class and the class's properties
     looked up once for all the reads - field()'s own overhead (obj.Class, its address, the cache key) was a third of
@@ -139,7 +151,7 @@ def reader(obj: Any) -> Any:
     get = getattr(type(obj), "_get_field", None)
     if get is None:
         return lambda name: getattr(obj, name)
-    cls = obj.Class
+    cls = _owner(obj)
     props = _fields.get(cls_key := cls._get_address())
     if props is None:
         props = _fields[cls_key] = {}
@@ -153,12 +165,13 @@ def reader(obj: Any) -> Any:
 def field(obj: Any, name: str) -> Any:
     """obj.<name>, ~10x cheaper for the per-update reads: a property read by name costs 15-24 us (the
     name looked up through the class chain), the property looked up once then `_get_field` 1-2 us
-    (tools/probes/probe_perf.txt). Raises like obj.<name> if there's no such property. Plain Python objects
-    (the offline check's fakes): getattr."""
+    (tools/probes/probe_perf.txt). Objects and structs (a WrappedStruct: its _type's fields - the stubs: "look up
+    the UField beforehand via struct._type._find(), then pass it to _get_field"). Raises like obj.<name> if there's no
+    such property. Plain Python objects (the offline check's fakes): getattr."""
     get = getattr(type(obj), "_get_field", None)
     if get is None:
         return getattr(obj, name)
-    cls = obj.Class
+    cls = _owner(obj)
     props = _fields.get(cls_key := cls._get_address())
     if props is None:
         props = _fields[cls_key] = {}

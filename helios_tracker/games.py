@@ -275,6 +275,12 @@ class Profile:
         """ClientPlayBinkMovie's arguments: whether the video can't be skipped."""
         return bool(args.bForceNoSkip)
 
+    def pickup_at_rest(self, get: Any) -> bool:
+        """Whether a pickup has stopped moving (`get`: its util.reader): WillowPickup.bPickupAtRest - False while it
+        tumbles or slides, True ~0.25-1 s after it fully stopped (tools/probes/probe_pickup_rest.txt: two drops, one
+        sliding down a slope; .agent/notes.md "Pickups at rest")."""
+        return bool(get("bPickupAtRest"))
+
     def show_message(self, text: str, duration: float) -> None:
         """The game's bottom-left message (ui_utils' co-op one: it stays until hide_message)."""
         from ui_utils import show_coop_message  # noqa: PLC0415 (not in every game's ui_utils: BL1's)
@@ -777,6 +783,9 @@ class Borderlands1(Profile):
 
     def movie_no_skip(self, args: Any) -> bool:
         return False  # no bForceNoSkip argument (the log: AttributeError)
+
+    def pickup_at_rest(self, get: Any) -> bool:
+        return False  # (not probed in Borderlands 1 yet - probe_pickup_rest.py: read every tick, as before)
 
     def show_message(self, text: str, duration: float) -> None:
         # BL1's ui_utils (1.3) has no co-op message: its HUD one, which goes away by itself

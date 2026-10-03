@@ -404,7 +404,7 @@ bottom-left message).
 - **Debug measurements: `paths.DIAGNOSTICS`** - on in a folder install (dev), off in a `.sdkmod`; a `diagnostics` file
   in the data folder (`sdk_mods/.helios_tracker/`, or the package folder: gitignored) overrides it ("on" / "off"), read
   at load. It switches frames.py (the frame report, its canary) and the slow-task report's breakdowns (`state.pawns.*`,
-  `state.pickups.*`, `scan objects.*`, `object records.*`); the plain slow-task report stays on.
+  `state.pickups.*`, `scan objects.*`, `object records.*`, `players.*`); the plain slow-task report stays on.
 - `frames.py` (debug: `paths.DIAGNOSTICS`): frame times - what the game feels, beside our tasks' times. Each frame timed between PostRender
   calls, with our hooks' time in it (every hook's body: `with FRAMES.ours()`), the tasks that ran, and the server
   threads' work (requests, stream messages built under the hub's lock, catch-ups / snapshots, bytes sent): they share
@@ -420,6 +420,13 @@ bottom-left message).
   (`_info`: names, allegiances) are refreshed `INFO_REFRESH_PER_TICK` per tick, not all on the next one. `looted`,
   `domes`, `object health`: a slot each (together: a 15 ms tick); `looted` checks `LOOTED_PER_PASS` containers a pass
   on the host (the usability hook tells it at once - the check is a safety net), all of them on a co-op client.
+- Pickups at rest (`games.py` `pickup_at_rest`: BL2's `bPickupAtRest`, set once it fully stopped - notes.md "Pickups at
+  rest"; BL1: not probed, never) keep their last record: each tick only whether they're gone (`bDeleteMe` / `bHidden`),
+  a full read every `PICKUP_RESTING_EVERY` (1 s - staggered by address the first time), a knocked one back to every tick.
+  After a pickup scan only the pawns' descriptions are refreshed (a pickup's name never changes). The discovery areas
+  are found once a level. `scan objects`: `_out_of_sight` reads through `util.field`, `ShopReader.note` remembers which
+  classes are vending machines. `util.field` / `reader` read structs too (a `WrappedStruct`: its `_type`'s fields) -
+  `lootodds` reads everything through it (a Bullymong pile's pool tree: 64 ms by name).
 - A players pass builds gear cards for at most `inspector.ITEMS_SECONDS` (at least one): the rest at the next pass,
   `PLAYERS_RETRY` later - a half-built pass isn't published (`players_complete`). A whole backpack at once was 80-560 ms.
 - An object record over `RECORD_SLOW_MS` reports its parts in the slow-task report (`object records.names` / `exit` /

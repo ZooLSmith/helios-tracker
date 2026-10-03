@@ -23,7 +23,7 @@ from unrealsdk.unreal import WeakPointer
 
 from .amounts import pickup_amount
 from .inspector import (buff_info, element_frame, explosion_info, ground_item, is_gear, plant_info, players_complete,
-                        read_players)
+                        players_parts, read_players)
 from . import games, levelmap, lootodds
 from .gamedir import game_dir
 from .missions import MissionLog, mission_id
@@ -69,6 +69,8 @@ SLOW_REPORT_EVERY = 30.0  # s between console reports of slow tasks
 # (frames.py's report). One a whole period late runs anyway (never starved at a low refresh rate).
 TICK_BUDGET = 0.005  # s
 INFO_REFRESH_PER_TICK = 2  # descriptions (names, allegiances) dropped per tick after a scan, rebuilt as read
+PICKUP_RESTING_EVERY = 1.0  # s between full reads of a pickup at rest (its flag: games.py pickup_at_rest) - each tick
+                            # meanwhile: only whether it's gone (picked up); a knocked one: back to every tick then
 RECORD_SLOW_MS = 5.0  # an object record taking this long: its parts reported (the slow-task report)
 RECORD_NAMED_MS = 20.0  # ...and this long: its definition named too
 # the last object record's parts (s): names, exit, kind (plant / explosion), buff, loot (its pools), odds
@@ -307,6 +309,9 @@ class Collector:
         clear_fields()  # a new level: packages may have been unloaded (the property cache re-fills at once)
         self._seats: dict[int, bool] = {}  # class address -> a vehicle seat's (_is_seat; addresses: per level, as above)
         self._areas = []
+        self._areas_found = False  # (the discovery areas: found once a level - _scan_objects)
+        # pickups at rest (games.py pickup_at_rest): address -> (their last record, its item, the next full read)
+        self._resting: dict[int, tuple[dict[str, Any], dict[str, Any] | None, float]] = {}
         self._areas_json = ""
         self._next_scan = 0.0
         self._next_objects = 0.0
@@ -624,14 +629,15 @@ class Collector:
 
     def _scan(self) -> None:
         """Every SCAN_EVERY: the pickups (their positions are read per tick)."""
-        # names / allegiances can change: every description re-resolved - a few per tick (INFO_REFRESH_PER_TICK), not
-        # all on the next one (40 pickups: ~25 ms in one tick)
-        self._stale_info = list(self._info)
         self._pickups = {
             p._get_address(): WeakPointer(p)
             for p in unrealsdk.find_all("WillowPickup", exact=False)
             if try_(lambda p=p: self._in_world(p), False)
         }
+        # a pawn's name / allegiance / level can change: its description re-resolved - a few per tick
+        # (INFO_REFRESH_PER_TICK), not all on the next one; a pickup's never changes (refreshing them: 2-8 ms a tick)
+        self._stale_info = [a for a in self._info if a not in self._pickups]
+        self._resting = {k: v for k, v in self._resting.items() if k in self._pickups}  # (gone since: forgotten)
 
     def movie_started(self, pc: Any, name: str, no_skip: bool) -> None:
         """From the ClientPlayBinkMovie hook: a cutscene video starts on this PC (tools/probes/probe_cutscene_watch.txt:
@@ -814,9 +820,11 @@ class Collector:
         self._exits = [WeakPointer(x) for x in unrealsdk.find_all("PersistentTransitionLandmark", exact=False)
                        if not x.Name.startswith("Default__")] if games.WAYPOINT_MARKERS in games.GAME.features else []
         t_exits = time.perf_counter()
-        self._areas = [] if games.DISCOVERY not in games.GAME.features else [
-            a for w in unrealsdk.find_all("WorldDiscoveryArea", exact=False)
-            if (a := try_(lambda w=w: self._area_record(w) if self._in_world(w) else None))]
+        if not self._areas_found:  # (placed in the level, never moved: once a level - a find_all, 8-10 ms each scan)
+            self._areas_found = True
+            self._areas = [] if games.DISCOVERY not in games.GAME.features else [
+                a for w in unrealsdk.find_all("WorldDiscoveryArea", exact=False)
+                if (a := try_(lambda w=w: self._area_record(w) if self._in_world(w) else None))]
         t_areas = time.perf_counter()
         self._next_areas = 0.0
         self._publish_objects()
@@ -928,11 +936,12 @@ class Collector:
         an object switched off by its behaviours (Behavior_ChangeVisibility): BL1's T.K.'s Food, picked up for its
         mission, its mesh hidden, the actor not (tools/probes/probe_bl1_mission_objects.txt - the page still showed it).
         An object without a mesh: as its actor."""
-        if io.bHidden:
+        if field(io, "bHidden"):
             return True
-        meshes = [c for c in try_(lambda: list(io.Components), []) or []
-                  if c is not None and str(try_(lambda c=c: c.Class.Name, "")).endswith("MeshComponent")]
-        return bool(meshes) and all(try_(lambda c=c: bool(c.HiddenGame), False) for c in meshes)
+        # (util.field: the by-name reads were 15-24 us each - every object of every scan: 12-32 ms)
+        meshes = [c for c in try_(lambda: list(field(io, "Components")), []) or []
+                  if c is not None and str(c.Class.Name).endswith("MeshComponent")]
+        return bool(meshes) and all(try_(lambda c=c: bool(field(c, "HiddenGame")), False) for c in meshes)
 
     def object_spawned(self, io: Any) -> None:
         if self._level_key is None or not self.hub.clients or not self._in_world(io):
@@ -1441,10 +1450,17 @@ class Collector:
             p = ptr()
             if p is None:
                 del self._pickups[key]
+                self._resting.pop(key, None)
                 continue
             try:
                 get = reader(p)  # (its class looked up once for the reads: see the pawns')
                 if get("bDeleteMe") or get("bHidden"):
+                    continue
+                # at rest: its last record (gone - picked up: the reads above, each tick), read again now and then
+                if (rest := self._resting.get(key)) is not None and now < rest[2]:
+                    pickups.append(rest[0])
+                    if rest[1] is not None:
+                        items[rest[1]["i"]] = rest[1]
                     continue
                 loc = get("Location")
                 new_pickup = p._get_address() not in self._info
@@ -1457,7 +1473,9 @@ class Collector:
                 # own, by the item's address: dropped / picked up, the same item) - built a few per update (function
                 # calls: a boss's loot pile over a few updates); its type / element icons' keys on the map marker
                 inv = try_(lambda get=get: get("Inventory"))
-                if inv is not None and self._is_gear(inv):
+                item = None
+                gear = inv is not None and self._is_gear(inv)
+                if gear:
                     t_item = time.perf_counter()
                     item, built = try_(lambda inv=inv: ground_item(inv, budget > 0), (None, False))
                     items_s += time.perf_counter() - t_item
@@ -1467,6 +1485,14 @@ class Collector:
                         pickup["it"] = item["i"]
                         pickup.update({k: item[k] for k in ("wt", "el") if k in item})
                 pickups.append(pickup)
+                # at rest (and its card built, if it's gear): read again in PICKUP_RESTING_EVERY - staggered by its
+                # address the first time (a level's pickups all at rest at once: not all re-read in one tick)
+                if (not gear or item is not None) and try_(lambda get=get: games.GAME.pickup_at_rest(get), False):
+                    first = key not in self._resting
+                    later = PICKUP_RESTING_EVERY * ((1 + (key >> 4) % 10 / 10) if first else 1)
+                    self._resting[key] = (pickup, item, now + later)
+                else:
+                    self._resting.pop(key, None)
             except Exception as ex:  # noqa: BLE001
                 log_error("pickup", ex)
         t_pickups = time.perf_counter()
@@ -1918,7 +1944,12 @@ class Collector:
         pc = get_pc(possibly_loading=True)
         if wi is None or pc is None:
             return
+        started = time.perf_counter()
         players = read_players(wi, try_(lambda: games.GAME.local_pawn(pc)), pc)
+        if DIAGNOSTICS and (time.perf_counter() - started) * 1000 > SLOW_MS:  # slow: which part - debug only
+            for name, part_s in players_parts.items():
+                if part_s * 1000 > 1.0:
+                    self._timings.add("players." + name, part_s * 1000)
         if not players_complete():  # gear cards left to build (a budget per pass): not half a player - soon again
             self._next_players = time.monotonic() + PLAYERS_RETRY
             return

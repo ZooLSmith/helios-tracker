@@ -82,6 +82,9 @@ _equipped_cache = _ItemCache()
 # pass (players_complete).
 ITEMS_SECONDS = 0.004
 _items_pass = {"deadline": float("inf"), "built": 0, "left": False}  # (outside a pass: no limit)
+# the last players pass's parts (s): the player's own fields (class, xp...), card keys, inventory, skills - for the
+# slow-task report's breakdown (collector, paths.DIAGNOSTICS)
+players_parts: dict[str, float] = {}
 # Skill trees by controller address: re-read only when the points spent change
 _skills_cache: dict[int, tuple[Any, dict[str, Any]]] = {}
 _grids: dict[tuple[str, int], list[dict[str, Any]]] = {}  # branch grids (static per class)
@@ -1174,6 +1177,13 @@ def read_players(world_info: Any, me: Any, pc: Any = None) -> list[dict[str, Any
     for cache in (_backpack_cache, _equipped_cache):
         cache.sweep()  # the items destroyed since (sold, used, gone with a level)
     _items_pass.update(deadline=time.perf_counter() + ITEMS_SECONDS, built=0, left=False)
+    players_parts.clear()
+
+    def part(name: str, since: float) -> float:  # (this part's time; the next one starts now)
+        now = time.perf_counter()
+        players_parts[name] = players_parts.get(name, 0.0) + now - since
+        return now
+
     players = []
     me_addr = addr(me) if me is not None else None
     # Who hosts: us unless we're a client (NetMode 3); then the party leader (the host's player info
@@ -1191,6 +1201,7 @@ def read_players(world_info: Any, me: Any, pc: Any = None) -> list[dict[str, Any
                 # tools/probes/probe_bl1_driving.txt - left out, the list lost us)
                 pri = try_(lambda: pc.PlayerReplicationInfo)
             if pri is not None and not field(pawn, "bDeleteMe"):
+                mark = time.perf_counter()
                 # Driving, the controller possesses the vehicle and the player pawn's own is None:
                 # through the vehicle, and ours is always the local player controller
                 ctrl = try_(lambda p=pawn: p.Controller) or try_(lambda p=pawn: p.DrivenVehicle.Controller)
@@ -1211,9 +1222,13 @@ def read_players(world_info: Any, me: Any, pc: Any = None) -> list[dict[str, Any
                     log(f"xp unavailable for the local player: controller={ctrl is not None}"
                         f" total={try_(lambda: ctrl.ExpPool.Data.CurrentValue)}"
                         f" next={try_(lambda: pri.ExpPointsNextLevelAt)} level={try_(lambda: pri.ExpLevel)}")
+                mark = part("player", mark)
                 _card_keys()
+                mark = part("card keys", mark)
                 _inventory(pawn, player)
+                mark = part("inventory", mark)
                 games.GAME.read_skills(ctrl, player, try_(lambda p=pawn: _skill_bonuses(p), {}))  # (each game's tree: games.py)
+                part("skills", mark)
                 players.append(player)
         except Exception as ex:  # noqa: BLE001
             log_error("inspect player", ex)
