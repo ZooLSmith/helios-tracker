@@ -160,6 +160,10 @@ says when it was seen.
   Toilet...); no DisplayName stored in their grades. The big red chest: `InteractiveObj_TreasureChest` (up to 6 items:
   Chest Weapons Pistols / Long Guns, Chest Ammo) - its tier from its definition (game.js `chestByDefinition`; BL2's are
   in its loot lists' names). StrongBox / Crate_Metal: not seen yet.
+- **Loot on the ground appears late** (the user, 2026-10-03): BL1 spawns an area's pickups when the player comes near
+  (its sublevels streamed in - Arid_Firestone, arid_tunnel... - and their spawners), BL2 has more of them with the
+  level. The map shows what exists (the scan, the pickup spawn hook): not a bug. Showing them earlier would be guessing
+  the game's rolls - no.
 - **Exploding barrels**: no BehaviorProviderDefinition - behaviour sets (`DefaultBehaviorSet`, `ExtraBehaviorSets[]`:
   `InteractiveObjectBehaviorSet` - OnKilled, OnTakeDamage... arrays of behaviours, CustomEvents / TimerEvents /
   CounterEvents of reactions with `Behaviors[]`); the barrel's `Behavior_Explode` (its `Definition.DamageTypeDef` as
