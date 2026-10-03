@@ -1143,6 +1143,20 @@ def check_helios_tracker() -> None:  # noqa: PLR0915
     assert profile_bl2.map_name(profile_wi) == "Sanctuary_P" and profile_bl1.map_name(profile_wi) == "arid_p"
     profile_menu = ns(_path_name=lambda: "menumap.TheWorld:PersistentLevel.WorldInfo_0", StreamingLevels=[])
     assert profile_bl1.map_name(profile_menu) == "menumap" and profile_bl1.level_key(profile_menu, "menumap") == ("menumap",)
+    # BL1's pause: the escape menu's Pauser, or a status menu's bStatusMenuOnly (inventory, map, skills); its equipped
+    # items' kind from their definition's slot (one class for them all)
+    import enum  # noqa: PLC0415
+    assert profile_bl1.world_paused(ns(Pauser=None, bStatusMenuOnly=True)) and not profile_bl1.world_paused(ns(Pauser=None, bStatusMenuOnly=False))
+    assert profile_bl2.world_paused(ns(Pauser=object())) and not profile_bl2.world_paused(ns(Pauser=None, bStatusMenuOnly=True))
+    bl1_slot = enum.IntEnum("EEquipmentLoc", ["EQUIPLOC_Shield", "EQUIPLOC_MOD", "EQUIPLOC_Deck"], start=0)
+    bl1_shield = ns(DefinitionData=ns(ItemDefinition=ns(EquipmentLocation=bl1_slot.EQUIPLOC_Shield)))
+    assert profile_bl1.equip_kind(bl1_shield) == "shield" and profile_bl2.equip_kind(bl1_shield) is None
+    # BL1's pawn names: its balance's grade's (GradeIndex), none without a balance - then its own AIPawnName as the guess
+    bl1_skag = ns(BalanceDefinitionState=ns(GradeIndex=1, BalanceDefinition=ns(Grades=[
+        ns(GradeModifiers=ns(DisplayName="Skag Pup")), ns(GradeModifiers=ns(DisplayName="Adult Skag"))])), AIPawnName="None")
+    bl1_claptrap = ns(BalanceDefinitionState=ns(GradeIndex=0, BalanceDefinition=None), AIPawnName="ClapTrap")
+    assert (profile_bl1.pawn_name(bl1_skag), profile_bl1.pawn_raw_name(bl1_skag)) == ("Adult Skag", "")
+    assert (profile_bl1.pawn_name(bl1_claptrap), profile_bl1.pawn_raw_name(bl1_claptrap)) == ("", "ClapTrap")
     # BL1's level names: its level list's entries, as properties (gd_globals.General.LevelList, offline)
     profile_levels = ns(LevelList=[ns(PersistentMap="arid_p", LevelName="Arid Badlands"), ns(PersistentMap="Arid_SkagGully_P", LevelName="Skag Gully")])
     assert profile_bl1.level_name_in(profile_levels, "Arid_P") == "Arid Badlands" and profile_bl1.level_name_in(profile_levels, "Nope_P") == ""

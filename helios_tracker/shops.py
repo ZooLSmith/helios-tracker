@@ -172,6 +172,8 @@ class ShopReader:
         rate = try_(lambda: float(source.ShopTimerRate), 1.0)
         # the game paused (WorldInfo.Pauser, as the state's "paused"): its timer stands still - the page's count too
         # (it went on, then jumped back at each resend: the user saw it)
+        # (Pauser only, not games.py world_paused: BL1's status menus stop the world, but its shops' timer runs on -
+        # the user saw it count down in the inventory, not in the escape menu)
         paused = try_(lambda: field(world_info, "Pauser") is not None, False)
         sent = self._sent
         stock_out = stock if sent is None or stock != sent[0] else None

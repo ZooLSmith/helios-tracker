@@ -88,7 +88,8 @@ def _kind(inv: Any) -> str:
         if (kind := ITEM_KINDS.get(str(cls.Name))) is not None:
             return kind
         cls = cls.SuperField
-    return "item"
+    # a class that doesn't tell (BL1's WillowEquipAbleItem: shields, grenade mods, com decks): its definition's slot
+    return try_(lambda: games.GAME.equip_kind(inv), None) or "item"
 
 
 

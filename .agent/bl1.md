@@ -117,3 +117,29 @@ says when it was seen.
   their fields - so far only the level check, the object scan and the video hook have run into differences.
 - **Missions**: built differently from BL2's (the user) - to look at after the map.
 - Rarity: BL1 colours gear by level, not BL2's tiers (the page shows the common tiers only for now: game.js `bl1`).
+
+## Pawns, items, pause, missions (2026-10-03: tools/probes/probe_bl1_names.txt, probe_bl1_pause.txt)
+
+- **Enemy names**: `BalanceDefinitionState {BalanceDefinition, GradeIndex}`; the AIPawnBalanceDefinition's `Grades[]` =
+  `AIPawnGameStageGradeWeightData {GradeModifiers: AIPawnGradeModifierData {ExpLevel, DisplayName...}}` - no BL2
+  PlayThroughs. `WillowAIPawn.GetTargetName` (script: its bytecode reads BalanceDefinitionState, calls
+  GetDisplayNameAtGrade(GradeIndex), "(none)", the mastered form `MasteredDisplayName` "%s's %n" with PlayerMasterPRI)
+  - read as properties (games.py `pawn_name`). No `AIClass` on the pawns.
+- **NPCs** (Claptrap): no balance (`BalanceDefinition` None); their own `AIPawnName` ('ClapTrap'; 'None' on most
+  enemies) - the made-up name's source (`pawn_raw_name`). Their game name: not found yet.
+- **Shields**: no WillowShield class - a `WillowEquipAbleItem`, its definition a plain `ItemDefinition`
+  (`gd_shields.A_Item.Item_Shield`); its slot: `ItemDefinition.EquipmentLocation` (`EEquipmentLoc`: EQUIPLOC_Shield,
+  EQUIPLOC_MOD - grenade mods, EQUIPLOC_Deck - com decks) -> the inspector's kind (`equip_kind`). Its card stats as
+  BL2's: `UIStatModifiers` = [ShieldMaxValue 50, ShieldOnIdleRegenerationRate 7.5] (gd_AttributePresentation.Shields).
+  `ItemCardModifierStats` empty.
+- **Pause**: the escape menu sets `WorldInfo.Pauser` (the PRI); the status menus (inventory, map, skills) don't - they
+  set `WorldInfo.bStatusMenuOnly` (and the controller's `bStatusMenuOpen`, `QuickAccessScreen` CS_Inventory / CS_Map /
+  CS_Skills): the world stops (`world_paused`). The shops' timer runs on in them (the user) - shops.py keeps Pauser.
+- **Missions**: the tracker's `MissionList` = MissionDefinitions (the active ones), `ActiveMission`; no BL2
+  MissionWaypoints. A MissionDefinition: MissionName, MissionSummary, MissionDescription, `MissionGiver` (a string:
+  'T.K. Baha'), `Objectives[] {StatId, ObjectiveCount, ProgressMessage}`, `TargetWaypointDefinition`,
+  `TurnInWaypointDefinition`, Dependencies, NextMissionInChain, PlotMissionNumber, bPlotCritical. The markers: the
+  level's `WillowWaypoint` actors, each a `WaypointDefinition` (WP_SkagPearls...) and a `WaypointNumber` - the active
+  mission's target / turn-in definition's. Its progress (x / 4): not seen yet (the player's mission data). To build.
+- **Hooks**: `WillowGameViewportClient:Tick` doesn't exist (BL1: `Engine.GameViewportClient:Tick`) - the mod's
+  auto-reload hook (`RELOAD_HOOK`) uses BL2's.

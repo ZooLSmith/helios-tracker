@@ -49,6 +49,27 @@ class Profile:
         """The persistent level's map name ("Sanctuary_P"), from the world info."""
         return str(wi.GetStreamingPersistentMapName())
 
+    def world_paused(self, wi: Any) -> bool:
+        """Whether the game's world stands still (its menu): WorldInfo.Pauser set. (Not every clock: shops.py.)"""
+        return wi.Pauser is not None
+
+    def equip_kind(self, inv: Any) -> str | None:
+        """An item's kind from its definition, for a class that doesn't tell it (inspector._kind): BL2's classes all do."""
+        return None
+
+    def pawn_name(self, pawn: Any) -> str:
+        """An AI pawn's name as the game shows it ("" if none): BL2's balance names it per playthrough
+        (collector.pawn_display_name - properties only: the name functions crashed the game)."""
+        from .collector import pawn_display_name  # noqa: PLC0415
+
+        return pawn_display_name(pawn)
+
+    def pawn_raw_name(self, pawn: Any) -> str:
+        """An AI pawn's own technical name, for a made-up one when the game has none: its AI class's."""
+        from .util import def_name  # noqa: PLC0415
+
+        return def_name(pawn.AIClass)
+
     def level_name_in(self, level_list: Any, map_name: str) -> str:
         """A map's name as the game shows it, from one of its level lists (a LevelDependencyList: the base game's
         GD_Globals.General.LevelList, one per DLC - each knowing only its own maps), "" if it doesn't know it."""
@@ -100,6 +121,9 @@ class DragonKeep(Profile):
     gibbed_prefix = ""  # no Gibbed editor for it
 
 
+BL1_EQUIP_KINDS = {"EQUIPLOC_Shield": "shield", "EQUIPLOC_MOD": "grenade", "EQUIPLOC_Deck": "classmod"}  # (com decks)
+
+
 @profile("BL1")
 class Borderlands1(Profile):
     """Borderlands 1, the original 2009 game (the Enhanced edition's SDK didn't run: not registered) - .agent/bl1.md."""
@@ -120,6 +144,39 @@ class Borderlands1(Profile):
             if level is not None and level.Class.Name == "LevelStreamingPersistent":
                 return str(level.PackageName)
         return wi._path_name().split(".", 1)[0]
+
+    def world_paused(self, wi: Any) -> bool:
+        # The escape menu sets Pauser; the status menus (inventory, map, skills...) don't - they set
+        # WorldInfo.bStatusMenuOnly, the world stopped all the same (tools/probes/probe_bl1_pause.txt) - but not the
+        # shops' timer (the user): shops.py keeps Pauser
+        return wi.Pauser is not None or bool(wi.bStatusMenuOnly)
+
+    def equip_kind(self, inv: Any) -> str | None:
+        # One class for the equipped items (WillowEquipAbleItem): the slot its definition goes in - ItemDefinition
+        # .EquipmentLocation, EEquipmentLoc (WillowGame.u, offline; a shield: gd_shields.A_Item.Item_Shield, its
+        # UIStatModifiers BL2's - probe_bl1_pause.txt). Compared by name (unrealsdk's enums are int-based).
+        slot = inv.DefinitionData.ItemDefinition.EquipmentLocation
+        return BL1_EQUIP_KINDS.get(getattr(slot, "name", slot))
+
+    def pawn_name(self, pawn: Any) -> str:
+        # Its balance names it per grade (tools/probes/probe_bl1_names.txt): BalanceDefinitionState {BalanceDefinition,
+        # GradeIndex}, the balance's Grades[] = AIPawnGameStageGradeWeightData {GradeModifiers: {ExpLevel, DisplayName...}}
+        # - what WillowAIPawn.GetTargetName reads (its bytecode: GetDisplayNameAtGrade(GradeIndex)), read as properties.
+        # No balance (Claptrap, the other NPCs): "".
+        state = pawn.BalanceDefinitionState
+        balance = state.BalanceDefinition
+        if balance is None:
+            return ""
+        grades = list(balance.Grades)
+        if not grades:
+            return ""
+        grade = grades[state.GradeIndex] if 0 <= state.GradeIndex < len(grades) else grades[0]
+        return str(grade.GradeModifiers.DisplayName)
+
+    def pawn_raw_name(self, pawn: Any) -> str:
+        # no AIClass on its pawns: their own AIPawnName ('ClapTrap'; 'None' on most enemies)
+        name = str(pawn.AIPawnName)
+        return "" if name == "None" else name
 
     def level_name_in(self, level_list: Any, map_name: str) -> str:
         # its lists' entries, read as properties: {PersistentMap 'arid_p', LevelName 'Arid Badlands' (the game's text,

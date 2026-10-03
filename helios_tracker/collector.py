@@ -652,7 +652,7 @@ class Collector:
         pos = try_(lambda: float(seq.Position)) if seq is not None and try_(lambda: bool(seq.bIsPlaying), False) else None
         if pos is not None and pos != scene["pos"]:
             scene["pos"], scene["moved"] = pos, now
-        paused = try_(lambda: field(wi, "Pauser") is not None, False) or (pos is not None and now - scene["moved"] > 0.3)
+        paused = try_(lambda: games.GAME.world_paused(wi), False) or (pos is not None and now - scene["moved"] > 0.3)
         if not paused:
             scene["played"] += now - scene["t"]
         scene["t"] = now
@@ -1135,10 +1135,11 @@ class Collector:
             name = named(try_(lambda: str(pawn.VehicleDef.DisplayName), "") or call_str(pawn.GetCustomizableName),
                          def_name(try_(lambda: pawn.VehicleDef)), str(pawn.Class.Name))
         else:
-            # Its balance's per-playthrough DisplayName: what GetTargetName / GetMapDisplayName /
-            # GetTransformedName give - read as a property: calling those crashed the game (a native
-            # fatal error from call_str here, helios_crash.log, 2026-09-23, Tundra Express)
-            name = named(pawn_display_name(pawn), def_name(try_(lambda: pawn.AIClass)), str(pawn.Class.Name))
+            # Its balance's DisplayName (games.py pawn_name - BL2: per playthrough, BL1: per grade): what GetTargetName
+            # / GetMapDisplayName / GetTransformedName give - read as a property: calling those crashed the game (a
+            # native fatal error from call_str here, helios_crash.log, 2026-09-23, Tundra Express)
+            name = named(try_(lambda: games.GAME.pawn_name(pawn), "") or "", try_(lambda: games.GAME.pawn_raw_name(pawn), "") or "",
+                         str(pawn.Class.Name))
             self._note_giver(addr, pawn, try_(lambda: pawn.MissionDirectives))  # the missions it gives / takes back
         info = {"i": f"{addr:x}", "k": kind, **name}
         # a boss: its AI class says so (AIClassDefinition.bBoss - both games: few - the Pre-Sequel's 7 of 266), or the game
@@ -1358,7 +1359,7 @@ class Collector:
         self.hub.publish_records("items", "items", list(items.values()), {"level": self.level_id})  # (before their pickups)
         self.hub.publish_records("pickups", "pickups", pickups, {"level": self.level_id})
         self.hub.publish_records("pawninfo", "pawns", infos, {"level": self.level_id})
-        paused = try_(lambda: field(wi, "Pauser") is not None, False)  # the game paused (its menu)
+        paused = try_(lambda: games.GAME.world_paused(wi), False)  # the game paused (its menu: games.py)
         self.hub.publish_records("state", "pawns", pawns, {"level": self.level_id, "hz": self.rate, **({"paused": 1} if paused else {})},
                                  {"t": round(now, 3)})  # (the time: not a change)
         t_end = time.perf_counter()
