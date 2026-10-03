@@ -1,6 +1,7 @@
 // Translations: catalogs in ../i18n/; t("key", {vars}) with English fallback, numbers formatted
 // per language. Static HTML uses data-i18n / data-i18n-title (applyI18n).
 import CATALOG from "../i18n/index.js";
+import { naming } from "./model.js";
 import { saveSettings, settings } from "./settings.js";
 
 export { CATALOG };
@@ -39,6 +40,8 @@ export function setLanguage(pref) {
 // ("group.relic.tps": "OZ KITS", the Pre-Sequel's own word - its Oz kits are BL2's relics' class) uses the twin
 let variant = "";
 export function setVariant(game) { variant = game || ""; }
+
+naming.exitTo = (area) => t("tip.exitTo", { area }); // (model.js nameText: a map exit's name)
 
 export function t(key, vars, fallback) {
   const alt = variant ? (CATALOG[lang] || {})[`${key}.${variant}`] ?? (CATALOG.en || {})[`${key}.${variant}`] : undefined;

@@ -1343,6 +1343,23 @@ def check_helios_tracker() -> None:  # noqa: PLR0915
     assert profile_bl1.local_pawn(ns(MyWillowPawn=None, Pawn=ns(Driver=bl1_me))) is bl1_me
     assert profile_bl1.local_pawn(ns(MyWillowPawn=bl1_me, Pawn=ns(Driver=None))) is bl1_me
     assert profile_bl2.local_pawn(ns(MyWillowPawn=bl1_me)) is bl1_me
+    # its map exits: a map changer's destination from the level's script - its event's output links to the map change
+    # action's DefaultMap (W_Arid_P: Default_MapChanger -> ... -> WillowSeqAct_PrepareMapChangeFromDefinition)
+    bl1_changer = ns(_get_address=lambda: 0xC1)
+    bl1_change = ns(_get_address=lambda: 0xC4, Class=ns(Name="WillowSeqAct_PrepareMapChangeFromDefinition"), DefaultMap="Dry_P", OutputLinks=[])
+    bl1_gate = ns(_get_address=lambda: 0xC3, Class=ns(Name="SeqAct_Gate"), OutputLinks=[ns(Links=[ns(LinkedOp=bl1_change)])])
+    bl1_used = ns(_get_address=lambda: 0xC2, Name="SeqEvent_Used_0", Originator=bl1_changer, Class=ns(Name="SeqEvent_Used"),
+                  OutputLinks=[ns(Links=[ns(LinkedOp=bl1_gate)])])
+    bl1_sdk = sys.modules["unrealsdk"]
+    bl1_real_find_all, bl1_real_map_name = getattr(bl1_sdk, "find_all", None), profile_bl1.map_name
+    bl1_sdk.find_all = lambda cls, exact=True: [bl1_used, ns(Name="Default__SequenceEvent", Originator=None)]
+    profile_bl1.map_name = lambda wi_obj: "Arid_P"
+    try:
+        assert profile_bl1.object_destination(bl1_changer) == "Dry_P"
+        assert profile_bl1.object_destination(ns(_get_address=lambda: 0xC9)) == "", "not a changer: none"
+    finally:
+        bl1_sdk.find_all, profile_bl1.map_name = bl1_real_find_all, bl1_real_map_name
+    assert profile_bl2.object_destination(bl1_changer) == ""
     # its vehicles' names: their own fields (no VehicleDef, no GetCustomizableName - the record had failed)
     assert profile_bl1.vehicle_name(ns(DisplayName="", VehicleNameString="Runner")) == "Runner"
     assert profile_bl2.vehicle_name(ns(VehicleDef=ns(DisplayName="Runner"))) == "Runner"

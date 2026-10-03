@@ -132,6 +132,11 @@ class Profile:
 
         return station(mdef.TravelStation)
 
+    def object_destination(self, io: Any) -> str:
+        """The map an interactive object takes the player to ("" if none): BL2's exits are travel stations, named by the
+        game ("Exit to ..." - collector._exit_text): none here."""
+        return ""
+
     def local_pawn(self, pc: Any) -> Any:
         """The local player's own pawn (the player, not the vehicle they drive): its MyWillowPawn."""
         return pc.MyWillowPawn
@@ -303,6 +308,7 @@ BL1_BEHAVIOR_ARRAYS = ("OnSpawn", "OnBehaviorSetEnabled", "OnBehaviorSetDisabled
                        "OnTakeDamage", "OnKilled")
 BL1_REACTION_ARRAYS = ("CustomEvents", "TimerEvents", "CounterEvents")
 BL1_EQUIP_KINDS = {"EQUIPLOC_Shield": "shield", "EQUIPLOC_MOD": "grenade", "EQUIPLOC_Deck": "classmod"}  # (com decks)
+MAP_CHANGE_STEPS = 8  # a map changer's event to its map change action: at most so many links (Borderlands1._destinations)
 BL1_CARD_KINDS = ("manufacturer", "type", "element")  # its card icons read (Borderlands1.card_icon_png)
 # a weapon's element (its damage type's EDamageType) -> its frames' prefix in the card's element clip (bl1map
 # ELEMENT_CLIP: exp0-4, shock0-4, fire0-4, corr0-4 - their art an explosion, a bolt, a flame, a biohazard; the enum's
@@ -345,6 +351,8 @@ class Borderlands1(Profile):
         self._branch_names: dict[int, dict[str, str]] = {}  # CharacterName -> its branches' names (branch_names)
         self._skill_clips: dict[int, tuple[str, str]] = {}  # CharacterName -> (the skill clip, its frame) (_skill_clip)
         self._missions: list[Any] = []  # every MissionDefinition loaded (_mission_definitions)
+        self._destination_area: str = ""  # the area its map changes were read in (_destinations)
+        self._destination_map: dict[int, str] = {}  # object address -> the map it changes to
 
     def map_name(self, wi: Any) -> str:
         # The world is "Loader" in every area (tools/probes/probe_bl1.txt): the area is streamed in, the first of its
@@ -441,6 +449,44 @@ class Borderlands1(Profile):
             if level and level.lower() != "none" and (name := level_name(level)):
                 return {"a": name, "map": level}
         return None
+
+    def object_destination(self, io: Any) -> str:
+        # Its map changers (gd_MapChangeObjects.Default_MapChanger, Vehicle_MapChanger_Arid: "Map Changer ?" on the
+        # page - the user) have no destination of their own: the level's script has it - an event of theirs (a
+        # SeqEvent_Used / SeqEvent_Touch whose Originator is the changer) leads to a
+        # WillowSeqAct_PrepareMapChangeFromDefinition, its DefaultMap the map (W_Arid_P.umap, offline: 6 of them -
+        # Dry_P, Arid_SkagGully_P, Arid_Mine_P, interlude_1_p - the vehicle's -, Arid_Arena_Coliseum_P, Arid_Cave_P).
+        # Read once per level (_destinations).
+        return self._destinations().get(io._get_address(), "")
+
+    def _destinations(self) -> dict[int, str]:
+        """Every object's map change in the level's script: its event's Originator -> the DefaultMap its output links
+        reach (a few steps: gates, delays between) - property reads, once per area (its map name: the world is
+        "Loader" in every area)."""
+        import unrealsdk  # noqa: PLC0415
+        from mods_base import ENGINE  # noqa: PLC0415
+
+        area = self.map_name(ENGINE.GetCurrentWorldInfo())
+        if self._destination_area == area:
+            return self._destination_map
+        found: dict[int, str] = {}
+        for event in unrealsdk.find_all("SequenceEvent", exact=False):
+            origin = event.Originator
+            if origin is None or event.Name.startswith("Default__"):
+                continue
+            queue, seen = [(event, 0)], set()
+            while queue:
+                op, depth = queue.pop(0)
+                if op is None or op._get_address() in seen or depth > MAP_CHANGE_STEPS:
+                    continue
+                seen.add(op._get_address())
+                if op.Class.Name == "WillowSeqAct_PrepareMapChangeFromDefinition" and (to := str(op.DefaultMap)) not in ("", "None"):
+                    found.setdefault(origin._get_address(), to)
+                    break
+                for output in op.OutputLinks:
+                    queue += [(link.LinkedOp, depth + 1) for link in output.Links]
+        self._destination_area, self._destination_map = area, found
+        return found
 
     def local_pawn(self, pc: Any) -> Any:
         # In a vehicle its MyWillowPawn is None, its Pawn the vehicle (driving) or its seat (a turret: a

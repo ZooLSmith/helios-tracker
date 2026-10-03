@@ -150,6 +150,7 @@ export default {
   "tip.vendor": "Distributore",
   "tip.vaultsymbol": "Simbolo della Cripta (Culto della Cripta)",
   "tip.station": "Stazione",
+  "tip.exitTo": "Uscita per {area}",
   "tip.looted": "Saccheggiato",
   "tip.explosive": "Esplosivo",
   "tip.jumppad": "Piattaforma di salto",

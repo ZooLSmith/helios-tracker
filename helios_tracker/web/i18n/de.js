@@ -150,6 +150,7 @@ export default {
   "tip.vendor": "Automat",
   "tip.vaultsymbol": "Kammer-Symbol (Kult der Kammer)",
   "tip.station": "Station",
+  "tip.exitTo": "Ausgang nach {area}",
   "tip.looted": "Geplündert",
   "tip.explosive": "Sprengstoff",
   "tip.jumppad": "Sprung-Pad",

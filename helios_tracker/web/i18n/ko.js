@@ -150,6 +150,7 @@ export default {
   "tip.vendor": "자판기",
   "tip.vaultsymbol": "Vault 기호 (컬트같은 Vault)",
   "tip.station": "스테이션",
+  "tip.exitTo": "{area}(으)로 가는 출구",
   "tip.looted": "획득함",
   "tip.explosive": "폭발물",
   "tip.jumppad": "점프 패드",

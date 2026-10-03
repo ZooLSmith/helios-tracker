@@ -150,6 +150,7 @@ export default {
   "tip.vendor": "自動販売機",
   "tip.vaultsymbol": "Vault シンボル（Vault カルト）",
   "tip.station": "ステーション",
+  "tip.exitTo": "{area}への出口",
   "tip.looted": "回収済み",
   "tip.explosive": "爆発物",
   "tip.jumppad": "ジャンプ台",

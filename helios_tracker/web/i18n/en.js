@@ -151,6 +151,7 @@ export default {
   "tip.vendor": "Vendor",
   "tip.vaultsymbol": "Vault symbol (Cult of the Vault)",
   "tip.station": "Station",
+  "tip.exitTo": "Exit to {area}",
   "tip.looted": "Looted",
   "tip.explosive": "Explosive",
   "tip.jumppad": "Jump pad",

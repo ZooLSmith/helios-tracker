@@ -320,3 +320,10 @@ says when it was seen.
   read_players). Before: the page lost track of the player, listed them as "Player", twice getting out. Its
   vehicles: no VehicleDef / GetCustomizableName (their record failed: none on the page) - `DisplayName` /
   `VehicleNameString`, both "" in its .int: the "?" name.
+- **Map exits** (games.py `object_destination`; the record's `exit`, the page's "Exit to {area}" - model.js nameText):
+  its map changers (`gd_MapChangeObjects.Default_MapChanger`, `Vehicle_MapChanger_Arid`) carry no destination - the
+  level's script does: an event of theirs (SeqEvent_Used / Touch, its `Originator` the changer) leads through its
+  output links to a `WillowSeqAct_PrepareMapChangeFromDefinition`, its `DefaultMap` the map (W_Arid_P.umap,
+  offline: 6 - Dry_P, Arid_SkagGully_P, Arid_Mine_P, interlude_1_p with bAllowVehicles, Arid_Arena_Coliseum_P,
+  Arid_Cave_P); named by the level lists. No "Exit to" text in BL1: the page's words. Its
+  PersistentTransitionLandmarks (FromMapName / ToMapName) stand by the changers: the missions' exit markers.

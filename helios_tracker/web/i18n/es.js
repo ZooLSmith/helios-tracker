@@ -150,6 +150,7 @@ export default {
   "tip.vendor": "Máquina expendedora",
   "tip.vaultsymbol": "Símbolo de la Cámara (Secta de la Cámara)",
   "tip.station": "Estación",
+  "tip.exitTo": "Salida a {area}",
   "tip.looted": "Saqueado",
   "tip.explosive": "Explosivo",
   "tip.jumppad": "Plataforma de salto",

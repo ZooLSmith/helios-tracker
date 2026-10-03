@@ -1048,6 +1048,10 @@ class Collector:
             "y": round(loc.Y),
             "z": round(loc.Z),
         }
+        # a map exit (Borderlands 1's map changers: no name of their own - their level script's destination, as the game
+        # names that area: games.py object_destination)
+        if (destination := try_(lambda: games.GAME.object_destination(io), "") or "") and (area := level_name(destination)):
+            record["exit"] = area
         # an air dome's bubble (the Pre-Sequel's): its breathable area and whether it's on (its definition "_On" either
         # way - the name isn't the state)
         if definition is not None and "AirDome_Bubble" in str(definition.Name) and (dome := Collector._dome(io)):

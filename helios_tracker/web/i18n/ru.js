@@ -150,6 +150,7 @@ export default {
   "tip.vendor": "Автомат",
   "tip.vaultsymbol": "Символ Хранилища (Культ Хранилища)",
   "tip.station": "Станция",
+  "tip.exitTo": "Выход: {area}",
   "tip.looted": "Обыскан",
   "tip.explosive": "Взрывчатка",
   "tip.jumppad": "Прыжковая площадка",

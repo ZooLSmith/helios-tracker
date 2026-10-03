@@ -1,5 +1,5 @@
 // Small DOM / HTML helpers.
-import { cleanGameText, prettyRaw } from "./model.js";
+import { cleanGameText, nameText, prettyRaw } from "./model.js";
 
 export const $ = (id) => document.getElementById(id);
 
@@ -13,6 +13,7 @@ export function gameTextHtml(s) {
 
 /** One element, whatever the container; a made-up name: words, then a dim "?". */
 export function nameHtml(o) {
+  if (o.exit) return `<span class="nm">${esc(nameText(o))}</span>`; // (a map exit: model.js nameText)
   return o.raw ? `<span class="nm">${esc(prettyRaw(o.n).slice(0, -2))}&nbsp;<span class="raw">?</span></span>`
     : `<span class="nm">${esc(o.n || "?")}</span>`;
 }

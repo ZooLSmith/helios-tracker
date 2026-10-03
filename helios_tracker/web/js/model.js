@@ -157,7 +157,13 @@ export function shownHealth(h) { return Math.floor(h); }
 export function shownMaxHealth(m) { return Math.floor(m); }
 
 /** Display text of anything with a name ("n"), made-up ones ("raw": 1) prettified. */
-export function nameText(o) { return o.raw ? prettyRaw(o.n) : String(o.n || "?"); }
+export function nameText(o) {
+  if (o.exit) return naming.exitTo(o.exit); // (a map exit: "Exit to <its area>" - the game's area name, our words)
+  return o.raw ? prettyRaw(o.n) : String(o.n || "?");
+}
+
+/** The page's own words in names (i18n.js fills them in: it can't be imported here - settings.js imports this). */
+export const naming = { exitTo: (area) => area };
 
 /** Real gear (goes into the inventory, has a real rarity) vs other pickups, by the item's class.
  *  Customization items (skins, heads: probe_pickups.py - RarityLevel 2 on a vehicle skin) count. */
@@ -200,6 +206,7 @@ export function objectCategory(o) {
   if (/vaultroy|vaultsymbol/.test(s)) return "vaultsymbol"; // before "container": "Vault..." isn't a vault chest
   // machines you use: fast travel, New-U, Quick Change, the Catch-A-Ride terminals (vehicle spawns)
   if (/fasttravel|fast travel|travelstation|newu|respawn|quickchange|customiz|catcharide|catch-a-ride|vehiclespawn/.test(s)) return "station";
+  if (o.exit) return "station"; // (a map exit: BL1's map changers - collector.py "exit")
   // it has loot (the game's: its own or its balance's - collector.py _lootable), whatever its name (the Pre-Sequel's
   // Hyperion ammo crate: "InteractiveObj_HyperionAmmo", no container word in it); else guessed from the name
   if (o.cost && !o.lootable) return "slots"; // a machine you pay to use, no loot of its own (the slot machines: collector "cost")

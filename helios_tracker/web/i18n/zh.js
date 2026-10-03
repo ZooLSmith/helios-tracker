@@ -150,6 +150,7 @@ export default {
   "tip.vendor": "販賣機",
   "tip.vaultsymbol": "寶庫符號（寶庫狂熱）",
   "tip.station": "站點",
+  "tip.exitTo": "通往{area}的出口",
   "tip.looted": "已搜刮",
   "tip.explosive": "爆裂物",
   "tip.jumppad": "跳躍台",
