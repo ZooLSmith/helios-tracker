@@ -760,11 +760,12 @@ class Collector:
                 (WeakPointer(t) for t in unrealsdk.find_all("MissionTracker", exact=False) if not t.Name.startswith("Default__")),
                 None,
             )
-        # A co-op client has no mission waypoint components: its markers come from the waypoint actors
+        # A co-op client has no mission waypoint components: its markers come from the waypoint actors - as BL1's
+        # always (games.WAYPOINT_MARKERS)
         wi = ENGINE.GetCurrentWorldInfo()
         client = self._client = getattr(try_(lambda: wi.NetMode), "name", "") == "NM_Client"
         self._waypoints = [WeakPointer(w) for w in unrealsdk.find_all("WillowWaypoint", exact=False)
-                           if not w.Name.startswith("Default__")] if client else []
+                           if not w.Name.startswith("Default__")] if client or games.WAYPOINT_MARKERS in games.GAME.features else []
         self._areas = [] if games.DISCOVERY not in games.GAME.features else [
             a for w in unrealsdk.find_all("WorldDiscoveryArea", exact=False)
             if (a := try_(lambda w=w: self._area_record(w) if self._in_world(w) else None))]
@@ -1539,6 +1540,54 @@ class Collector:
                 log_error("client mission marker", ex)
         return markers
 
+    def _waypoint_markers(self, tracker: Any, active_addr: int | None) -> list[dict[str, Any]]:
+        """BL1's objective markers (games.WAYPOINT_MARKERS): the level's WillowWaypoint actors of each picked-up mission's
+        waypoint definition (WillowWaypoint.WaypointDefinition) - its TargetWaypointDefinition while it's Active (an
+        "objective": its first objective not done), its TurnInWaypointDefinition once it's ReadyToTurnIn (where to hand it
+        in: a "directive", "end") - tools/probes/probe_bl1_missions.txt: Buy Grenades, active -> WP_WeaponVendor, its one
+        waypoint at the weapon vendor; Nine-Toes: T.K.'s Food ready -> WP_Al, at T.K.'s. Every waypoint of the definition
+        (the food's: 4 - which ones the game shows while it's in progress: not seen). The waypoints are all bHidden
+        (markers, not things): not a reason to leave one out. Property reads only."""
+        wanted: dict[int, tuple[Any, str, Any]] = {}  # waypoint definition address -> (mission, kind, its entry)
+        for entry in try_(lambda: list(games.GAME.mission_entries(tracker)), []) or []:
+            mission = try_(lambda e=entry: e.MissionDef)
+            status = try_(lambda e=entry: games.GAME.mission_status(e), "")
+            if mission is None or status not in ("Active", "ReadyToTurnIn"):
+                continue
+            kind = "objective" if status == "Active" else "directive"
+            target = try_(lambda m=mission, k=kind: m.TargetWaypointDefinition if k == "objective" else m.TurnInWaypointDefinition)
+            if target is not None:
+                wanted.setdefault(target._get_address(), (mission, kind, entry))
+        markers = []
+        for ptr in self._waypoints:
+            w = ptr()
+            if w is None:
+                continue
+            try:
+                definition = w.WaypointDefinition
+                if definition is None or (hit := wanted.get(definition._get_address())) is None:
+                    continue
+                mission, kind, entry = hit
+                loc = w.Location
+                marker = {
+                    "i": addr(w), "k": kind, "x": round(loc.X), "y": round(loc.Y), "z": round(loc.Z), "rad": 0,
+                    "tracked": mission._get_address() == active_addr,
+                    "mission": named(try_(lambda m=mission: str(m.MissionName), ""), def_name(mission)),
+                    "mi": mission_id(mission),
+                }
+                if kind == "directive":
+                    marker["end"] = 1  # (ready to hand in: the page's turn-in "?")
+                else:
+                    progress = try_(lambda e=entry: games.GAME.mission_progress(e), ()) or ()
+                    for i, (_key, objective) in enumerate(try_(lambda m=mission: games.GAME.mission_objectives(m), []) or []):
+                        if (progress[i] if i < len(progress) else 0) < (try_(lambda o=objective: int(o.ObjectiveCount), 1) or 1):
+                            marker["objective"] = named(try_(lambda o=objective: str(o.ProgressMessage), ""), "")
+                            break
+                markers.append(marker)
+            except Exception as ex:  # noqa: BLE001
+                log_error("waypoint marker", ex)
+        return markers
+
     def _npc_givers(self, active_addr: int | None, skip: set[int]) -> list[dict[str, Any]]:
         """Quest-giver markers ("!") worked out from the NPCs' / objects' own lists of missions they give /
         take back (_note_giver: NPCs, the bounty board) against the mission log - a mission it gives
@@ -1596,7 +1645,10 @@ class Collector:
         active_addr = active._get_address() if active is not None else None
         markers, giver_npcs = [], set()
         states = None  # the log's missions to pick up / hand in (giver_states): read once, for the game's directives
-        for entry in try_(lambda: list(tracker.MissionWaypoints), []):
+        by_actors = games.WAYPOINT_MARKERS in games.GAME.features  # (BL1: the level's waypoint actors - no components)
+        if by_actors:
+            markers = self._waypoint_markers(tracker, active_addr)
+        for entry in [] if by_actors else try_(lambda: list(tracker.MissionWaypoints), []):
             mission = try_(lambda e=entry: e.Mission)
             for comp in try_(lambda e=entry: list(e.Waypoints), []):
                 try:
@@ -1633,7 +1685,7 @@ class Collector:
                     markers.append(marker)
                 except Exception as ex:  # noqa: BLE001
                     log_error("mission marker", ex)
-        if not markers and self._waypoints:  # a co-op client: none registered here
+        if not markers and self._waypoints and not by_actors:  # a co-op client: none registered here
             markers = self._client_markers(tracker, active_addr)
         markers += self._npc_givers(active_addr, giver_npcs)
         payload = {

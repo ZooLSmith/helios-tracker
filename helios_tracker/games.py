@@ -21,6 +21,9 @@ OXYGEN = "oxygen"  # the Oz meter: oxygen pools, air domes, oxygen sources
 JUMPPADS = "jumppads"  # jump pads and geysers (OzPlayerJumpPad)
 SCAN = "scan"  # the game files' index: fonts, item card / skill icons (gamescan.py: BL2's package layout)
 MISSION_STEPS = "missionsteps"  # a mission's objectives come in steps (objective sets: ActiveObjectiveSet) - else all at once
+# its objectives marked by the level's waypoint actors (WillowWaypoint: a mission's target / turn-in waypoint definition's
+# - collector._waypoint_markers), not by the tracker's waypoint components (MissionWaypoints)
+WAYPOINT_MARKERS = "waypointmarkers"
 
 _PROFILES: dict[str, type["Profile"]] = {}
 
@@ -165,7 +168,7 @@ class Borderlands1(Profile):
     exe_depth = 1  # Binaries/Borderlands.exe
     gibbed_prefix = ""
     # no WorldDiscoveryArea class (the log: "Couldn't find class"); its packages not indexed (gamescan reads BL2's)
-    features = Profile.features - {DISCOVERY, SCAN, MISSION_STEPS}
+    features = (Profile.features - {DISCOVERY, SCAN, MISSION_STEPS}) | {WAYPOINT_MARKERS}
 
     def map_name(self, wi: Any) -> str:
         # The world is "Loader" in every area (tools/probes/probe_bl1.txt): the area is streamed in, the first of its

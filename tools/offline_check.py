@@ -1141,7 +1141,7 @@ def check_helios_tracker() -> None:  # noqa: PLR0915
     profile_bl2, profile_tps, profile_bl1 = (game_profiles.make_profile(n) for n in ("BL2", "TPS", "BL1"))
     assert type(game_profiles.GAME) is type(profile_bl2), "the fake mods_base's game: BL2"
     assert profile_tps.features == profile_bl2.features | {"oxygen", "jumppads"} and profile_tps.packages == "CookedPCConsole"
-    assert profile_bl1.features == {"tacmap"} and profile_bl1.packages == "CookedPC" and profile_bl1.gibbed_prefix == ""
+    assert profile_bl1.features == {"tacmap", "waypointmarkers"} and profile_bl1.packages == "CookedPC" and profile_bl1.gibbed_prefix == ""
     assert (profile_bl2.exe_depth, profile_bl1.exe_depth) == (2, 1), "Binaries/Win32/Borderlands2.exe, Binaries/Borderlands.exe"
     # BL1's world is "Loader" in every area: the area is its first LevelStreamingPersistent (tools/probes/probe_bl1.txt);
     # none (the main menu): the world's own package
@@ -1902,6 +1902,25 @@ def check_helios_tracker() -> None:  # noqa: PLR0915
     assert bl1_live["M_ExterminateSkag"]["p"] == [4] and bl1_defs["M_ExterminateSkag"]["obj"][0]["c"] == 4, (bl1_live, bl1_defs)
     assert bl1_live["M_TwoThings"]["cur"] == [0, 1] and bl1_live["M_TwoThings"]["p"] == [0, 3], ("no steps: every objective current", bl1_live)
     assert bl1_defs["M_TwoThings"]["num"] == 8 and bl1_defs["M_TwoThings"]["obj"][1]["n"] == "Bandits killed:", bl1_defs
+    # BL1's objective markers (collector._waypoint_markers): the level's waypoint actors of an active mission's target
+    # definition (its first objective not done), of a ready one's turn-in definition ("end"); the others not
+    def bl1_waypoint(addr: int, definition: object, x: float) -> types.SimpleNamespace:
+        return ns(_get_address=lambda: addr, WaypointDefinition=definition, Location=ns(X=x, Y=0.0, Z=0.0), bHidden=True)
+    wp_pearls, wp_al, wp_vendor = (ns(_get_address=lambda a=a: a) for a in (0xD1, 0xD2, 0xD3))
+    bl1_food.TargetWaypointDefinition, bl1_food.TurnInWaypointDefinition = wp_pearls, wp_al
+    bl1_two.TargetWaypointDefinition, bl1_two.TurnInWaypointDefinition = wp_vendor, wp_al
+    bl1_meet.TargetWaypointDefinition = bl1_meet.TurnInWaypointDefinition = None
+    bl1_waypoints = [bl1_waypoint(0xE1, wp_pearls, 1.0), bl1_waypoint(0xE2, wp_al, 2.0), bl1_waypoint(0xE3, wp_vendor, 3.0),
+                     bl1_waypoint(0xE4, ns(_get_address=lambda: 0xD9), 4.0)]
+    mission_games.GAME = mission_games.make_profile("BL1")
+    mission_games.GAME.mission_entries = lambda tracker_obj: bl1_entries
+    try:
+        bl1_markers = col.Collector._waypoint_markers(ns(_waypoints=[lambda w=w: w for w in bl1_waypoints]), ns(), 0xB102)
+    finally:
+        mission_games.GAME = real_game
+    assert [(m["x"], m["k"], m.get("end"), m["tracked"]) for m in bl1_markers] == [(2, "directive", 1, False), (3, "objective", None, True)], \
+        ("the ready one's turn-in, the active one's target - not the pearls' (done), not another definition's", bl1_markers)
+    assert bl1_markers[1]["objective"]["n"] == "Kill Nine-Toes" and bl1_markers[1]["mi"].endswith("M_TwoThings"), bl1_markers
     version = hub._channels["missionlog"][0]
     c.tick(1001.5)  # nothing changed: not published again
     assert hub._channels["missionlog"][0] == version, "mission log republished with no change"

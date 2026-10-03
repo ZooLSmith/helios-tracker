@@ -149,9 +149,13 @@ says when it was seen.
   ("Stolen Food: 4/4", then "Turn in" - the user). Read by missions.py's MissionLog, unchanged, through the profile
   (`mission_entries`, `_objectives`, `_progress`, `_status`, `_number`; no `missionsteps` feature: every objective
   current). The page's mission panel and log.
-- **Its waypoints**: every WillowWaypoint is bHidden (markers, not things). The ready one: its TurnIn definition's
-  (WP_Al: 1, at T.K.'s); the target's: 4 WP_SkagPearls (numbers 1, 2, 3, 3). Which the game marks while in progress:
-  the probe again then (not built yet - the objective markers).
+- **Its waypoints** (5 probe runs: turning one in, picking the next): every WillowWaypoint is bHidden (markers, not
+  things). Ready to turn in: its `TurnInWaypointDefinition`'s (WP_Al: 1, at T.K.'s); active: its
+  `TargetWaypointDefinition`'s (Buy Grenades, Grenade purchased 0/1 -> WP_WeaponVendor: 1, at the weapon vendor). The
+  HUD follows the tracked one (`HUDMovie.CachedTrackedMission`). Built: `collector._waypoint_markers` (feature
+  `waypointmarkers`: the waypoint actors collected, as a BL2 co-op client's) - every picked-up mission's, flagged
+  tracked. A definition with several (the food's 4 WP_SkagPearls, numbers 1, 2, 3, 3): all of them - which the game
+  shows while in progress: not seen.
 - **Hooks**: `WillowGameViewportClient:Tick` doesn't exist (BL1: `Engine.GameViewportClient:Tick`) - the mod's
   auto-reload hook (`RELOAD_HOOK`) uses BL2's.
 
