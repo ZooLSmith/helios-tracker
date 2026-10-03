@@ -307,9 +307,10 @@ export function draw() {
     stem(o.x, o.y, sx, sy, oColor);
     // Containers (looted ones too, just dimmed): chests biggest, others by how many items they spawn
     const tier = chestTier(o);
-    const size = st.k * (o.cat === "other" ? 2.5 : o.cat === "oxygen" ? 9 : o.cat === "explosive" ? 7.5 : o.cat === "jumppad" ? 7 : o.cat === "buff" ? 4.5 : o.cat === "slots" ? 5.8 : tier === 2 ? 7 : tier === 1 ? 5.5 : o.slots ? 2.5 + Math.min(o.slots, 4) * 0.4 : 3.5);
+    const size = st.k * (o.cat === "other" ? 2.5 : o.cat === "npc" ? 4.5 : o.cat === "oxygen" ? 9 : o.cat === "explosive" ? 7.5 : o.cat === "jumppad" ? 7 : o.cat === "buff" ? 4.5 : o.cat === "slots" ? 5.8 : tier === 2 ? 7 : tier === 1 ? 5.5 : o.slots ? 2.5 + Math.min(o.slots, 4) * 0.4 : 3.5);
     if (o.cat === "oxygen") oxygenMark(sx, sy, LAYER_COLOR[o.cat], st.k); // (a generator, a fissure: a diamond, "O2")
     else if (o.cat === "jumppad") jumpMark(sx, sy, LAYER_COLOR[o.cat], st.k); // (a disc, an up chevron)
+    else if (o.cat === "npc") ring(sx, sy, size, LAYER_COLOR[o.cat], st.k); // (BL1's object NPCs: the NPC pawns' ring)
     else if (o.cat === "buff") dot(sx, sy, size, LAYER_COLOR[o.cat]); // (a buff: a disc - the pickups' dot, bigger)
     else if (o.cat === "explosive") burst(sx, sy, oColor, st.k); // (a burst in its element's colour: the game's)
     else if (o.cat === "vaultsymbol") vaultMark(sx, sy, LAYER_COLOR[o.cat], st.k); // (a ring and a dot)

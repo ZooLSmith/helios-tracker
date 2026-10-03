@@ -57,6 +57,12 @@ class Profile:
         """An item's kind from its definition, for a class that doesn't tell it (inspector._kind): BL2's classes all do."""
         return None
 
+    def object_behaviors(self, definition: Any) -> list[Any]:
+        """An interactive object definition's behaviours (inspector.explosion_info looks for a Behavior_Explode): its
+        BehaviorProviderDefinition's BehaviorSequences[].BehaviorData2[].Behavior."""
+        return [data.Behavior for seq in definition.BehaviorProviderDefinition.BehaviorSequences
+                for data in seq.BehaviorData2 if data.Behavior is not None]
+
     def pawn_name(self, pawn: Any) -> str:
         """An AI pawn's name as the game shows it ("" if none): BL2's balance names it per playthrough
         (collector.pawn_display_name - properties only: the name functions crashed the game)."""
@@ -121,6 +127,9 @@ class DragonKeep(Profile):
     gibbed_prefix = ""  # no Gibbed editor for it
 
 
+BL1_BEHAVIOR_ARRAYS = ("OnSpawn", "OnBehaviorSetEnabled", "OnBehaviorSetDisabled", "OnTouch", "OnUnTouch", "OnUsedBy",
+                       "OnTakeDamage", "OnKilled")
+BL1_REACTION_ARRAYS = ("CustomEvents", "TimerEvents", "CounterEvents")
 BL1_EQUIP_KINDS = {"EQUIPLOC_Shield": "shield", "EQUIPLOC_MOD": "grenade", "EQUIPLOC_Deck": "classmod"}  # (com decks)
 
 
@@ -157,6 +166,19 @@ class Borderlands1(Profile):
         # UIStatModifiers BL2's - probe_bl1_pause.txt). Compared by name (unrealsdk's enums are int-based).
         slot = inv.DefinitionData.ItemDefinition.EquipmentLocation
         return BL1_EQUIP_KINDS.get(getattr(slot, "name", slot))
+
+    def object_behaviors(self, definition: Any) -> list[Any]:
+        # No behaviour provider: behaviour sets - DefaultBehaviorSet and ExtraBehaviorSets[], InteractiveObjectBehaviorSet
+        # (WillowGame.u, offline): event arrays of behaviours (OnKilled, OnTakeDamage...) and of reactions holding
+        # Behaviors[] (CustomEvents, TimerEvents, CounterEvents). Its exploding barrels: a Behavior_Explode in them
+        # (gd_Explosives.Barrels.ExplodingBarrel_Incendiary.Behavior_Explode_0)
+        out: list[Any] = []
+        for behavior_set in [definition.DefaultBehaviorSet, *definition.ExtraBehaviorSets]:
+            for name in BL1_BEHAVIOR_ARRAYS:
+                out += [b for b in getattr(behavior_set, name) if b is not None]
+            for name in BL1_REACTION_ARRAYS:
+                out += [b for reaction in getattr(behavior_set, name) for b in reaction.Behaviors if b is not None]
+        return out
 
     def pawn_name(self, pawn: Any) -> str:
         # Its balance names it per grade (tools/probes/probe_bl1_names.txt): BalanceDefinitionState {BalanceDefinition,

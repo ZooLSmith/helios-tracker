@@ -197,6 +197,10 @@ setRarityTable({ "501": [13, "#ff9ab8"], "6": [6, "#ca00a8"] });
 const gameTps = { shown: gameShown(), glitch: rarity(501)[0], etech: lootLayer({ q: 6, c: "WillowWeapon" }) };
 setGame("bl1", []);
 const gameBl1 = gameShown();
+// BL1's big chest: its own definition says it (no tier in its pools' names: Chest Weapons Pistols / Long Guns, Chest Ammo)
+const { chestTier: gameChestTier } = await load("js/model.js");
+gameBl1.push(gameChestTier({ d: "InteractiveObj_TreasureChest", loot: ["Pool_Chest_Weapons_Pistols", "Pool_Chest_Ammo"] }),
+  gameChestTier({ d: "InteractiveObj_StrongBox" }));
 setGame("bl2", ["discovery", "tacmap"]);
 const gameBl2 = { shown: gameShown(), seraph: rarity(501)[0], etech: lootLayer({ q: 6, c: "WillowWeapon" }) };
 setGame("", []);
@@ -323,6 +327,7 @@ const vaultCat = objectCategory({ d: "IO_VaultRoy", n: "Vault Roy", c: "WillowIn
   + "," + objectCategory({ d: "IO_AirDome_Generator_On", n: "Air Dome Generator", c: "WillowInteractiveObject", dg: 1 })
   + "," + objectCategory({ d: "IO_OxygenCracks", n: "Oxygen Source", c: "WillowInteractiveObject", o2: 1 })
   + "," + objectCategory({ d: "IO_Geysers_Vertical", n: "Geysers Vertical", raw: 1, c: "OzPlayerJumpPad" })
+  + "," + objectCategory({ d: "DrZed", n: "DrZed", raw: 1, c: "WillowInteractiveNPC" }) // (BL1's NPCs: objects)
   + "," + objectCategory({ d: "InteractiveObj_DahlEpic_LastRequests", c: "WillowInteractiveObject", lootable: 1, slots: 15,
     loot: ["Pool_EpicChest_Weapons_LongGuns", "Pool_Chest_Ammo"] }) // (no loot list: its pools say a big chest)
   + "," + objectCategory({ d: "InteractiveObject_SpeedMoxxtail", n: "Speed Moxxtail", c: "WillowInteractiveObject", buff: 1 })
@@ -1151,6 +1156,13 @@ def check_helios_tracker() -> None:  # noqa: PLR0915
     bl1_slot = enum.IntEnum("EEquipmentLoc", ["EQUIPLOC_Shield", "EQUIPLOC_MOD", "EQUIPLOC_Deck"], start=0)
     bl1_shield = ns(DefinitionData=ns(ItemDefinition=ns(EquipmentLocation=bl1_slot.EQUIPLOC_Shield)))
     assert profile_bl1.equip_kind(bl1_shield) == "shield" and profile_bl2.equip_kind(bl1_shield) is None
+    # BL1's object behaviours: its behaviour sets' event arrays and reactions (its barrels' Behavior_Explode is there)
+    bl1_explode = ns(Class=ns(Name="Behavior_Explode"))
+    bl1_barrel = ns(DefaultBehaviorSet=ns(OnSpawn=[], OnBehaviorSetEnabled=[], OnBehaviorSetDisabled=[], OnTouch=[], OnUnTouch=[],
+                                         OnUsedBy=[], OnTakeDamage=[None], OnKilled=[], TimerEvents=[], CounterEvents=[],
+                                         CustomEvents=[ns(Behaviors=[bl1_explode])]),
+                    ExtraBehaviorSets=[])
+    assert profile_bl1.object_behaviors(bl1_barrel) == [bl1_explode]
     # BL1's pawn names: its balance's grade's (GradeIndex), none without a balance - then its own AIPawnName as the guess
     bl1_skag = ns(BalanceDefinitionState=ns(GradeIndex=1, BalanceDefinition=ns(Grades=[
         ns(GradeModifiers=ns(DisplayName="Skag Pup")), ns(GradeModifiers=ns(DisplayName="Adult Skag"))])), AIPawnName="None")
@@ -2208,7 +2220,7 @@ def check_helios_tracker() -> None:  # noqa: PLR0915
     assert game_out["gameSwitch"] == [True, False], ("the same features in another order: no change", game_out["gameSwitch"])
     assert game_out["gameTps"] == {"shown": ["loot.glitch", "oxygen", "pickup.oxygen", "jumppad", "area", "fog", "enemy"],
                                    "glitch": "glitch", "etech": "loot.legendary"}, game_out["gameTps"]
-    assert game_out["gameBl1"] == ["enemy"], ("BL1: no discovery areas, no BL2 / TPS tiers", game_out["gameBl1"])
+    assert game_out["gameBl1"] == ["enemy", 2, 0], ("BL1: no discovery areas, no BL2 / TPS tiers; its treasure chest big", game_out["gameBl1"])
     assert game_out["gameBl2"] == {"shown": ["loot.pearl", "loot.etech", "area", "fog", "enemy"], "seraph": "seraph",
                                    "etech": "loot.etech"}, game_out["gameBl2"]
     assert mig["layers"]["player"] == {"names": True, "nameSize": 100, "floors": "show", "size": 100}, mig["layers"]["player"]
@@ -2244,7 +2256,7 @@ def check_helios_tracker() -> None:  # noqa: PLR0915
     assert mis["stepOrder"] == ("Throw breaker:current,Power up jump pad:current,Use jump pad:done,Kill Deadlift:current,"
                                 "Pick up digistruct key:current"), ("the step's own order, in its slots", mis["stepOrder"])
     assert mis["healthShown"] == "107,107,100,100", ("health rounded down, as the game's HUD; the max the same", mis["healthShown"])
-    assert mis["vaultCat"] == "vaultsymbol,station,container,oxygen,oxygen,oxygen,jumppad,chest,buff,slots,chest", \
+    assert mis["vaultCat"] == "vaultsymbol,station,container,oxygen,oxygen,oxygen,jumppad,npc,chest,buff,slots,chest", \
         ("a vault symbol: its own layer; Catch-A-Ride: a station; anything with loot a container (the Pre-Sequel's"
          " Hyperion ammo crate: no container word in its name)", mis["vaultCat"])
     delta_want = json.loads(delta_hub.latest("objs"))

@@ -667,20 +667,17 @@ def buff_info(definition: Any, lootable: bool = False) -> bool:
 
 def explosion_info(definition: Any, ctrl: Any = None) -> dict[str, Any]:
     """An interactive object that explodes (a barrel): its definition's behaviours hold a Behavior_Explode
-    (BehaviorProviderDefinition.BehaviorSequences[].BehaviorData2[].Behavior - the Pre-Sequel's barrels: bBarrelSource;
+    (games.py object_behaviors - BL2: BehaviorProviderDefinition.BehaviorSequences[].BehaviorData2[].Behavior; BL1: its
+    behaviour sets - the Pre-Sequel's barrels: bBarrelSource;
     the air dome generator, with health too: no behaviours) -> {"xp": 1, its explosion's element (element_of:
     Behavior_Explode.Definition.DamageTypeDef)}, {} if it doesn't. Per definition, once (static data)."""
     key = definition._get_address()
     if key not in _explosions:
         found: dict[str, Any] = {}
-        for seq in try_(lambda: list(definition.BehaviorProviderDefinition.BehaviorSequences), []) or []:
-            for data in try_(lambda s=seq: list(s.BehaviorData2), []) or []:
-                behavior = try_(lambda d=data: d.Behavior)
-                if behavior is not None and try_(lambda b=behavior: str(b.Class.Name), "") == "Behavior_Explode":
-                    damage_type = try_(lambda b=behavior: b.Definition.DamageTypeDef)
-                    found = {"xp": 1, **(element_of(damage_type, ctrl) if damage_type is not None else {})}
-                    break
-            if found:
+        for behavior in try_(lambda: games.GAME.object_behaviors(definition), []) or []:  # (each game's way: games.py)
+            if try_(lambda b=behavior: str(b.Class.Name), "") == "Behavior_Explode":
+                damage_type = try_(lambda b=behavior: b.Definition.DamageTypeDef)
+                found = {"xp": 1, **(element_of(damage_type, ctrl) if damage_type is not None else {})}
                 break
         _explosions[key] = found
     return _explosions[key]

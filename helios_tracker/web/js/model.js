@@ -170,6 +170,7 @@ export function isGear(cls) { return GEAR_CLASSES.some((g) => String(cls || "").
  *  container with its loot on itself (no list: the Pre-Sequel's Dahl "Last Requests" chest), its pools' names the
  *  same way (Pool_EpicChest_Weapons_LongGuns...: 2; Pool_WeaponChest...: 1). */
 export function chestTier(o) {
+  for (const [pattern, tier] of gameData().chestByDefinition) if (pattern.test(o.d || "")) return tier; // (the game's own: game.js)
   const lists = o.lists || [], pools = o.loot || [];
   if (lists.some((l) => /epic/i.test(l)) || pools.some((l) => /epicchest/i.test(l))) return 2;
   return lists.some((l) => /weaponchest/i.test(l)) || pools.some((l) => /weaponchest/i.test(l)) ? 1 : 0;
@@ -184,6 +185,7 @@ export function objectCategory(o) {
   // what gives oxygen (the Pre-Sequel's): an air dome's bubble (its area: collector.py _dome), its generator, a fissure
   if (o.dome || o.dg || o.o2) return "oxygen";
   if (o.c === "OzPlayerJumpPad") return "jumppad"; // the Pre-Sequel's jump pads and geysers: their own class
+  if (o.c === "WillowInteractiveNPC") return "npc"; // Borderlands 1's NPCs you talk to (Dr. Zed, T.K. Baha): objects, not pawns
   if (o.xp) return "explosive"; // it explodes (its behaviours: a Behavior_Explode - collector.py, inspector.explosion_info)
   if (o.buff) return "buff"; // a buff you use (Moxxtails, shrines: activates a skill, drops no loot - inspector.buff_info)
   if (o.looted) return "looted";

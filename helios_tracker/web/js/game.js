@@ -19,6 +19,9 @@ const BL2 = {
   rarities: [...RARITIES, "etech", "pearl", "seraph", "effervescent"], // the gear layers it shows
   rarityLayer: {}, // a tier shown in another tier's layer
   eridiumGlyph: "", // its eridium's map marker: a plain dot ("": no sign)
+  // a chest's tier from its own definition's name (2: the big chest, 1: a weapon chest), before the loot lists' names
+  // (model.js chestTier: BL2's tiers are in its loot lists' names - EpicChest..., WeaponChest...)
+  chestByDefinition: [],
 };
 const DATA = {
   bl2: BL2,
@@ -30,7 +33,9 @@ const DATA = {
   tps: { ...BL2, tierByEntry: { 0: "misc", 1: "common", 2: "uncommon", 3: "rare", 4: "epic", 5: "legendary", 6: "etech",
     7: "legendary", 13: "glitch" }, rarities: [...RARITIES, "glitch"], rarityLayer: { etech: "legendary" }, eridiumGlyph: "m" },
   aodk: { ...BL2, rarities: RARITIES }, // (BL2's engine; its own gear not checked: the common tiers only)
-  bl1: { ...BL2, rarities: RARITIES }, // (not checked yet: .agent/bl1.md)
+  // (its rarities not checked yet: .agent/bl1.md). Its big red chest: InteractiveObj_TreasureChest (up to 6 items -
+  // the user; its balances ObjectGrade_TreasureChest*); its StrongBox / Crate_Metal: not seen yet, plain containers
+  bl1: { ...BL2, rarities: RARITIES, chestByDefinition: [[/treasurechest/i, 2]] },
 };
 const UNKNOWN = { ...BL2, rarities: RARITIES }; // before the level message (or a game the page doesn't know)
 

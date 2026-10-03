@@ -143,3 +143,21 @@ says when it was seen.
   mission's target / turn-in definition's. Its progress (x / 4): not seen yet (the player's mission data). To build.
 - **Hooks**: `WillowGameViewportClient:Tick` doesn't exist (BL1: `Engine.GameViewportClient:Tick`) - the mod's
   auto-reload hook (`RELOAD_HOOK`) uses BL2's.
+
+## Objects (2026-10-03: probe_bl1_npc.txt, offline)
+
+- **NPCs you talk to are objects**: `WillowInteractiveNPC` (Dr. Zed `gd_MissionNPCs.DrZed`, T.K. Baha, the villagers)
+  - an `InteractiveNPCDefinition`, its `DisplayName` empty even at run time (and the bounty boards'): the game has no
+  name on them ("Dr Zed ?" is the rule's guess). The page's NPC layer, drawn as the NPC pawns' ring (model.js
+  objectCategory: their class). Claptrap's "talk" object's definition (`gd_ClapTrap.NPC.NPC_ClapTrapFirestone`) has
+  one, "Claptrap"; its pawns (4 in Arid: `gd_ClapTrap.Character.Pawn_NPCClapTrap`) none. Firestone's two pawns: one
+  not seen in game (`WillowAIPawn_10`, a matinee group 'Claptrap_BB_04', bHidden False) - `probe_bl1_hidden.py`.
+- **Chests**: their balances `gd_Balance_Treasure.ChestGrades.ObjectGrade_TreasureChest` (3 grades) / `_Awesome` /
+  `_Custom` / `_Custom_Rider`, `ObjectGrade_StrongBox*`, `ObjectGrade_Crate_Metal*`, lootables (Cashbox, Dumpster,
+  Toilet...); no DisplayName stored in their grades. The big red chest: `InteractiveObj_TreasureChest` (up to 6 items:
+  Chest Weapons Pistols / Long Guns, Chest Ammo) - its tier from its definition (game.js `chestByDefinition`; BL2's are
+  in its loot lists' names). StrongBox / Crate_Metal: not seen yet.
+- **Exploding barrels**: no BehaviorProviderDefinition - behaviour sets (`DefaultBehaviorSet`, `ExtraBehaviorSets[]`:
+  `InteractiveObjectBehaviorSet` - OnKilled, OnTakeDamage... arrays of behaviours, CustomEvents / TimerEvents /
+  CounterEvents of reactions with `Behaviors[]`); the barrel's `Behavior_Explode` (its `Definition.DamageTypeDef` as
+  BL2's) is there - games.py `object_behaviors`.
