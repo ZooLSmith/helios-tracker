@@ -204,11 +204,26 @@ def pool_key(pool: Any) -> str:
     return str(try_(pool._path_name, "") or pool.Name)
 
 
+def _run(steps: Any) -> Any:
+    """A generator of steps run to its end at once: what it returns."""
+    try:
+        while True:
+            next(steps)
+    except StopIteration as done:
+        return done.value
+
+
 def add_pool(pool: Any, pools: dict[str, dict[str, Any]], depth: int = 0) -> str:
     """A pool's entry in `pools` (its name, and each entry: name, chance %, if-low range, condition, its sub-pool's
     key, its minimum stage), with its sub-pools, recursively; its key."""
+    return _run(_add_pool(pool, pools, depth))
+
+
+def _add_pool(pool: Any, pools: dict[str, dict[str, Any]], depth: int) -> Any:
+    """add_pool as steps (a generator: yields after each entry - odds_job), returns the key. A pool already in POOLS
+    isn't read again (`pools` may be a job's own, merged into POOLS when it's done)."""
     key = pool_key(pool)
-    if key in pools or depth > MAX_DEPTH:
+    if key in pools or key in POOLS or depth > MAX_DEPTH:
         return key
     record: dict[str, Any] = {"n": str(pool.Name)}
     pools[key] = record  # (before the sub-pools: a cycle ends here)
@@ -227,10 +242,11 @@ def add_pool(pool: Any, pools: dict[str, dict[str, Any]], depth: int = 0) -> str
         if low:
             row["lo"], row["c"] = [_pct(low[0]), _pct(low[1])], w.cond
         if sub is not None:
-            row["pool"] = add_pool(sub, pools, depth + 1)
+            row["pool"] = yield from _add_pool(sub, pools, depth + 1)
             if (stage := _stage(sub)) is not None and stage > 1:
                 row["min"] = stage  # (a rarity pool from that game stage: Pool_..._06_Legendary, Gamestage_07)
         rows.append(row)
+        yield
     record["e"] = rows
     return key
 
@@ -243,17 +259,50 @@ _containers: dict[int, list[dict[str, Any]]] = {}  # balance address -> its conf
 def container_odds(io: Any, balance: Any) -> list[dict[str, Any]]:
     """A container's loot configurations with their chances (configs_odds), its pools added to POOLS: from its
     balance (per type, cached) - its default loot and its loot lists' configurations, one set the game picks from (an
-    object's own Loot is that set: the golden chest's, tools/probes/probe_loot_odds.txt) - else the object's own Loot."""
+    object's own Loot is that set: the golden chest's, tools/probes/probe_loot_odds.txt) - else the object's own Loot.
+    At once (odds_job: the same in steps)."""
+    return _run(odds_job(io, balance)) or []
+
+
+def _configs(io: Any, balance: Any) -> tuple[int | None, list[Any]]:
+    """(the balance's address - the cache's key, None for the object's own Loot -, its loot configurations)."""
     key = try_(lambda: balance._get_address()) if balance is not None else None
-    if key is not None and key in _containers:
-        return _containers[key]
     configs = list(try_(lambda: list(field(balance, "DefaultLoot")), []) or []) if balance is not None else []
     for lst in (try_(lambda: list(field(balance, "DefaultIncludedLootLists")), []) or []) if balance is not None else []:
         configs += try_(lambda l=lst: list(field(l, "LootData")), []) or []
     if not configs:
         configs = try_(lambda: list(field(io, "Loot")), []) or []
         key = None  # (the object's own: not per type)
-    odds = configs_odds(configs, POOLS) if configs else []
+    return key, configs
+
+
+def cached_odds(balance: Any) -> list[dict[str, Any]] | None:
+    """A container type's odds if they're known (container_odds / odds_job done), else None."""
+    key = try_(lambda: balance._get_address()) if balance is not None else None
+    return _containers.get(key) if key is not None else None
+
+
+def own_loot(io: Any, balance: Any) -> bool:
+    """Whether a container's odds come from the object's own Loot (not its type's: odds_job can't wait - the object's
+    data, gone with it)."""
+    return _configs(io, balance)[0] is None
+
+
+def odds_job(io: Any, balance: Any) -> Any:
+    """container_odds as steps (a generator: yields after each pool entry - a Bullymong pile's / a bandit chest's tree
+    was 64-70 ms in one tick): the collector runs it a few ms per tick (_work_odds). Its pools are staged and added to
+    POOLS when it's done (a page never gets half a tree); returns the odds - None if the live values changed meanwhile
+    (refresh: worked out again). The configurations are read on the first step; between steps only static data (the
+    balance's, its pools - definitions) is held: an object's own Loot goes through container_odds, at once."""
+    key, configs = _configs(io, balance)
+    if key is not None and key in _containers:
+        return _containers[key]
+    started = version
+    staging: dict[str, dict[str, Any]] = {}
+    odds = (yield from _configs_odds(configs, staging)) if configs else []
+    if version != started:
+        return None
+    POOLS.update(staging)
     if key is not None:
         _containers[key] = odds
     return odds
@@ -262,6 +311,11 @@ def container_odds(io: Any, balance: Any) -> list[dict[str, Any]]:
 def configs_odds(configs: Any, pools: dict[str, dict[str, Any]]) -> list[dict[str, Any]]:
     """Loot configurations -> each one's chance (%, its if-low range and condition) and its pools ([key, how many]),
     the pools added to `pools`."""
+    return _run(_configs_odds(configs, pools))
+
+
+def _configs_odds(configs: Any, pools: dict[str, dict[str, Any]]) -> Any:
+    """configs_odds as steps (odds_job)."""
     configs = try_(lambda: list(configs), []) or []
     weights = [data_value(try_(lambda c=c: field(c, "Weight"))) for c in configs]
     out = []
@@ -270,7 +324,7 @@ def configs_odds(configs: Any, pools: dict[str, dict[str, Any]]) -> list[dict[st
         for att in try_(lambda c=cfg: list(field(c, "ItemAttachments")), []) or []:
             pool = try_(lambda a=att: field(a, "ItemPool"))
             if pool is not None:
-                key = add_pool(pool, pools)
+                key = yield from _add_pool(pool, pools, 0)
                 counts[key] = counts.get(key, 0) + 1
         row: dict[str, Any] = {"a": [[k, n] for k, n in counts.items()]}
         if share is not None:

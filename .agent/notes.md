@@ -420,6 +420,31 @@ tick with 45 of them); one at rest could be read less often.
 - (The probe read the first pickup's SkeletalMeshComponent fields on the others' components too - other classes: junk
   values, ignored.)
 
+## A container under the ground (probe_hidden_pile.py, in game, BL2, 2026-10-04)
+
+The page showed a Bullymong pile (GD_Balance_Treasure.InteractiveObjects.InteractiveObj_BullymongPile, "Not looted yet")
+where the game showed nothing. The game's data, not ours: an untouched pile like the level's four others (SimpleAnimState 4,
+bCanBeUsed (1, 0), Health 5, mesh shown, rendered) - but at Z 542 with the player standing at Z 1077 beside it: ~5 m
+under the terrain (the others on the ground, Z 60-85). Left as it is - telling it's buried would need a trace against the
+level's geometry (a function call). Also seen: a pile's anims are Open / Opened / Closed (bits 0 / 1 / 2) - untouched:
+4 (Closed alone), dug: 7; not the chests' layout (games.py is_looted: "Opened" by name, so it reads right either way).
+The probe compares an object with the others of its definition (the fields where it differs from most): reusable for
+any "why is this one different".
+
+## Containers spawned by distance (probe_chest_spawn.py, in game, BL2 Three Horns, 2026-10-04)
+
+Chests, coolers, cash boxes, ammo boxes and most Bullymong piles aren't placed in the level: the population system's
+`PopulationOpportunityPoint`s spawn them (each its `PopulationDef`: PopulationDefinition:CashBox, BanditCooler,
+BanditAmmo, WeaponChest_White, WeaponChest_BanditPotty, BullymongPile...) when the player comes within its
+`SpawnAndCullRadius` - 8000 uu (80 m): `bHasSpawned` / `bActiveSpawn` True within it, False past it. Seen: an area's
+five pile points from 224-330 m away - none spawned, no pile object there; from 36-141 m - the two within 80 m spawned
+(their piles at the points' exact positions), the ones at 82, 86, 122 m not. So the page shows them as the game spawns
+them (the spawn hook catches them) - we don't filter by distance. (Some piles exist much farther - up to 182 m: placed
+in the level, or not culled once spawned - not checked.) Also there: `PopulationOpportunityDen` (enemy dens:
+PopDef_PrimalBeastMix_Ice...) and `WillowPopulationPoint` (their spawn points: PopPointDef_PrimalDen_Walk...) - other
+fields (no bHasSpawned / SpawnAndCullRadius). An idea, not built: the points not spawned yet could show where a
+container will appear (design.md if wanted).
+
 ## Level geometry for a 3D map (offline, the level's packages, 2026-09-25 - parked: design.md)
 
 What a level's `<Map>_*.upk` packages hold (the persistent one + every sublevel: `_Dynamic`, `_Freighter`, `_Light`...;

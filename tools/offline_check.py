@@ -1203,8 +1203,9 @@ def check_helios_tracker() -> None:  # noqa: PLR0915
     assert "state" not in hub._channels, "collected with no page connected"
     hub.clients = 1  # a page is open
     c.tick(1001.0)
-    c.tick(1001.1)  # one heavy task per tick: pickups, then objects, then players
-    c.tick(1001.2)
+    c.tick(1001.1)  # one heavy task per tick: pickups, then objects, the level's lookups (tracker, areas), then players
+    for lookup_at in (1001.2, 1001.3, 1001.4):
+        c.tick(lookup_at)
     level: dict = {}
     for _ in range(100):
         level = json.loads(hub.latest("level"))
@@ -1985,6 +1986,39 @@ def check_helios_tracker() -> None:  # noqa: PLR0915
     odds_live = {r["n"]: r for r in lootodds.POOLS["GD_Itempools.WeaponPools.Pool_Weapons_Pistols"]["e"]}
     assert abs(odds_live["Pool_Weapons_Pistols_01_Common"]["p"] - 62.5 / 72.51 * 100) < 0.01, odds_live
     assert lootodds.refresh(ns(Game=None)), "a client (no game info): back to the base values"
+    # a container type's odds in steps (lootodds.odds_job: the collector runs it a few ms per tick - a bandit chest's tree was
+    # 70 ms at once): the same odds as at once, its pools added to POOLS only when it's done (a page never gets half a
+    # tree), cached per type (cached_odds); the live values changed meanwhile: None (worked out again)
+    odds_balance = ns(_get_address=lambda: 0x9b00, DefaultLoot=[odds_cfg(odds_data(0, 1.5, odds_w["Common"]), odds_pistols, 2),
+                                                               odds_cfg(odds_data(0, 0.5, odds_w["Common"]), odds_long)],
+                      DefaultIncludedLootLists=[])
+    odds_io = ns(Loot=[])
+    assert lootodds.cached_odds(odds_balance) is None and not lootodds.own_loot(odds_io, odds_balance)
+    odds_steps, odds_seen_pools = lootodds.odds_job(odds_io, odds_balance), []
+    while True:
+        try:
+            next(odds_steps)
+            odds_seen_pools.append(len(lootodds.POOLS))
+        except StopIteration as odds_done:
+            odds_stepped = odds_done.value
+            break
+    assert len(odds_seen_pools) > 1 and set(odds_seen_pools) == {0}, ("in steps, POOLS untouched until done", odds_seen_pools)
+    assert "GD_Itempools.WeaponPools.Pool_Weapons_Pistols" in lootodds.POOLS and lootodds.cached_odds(odds_balance) == odds_stepped
+    assert lootodds.container_odds(odds_io, odds_balance) == odds_stepped, "at once: the same (cached)"
+    assert lootodds.own_loot(ns(Loot=[odds_cfg(odds_data(1), odds_long)]), None), "an object's own Loot: at once, never queued"
+    odds_fresh = odds_pool("Pool_Odds_Stale_Test", [  # (a tree not in POOLS yet: the job has steps to take)
+        ns(ItmPoolDefinition=odds_pool("Pool_Odds_Stale_Test_A", []), InvBalanceDefinition=None, Probability=odds_data(1)),
+        ns(ItmPoolDefinition=odds_pool("Pool_Odds_Stale_Test_B", []), InvBalanceDefinition=None, Probability=odds_data(1))])
+    odds_stale = lootodds.odds_job(odds_io, ns(_get_address=lambda: 0x9b01, DefaultLoot=[odds_cfg(odds_data(1), odds_fresh)],
+                                               DefaultIncludedLootLists=[]))
+    next(odds_stale)
+    lootodds.refresh(odds_world)  # (the host's modifier: a live value change, mid-job)
+    try:
+        while True:
+            next(odds_stale)
+    except StopIteration as odds_stale_done:
+        assert odds_stale_done.value is None and lootodds.cached_odds(ns(_get_address=lambda: 0x9b01)) is None, "stale: dropped"
+    assert lootodds.refresh(ns(Game=None))
     # a weight's condition, from the resource (D_Resources.*): health / oxygen by name, ammo by its group, another its name
     # (the Pre-Sequel's oxygen canisters read "if low on ammo" when "ammo" was the default)
     odds_conditions = [lootodds.condition_of(ns(Name=n, Outer=ns(Name=g))) for n, g in

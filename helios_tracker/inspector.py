@@ -863,25 +863,33 @@ def _card_lines(inv: Any, kind: str) -> list[dict[str, Any]]:
     return out
 
 
-_card_keys_sent = [False]
+_card_keys_done = [0]  # steps done (_card_keys: one per players pass)
+
+
+CARD_KEY_FINDS = (("manufacturer", "ManufacturerDefinition", "FlashLabelName"),
+                  ("type", "WeaponTypeDefinition", "ScaleformFrameName"))
 
 
 def _card_keys() -> None:
-    """Once: the game's keys for the item card icons, from the loaded definitions - every manufacturer's
-    FlashLabelName, every weapon type's ScaleformFrameName (gamecards.py picks the sprites labelled with them).
-    Two find_all (each walks every object): once per session."""
-    if _card_keys_sent[0]:
+    """Once a session: the game's keys for the item card icons, from the loaded definitions - every manufacturer's
+    FlashLabelName, every weapon type's ScaleformFrameName (gamecards.py picks the sprites labelled with them), the
+    elements'. A step per call - per players pass (each find_all walks every object: all of them in one pass were
+    74 ms, the first players pass's hitch)."""
+    step = _card_keys_done[0]
+    if step > len(CARD_KEY_FINDS):
         return
-    _card_keys_sent[0] = True
-    for kind, cls, prop in (("manufacturer", "ManufacturerDefinition", "FlashLabelName"),
-                            ("type", "WeaponTypeDefinition", "ScaleformFrameName")):
+    _card_keys_done[0] += 1
+    if step < len(CARD_KEY_FINDS):
+        kind, cls, prop = CARD_KEY_FINDS[step]
         keys = {str(try_(lambda d=d: getattr(d, prop), "") or "") for d in try_(lambda c=cls: list(unrealsdk.find_all(c, exact=False)), []) or []
                 if not d.Name.startswith("Default__")}
         gamecards.set_keys(kind, keys - {"", "None"})
+        return
     # the elements': the damage types' DamageType enum, its names without DAMAGE_TYPE_ (Shock, Amp: slag...) - the
-    # element list's frames ("shock", "amp"; a weapon's ElementalFrame picks one)
-    damage_type = next(iter(try_(lambda: list(unrealsdk.find_all("WillowDamageTypeDefinition", exact=False)), []) or []), None)
-    enum = type(try_(lambda: damage_type.DamageType)) if damage_type is not None else None
+    # element list's frames ("shock", "amp"; a weapon's ElementalFrame picks one) - the enum's type from the class's
+    # default object (a find_all only for it walked every object)
+    default = try_(lambda: unrealsdk.find_class("WillowDamageTypeDefinition").ClassDefaultObject)
+    enum = type(try_(lambda: default.DamageType)) if default is not None else None
     members = getattr(enum, "__members__", None) or {}
     gamecards.set_keys("element", {name.removeprefix("DAMAGE_TYPE_") for name in members} - {"", "MAX"})
 

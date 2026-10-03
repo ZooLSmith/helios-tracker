@@ -69,6 +69,9 @@ SLOW_REPORT_EVERY = 30.0  # s between console reports of slow tasks
 # (frames.py's report). One a whole period late runs anyway (never starved at a low refresh rate).
 TICK_BUDGET = 0.005  # s
 INFO_REFRESH_PER_TICK = 2  # descriptions (names, allegiances) dropped per tick after a scan, rebuilt as read
+ODDS_SECONDS = 0.003  # s per tick working out containers' loot odds (lootodds.odds_job: a tree in steps)
+NEW_PAWN_INFOS_PER_TICK = 4  # new pawns described per tick (the others, the next ticks: a level's first tick had them
+                             # all - 14 ms); ours always
 PICKUP_RESTING_EVERY = 1.0  # s between full reads of a pickup at rest (its flag: games.py pickup_at_rest) - each tick
                             # meanwhile: only whether it's gone (picked up); a knocked one: back to every tick then
 RECORD_SLOW_MS = 5.0  # an object record taking this long: its parts reported (the slow-task report)
@@ -310,6 +313,11 @@ class Collector:
         self._seats: dict[int, bool] = {}  # class address -> a vehicle seat's (_is_seat; addresses: per level, as above)
         self._areas = []
         self._areas_found = False  # (the discovery areas: found once a level - _scan_objects)
+        self._lookups: list[str] = []  # the level's actors to look up after an objects scan, one per tick (_lookup)
+        # containers whose loot odds are to be worked out (their records: sent at once, the odds when done) - and the
+        # job under way: (its object's key, its pointer, lootodds.odds_job)
+        self._odds_queue: dict[tuple[int, str], WeakPointer] = {}
+        self._odds_job: tuple[tuple[int, str], WeakPointer, Any] | None = None
         # pickups at rest (games.py pickup_at_rest): address -> (their last record, its item, the next full read)
         self._resting: dict[int, tuple[dict[str, Any], dict[str, Any] | None, float]] = {}
         self._areas_json = ""
@@ -425,6 +433,11 @@ class Collector:
                     self._pending_records.setdefault(key, ptr)
         if self._pending_records:
             run("object records", self._build_pending_records)
+        if self._lookups and not heavy:
+            run("lookup " + self._lookups[0], self._lookup)
+            heavy = True
+        if (self._odds_queue or self._odds_job) and time.perf_counter() - started < TICK_BUDGET:
+            run("loot odds", self._work_odds)
         if self._objects_dirty:
             self._objects_dirty = False
             run("objects", self._publish_objects)
@@ -797,47 +810,88 @@ class Collector:
                         self._domes.setdefault(key, WeakPointer(io))
                     if "m" in record:
                         self._damageable.setdefault(key, WeakPointer(io))
-                    if odds_changed and "odds" in record:  # (in place: cached per type, a few to work out)
-                        balance = try_(lambda io=io: io.BalanceDefinitionState.BalanceDefinition)
-                        record["odds"] = try_(lambda io=io, b=balance: lootodds.container_odds(io, b)) or record["odds"]
+                    if odds_changed and "odds" in record:  # (worked out again a few ms per tick: 107 ms in this loop once)
+                        self._odds_queue[key] = WeakPointer(io)
             except Exception as ex:  # noqa: BLE001
                 log_error("interactive object", ex)
         self._objects = objects
         t_loop = time.perf_counter()
-        if self._tracker is None or self._tracker() is None:  # one per game: only look it up again if gone
-            self._tracker = next(
-                (WeakPointer(t) for t in unrealsdk.find_all("MissionTracker", exact=False) if not t.Name.startswith("Default__")),
-                None,
-            )
-        t_tracker = time.perf_counter()
-        # A co-op client has no mission waypoint components: its markers come from the waypoint actors - as BL1's
-        # always (games.WAYPOINT_MARKERS)
+        # the level's other actors: one find_all per tick after this one (all in the first scan's tick: 95 ms)
         wi = ENGINE.GetCurrentWorldInfo()
-        client = self._client = getattr(try_(lambda: wi.NetMode), "name", "") == "NM_Client"
-        self._waypoints = [WeakPointer(w) for w in unrealsdk.find_all("WillowWaypoint", exact=False)
-                           if not w.Name.startswith("Default__")] if client or games.WAYPOINT_MARKERS in games.GAME.features else []
-        t_waypoints = time.perf_counter()
-        self._exits = [WeakPointer(x) for x in unrealsdk.find_all("PersistentTransitionLandmark", exact=False)
-                       if not x.Name.startswith("Default__")] if games.WAYPOINT_MARKERS in games.GAME.features else []
-        t_exits = time.perf_counter()
-        if not self._areas_found:  # (placed in the level, never moved: once a level - a find_all, 8-10 ms each scan)
-            self._areas_found = True
-            self._areas = [] if games.DISCOVERY not in games.GAME.features else [
-                a for w in unrealsdk.find_all("WorldDiscoveryArea", exact=False)
-                if (a := try_(lambda w=w: self._area_record(w) if self._in_world(w) else None))]
-        t_areas = time.perf_counter()
-        self._next_areas = 0.0
+        self._client = getattr(try_(lambda: wi.NetMode), "name", "") == "NM_Client"
+        self._lookups = [name for name, wanted in (
+            ("tracker", self._tracker is None or self._tracker() is None),  # (one per game: only again if gone)
+            # a co-op client has no mission waypoint components: its markers come from the waypoint actors - as BL1's
+            # always (games.WAYPOINT_MARKERS)
+            ("waypoints", self._client or games.WAYPOINT_MARKERS in games.GAME.features),
+            ("exits", games.WAYPOINT_MARKERS in games.GAME.features),
+            ("areas", not self._areas_found and games.DISCOVERY in games.GAME.features),  # (placed, never moved: once)
+        ) if wanted]
         self._publish_objects()
         t_end = time.perf_counter()
         if DIAGNOSTICS and (t_end - t0) * 1000 > SLOW_MS:  # slow: which part (and how many objects) - debug only
             loop_s = t_loop - t_find
             for part, part_s in (("odds", t_odds - t0), ("find", t_find - t_odds), ("shops", shops_s), ("sight", sight_s),
-                                 ("loop rest", loop_s - shops_s - sight_s), ("tracker", t_tracker - t_loop),
-                                 ("waypoints", t_waypoints - t_tracker), ("exits", t_exits - t_waypoints),
-                                 ("areas", t_areas - t_exits), ("publish", t_end - t_areas)):
+                                 ("loop rest", loop_s - shops_s - sight_s), ("publish", t_end - t_loop)):
                 if part_s * 1000 > 1.0:
                     self._timings.add("scan objects." + part, part_s * 1000)
             self._timings.size("objects", len(found))
+
+    def _lookup(self) -> None:
+        """The next of the level's actors to look up (after an objects scan: one find_all per tick)."""
+        name = self._lookups.pop(0)
+        if name == "tracker":
+            self._tracker = next(
+                (WeakPointer(t) for t in unrealsdk.find_all("MissionTracker", exact=False) if not t.Name.startswith("Default__")),
+                None,
+            )
+            self._next_missions = 0.0  # (found: the markers read now)
+        elif name == "waypoints":
+            self._waypoints = [WeakPointer(w) for w in unrealsdk.find_all("WillowWaypoint", exact=False)
+                               if not w.Name.startswith("Default__")]
+        elif name == "exits":
+            self._exits = [WeakPointer(x) for x in unrealsdk.find_all("PersistentTransitionLandmark", exact=False)
+                           if not x.Name.startswith("Default__")]
+        elif name == "areas":
+            self._areas_found = True
+            self._areas = [a for w in unrealsdk.find_all("WorldDiscoveryArea", exact=False)
+                           if (a := try_(lambda w=w: self._area_record(w) if self._in_world(w) else None))]
+            self._next_areas = 0.0
+
+    def _queue_odds(self, key: tuple[int, str], io: Any, record: dict[str, Any] | None) -> None:
+        """A container record without its odds yet: they're worked out a few ms per tick (_work_odds)."""
+        if record is not None and record.get("lootable") and "odds" not in record:
+            self._odds_queue.setdefault(key, WeakPointer(io))
+
+    def _work_odds(self) -> None:
+        """Containers' loot odds, ODDS_SECONDS per tick: the job under way a step at a time (lootodds.odds_job), the
+        next queued one when it's done - its record updated then (the page gets them a moment after the container)."""
+        deadline = time.perf_counter() + ODDS_SECONDS
+        while time.perf_counter() < deadline:
+            if self._odds_job is None:
+                if not self._odds_queue:
+                    return
+                key, ptr = next(iter(self._odds_queue.items()))
+                del self._odds_queue[key]
+                io = ptr()
+                if io is None or self._object_records.get(key) is None:
+                    continue
+                balance = try_(lambda io=io: field(field(io, "BalanceDefinitionState"), "BalanceDefinition"))
+                self._odds_job = (key, ptr, lootodds.odds_job(io, balance))
+            key, ptr, job = self._odds_job
+            try:
+                next(job)
+            except StopIteration as done:
+                self._odds_job = None
+                record = self._object_records.get(key)
+                if done.value is None:  # (the live values changed meanwhile: again)
+                    self._odds_queue[key] = ptr
+                elif done.value and record is not None:
+                    record["odds"] = done.value  # in place: the published list holds this dict
+                    self._objects_dirty = True
+            except Exception as ex:  # noqa: BLE001
+                self._odds_job = None
+                log_error("loot odds", ex)
 
     @staticmethod
     def _area_record(area: Any) -> dict[str, Any]:
@@ -886,6 +940,7 @@ class Collector:
             try:
                 built_at = time.perf_counter()
                 records[key] = self._object_record(io, self._client) if self._in_world(io) else None
+                self._queue_odds(key, io, records[key])
                 if DIAGNOSTICS and (ms := (time.perf_counter() - built_at) * 1000) > RECORD_SLOW_MS:  # (why - debug only)
                     for name, part_s in _record_parts.items():
                         if part_s * 1000 > 1.0:
@@ -948,6 +1003,7 @@ class Collector:
             return
         key = (io._get_address(), str(io.Name))
         self._object_records[key] = record = self._object_record(io, self._client)
+        self._queue_odds(key, io, record)
         self._note_incomplete(key, io)
         self._note_giver(key[0], io, try_(lambda: games.GAME.object_directives(io), []))
         self._shops.note(io)
@@ -1188,8 +1244,14 @@ class Collector:
                 record["usable"] = 1  # for the usability hook: usable, then not = opened
             pools, slots, lists = loot_info(io, balance)
             part("loot")
-            if odds := try_(lambda: lootodds.container_odds(io, balance)):
-                record["odds"] = odds  # each configuration's chance, its pools (their entries: the lootpools payload)
+            # each configuration's chance, its pools (their entries: the lootpools payload) - its type's if known, an
+            # object's own at once; else worked out a few ms per tick (the collector's odds queue: _queue_odds)
+            if lootodds.own_loot(io, balance):
+                odds = try_(lambda: lootodds.container_odds(io, balance))
+            else:
+                odds = lootodds.cached_odds(balance)
+            if odds:
+                record["odds"] = odds
             part("odds")
             if pools:
                 record["loot"] = pools
@@ -1340,6 +1402,7 @@ class Collector:
         # part, vitals read through function calls
         info_s = players_s = 0.0
         info_n = vitals_n = 0
+        me_addr = try_(lambda: me._get_address()) if me is not None else None
         pawn = wi.PawnList
         for n in range(MAX_PAWNS):
             if pawn is None:
@@ -1354,7 +1417,10 @@ class Collector:
                 # (tools/probes/probe_bl1_npc.txt); as the pickups' and objects' - but a player: hidden while
                 # respawning, shown where they'll come back (_respawn_state)
                 hidden = get("bHidden") and self._pawn_info(pawn, me)["k"] not in ("me", "player")
-                if not get("bDeleteMe") and not get("bIsDead") and not hidden and not self._is_seat(pawn):
+                # new ones: NEW_PAWN_INFOS_PER_TICK described per tick, the others shown from the next ticks (ours first)
+                later = (info_n >= NEW_PAWN_INFOS_PER_TICK and (pawn_key := pawn._get_address()) not in self._info
+                         and pawn_key != me_addr)
+                if not later and not get("bDeleteMe") and not get("bIsDead") and not hidden and not self._is_seat(pawn):
                     key = pawn._get_address()
                     new = key not in self._info  # (its description not cached yet: first seen, or since the last scan)
                     t_info = time.perf_counter()

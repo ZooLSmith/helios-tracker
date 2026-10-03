@@ -427,6 +427,12 @@ bottom-left message).
   are found once a level. `scan objects`: `_out_of_sight` reads through `util.field`, `ShopReader.note` remembers which
   classes are vending machines. `util.field` / `reader` read structs too (a `WrappedStruct`: its `_type`'s fields) -
   `lootodds` reads everything through it (a Bullymong pile's pool tree: 64 ms by name).
+- A level's start, spread (it was one 100+ ms tick each): after an objects scan the level's other actors (the mission
+  tracker, waypoints, exits, discovery areas) are looked up one `find_all` per tick (`_lookup`, a heavy task); a
+  container type's loot odds are worked out `ODDS_SECONDS` per tick (`lootodds.odds_job`, a generator: its pools staged,
+  added to `POOLS` when done; the record goes out at once, its odds when they're known - an object's own Loot at once);
+  `NEW_PAWN_INFOS_PER_TICK` new pawns described per tick (ours first); the card icons' keys one `find_all` per players
+  pass (the elements' from the damage type class's default object - no find_all).
 - A players pass builds gear cards for at most `inspector.ITEMS_SECONDS` (at least one): the rest at the next pass,
   `PLAYERS_RETRY` later - a half-built pass isn't published (`players_complete`). A whole backpack at once was 80-560 ms.
 - An object record over `RECORD_SLOW_MS` reports its parts in the slow-task report (`object records.names` / `exit` /
