@@ -116,6 +116,8 @@ item's `DefinitionData.ItemDefinition` (a `UsableItemDefinition`):
   on the map): the page draws one only while it matters (missions.js missionItemWanted) - "for" (its
   objective `oi`): the mission picked up and that objective in the current step, not done; "gives":
   the mission not started. No link / mission not in the log: drawn. Seen right in game (the pizzas).
+  (The objects' side: an object a mission switches off by hiding its mesh - "Objects switched off without
+  being hidden" below, BL1's T.K.'s Food.)
 - Customization items (skins / heads) are gear: `WillowUsableCustomizationItem`, a real `RarityLevel`
   (2 on a vehicle skin), `ItemFrame` `customization_vehicle`, card `Customization_VehicleSkin`.
 
@@ -895,3 +897,5 @@ Southern Shelf's `_P` alone: 404 `StaticMesh`, 4131 `StaticMeshComponent`, 11 `T
   (Z0_MissionData.MissionObjects.MO_TKsFood, its MissionItemDefinition ID_TKsFood: used, the food picked up; then
   unusable, its StaticMeshComponent hidden - tools/probes/probe_bl1_mission_objects.txt). Out of sight: hidden, or
   every mesh component hidden in game (an object without a mesh: as its actor) - at the object scan (every 120 s).
+  The pickups' side of the same problem (things placed for a mission, shown by the game only when they matter):
+  "Mission items are placed ahead" above - the pizzas, missions.js missionItemWanted.

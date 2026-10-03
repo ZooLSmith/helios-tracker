@@ -340,3 +340,7 @@ says when it was seen.
   (Z0_MissionData.MissionObjects.MO_TKsFood, its MissionItemDefinition ID_TKsFood: used, the food picked up; then
   unusable, its StaticMeshComponent hidden - tools/probes/probe_bl1_mission_objects.txt). Out of sight: hidden, or
   every mesh component hidden in game (an object without a mesh: as its actor) - at the object scan (every 120 s).
+  Related: BL2's mission items placed ahead (notes.md, the pizzas: missions.js missionItemWanted - drawn only
+  while their objective / mission matters). Open: BL1's mission pickups (bMissionItem, no MissionItemDefinition's
+  MissionDirective / AssociatedMissionObjective seen) may not carry what missionItemWanted reads - ones placed
+  ahead would show early; not seen yet.
