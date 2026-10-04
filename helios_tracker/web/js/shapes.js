@@ -206,7 +206,7 @@ function gameImage(url, ready) {
   return entry.ok ? entry.img : null;
 }
 
-// Gear's type icons (the game's item card art: /cardicon/type/<key>.png, gamecards.py), tinted per colour: its white
+// Gear's type icons (the game's item card art: /cardicon/type/<key>.png, the game's assets), tinted per colour: its white
 // fill multiplied into the rarity's colour, its black outline kept (the card's own look)
 const tintedIcons = new Map(); // "key|colour" -> a canvas
 function typeIconImage(key) {

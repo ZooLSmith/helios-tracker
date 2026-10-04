@@ -1,5 +1,4 @@
-"""Borderlands 2's items (the base: every game's unless its profile has its own) - Items and their cards: their kind, level, card frames, elements, stat lines, the rarity colours.
-Moved from games.py (profiles.md step 4: a pure move)."""
+"""Borderlands 2's items (the base: every game's unless its profile has its own) - Items and their cards: their kind, level, card frames, elements, stat lines, the rarity colours."""
 
 from typing import Any
 

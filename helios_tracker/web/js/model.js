@@ -57,7 +57,7 @@ const PICKUP_KINDS = ["ammo", "cash", "eridium", "health", "oxygen", "mission", 
 // Map layers, in panel order within their category. "on": shown by default; toggle: false = can't
 // be hidden (players), only configured. folder: a row holding the layers whose parent it is (no
 // settings of its own; its box turns them all on / off). rarity: named by the game's rarity. needs: the game's feature
-// it shows (games.py / game.js: the row hidden in a game without it).
+// it shows (the profile's features / game.js: the row hidden in a game without it).
 // legacy: the id whose on / off the old storage kept (the single Loot layer, now one per rarity).
 export const LAYERS = [
   { id: "player", group: "characters", toggle: false, settings: ["names", "nameSize", "size", "floors"], defaults: { names: true } },

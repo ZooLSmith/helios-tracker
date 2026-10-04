@@ -7,9 +7,9 @@ says when it was seen.
 ## Setup
 
 - The Game of the Year **Enhanced** edition (64-bit, `Binaries/Win64`) was tried first: the user couldn't get the SDK
-  running there (2026-10-03). Not registered in `games.py` (mods_base's `BL1E`): the mod refuses to load there.
+  running there (2026-10-03). Not registered in `games/` (mods_base's `BL1E`): the mod refuses to load there.
 - The mod declares BL1: `helios_tracker/pyproject.toml` `supported_games` (without it: "incompatible", enabling
-  locked). Its profile: `games.py` `Borderlands1`.
+  locked). Its profile: `games/bl1/` (`Borderlands1`: BL2's parts, its own where its way differs - `profiles.md`).
 - Dev link: `project.json`'s optional `bl1` entry (the install), then `python tools/link_mod.py bl1`. Loading it
   after the game started: `pyexec helios_tracker/reload.py`.
 - The SDK's own log: `<bl1>/Binaries/Plugins/unrealsdk.log` (pyunrealsdk v1.10.0 seen); the mod's log is its own
@@ -18,7 +18,7 @@ says when it was seen.
 - Probe: `tools/probes/probe_bl1.py` (read-only: env, the hooked functions, the classes the mod uses, the level's map
   info, the player, the main classes' fields, samples) -> `probe_bl1.txt`. Not run yet.
 
-## Differences found (2026-10-03, first runs) - each one in `games.py`
+## Differences found (2026-10-03, first runs) - each one in its profile (`games/bl1/`)
 
 - **ui_utils 1.3**: no `show_coop_message` / `hide_coop_message` (the mod's import failed: "cannot import name
   'hide_coop_message'"). The updater's bottom-left message: its `show_hud_message` instead (goes away by itself).
@@ -61,7 +61,7 @@ says when it was seen.
   `MapFrame` is "dlcmap1" (the menu's slot) and their `DLCMap` a movie of its own (`dlc2_maps.dlcmap_lobby`, in
   `DLC/DLCn/...`): its root places the area's clip ("themap") - drawn the same way (bl1map `_render_dlc`). The
   Underdome lobby's anchor is turned 179.5 degrees with DrawScale3D -7.0: a half turn = the scale's signs flipped
-  (levelmap.landmark), upright. Its placement on the page: the base game's maths - right, the right way up (the user).
+  (its world part's map_source), upright. Its placement on the page: the base game's maths - right, the right way up (the user).
 - **Map textures**: `Packages/Environments/Env_TacticalMaps.upk` (27 Texture2D, DXT1, 1024 x 512 / 1024, the top mip
   inline as an LZO chunk - bulk flag 0x10).
 - **World -> map**: the map tab's code, `WillowGFxHelperMap` (WillowGame.u): `Anchor` (the level's anchor),
@@ -96,7 +96,7 @@ says when it was seen.
   outlines, the inner details); Arid's 1045: 1384, and a second fill (#346376). A first look at a shape's styles only
   read its first list (fills only). swfshape.py draws them as Flash layers them: list by list, its fills then its
   lines (a quad per piece, round joins: a nonzero fill - their union). 0.5-1.7 s a map.
-- **Wired in** (`levelmap.landmark`, the BL1 profile's `map_source`): at an area change, its anchor (a find_all), the
+- **Wired in** (its world part's `map_source`, `games/bl1/world.py`): at an area change, its anchor (a find_all), the
   frame rendered on the map thread, its placement from the anchor and the shape's size - the page's level message as
   BL2's (center, upp, one PF_A8R8G8B8 image).
 
@@ -118,7 +118,7 @@ says when it was seen.
 - `gd_globals.General.LevelList` (a LevelDependencyList, `gd_globals.upk`): `LevelList[]` = 28 entries {PersistentMap
   'arid_p', LevelName 'Arid Badlands', SecondaryMaps, ConnectedPersistents, LoadingMovieName 'loading_arid',
   CompletedQuestStat...} - Skag Gully, Headstone Mine, New Haven, ... ('arid_intro_p' is 'Arid Badlands' too). Read as
-  properties (games.py `level_name_in`; BL2 calls GetFriendlyLevelNameFromMapName). The DLCs' lists:
+  properties (`world.level_name_in`; BL2 calls GetFriendlyLevelNameFromMapName). The DLCs' lists:
   `dlcN_PackageDefinition.Levels.LevelList`.
 - The map screen's "THE ARID BADLANDS": the menu movie's own ActionScript (`_parent.zone = "THE ARID BADLANDS"` in its
   "themap" frames) - hard-coded English; the level list's is the game's localized text.
@@ -133,12 +133,12 @@ says when it was seen.
   `AIPawnGameStageGradeWeightData {GradeModifiers: AIPawnGradeModifierData {ExpLevel, DisplayName...}}` - no BL2
   PlayThroughs. `WillowAIPawn.GetTargetName` (script: its bytecode reads BalanceDefinitionState, calls
   GetDisplayNameAtGrade(GradeIndex), "(none)", the mastered form `MasteredDisplayName` "%s's %n" with PlayerMasterPRI)
-  - read as properties (games.py `pawn_name`). No `AIClass` on the pawns.
+  - read as properties (`pawns.name`). No `AIClass` on the pawns.
 - **NPCs** (Claptrap): no balance (`BalanceDefinition` None); their own `AIPawnName` ('ClapTrap'; 'None' on most
   enemies) - the made-up name's source (`pawn_raw_name`). Their game name: not found yet.
 - **Shields**: no WillowShield class - a `WillowEquipAbleItem`, its definition a plain `ItemDefinition`
   (`gd_shields.A_Item.Item_Shield`); its slot: `ItemDefinition.EquipmentLocation` (`EEquipmentLoc`: EQUIPLOC_Shield,
-  EQUIPLOC_MOD - grenade mods, EQUIPLOC_Deck - com decks) -> the inspector's kind (`equip_kind`). Its card stats as
+  EQUIPLOC_MOD - grenade mods, EQUIPLOC_Deck - com decks) -> the inspector's kind (its items part's `kind`). Its card stats as
   BL2's: `UIStatModifiers` = [ShieldMaxValue 50, ShieldOnIdleRegenerationRate 7.5] (gd_AttributePresentation.Shields).
   `ItemCardModifierStats` empty.
 - **Pause**: the escape menu sets `WorldInfo.Pauser` (the PRI); the status menus (inventory, map, skills) don't - they
@@ -156,13 +156,13 @@ says when it was seen.
   `{MissionDef, Status, Objectives: [{StatId, CurrentAmount}]}` (a done one: Objectives empty). `EMissionStatus`:
   NotStarted, Active, ReadyToTurnIn, Complete, **Redeemed** (turned in). No objective steps: the HUD lists them all
   ("Stolen Food: 4/4", then "Turn in" - the user). Read by missions.py's MissionLog, unchanged, through the profile
-  (`mission_entries`, `_objectives`, `_progress`, `_status`, `_number`; no `missionsteps` feature: every objective
+  (`mission_entries`, `_objectives`, `_progress`, `_status`, `_number`; its `current_objectives`: every objective
   current). The page's mission panel and log.
 - **Its waypoints** (5 probe runs: turning one in, picking the next): every WillowWaypoint is bHidden (markers, not
   things). Ready to turn in: its `TurnInWaypointDefinition`'s (WP_Al: 1, at T.K.'s); active: its
   `TargetWaypointDefinition`'s (Buy Grenades, Grenade purchased 0/1 -> WP_WeaponVendor: 1, at the weapon vendor). The
-  HUD follows the tracked one (`HUDMovie.CachedTrackedMission`). Built: `collector._waypoint_markers` (feature
-  `waypointmarkers`: the waypoint actors collected, as a BL2 co-op client's) - every picked-up mission's, flagged
+  HUD follows the tracked one (`HUDMovie.CachedTrackedMission`). Built: its missions part's `markers` (its
+  `level_lookups`: the waypoint actors collected, as a BL2 co-op client's) - every picked-up mission's, flagged
   tracked. A definition with several (the food's 4 WP_SkagPearls, numbers 1, 2, 3, 3): all of them - which the game
   shows while in progress: not seen.
 - **Hooks**: `WillowGameViewportClient:Tick` doesn't exist (BL1: `Engine.GameViewportClient:Tick`) - the updater's
@@ -196,14 +196,14 @@ says when it was seen.
   The rest is BL2's: `ShopInventory` a 30-slot array (items, then None - an offline read had shown its element type),
   `FeaturedItem`, `ShopType` SType_Items / SType_Health / SType_Weapons, `GetSellingPriceForInventory`; the timer
   `Game.SecondsUntilShopsReset` (922 s) / `GRI.SecondsUntilShopsReset`, no `ShopTimerRate` (1). Its menu
-  (VendingMachineGFxMovie) has no shop titles. games.py `vending_class` / `vending_titles`.
+  (VendingMachineGFxMovie) has no shop titles. Its profile's `vending_class` / `vending_titles`.
   No name of theirs anywhere in its text (the vending menu's: tabs and prompts only; no map header) - the name is on
   their texture: they're named by their definition, as guessed ("Vending Machine Grenades And Ammo ?" - shops.py
   `_named`; the class's gave every machine "Vending Machine ?").
 - **Exploding barrels**: no BehaviorProviderDefinition - behaviour sets (`DefaultBehaviorSet`, `ExtraBehaviorSets[]`:
   `InteractiveObjectBehaviorSet` - OnKilled, OnTakeDamage... arrays of behaviours, CustomEvents / TimerEvents /
   CounterEvents of reactions with `Behaviors[]`); the barrel's `Behavior_Explode` (its `Definition.DamageTypeDef` as
-  BL2's) is there - games.py `object_behaviors`.
+  BL2's) is there - `objects.behaviors`.
 - **New-U / fast travel stations** (tools/probes/probe_object_text.txt, 2026-10-04): `EmergencyTeleportOutpost` objects -
   definitions `gd_emergencyteleportoutpost.OutpostDefinition`, `CheckpointOutpostDefinition` (two kinds, likely: fast
   travel, New-U checkpoint). No name of theirs in the game's data: the object's `OutpostName` empty, the definition's
@@ -215,12 +215,12 @@ says when it was seen.
   globals' `GD_Globals.General.Globals.PlayerCharacters[]` = {CharacterClassName "Hunter", DefaultCharacterName
   "Mordecai"}, localized (gd_globals.INT `[General.Globals GlobalsDefinition]`: Roland 0 Soldier, Mordecai 1 Hunter,
   Lilith 2 Siren, Brick 3 Berserker - the load character menu's words, the user), by the class's `CharacterName` (1 for
-  Mordecai) - games.py `class_name`. (The skill menu's "HUNTER": the alias map's skills_hunter_class - its capitals.)
+  Mordecai) - `pawns.class_name`. (The skill menu's "HUNTER": the alias map's skills_hunter_class - its capitals.)
 
 ## Item cards, rarities, exits (2026-10-03: probe_bl1_cards.txt, probe_bl1_exits.txt, offline)
 
 - **Rarities**: GlobalsDefinition has only GetRarityColorForLevel (no GetRarityLevelColorsIndexforLevel): its
-  `RarityLevelColors[] {MinLevel, MaxLevel, Color}` read as properties (games.py `rarity_table`) - 13 entries: -1..1 /
+  `RarityLevelColors[] {MinLevel, MaxLevel, Color}` read as properties (`items.rarity_table`) - 13 entries: -1..1 /
   2..4 white, 5..10 green, 11..15 blue, 16..49 purple, 50..60 / 61..65 / 66..100 legendary shades, 170 / 171 / 180-190
   the pickups', 500 pearl. game.js `bl1.tierByEntry` - checked against the wiki (common 0-4, uncommon 5-10, rare
   11-15, epic 16-49, legendary 50-60 / 61-65 / 66-100): entry 0 (-1..1) is common, white like entry 1 (a rarity 0
@@ -229,7 +229,7 @@ says when it was seen.
 - **Card lines** (WeaponCardModifierStats): the game shows the line's modifier, never its attribute's current value -
   remapped (`bValueRemappingEnabled`: the zoom's -100..0 onto -10..0), its sign flipped if `bDisplayAsInverse` (BL2's:
   a reciprocal), x 100 if a percentage, rounded by its RoundingMode (Float: one decimal, a percentage whole). An SG330:
-  zoom -40, fire rate -0.4318, projectiles 1 -> "4.0x", "+43%", "+1" (checked by the user). games.py `card_line_value`
+  zoom -40, fire rate -0.4318, projectiles 1 -> "4.0x", "+43%", "+1" (checked by the user). `items.card_line_value`
   (the line's "dv" / "dp": the page shows them as is).
 - **Rounding**: its presentations have no FloatPrecision (one decimal: the accuracy's 6.7); `ATTRROUNDING_IntCeil` (its
   damage: AttrPresent_WeaponDamage - 85.2 shows 86), `ATTRROUNDING_IntFloor` (magazine, projectiles).
@@ -242,11 +242,11 @@ says when it was seen.
 ## Skills, item levels, icons (2026-10-03: probe_bl1_skills.txt, probe_bl1_branches.txt, probe_bl1_levels.txt, offline)
 
 - **Tree**: no PlayerSkillTree - the controller's `PlayerSkills[]` and `SkillTreeBranches[]` (inspector
-  `_skills_from_player_skills`); the action skill locked at Grade 0 (`PlayerSkills[ActionSkillPlayerSkillIndex]`).
+  its skills part's `_player_skills`); the action skill locked at Grade 0 (`PlayerSkills[ActionSkillPlayerSkillIndex]`).
   Two columns per branch, the last tier one skill (centered on the page). Its colors (base.css `data-game="bl1"`):
   left slate blue, middle red-brown, right green - the status menu's treeLeft / treeCenter / treeRight fills; their
   greyed part's dims (`--tree-N-dim`) bring each to BL2's grey (~52).
-- **Branch names** (games.py `branch_names`): no definition has one - the menu's movie sets them per character.
+- **Branch names** (`skills._read_branch_names`): no definition has one - the menu's movie sets them per character.
   `SkillTreeGFxHelper.GetCharacterName()` (script: a switch on CurrentCharacter, a CharacterNames like
   `PlayerClass.CharacterName` - 0 roland, 1 mordecai, 2 lilith, 3 brick; called on one we construct) is the frame
   its clip (`SkillTreeGFxDefinition.SkillMovieClip`: "skills", the status menu's sprite 934) goes to; that frame's
@@ -257,15 +257,15 @@ says when it was seen.
   (no "roland": Roland's gotoAndStop leaves it there, soldier keys).
 - **Item levels**: the card shows the level the item needs, not its ExpLevel (6 -> 4):
   `WillowInventory.GetControllerPlayerExpLevelRequiredToUse(controller)` (Engine.u, script: ExpLevel +
-  FFloor(PlayerUseLevelBonus) if the definition's bUsesPlayerLevelRequirement) - games.py `item_card_level`.
+  FFloor(PlayerUseLevelBonus) if the definition's bUsesPlayerLevelRequirement) - `items.card_level`.
   `ManufacturerGradeIndex`: 0 on every item.
-- **Skill icons** (games.py `skill_icons`, bl1map `clip_icon`, served as /icon/menu....png): vector clips in the status menu movie - in the skill clip's character frame, each
+- **Skill icons** (`skills._read_skill_icons`, bl1map `clip_icon`, served as /icon/menu....png): vector clips in the status menu movie - in the skill clip's character frame, each
   cell's clip by the layout's name (ui_skill_tree.upk `SkillTreeLayout`'s SkillTreeNavDefinitions: `IconClipName`
   "icon17" = Left tier 2 entry 1...), its frames "off" / "on" / "none" (`IconOnName`...); the elemental cell (icon1)
   has frames per element. Rendered with swfshape - only what the "on" and "off" frames both place: the drawing (each state has its own
   tile under it, "on"'s notched at the bottom right for the rank - the user: "the background is strange"). `SkillDefinition.ScaleformFrameName`
   is the HUD's popup icons only (GfxHUD.upk sprite 147, 19 skills).
-- **Card icons** (games.py `card_icon_png`, bl1map `card_icon`, /cardicon/<kind>/<key>.png as BL2's): no files scan -
+- **Card icons** (`assets.card_icon_png`, bl1map `card_icon`, /cardicon/<kind>/<key>.png as BL2's): no files scan -
   the item card's movie (inworld_ui.upk `weapon_card.weapon_card`), vector sprites, a frame per key: the
   manufacturers' (`FlashLabelName`: "jakobs", "s_and_s"...; Corazza has no frame), its "zippy" (a Claptrap holding
   the gun / item - not used: the user wants the item's icon), the elements' per tech level ("fire0".."shock4": not
@@ -274,27 +274,27 @@ says when it was seen.
   always placed as `inicon<N>` (the inventory list's `inventory.selections.inicon1..14`, the mission reward's
   `missions.reward_weap.inicon14`, the vending item of the day's `topLevel_mc.inicon2`), in the menu movie (bl1map
   `item_icon`): frames `WeaponTypeDefinition.ScaleformFrameName` ("repeater"...), items' `WillowInventory.ZippyFrame`
-  ("shield", "grenade", "comm" - a property, no GetZippyFrame: games.py `zippy_frame`). Behind each, its kind's shape
+  ("shield", "grenade", "comm" - a property, no GetZippyFrame: `items.zippy_frame`). Behind each, its kind's shape
   (depth 1, kept from frame to frame: a square behind the weapons - placed with the first frame, "repeater" -, a
   diamond behind mods / class mods / shields, a burst behind grenades / ammo, a circle, an octagon): not drawn, the
   user's call - only what the frame shows that no other frame does (drawn as the frames place them, the pistol had
   its square, the sniper not).
-- **Element icons** (games.py `element_frame`, bl1map `card_frame_icon`): no ElementalFrame - the card's clip placed as
+- **Element icons** (`items.element_frame`, bl1map `card_frame_icon`): no ElementalFrame - the card's clip placed as
   "chemical" (beside "manufacturer", "zippy", "protean" - the grenade's type -, "comm"), 21 frames: exp0-4, shock0-4,
   fire0-4, corr0-4, none (the element, its tech level: "x2", "x4" - a level's frame places only that, the mark kept
   from the element's first: drawn with what earlier frames left). An item's frame number: its instance data's
   `FlashTechFrame` (`GetTechIconFrame()`, script - probe_bl1_elements.txt: an Explosive MIRV 1.0 = exp0, others 0 =
   none). A weapon's: no instance data - its damage type's `DamageType` (EDamageType: Unknown, Incindiary [sic], Shock,
-  Explosive, Corrosive, Impact, Healing - not the clip's order: games.py `BL1_ELEMENT_FRAMES`, by the frames' art)
+  Explosive, Corrosive, Impact, Healing - not the clip's order: `items.BL1_ELEMENT_FRAMES`, by the frames' art)
   and its tech level (`StaticGetWeaponDamageType` / `StaticCalculateWeaponTechLevelForUI`, static, its DefinitionData
   their input - each returns (value, that input)): the frame "<element><level>" - The Clipper "fire1", its card's
   flame and x1 (the user). The number: a layer the level frames add over the mark (an explosive grenade, exp0: none)
   - left out of the page's icon (the mark alone: what the frame keeps from its element's first), the level a stat
-  of its own instead, "Element level x1" (games.py `element_level`: the weapon's tech level, an item's
+  of its own instead, "Element level x1" (`items.element_level`: the weapon's tech level, an item's
   CalculateItemTechLevel) - the user: as BL2, no number on it.
-- **Looted containers** (games.py `is_looted`): no SimpleAnimState / SimpleAnimInfo; `bCanBeUsed` a flag (BL2's an
+- **Looted containers** (`objects.is_looted`): no SimpleAnimState / SimpleAnimInfo; `bCanBeUsed` a flag (BL2's an
   array: `bCanBeUsed[0]` failed, never looted) - False once looted (probe_bl1_looted.txt; a toilet not searched: True).
-- **Quest givers' "!"** (probe_bl1_givers.txt; games.py `object_directives`, `mission_offered`): a giver's missions
+- **Quest givers' "!"** (probe_bl1_givers.txt; `objects.directives`, `mission_offered`): a giver's missions
   are on the object itself, `WillowInteractiveObject.MissionDirectives` (BL2's: `io.Directives.MissionDirectives`) -
   the bounty board's 15, Dr. Zed's 11 (a WillowInteractiveNPC). Its log has only the missions picked up, so "can be
   picked up" is the game's word: the controller's `GetMissionEligibility(mission)` ME_Eligible (script: minimum
@@ -302,15 +302,15 @@ says when it was seen.
   The board's T.K. Has More Work: eligible, in its `AnnouncedMissions` - the game's "!". Turn-ins: the log, as BL2's.
 - **Barrels' element icons**: a damage type's icon is its element's mark (`damage_type_frame`: "exp0") - not
   learned from the weapons (BL2's `.cache/element_frames.json`: a BL1 weapon's "fire1" had been saved as Incindiary's,
-  the BL2 barrels' table - the feature `learnedelements`, not BL1's).
-- **Missions not picked up** (probe_bl1_tracker.txt; games.py `mission_entries`, `_NotPickedUp`): the log has only
+  the BL2 barrels' table - its items part's `learn_element` does nothing).
+- **Missions not picked up** (probe_bl1_tracker.txt; `missions.entries`, `_NotPickedUp`): the log has only
   the missions picked up, the tracker's MissionList only the active one (its 166 MissionObservers: the level's
   mission objects) - but every MissionDefinition is loaded (218: base game and the four DLCs). The log reads the
   player's entries then every other one, not started (BL2's log lists the whole playthrough so): dependencies,
   the mission tree, "available" as BL2's; its giver the game's `MissionGiver` text. Offered (`kick`): the game's
   `GetMissionEligibility` (16 eligible of 205: T.K. Has More Work, Keep Your Insides Inside, each DLC's first...).
   The "!" stays the game's word alone (mission_offered), not the log's dependencies.
-- **A mission's area** (games.py `mission_home`): no TravelStation (all fell in "other" - the user) - its waypoints'
+- **A mission's area** (`missions.home`): no TravelStation (all fell in "other" - the user) - its waypoints'
   level: the turn-in's (`TurnInWaypointDefinition.PersistentLevelName`, usually its giver: T.K. Has More Work's
   WP_Al), else the target's, named by the level lists (as the map's title). `GameStageRegion`: a technical name only.
 - **Objective markers: a path** (probe_bl1_waypoints.txt): a waypoint definition's WillowWaypoints are numbered
@@ -320,20 +320,20 @@ says when it was seen.
 - **Gear on the ground**: the page's gear test goes by class (model.js `isGear`) - BL1's shields, grenade mods, com
   decks are one class, `WillowEquipAbleItem` (game.js `bl1.gearClasses`; its `WillowUsableItem`: ammo, health, not
   gear). Without it an "Explosive Bouncing Bettie" showed as "Equip Able Item ?", no rarity, no card (the user). The
-  collector's own test (inspector.is_gear) goes by kind: `equip_kind` already made it gear.
-- **Fonts** (bl1fonts.py, swffont.py; the feature `fontlibrary`): the menus' movies import their fonts (their own
+  collector's own test (inspector.is_gear) goes by kind: its items part's `kind` already made it gear.
+- **Fonts** (files/bl1fonts.py, formats/swffont.py; its assets part's job, at boot): the menus' movies import their fonts (their own
   DefineFont3 tags: 0 glyphs) from a library, `Packages/Fonts/Fonts_en.upk`'s movie `Fonts_en`: WillowBody (the
   page's text font, BL2's too), WillowHead (its headings), Brush Script Std - 1284 glyphs each, standard SWF
   DefineFont3 (tag 75; BL2's: Scaleform's compacted 1005) - read by swffont.py (twips: / 20, EM 1024), written as
   TrueType by gamefonts.to_ttf, by gamework's "swffont" job (cached on disk); the catalogue set when a page
   connects (no scan). Fonts_en only (no other language's library in the install).
-- **In a vehicle** (probe_bl1_driving.txt; games.py `local_pawn`, `vehicle_name`): the controller's `MyWillowPawn` is
+- **In a vehicle** (probe_bl1_driving.txt; `pawns.local`, `vehicle_name`): the controller's `MyWillowPawn` is
   None, its `Pawn` the vehicle (`WillowVehicle_WheeledVehicle`) or the seat (a turret: `WillowWeaponPawn`) - the
   local player is that pawn's `Driver`; their pawn has no player info meanwhile: the controller's (inspector
   read_players). Before: the page lost track of the player, listed them as "Player", twice getting out. Its
   vehicles: no VehicleDef / GetCustomizableName (their record failed: none on the page) - `DisplayName` /
   `VehicleNameString`, both "" in its .int: the "?" name.
-- **Map exits** (games.py `object_destination`; the record's `exit`, the page's "Exit to {area}" - model.js nameText):
+- **Map exits** (`objects.exit`; the record's `exit`, the page's "Exit to {area}" - model.js nameText):
   its map changers (`gd_MapChangeObjects.Default_MapChanger`, `Vehicle_MapChanger_Arid`) carry no destination - the
   level's script does: an event of theirs (SeqEvent_Used / Touch, its `Originator` the changer) leads through its
   output links to a `WillowSeqAct_PrepareMapChangeFromDefinition`, its `DefaultMap` the map (W_Arid_P.umap,

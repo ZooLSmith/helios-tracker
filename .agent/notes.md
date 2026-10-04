@@ -429,7 +429,7 @@ where the game showed nothing. The game's data, not ours: an untouched pile like
 bCanBeUsed (1, 0), Health 5, mesh shown, rendered) - but at Z 542 with the player standing at Z 1077 beside it: ~5 m
 under the terrain (the others on the ground, Z 60-85). Left as it is - telling it's buried would need a trace against the
 level's geometry (a function call). Also seen: a pile's anims are Open / Opened / Closed (bits 0 / 1 / 2) - untouched:
-4 (Closed alone), dug: 7; not the chests' layout (games.py is_looted: "Opened" by name, so it reads right either way).
+4 (Closed alone), dug: 7; not the chests' layout (games.GAME.objects.is_looted: "Opened" by name, so it reads right either way).
 The probe compares an object with the others of its definition (the fields where it differs from most): reusable for
 any "why is this one different".
 

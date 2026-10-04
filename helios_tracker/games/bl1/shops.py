@@ -1,5 +1,4 @@
-"""Borderlands 1's shops: what differs from Borderlands 2's (games/bl2/shops.py) - .agent/bl1.md.
-Moved from games.py (profiles.md step 4: a pure move)."""
+"""Borderlands 1's shops: what differs from Borderlands 2's (games/bl2/shops.py) - .agent/bl1.md."""
 
 from typing import Any
 

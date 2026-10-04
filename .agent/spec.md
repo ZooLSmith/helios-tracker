@@ -156,14 +156,15 @@ bottom-left message).
   renders no frame meanwhile) = the `cutscene` payload -> a CUTSCENE block at the top of the Info tab, a video
   player's bar (elapsed / total, counted by the page); a player in cinematic mode (`bCinematicMode` /
   `GRI.bAllInCinematicMode`, `ct`) = "In a cutscene" over their bars, like a menu.
-- **Game fonts** (`gamefonts.py`, see notes): the game's own UI fonts (WillowBody, Compacta Bd BT, Chintzy CPU BRK)
+- **Game fonts** (`formats/fonts.py`, BL2's libraries `games/bl2/files/gamefonts.py`, the catalogue `assets.FONTS`;
+  see notes): the game's own UI fonts (WillowBody, Compacta Bd BT, Chintzy CPU BRK)
   rebuilt as TrueType from the player's `Startup.upk` at run time (a thread, once per session), served at
   `/font/<slug>.ttf`; `@font-face` + `--font-body` / `--font-head` in base.css (WillowBody is the page's text; Compacta unused: too condensed
   for the small headings).
   Never committed (extracted game files).
-- **Skill icons** (`gameicons.py`, see notes): the game's own, from the class packages at run time, served as
+- **Skill icons** (`games/bl2/files/gameicons.py`, see notes): the game's own, from the class packages at run time, served as
   PNGs (`/icon/<path>.png`, decoded on demand, never committed); on the Skills tab's tiles (greyed without points).
-- **Item card icons** (`gamecards.py`, see notes): the manufacturer logo and the item type icon, the game's (atlas
+- **Item card icons** (`games/bl2/files/gamecards.py`, the keys in `assets.py`; see notes): the manufacturer logo and the item type icon, the game's (atlas
   bitmaps of its item card movie), found from its data (the engine config's packages, the sprites labelled with the
   loaded definitions' keys, the element's: the damage types' enum) - no BL2 name hard-coded; served at
   `/cardicon/<manufacturer|element|type>/<key>.png`, **layered** (the lists placed together, by depth: a black outline
@@ -188,9 +189,11 @@ bottom-left message).
   of its own.
 - **The game files' work off the game's Python** (`gamework.py`): the scan and every decode (fonts, icons) run in a
   **subinterpreter** (Python 3.14, its own GIL: beside the game thread, not in turns with it - a plain thread of ours
-  froze / lagged the game), fed through a queue; results cached on disk (`.cache/assets`, gitignored). No
-  subinterpreters: in process, politely (1 ms switch interval, a pause per decompressed block).
-- **The game files' scan** (`gamescan.py`): the fonts, card icons and skill icons found in **one** pass over the packages
+  froze / lagged the game), fed through a queue; results cached on disk (`.cache/assets`, gitignored). A job names
+  its function (a `*_job` of a file-only module: `gamework.fn`) - the worker knows no job, no game. No
+  subinterpreters: in process, politely (1 ms switch interval, a pause per decompressed block). The server asks the
+  profile for the game's images (`games.GAME.assets.serve(path)`).
+- **The game files' scan** (`games/bl2/files/gamescan.py`, BL2's assets part): the fonts, card icons and skill icons found in **one** pass over the packages
   (a gamework job), started when a page first connects (once per session), cached in `.cache/scan.json` (per package,
   by size + date: later sessions scan nothing). Font / icon requests wait for it (`SCAN_WAIT`).
 - **Explosives** (Places, `explosive`): what explodes (a Behavior_Explode: barrels...) - a burst in its element's colour,
@@ -327,16 +330,18 @@ bottom-left message).
 
 ## How it works
 
-- `games.py`: the game running, as a profile (BL2's, the Pre-Sequel's, Assault on Dragon Keep's, BL1's) - picked
-  once at import from mods_base's game. Its features (`tacmap`, `discovery`, `scan`, `oxygen`, `jumppads`) say which systems
-  the game has; its methods are the APIs that differ (the map name, a video's no-skip flag, the bottom-left message);
-  its `packages` the cooked folder read (BL1: none yet). The rest of the mod asks it, never which game it is.
+- `games/`: the game running, as a profile (BL2's, the Pre-Sequel's, Assault on Dragon Keep's, BL1's) - picked
+  once at the mod's boot from mods_base's game (`games.pick()`). Its features (`discovery`, `oxygen`, `jumppads`) say
+  which systems the game has; its parts (world, missions, items, objects, pawns, shops, skills, assets, ui - BL2's the
+  base, another game overriding what differs) do the jobs that differ (the map name, the map's source, the mission
+  markers, a video's no-skip flag, the bottom-left message...); its data the rest (`packages`: the cooked folders
+  read). The rest of the mod asks it, never which game it is - `profiles.md`.
 - `collector.py` (game thread, from `WillowGameViewportClient:PostRender`, rate-limited):
-  - level: every 1 s, `ENGINE.GetCurrentWorldInfo()` -> `games.GAME.map_name()` (BL2:
+  - level: every 1 s, `ENGINE.GetCurrentWorldInfo()` -> `games.GAME.world.map_name()` (BL2:
     `GetStreamingPersistentMapName()`; BL1: its streamed area) and `level_key()` (BL2: + the map volume's path). A
-    change publishes the `level` payload (with the profile's `game` key and `features`) and, with the `tacmap`
-    feature, takes the profile's `map_source()` (`levelmap.py`: BL2's `tactical` - `GetMapInfo()` ->
-    `TacticalMapVolume` + `TacticalMapMovie`; BL1's `landmark` - the area's LevelLandmarkAnchor): its placement now,
+    change publishes the `level` payload (with the profile's `game` key and `features`) and takes
+    `games.GAME.world.map_source()` (a `levelmap.MapSource`, None for no map - BL2's tactical map: `GetMapInfo()` ->
+    `TacticalMapVolume` + `TacticalMapMovie`; BL1's landmark map: the area's LevelLandmarkAnchor): its placement now,
     its images (and anything only the files tell: BL1's center / upp) from the map thread.
   - pawns: `WorldInfo.PawnList` / `NextPawn`, every update. Kind: me (`pc.MyWillowPawn`),
     `WillowPlayerPawn`, `WillowVehicle`, `IsEnemy(me)` -> enemy, else npc. Names: PRI.PlayerName
@@ -345,17 +350,22 @@ bottom-left message).
     3 s (walks every object - never per update); pickups held as WeakPointers, positions read per
     update; objects are static (sent as their own `objects` payload on change).
   - Per-actor name / kind cached by address, re-resolved at each scan.
-- Game files (pure Python, no SDK: the map thread, gamework's worker, offline_check):
-  - `upk.py`: UE3 packages in BL2's format (832; the Pre-Sequel's too) - LZO, both package layouts, names / imports /
-    exports, tagged properties, textures' top mips, the worker's open-package cache. `upk_bl1.py`: Borderlands 1's
-    format (584), a subclass overriding only what differs (class attributes, one chunk hook, actors' state frame).
-    Each game's code opens its packages with its own reader: no version switch.
-  - `swf.py`: Scaleform movies' tags, bit reader, rectangles, matrices (tacmap, gamecards, gamefonts, swfshape).
-  - `tacmap.py` (BL2 / TPS): reads the level's `<Map>_P.upk` from `WillowGame/CookedPCConsole`, the SwfMovie's
-    image placements and the Texture2D top mips (raw DXT - the page decodes them). ~0.3-0.5 s per level, cached.
-  - `bl1map.py` (BL1): the level's map frame (its LevelLandmarkAnchor's `MapFrame`) out of the menu movie
-    (`status_menu`), its vector shapes rendered by `swfshape.py` into one BGRA image (`PF_A8R8G8B8`, 2 px per movie
-    px, anti-aliased) - the page draws it like BL2's. 0.3-1.4 s per level.
+- Game files (pure Python, no SDK: the map thread, gamework's worker, offline_check) - the formats in `formats/`
+  (no game), each game's decoders in `games/<game>/files/`:
+  - `formats/upk.py`: UE3 packages in BL2's format (832; the Pre-Sequel's too) - LZO, both package layouts, names /
+    imports / exports, tagged properties, textures' top mips, the worker's open-package cache.
+    `games/bl1/files/upk_bl1.py`: Borderlands 1's format (584), a subclass overriding only what differs (class
+    attributes, one chunk hook, actors' state frame). Each game's code opens its packages with its own reader: no
+    version switch.
+  - `formats/swf.py`: Scaleform movies' tags, bit reader, rectangles, matrices; `swfshape.py` (vector shapes drawn),
+    `swffont.py` / `fonts.py` (fonts read, written as TrueType), `image.py` (DXT, PNG), `engine.py` (the engine's
+    always-loaded packages).
+  - `games/bl2/files/tacmap.py` (BL2 / TPS): reads the level's `<Map>_P.upk` from `WillowGame/CookedPCConsole`, the
+    SwfMovie's image placements and the Texture2D top mips (raw DXT - the page decodes them). ~0.3-0.5 s per level,
+    cached.
+  - `games/bl1/files/bl1map.py` (BL1): the level's map frame (its LevelLandmarkAnchor's `MapFrame`) out of the menu
+    movie (`status_menu`), its vector shapes rendered by `formats/swfshape.py` into one BGRA image (`PF_A8R8G8B8`, 2 px
+    per movie px, anti-aliased) - the page draws it like BL2's. 0.3-1.4 s per level.
 - `inspector.py` (game thread, every 2 s, only sent on change): each player pawn's gear
   (`InvManager.InventoryChain` / `ItemChain`), backpack (`InvManager.Backpack`) and skills
   (`pawn.Controller.PlayerSkillTree`); falls back to `pawn.Weapon` when there's no InvManager. Seen in game
@@ -420,7 +430,7 @@ bottom-left message).
   (`_info`: names, allegiances) are refreshed `INFO_REFRESH_PER_TICK` per tick, not all on the next one. `looted`,
   `domes`, `object health`: a slot each (together: a 15 ms tick); `looted` checks `LOOTED_PER_PASS` containers a pass
   on the host (the usability hook tells it at once - the check is a safety net), all of them on a co-op client.
-- Pickups at rest (`games.py` `pickup_at_rest`: `bPickupAtRest`, set once it fully stopped - BL2 and BL1 alike, notes.md
+- Pickups at rest (`games.GAME.objects.pickup_at_rest`: `bPickupAtRest`, set once it fully stopped - BL2 and BL1 alike, notes.md
   "Pickups at rest") keep their last record: each tick only whether they're gone (`bDeleteMe` / `bHidden`),
   a full read every `PICKUP_RESTING_EVERY` (1 s - staggered by address the first time), a knocked one back to every tick.
   After a pickup scan only the pawns' descriptions are refreshed (a pickup's name never changes). The discovery areas
@@ -437,7 +447,7 @@ bottom-left message).
   names) are `util.PerObject`s: each entry kept with a WeakPointer, never returned once its object is gone (a new
   character's controller at a freed address got the old one's tree). An item's element level: read once per item.
   Borderlands 1: its missions not picked up rebuilt only when the log, its statuses or the player's level change, their
-  eligibility read once per mission meanwhile (`games.Borderlands1._eligible_for` - the givers' "!" too); its skill
+  eligibility read once per mission meanwhile (`games/bl1/missions.py` `_eligible_for` - the givers' "!" too); its skill
   icons once per character.
 - A players pass builds gear cards and skill stats (`_skill_stats`: `GetSkillEffectPresentations`, ~100 calls for a
   first tree - 90 ms, a player joining) for at most `inspector.ITEMS_SECONDS`; a tree missing some isn't cached (the

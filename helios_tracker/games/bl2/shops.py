@@ -1,5 +1,4 @@
-"""Borderlands 2's shops (the base: every game's unless its profile has its own) - Vending machines: their prices, currency, restock timer.
-Moved from games.py (profiles.md step 4: a pure move)."""
+"""Borderlands 2's shops (the base: every game's unless its profile has its own) - Vending machines: their prices, currency, restock timer."""
 
 from typing import Any
 

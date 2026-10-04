@@ -185,7 +185,7 @@ export function itemHtml(it, ownerLevel) {
     // (inspector.js bindItems)
     ...(it.gib ? [[t("item.gibbed"), it.gib, t("item.gibbedTip"), `<span class="igib"><code>${esc(it.gib)}</code>` +
       `<button type="button" class="icopy" data-copy="${esc(it.gib)}">${esc(t("item.copy"))}</button></span>`]] : [])]);
-  // its item card icons (the game's: gamecards.py), along the card's bottom like the game's (smaller while folded):
+  // its item card icons (the game's: its assets, /cardicon/), along the card's bottom like the game's (smaller while folded):
   // the manufacturer's logo, the element's, the type's - each dropped if the game has none (or the key's odd); the
   // logo missing: the maker's name instead
   const icon = (kind, key, text = "") => (okKey(key)

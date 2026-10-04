@@ -1,5 +1,4 @@
-"""Borderlands 2's world (the base: every game's unless its profile has its own) - The level and the world: its map's name and key, whether it's paused, its map's source, its level names.
-Moved from games.py (profiles.md step 4: a pure move)."""
+"""Borderlands 2's world (the base: every game's unless its profile has its own) - The level and the world: its map's name and key, whether it's paused, its map's source, its level names."""
 
 from typing import Any
 

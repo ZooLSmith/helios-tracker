@@ -1,5 +1,4 @@
-"""Borderlands 2's missions (the base: every game's unless its profile has its own) - The mission log: its entries, their statuses / objectives / progress, where a mission is, its markers.
-Moved from games.py (profiles.md step 4: a pure move)."""
+"""Borderlands 2's missions (the base: every game's unless its profile has its own) - The mission log: its entries, their statuses / objectives / progress, where a mission is, its markers."""
 
 from typing import Any
 

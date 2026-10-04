@@ -1,5 +1,4 @@
-"""Borderlands 2's objects (the base: every game's unless its profile has its own) - Interactive objects and pickups: behaviours, looted, exits, the missions they give, pickups at rest.
-Moved from games.py (profiles.md step 4: a pure move)."""
+"""Borderlands 2's objects (the base: every game's unless its profile has its own) - Interactive objects and pickups: behaviours, looted, exits, the missions they give, pickups at rest."""
 
 from typing import Any
 

@@ -1,6 +1,6 @@
-// The game the mod runs in: what the level message says (games.py's profile - its "game" key and "features") and each
+// The game the mod runs in: what the level message says (the mod's profile - games/: its "game" key and "features") and each
 // game's own data on the page. Nothing else on the page names a game: it asks here (hasFeature, gameData).
-// - A system a game doesn't have: a feature it lacks (a layer's "needs": its row hidden, games.py's same names).
+// - A system a game doesn't have: a feature it lacks (a layer's "needs": its row hidden, the profile's same names).
 // - Data that differs (its rarity tiers, a currency's sign): a field of gameData(), BL2's unless the game sets its own.
 // Its label variants ("group.relic.tps") and colour tokens ("--layer-pickup-eridium-tps") are keyed by gameKey().
 // Pure (no DOM, no imports: model.js and i18n.js's settings read it): tested offline under Node.
@@ -60,7 +60,7 @@ const UNKNOWN = { ...BL2, rarities: RARITIES }; // before the level message (or 
 let key = "";
 let features = new Set();
 
-/** The level message's game ("bl2", "tps"...) and its features (games.py): whether the game changed. */
+/** The level message's game ("bl2", "tps"...) and its features (the profile's): whether the game changed. */
 export function setGame(game, list) {
   const next = new Set(Array.isArray(list) ? list : []);
   const changed = (game || "") !== key || next.size !== features.size || [...next].some((f) => !features.has(f));
@@ -69,7 +69,7 @@ export function setGame(game, list) {
   return changed;
 }
 export const gameKey = () => key;
-/** Whether the game has a system ("oxygen", "discovery"...: games.py's features). */
+/** Whether the game has a system ("oxygen", "discovery"...: the profile's features). */
 export const hasFeature = (f) => features.has(f);
 /** The game's own page data (BL2's where it has none of its own). */
 export const gameData = () => DATA[key] || UNKNOWN;

@@ -1,5 +1,4 @@
-"""Borderlands 2's pawns (the base: every game's unless its profile has its own) - Pawns: ours, their names, vehicles', the players' class / character.
-Moved from games.py (profiles.md step 4: a pure move)."""
+"""Borderlands 2's pawns (the base: every game's unless its profile has its own) - Pawns: ours, their names, vehicles', the players' class / character."""
 
 from typing import Any
 

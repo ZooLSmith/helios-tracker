@@ -1,8 +1,8 @@
 # Architecture: what's wrong beyond the game profiles
 
-Found while auditing the game handling (2026-10-03, branch `profiles` - `.agent/profiles.md`), but not about games:
-how the mod's work is shaped, its caches, its modules. Nothing here is built yet. What `profiles.md` already plans is
-only pointed to, not repeated. Each point: what's wrong, why it matters, the direction.
+Found while auditing the game handling (2026-10-03, branch `profiles` - the game profiles: `.agent/profiles.md`), but
+not about games: how the mod's work is shaped, its caches, its modules. Each point: what's wrong, why it matters, the
+direction - what's been built since is said where it is.
 
 ## The goal
 
@@ -58,7 +58,18 @@ GIL waits from the game's own, and it's the number every change is judged by.
 
 The mod runs on the game thread (unrealsdk: UObjects only there) - its work is the game's frame time. Today's hitches,
 from `helios_tracker.log`'s slow-task reports: `scan objects` 38 ms (BL2) / 116 ms (BL1) every 120 s, `state` 10-40 ms
-spikes ~3 times a second, `players` ~10 ms every 2 s, peaks of 100-550 ms (`profiles.md` "Game-thread hitches").
+spikes ~3 times a second, `players` ~10 ms every 2 s, peaks of 100-550 ms. The baseline, 2026-10-03 (75 BL2 / TPS
+sessions - older builds among them: rough -, 7 BL1 ones; the median of each 30 s report's worst, how often) - before
+the stall work (section 0: steady play now 0-3 spikes of ours per 30 s):
+
+| task | BL2 / TPS | BL1 |
+|---|---|---|
+| `missions` (every 1 s) | 6 ms, 17 of 30 s | 11 ms, 28 of 30 s |
+| `mission log` (the full pass, sliced) | 5.5 ms, 4x / 30 s | 7 ms, 38x / 30 s |
+| `scan objects` (every 120 s) | 38 ms | 116 ms |
+| `scan pickups` (every 120 s) | 12 ms | 27 ms |
+| `state` (every tick) | ~10 ms, ~3x a second | the same |
+| `players` (every 2 s) | ~10 ms | ~9 ms |
 
 What's wrong:
 
@@ -125,8 +136,9 @@ and `_class_names` (keyed by controller / PRI address - a new controller at a re
 tree, class name). The level reset runs late (`_check_level` polls each second, while the new level's spawn hooks
 already run on the old caches).
 
-`profiles.md` plans the fix ("Level changes", the inventory's "Caches"): one reset registry, each cache classified
-per level / static, WeakPointer-checked hits for the expensive ones, the reset from a load hook. Beyond it, the rule
+Built (2026-10-04): the controller-keyed caches fixed (`util.PerObject`: a WeakPointer to the object), one reset
+registry (`util.on_level_change` - `profiles.md` "Level changes"). Left (`profiles.md` "Still open"): the unsure
+definition-keyed caches classified (a WeakPointer probe), the reset from a load hook. Beyond it, the rule
 for any new cache: **its key and its lifetime are stated where it's defined** (per level - registered; static - says
 why; never a raw UObject held across levels).
 
@@ -143,7 +155,7 @@ Direction:
 - `try_` for **runtime conditions** only (None in a chain, an object gone), said in the call's comment or by a
   narrower helper (`field`, a reader returning None).
 - A failure that means a bug or a game difference is **logged once** (per site and exception type) - the profile's
-  parts get this (`profiles.md` point 1); the same helper for the rest.
+  parts have it (`games._logged`, built 2026-10-03); the same helper for the rest.
 - Hot loops read through `util.field` / readers, not lambdas.
 
 ## 4. Modules too big, responsibilities mixed
@@ -153,17 +165,17 @@ Direction:
   players, skills, element names, explosions, plants, buffs. Each a grab bag: any change reads half the file.
   Direction: the scheduler apart from the records; one module per record kind (pawns, pickups, objects, markers),
   the collector calling them.
-- Mixed file modules: `gamefonts` (a format, BL2's libraries, shared runtime state), `gamecards` (BL2's decoder and
-  the shared card key registry), `gameicons` (image formats and BL2's index), `tacmap` (BL2's maps and the shared
-  `MapImage`), `levelmap` (the shared map type and the SDK) - the split is in `profiles.md` ("File decoding").
-- Duplicated helpers: `gamefonts.movie_raw` = `swf._movie_raw`, `gamecards._movie_tags` repeats `swf._movie_tags`.
+- *(done, 2026-10-04: `formats/`, `games/<game>/files/`, `assets.py`, `levelmap` the shared map types without the
+  SDK - `profiles.md` "The game's files")* Mixed file modules (`gamefonts`, `gamecards`, `gameicons`, `tacmap`,
+  `levelmap`). Left: `gamecards._movie_tags` repeats `formats/swf._movie_tags` (not quite: it yields nothing for a
+  non-movie where swf's raises - merged with a flag, or kept).
 
 ## 5. Coupling through private functions and late imports
 
-- 52 function-level imports (`# noqa: PLC0415`: games.py 34, gamework 9, bl1map 4...) - most to dodge import cycles
-  between modules that call each other's privates: the profile calls `collector.pawn_display_name`,
-  `inspector._skills`, `inspector._remapped`, `skills._action_locked`; `bl1map` imports `tacmap`'s `MapImage`;
-  `swffont` (a format) imports `gamefonts` (a decoder).
+- Function-level imports (`# noqa: PLC0415` - 52 on 2026-10-03, most in the profile) - most to dodge import cycles
+  between modules that call each other's privates: the profile's parts call `collector.pawn_display_name`,
+  `inspector._skills`, `inspector._remapped`, `skills._action_locked` (`profiles.md` "Still open"). *(fixed,
+  2026-10-04: `bl1map` importing `tacmap`'s `MapImage`, `swffont` - a format - importing `gamefonts` - a decoder.)*
 - A private function used from another module is a missing public one, or a misplaced one. Direction: dependencies
   point one way (formats <- decoders <- parts / records <- the collector / server), a function used across modules is
   public in the module that owns it, and a cycle is a sign something lives in the wrong place - not a reason for a
@@ -172,8 +184,8 @@ Direction:
 ## 6. Stand-ins and hidden calls
 
 - `_NotPickedUp` imitates a game log entry (its field names, `Status`, `bHeardKickoff`), and its property calls a game
-  function behind the reader's back. The general rule: code returns its own records, never objects shaped like the
-  game's; a property never hides a call (`profiles.md`, "The principle").
+  function behind the reader's back (its calls cached since). The general rule: code returns its own records, never
+  objects shaped like the game's; a property never hides a call (`profiles.md` "The rules", "Still open").
 
 ## 7. Tests: one giant function, and the gaps
 
@@ -182,25 +194,31 @@ Direction:
   (their own scope), the shared setup (fakes, the imported mod) passed in.
 - It patches instance methods (`GAME.mission_entries = lambda`, `GAME.map_name`) - tests built on implementation
   details; the parts give them seams.
-- Untested: the worker importing from a `.sdkmod` (zipimport in the subinterpreter), the worker's imports without the
-  SDK and without game files, AoDK beyond its Gibbed prefix.
-- Broken already: `tools/probes/check_navwalk.py` (`from tacmap import ...` with relative imports inside). Probes
-  that load modules by file path (`dump_tacmap_movie.py`, `find_fonts.py`) break as soon as those modules use relative
-  imports.
+- Untested in `offline_check`: the worker importing from a `.sdkmod` (zipimport in the subinterpreter - checked by
+  hand, 2026-10-04: its subpackages stubbed, a BL2 texture job from the zip), AoDK beyond its Gibbed prefix. Tested
+  since: the profiles' contract (`check_parts_contract`), the shared code naming no other game (`check_shared_names`),
+  `games` importing without the SDK (`check_games_import`).
+- *(fixed, 2026-10-04)* `check_navwalk.py` and the probes loading modules by file path (`formats/`).
 
 ## 8. Small ones
 
 - `supported_games` (`pyproject.toml`) leaves out `"AoDK"`, which has a profile and a test.
 - `inspector.py:852`: a `find_all("WillowDamageTypeDefinition")` only to get an enum type (`find_class` does it);
   `inspector.py:315`: `find_all("WeaponTypeDefinition")` once per session - a DLC loaded later is missed.
-- `_out_of_sight` (~50-100 us per object, every scan) - cheaper reads, only for definitions that can hide, a hook on
-  the visibility change if one exists (`profiles.md`, "Game-thread costs").
+- `_out_of_sight` (~50-100 us per object, every scan - its reads made cheaper 2026-10-04) - only for definitions that
+  can hide, a hook on the visibility change if one exists (a probe): a hide after a scan shows only at the next one.
+- From the profiles' audit, game-thread costs left: `GetShieldStrength` + `GetMaxShieldStrength` per player with a
+  shield every tick (against the rule: no game function per tick); `collector.level_name`'s `find_all
+  ("LevelDependencyList")` per new map name (the lists are static: found once); the 120 s scan resetting `_info` (the
+  next tick rebuilds every pawn and pickup at once - the `state` spikes after a scan?); `object_spawned` building a
+  record in two hooks, outside the records' budget; BL1's `_mission_definitions` `find_all` again on every call while
+  its result is empty.
 
 ## 9. The mod folder: code and what it writes, mixed (the user, 2026-10-04)
 
 A folder install's DATA is the package itself (paths.py): its modules sit next to the logs (`helios_tracker_<game>.log`,
 `helios_crash_<game>.log`, the old unsuffixed ones), the user's `autoexec.ps1`, `.cache/`, a `diagnostics` file - "not a
-big fan" (the user). To do after the profiles' moves (profiles.md step 7):
+big fan" (the user). To do now the profiles' moves are done:
 - what the mod writes in a folder of its own, the .sdkmod's way (`sdk_mods/.helios_tracker/`: already apart) - e.g.
   DATA = `<package>/.data/` or the same `sdk_mods/.helios_tracker/` for both installs (the dev's logs then outside the
   repo: the tools reading them follow paths.DATA); the old files moved once (or left: gitignored);
@@ -221,11 +239,10 @@ big fan" (the user). To do after the profiles' moves (profiles.md step 7):
 The stalls lead (the user):
 
 1. **See them**: the frame-time instrument (section 0) - the number every change is judged by.
-2. **The correctness bugs** (the controller-keyed caches - `profiles.md` step 0): wrong answers, small fixes.
+2. *(done, 2026-10-04)* **The correctness bugs** (the controller-keyed caches): wrong answers, small fixes.
 3. **The cheap game-thread wins** (sections 0, 1): the scans sliced or rarer, the `_info` burst spread, hooks only
-   queueing, the per-tick function calls gone, BL1's per-pass costs (`profiles.md` step 0).
+   queueing, the per-tick function calls gone, BL1's per-pass costs (mostly done 2026-10-04: section 8's list left).
 4. **The server and the sending into a subinterpreter** (sections 0, 1b): no more GIL or lock contention with the game.
 5. **Collecting only what's looked at** (1c), designed with the page.
-6. **The rest alongside `profiles.md`'s steps** where they touch the same code (`try_` with the failure logging, the
-   file modules split with the decoders); the collector / inspector split last (the largest churn, the least risk to
-   put off).
+6. **The rest** (the game profiles done: the failure logging, the file modules split); the collector / inspector
+   split last (the largest churn, the least risk to put off).

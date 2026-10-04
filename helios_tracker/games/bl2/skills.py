@@ -1,5 +1,4 @@
-"""Borderlands 2's skills (the base: every game's unless its profile has its own) - The players' skill trees and action skill.
-Moved from games.py (profiles.md step 4: a pure move)."""
+"""Borderlands 2's skills (the base: every game's unless its profile has its own) - The players' skill trees and action skill."""
 
 from typing import Any
 

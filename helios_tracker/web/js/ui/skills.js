@@ -18,7 +18,7 @@ export function skillStatText(f) {
  *  apart (the BONUSES). No value shown (bDontDisplayNumber): ["the text", "", ""]. */
 export function skillStatParts(f) {
   let number;
-  if (f.dv != null) { // the number as the game shows it, worked out by the mod (BL1's card lines: games.py card_line_value)
+  if (f.dv != null) { // the number as the game shows it, worked out by the mod (a game's card lines: its profile's card_line_value)
     const n = num(f.pos ? Math.abs(f.dv) : f.dv, f.dp || 0);
     number = `${f.dv > 0 && !f.np ? "+" : ""}${f.pct ? t("unit.percent", { n }) : n}`;
   } else {

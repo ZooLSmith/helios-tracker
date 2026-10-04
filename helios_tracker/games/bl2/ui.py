@@ -1,5 +1,4 @@
-"""Borderlands 2's ui (the base: every game's unless its profile has its own) - The game's own UI the mod speaks through (its bottom-left message).
-Moved from games.py (profiles.md step 4: a pure move)."""
+"""Borderlands 2's ui (the base: every game's unless its profile has its own) - The game's own UI the mod speaks through (its bottom-left message)."""
 
 from typing import Any
 

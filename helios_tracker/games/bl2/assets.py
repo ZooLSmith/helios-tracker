@@ -1,5 +1,4 @@
-"""Borderlands 2's assets (the base: every game's unless its profile has its own) - The game's files the page shows (fonts, icons): when they're read, what a request waits for, card icons.
-Moved from games.py (profiles.md step 4: a pure move)."""
+"""Borderlands 2's assets (the base: every game's unless its profile has its own) - The game's files the page shows (fonts, icons): when they're read, what a request waits for, card icons."""
 
 import re
 import time

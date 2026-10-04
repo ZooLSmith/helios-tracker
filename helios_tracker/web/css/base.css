@@ -1,5 +1,5 @@
 /* Colours, the page, the map canvas and what floats over it (tooltip, coordinates, message). */
-/* The game's own UI fonts, rebuilt from the player's install by the mod (gamefonts.py, /font/<slug>.ttf -
+/* The game's own UI fonts, rebuilt from the player's install by the mod (its assets: formats/fonts.py, /font/<slug>.ttf -
    never stored here): WillowBody (the menus' / missions' text), Compacta Bd BT (headings, the HUD),
    Chintzy CPU BRK (a few labels only: the game keeps 41 of its characters). Until they're extracted (or
    without the game files) the stacks below fall back to the system's. */
