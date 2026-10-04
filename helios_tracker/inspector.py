@@ -1170,22 +1170,28 @@ def _class_name(ctrl: Any, pri: Any) -> dict[str, Any]:
 
 
 def _class_name_uncached(ctrl: Any, pri: Any) -> dict[str, Any]:
-    """{"cls": class, "char": character} - the game's localized class name ("Gunzerker" /
-    "Défourailleur") and character name ("Salvador"), via the player info (shared with everyone:
-    works for others on a client too) or the class definition; else the class definition's object
-    name, flagged made-up ("clsRaw")."""
-    # The player info points at the *character* (PlayerNameIdentifierDefinition: "Salvador"), whose
-    # CharacterClassId is the class (PlayerClassIdentifierDefinition: "Gunzerker") - seen in game
+    """{"cls": class, "char": character} - the game's localized class name ("Gunzerker" / "Défourailleur", BL1's
+    "Hunter") and character name ("Salvador"), each game's way (games.py class_name); else the class definition's
+    object name, flagged made-up ("clsRaw")."""
+    out = dict(try_(lambda: games.GAME.class_name(ctrl, pri), {}) or {})
+    if out.get("cls"):
+        return out
+    raw = def_name(try_(lambda: ctrl.PlayerClass) if ctrl is not None else None)
+    return {**out, "cls": raw, "clsRaw": 1} if raw else {**out, "cls": ""}
+
+
+def class_identifiers(ctrl: Any, pri: Any) -> dict[str, Any]:
+    """BL2's class / character names (games.py class_name): the player info (shared with everyone: works for others on
+    a client too) or the class definition points at the *character* (PlayerNameIdentifierDefinition: "Salvador"), whose
+    CharacterClassId is the class (PlayerClassIdentifierDefinition: "Gunzerker") - seen in game. Those it has."""
     character = try_(lambda: pri.CharacterNameIdDef) or try_(lambda: ctrl.PlayerClass.CharacterNameId)
     class_id = try_(lambda: character.CharacterClassId)
     out: dict[str, Any] = {}
     if name := try_(lambda: str(character.LocalizedCharacterName), ""):
         out["char"] = name
-    text = try_(lambda: str(class_id.LocalizedClassNameNonCaps), "")
-    if text:
-        return {**out, "cls": text}
-    raw = def_name(try_(lambda: ctrl.PlayerClass) if ctrl is not None else None) or def_name(class_id)
-    return {**out, "cls": raw, "clsRaw": 1} if raw else {**out, "cls": ""}
+    if text := try_(lambda: str(class_id.LocalizedClassNameNonCaps), ""):
+        out["cls"] = text
+    return out
 
 
 def read_players(world_info: Any, me: Any, pc: Any = None) -> list[dict[str, Any]]:

@@ -210,6 +210,12 @@ says when it was seen.
   `DisplayName` empty, no function of their own for one (only every interactive object's - `GetTargetName`, called:
   nothing). Named by their definition, as guessed ("Outpost Definition ?"); shown as stations by their class (game.js
   `stationClasses` - no station word in their names).
+- **The player's class name** (probe_player_text.txt, probe_bl1_class_alias.txt, its localization files - 2026-10-04): no
+  identifier definitions (BL2's player info -> CharacterNameIdDef -> CharacterClassId): the page said "Mordecai ?". The
+  globals' `GD_Globals.General.Globals.PlayerCharacters[]` = {CharacterClassName "Hunter", DefaultCharacterName
+  "Mordecai"}, localized (gd_globals.INT `[General.Globals GlobalsDefinition]`: Roland 0 Soldier, Mordecai 1 Hunter,
+  Lilith 2 Siren, Brick 3 Berserker - the load character menu's words, the user), by the class's `CharacterName` (1 for
+  Mordecai) - games.py `class_name`. (The skill menu's "HUNTER": the alias map's skills_hunter_class - its capitals.)
 
 ## Item cards, rarities, exits (2026-10-03: probe_bl1_cards.txt, probe_bl1_exits.txt, offline)
 

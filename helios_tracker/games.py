@@ -218,6 +218,13 @@ class Profile:
 
         _skills(ctrl, player, bonuses)
 
+    def class_name(self, ctrl: Any, pri: Any) -> dict[str, Any]:
+        """A player's class and character as the game names them ({"cls": "Gunzerker", "char": "Salvador"}, those it
+        has): BL2's identifier definitions (inspector.class_identifiers)."""
+        from .inspector import class_identifiers  # noqa: PLC0415
+
+        return class_identifiers(ctrl, pri)
+
     def action_skill_locked(self, pc: Any) -> bool:
         """Whether the player's action skill isn't unlocked yet (its cooldown then reads "ready"): BL2's tree's
         SKILL_TYPE_Action skill at Grade 0 (skills._action_locked)."""
@@ -758,6 +765,18 @@ class Borderlands1(Profile):
                 names[branch] = str(localize(section, key, package))
         self._branch_names[cache_key] = names
         return names
+
+    def class_name(self, ctrl: Any, pri: Any) -> dict[str, Any]:
+        # No identifier definitions (the page said "Mordecai ?": the class definition's name - tools/probes/
+        # probe_player_text.txt): the globals' PlayerCharacters[] = {CharacterClassName "Hunter", DefaultCharacterName
+        # "Mordecai"} - localized (WillowGame/Localization/INT/gd_globals.INT, [General.Globals GlobalsDefinition]; the
+        # load character menu's "Hunter", "Soldier", "Berserker" - the user), by the class's CharacterName (Mordecai's 1 -
+        # its entry 1; the file's order Roland 0, Mordecai 1, Lilith 2, Brick 3). The controller's class: ours / the host's
+        import unrealsdk  # noqa: PLC0415
+
+        entry = unrealsdk.find_object("GlobalsDefinition", "GD_Globals.General.Globals").PlayerCharacters[
+            int(ctrl.PlayerClass.CharacterName)]
+        return {k: v for k, v in (("cls", str(entry.CharacterClassName)), ("char", str(entry.DefaultCharacterName))) if v}
 
     def action_skill_locked(self, pc: Any) -> bool:
         # Its action skill: PlayerSkills[ActionSkillPlayerSkillIndex] (Bloodwing, index 36), Grade 0 until the first

@@ -1394,6 +1394,15 @@ def check_helios_tracker() -> None:  # noqa: PLR0915
     assert profile_bl1.mission_offered(bl1_board_pc, bl1_tk, "", False) and bl1_eligibility_calls == ["tk", "other"], (
         "eligibility read once per mission while the log stays the same (a call per giver mission per second)", bl1_eligibility_calls)
     assert profile_bl2.mission_offered(None, "m", "begin", False) and not profile_bl2.mission_offered(None, "m", "", False)
+    # its class name: the globals' PlayerCharacters[] by the class's CharacterName (no identifier definitions: "Mordecai ?")
+    bl1_globals = ns(PlayerCharacters=[ns(CharacterClassName="Soldier", DefaultCharacterName="Roland"),
+                                       ns(CharacterClassName="Hunter", DefaultCharacterName="Mordecai")])
+    bl1_real_find_object = sys.modules["unrealsdk"].find_object
+    sys.modules["unrealsdk"].find_object = lambda cls, path: bl1_globals if cls == "GlobalsDefinition" else None
+    try:
+        assert profile_bl1.class_name(ns(PlayerClass=ns(CharacterName=1)), None) == {"cls": "Hunter", "char": "Mordecai"}
+    finally:
+        sys.modules["unrealsdk"].find_object = bl1_real_find_object
     # its missions not picked up: the log's entries, then every other mission loaded, not started - offered: eligible
     # a mission's area: its turn-in waypoint's level (else its target's), named as the map's title is
     real_level_name = sys.modules["helios_tracker.collector"].level_name
