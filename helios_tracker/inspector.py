@@ -81,7 +81,10 @@ _equipped_cache = _ItemCache()
 # at most ITEMS_SECONDS, at least one; the rest at the next pass - the collector retries soon, publishing only a complete
 # pass (players_complete).
 ITEMS_SECONDS = 0.004
-_items_pass = {"deadline": float("inf"), "built": 0, "left": False}  # (outside a pass: no limit)
+_items_pass = {"deadline": float("inf"), "built": 0, "left": False, "skipped": 0}  # (outside a pass: no limit)
+# A skill tree whose points can't be read (another player's, on the host - its cache never hit: re-read every pass,
+# ~13 ms, 2026-10-04 co-op) is cached anyway, read again after this long
+SKILLS_UNKNOWN_EVERY = 10.0  # s
 # the last players pass's parts (s): the player's own fields (class, xp...), card keys, inventory, skills - for the
 # slow-task report's breakdown (collector, paths.DIAGNOSTICS)
 players_parts: dict[str, float] = {}
@@ -426,11 +429,19 @@ def _cached_item(cache: _ItemCache, inv: Any, equipped: bool) -> dict[str, Any] 
     None: left for the next pass (players_complete says so)."""
     if (record := cache.get(inv)) is not None:
         return record
-    if _items_pass["built"] and time.perf_counter() > _items_pass["deadline"]:
-        _items_pass["left"] = True
+    if _later():
         return None
     _items_pass["built"] += 1
     return cache.put(inv, _item(inv, equipped))
+
+
+def _later() -> bool:
+    """The pass's budget spent (at least one thing built): what's not cached yet is left for the next pass."""
+    if _items_pass["built"] and time.perf_counter() > _items_pass["deadline"]:
+        _items_pass["left"] = True
+        _items_pass["skipped"] += 1
+        return True
+    return False
 
 
 def players_complete() -> bool:
@@ -548,6 +559,10 @@ def _skill_stats(sd: Any, ctrl: Any, grade: int) -> list[dict[str, Any]]:
     key = (sd._get_address(), grade, level)
     if key in _stats_cache:
         return _stats_cache[key]
+    # (a players pass's budget, the cards': a first tree is ~100 calls - 90 ms in one pass, a player joining)
+    if _later():
+        return []
+    _items_pass["built"] += 1
     result = try_(lambda: sd.GetSkillEffectPresentations(grade, ctrl, []))
     entries = result[1] if isinstance(result, tuple) and len(result) > 1 else []
     out = [line for e in entries or [] if (line := _presentation_line(e))]
@@ -943,9 +958,11 @@ def _skills(ctrl: Any, player: dict[str, Any], bonuses: dict[str, list[list[Any]
     # (a class mod swapped: the bonuses change, not the points)
     cache_key = (points, tuple(sorted((k, tuple(map(tuple, v))) for k, v in bonuses.items())))
     cached = _skills_cache.get(ctrl)
-    if cached is not None and cached[0] == cache_key and points is not None:
+    # (unknown points - another player's on the host: the cached tree until its refresh time, not every pass)
+    if cached is not None and cached[0] == cache_key and (points is not None or time.monotonic() < cached[2]):
         player.update(cached[1])
         return
+    skipped = _items_pass["skipped"]
     # The tree's arrays (PlayerSkillTree*Data structs): Branches[] = {Definition, ...},
     # Tiers[] = {TierNumber, ParentBranchIndex, ...}, Skills[] = {Definition, Grade, ParentTierIndex,
     # ...}: a skill -> its tier -> its branch, by index. (Not the SkillTree*StateData structs:
@@ -1023,7 +1040,8 @@ def _skills(ctrl: Any, player: dict[str, Any], bonuses: dict[str, list[list[Any]
     if loose:
         trees.insert(0, {"n": "", "pts": 0, "skills": loose})  # the page names it
     result = {"skills": trees, "skillPoints": points}
-    _skills_cache.put(ctrl, (cache_key, result))
+    if _items_pass["skipped"] == skipped:  # (complete - else again at the next pass, its stats cached so far kept)
+        _skills_cache.put(ctrl, (cache_key, result, time.monotonic() + SKILLS_UNKNOWN_EVERY))
     player.update(result)
 
 
@@ -1054,6 +1072,7 @@ def _skills_from_player_skills(ctrl: Any, player: dict[str, Any], bonuses: dict[
     if cached is not None and cached[0] == cache_key:
         player.update(cached[1])
         return
+    skipped = _items_pass["skipped"]
     skill_set = try_(lambda: ctrl.PlayerClass.PlayerSkillSet)
     trees = []
     for state in branch_states:
@@ -1098,7 +1117,8 @@ def _skills_from_player_skills(ctrl: Any, player: dict[str, Any], bonuses: dict[
             tree["root"] = True  # (the action skill's: not a tree of its own)
         trees.append(tree)
     result = {"skills": trees, "skillPoints": points}
-    _skills_cache.put(ctrl, (cache_key, result))
+    if _items_pass["skipped"] == skipped:  # (complete - else again at the next pass)
+        _skills_cache.put(ctrl, (cache_key, result, 0.0))
     player.update(result)
 
 
@@ -1198,7 +1218,7 @@ def read_players(world_info: Any, me: Any, pc: Any = None) -> list[dict[str, Any
     """Every player pawn in the level, with what can be read of their gear and skills."""
     for cache in (_backpack_cache, _equipped_cache):
         cache.sweep()  # the items destroyed since (sold, used, gone with a level)
-    _items_pass.update(deadline=time.perf_counter() + ITEMS_SECONDS, built=0, left=False)
+    _items_pass.update(deadline=time.perf_counter() + ITEMS_SECONDS, built=0, left=False, skipped=0)
     players_parts.clear()
 
     def part(name: str, since: float) -> float:  # (this part's time; the next one starts now)

@@ -439,6 +439,10 @@ bottom-left message).
   Borderlands 1: its missions not picked up rebuilt only when the log, its statuses or the player's level change, their
   eligibility read once per mission meanwhile (`games.Borderlands1._eligible_for` - the givers' "!" too); its skill
   icons once per character.
+- A players pass builds gear cards and skill stats (`_skill_stats`: `GetSkillEffectPresentations`, ~100 calls for a
+  first tree - 90 ms, a player joining) for at most `inspector.ITEMS_SECONDS`; a tree missing some isn't cached (the
+  next pass goes on). A tree whose points can't be read (another player's, on the host) is cached anyway, refreshed
+  every `SKILLS_UNKNOWN_EVERY` (it was re-read every pass).
 - A players pass builds gear cards for at most `inspector.ITEMS_SECONDS` (at least one): the rest at the next pass,
   `PLAYERS_RETRY` later - a half-built pass isn't published (`players_complete`). A whole backpack at once was 80-560 ms.
 - An object record over `RECORD_SLOW_MS` reports its parts in the slow-task report (`object records.names` / `exit` /
