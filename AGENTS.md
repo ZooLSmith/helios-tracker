@@ -130,7 +130,8 @@ bl2-helios-tracker/
 - **Line endings: keep each file's own.** The repo mixes CRLF and LF files and git converts nothing (`core.autocrlf`
   false): an edit script's Python `read_text` / `write_text` turns a file into CRLF on Windows (text mode) - whole
   files then show as rewritten in the diff (it happened to 8 files once). Scripts edit bytes (`read_bytes` /
-  `write_bytes`) or open with `newline=""`; check `git diff --stat` for a file suddenly "all changed" before committing.
+  `write_bytes`) or open with `newline=""`; check `git diff --stat` for a file suddenly "all changed" before committing. Git Bash's `sed -i` does it the other way: a CRLF file
+  written back LF (it happened to two files once).
 - Solo repo: commit straight to `master`, no branches - and only when asked. Exceptions: the website; `bl1`, the
   Borderlands 1 support (the user's call: experimental - the game profiles, its package reader and vector map; origin
   only, `.agent/bl1.md`).

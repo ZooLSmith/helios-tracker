@@ -11,9 +11,30 @@ class Objects(Part):
 
     def behaviors(self, definition: Any) -> list[Any]:
         """An interactive object definition's behaviours (inspector.explosion_info looks for a Behavior_Explode): its
-        BehaviorProviderDefinition's BehaviorSequences[].BehaviorData2[].Behavior."""
-        return [data.Behavior for seq in definition.BehaviorProviderDefinition.BehaviorSequences
-                for data in seq.BehaviorData2 if data.Behavior is not None]
+        BehaviorProviderDefinition's BehaviorSequences[].BehaviorData2[].Behavior - none without a provider (some of
+        the Pre-Sequel's objects: not a failure)."""
+        provider = definition.BehaviorProviderDefinition
+        if provider is None:
+            return []
+        return [data.Behavior for seq in provider.BehaviorSequences for data in seq.BehaviorData2 if data.Behavior is not None]
+
+    def exit_text(self, station: Any) -> str:
+        """A map exit's name as the game shows it ("Exit to Frostburn Canyon"), "" if it isn't one / has none: the
+        station's LevelTravelMapDisplayName ("Exit to %s") with its TravelDefinition's destination's DisplayName, in the
+        game's language. Also a mission waypoint on a map exit (the objective in another map: a
+        LevelTransitionWaypointComponent on a LevelTravelStation - no objective of its own, no WaypointInfo:
+        tools/probes/probe_waypoint_exit.txt)."""
+        from ...util import try_  # noqa: PLC0415
+
+        text = try_(lambda: str(station.LevelTravelMapDisplayName), "") or ""
+        dest = try_(lambda: str(self._destination_name(station.TravelDefinition.DestinationStationDefinition)), "") or ""
+        if not text or not dest:
+            return ""
+        return text.replace("%s", dest) if "%s" in text else f"{text} {dest}"
+
+    def _destination_name(self, destination: Any) -> str:
+        """A travel station definition's name for its map exits: BL2's DisplayName."""
+        return str(destination.DisplayName)
 
     def is_looted(self, io: Any, client: bool) -> bool:
         """A container looted: opened, and no longer usable (bCanBeUsed[0] 1 -> 0). Opened: its SimpleAnimState is a
@@ -32,7 +53,7 @@ class Objects(Part):
 
     def destination(self, io: Any) -> str:
         """The map an interactive object takes the player to ("" if none): BL2's exits are travel stations, named by the
-        game ("Exit to ..." - collector._exit_text): none here."""
+        game ("Exit to ..." - exit_text): none here."""
         return ""
 
     def directives(self, io: Any) -> list[Any]:

@@ -1195,13 +1195,13 @@ class Collector:
         loc = io.Location
         definition = try_(lambda: io.InteractiveObjectDefinition)
         # The game's name for it, in the game's language (e.g. "Incendiary Barrel"): a map exit's where it leads (a
-        # LevelTravelStation's "Exit to Frostburn Canyon" - _exit_text; its map header only "Map Exit": the user), the
+        # LevelTravelStation's "Exit to Frostburn Canyon" - games.GAME.objects.exit_text; its map header only "Map Exit": the user), the
         # balance's DefaultDisplayName, else its definition's StatusMenuMapInfoBoxHeader (what the game's map shows on
         # hover: the Pre-Sequel's "Oxygen Source", "Air Dome Generator" - no balance name, no target name), else what
         # targeting it shows
         balance = try_(lambda: io.BalanceDefinitionState.BalanceDefinition)
         # (each read its own part - the slow report's breakdown: a Borderlands 1 record's names took 22 ms)
-        display = Collector._exit_text(io)
+        display = games.GAME.objects.exit_text(io)
         part("name.exit")
         if not display:
             display = try_(lambda: str(balance.DefaultDisplayName), "")
@@ -1294,18 +1294,6 @@ class Collector:
             if Collector._is_looted(io, client):
                 record["looted"] = 1
         return record
-
-    @staticmethod
-    def _exit_text(station: Any) -> str:
-        """A mission waypoint on a map exit (the objective is in another map: a LevelTransitionWaypointComponent on a
-        LevelTravelStation - no objective of its own, no WaypointInfo: tools/probes/probe_waypoint_exit.txt): the game's words
-        for it - the station's LevelTravelMapDisplayName ("Exit to %s") with its TravelDefinition's destination's
-        DisplayName ("Frostburn Canyon"), in the game's language. "" if it isn't one / has none."""
-        text = try_(lambda: str(station.LevelTravelMapDisplayName), "") or ""
-        dest = try_(lambda: str(station.TravelDefinition.DestinationStationDefinition.DisplayName), "") or ""
-        if not text or not dest:
-            return ""
-        return text.replace("%s", dest) if "%s" in text else f"{text} {dest}"
 
     def _pawn_info(self, pawn: Any, me: Any) -> dict[str, Any]:
         addr = pawn._get_address()
@@ -1991,7 +1979,7 @@ class Collector:
                             marker["end"] = 1
                     if objective is not None:
                         marker["objective"] = named(try_(lambda o=objective: str(o.ProgressMessage), ""), def_name(objective))
-                    elif (exit_text := self._exit_text(owner)):
+                    elif (exit_text := games.GAME.objects.exit_text(owner)):
                         marker["objective"] = named(exit_text, "")  # (a map exit the objective is past: "Exit to ...")
                     markers.append(marker)
                 except Exception as ex:  # noqa: BLE001
