@@ -549,7 +549,11 @@ Each step leaves the mod working and `offline_check` passing:
    level_lookups / mission_markers; the six flags gone - features: discovery, oxygen, jump pads. The docs naming the
    old flags - spec.md, bl1.md - follow in step 7.)* **Features into methods** (the table): the six "how" flags out, their call sites one line each. Doable in today's
    `games.py` before the package - the clearest win for the least churn.
-4. **The package, same behaviour**: `games.py` -> `games/`, methods moved to parts, call sites and `offline_check`
+4. *(done, 2026-10-04: games/ - base.py (Part, Profile), bl2/ (the base parts), bl1/ (its parts), tps.py, aodk.py;
+   each method moved as is (a generator lifted its source), call sites `games.GAME.<part>.<method>`; the profile picked at
+   the mod's boot (games.pick); importing games needs no SDK - offline_check check_games_import. Plain data stays on the
+   profile; the parts' base classes in base.py - a module named profile would shadow the registration decorator.)*
+   **The package, same behaviour**: `games.py` -> `games/`, methods moved to parts, call sites and `offline_check`
    (~77 lines, ~60 flat method calls to make part calls) updated. No logic changes: a pure move, so its diff can be read as one.
 5. **BL1's code gathered** into `games/bl1/`, **the decoders split** (the inventory's "File decoding": formats,
    each game's `files/`, the worker's stub packages and `fn` jobs, `assets.serve`); the inspector's skill reading,

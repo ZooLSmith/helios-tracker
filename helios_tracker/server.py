@@ -248,7 +248,7 @@ class _Handler(BaseHTTPRequestHandler):
             except (ConnectionError, TimeoutError):
                 pass  # tab closed / navigated away
             return
-        games.GAME.wait_for_assets(path, SCAN_WAIT)  # (the game's files not read yet: a page just opened - games.py)
+        games.GAME.assets.wait_for(path, SCAN_WAIT)  # (the game's files not read yet: a page just opened - games.py)
         start = time.perf_counter()  # (after the waits: they hold no GIL - the work from here may)
         try:
             self._get(path)
@@ -269,7 +269,7 @@ class _Handler(BaseHTTPRequestHandler):
                 self._send(HTTPStatus.OK, "image/png", data)
             elif (m := ICON.fullmatch(path)) and (data := icon_png(m[1])) is not None:
                 self._send(HTTPStatus.OK, "image/png", data)
-            elif (m := CARD_ICON.fullmatch(path)) and (data := games.GAME.card_icon_png(m[1], m[2])) is not None:
+            elif (m := CARD_ICON.fullmatch(path)) and (data := games.GAME.assets.card_icon_png(m[1], m[2])) is not None:
                 self._send(HTTPStatus.OK, "image/png", data)
             elif (m := TEXTURE.fullmatch(path)) and (data := texture_by_path(m[1])) is not None:
                 self._send(HTTPStatus.OK, "image/png", data)

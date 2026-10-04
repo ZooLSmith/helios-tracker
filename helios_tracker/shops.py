@@ -107,7 +107,7 @@ class ShopReader:
             if time.perf_counter() > deadline:
                 return None
             item = _item(inv, False, pc)
-            price = try_(lambda: games.GAME.selling_price(machine, inv, pc))  # (each game's call: games.py)
+            price = try_(lambda: games.GAME.shops.selling_price(machine, inv, pc))  # (each game's call: games.py)
             if price is not None and price >= 0:
                 item["v"] = price
             self._items[key] = item
@@ -118,7 +118,7 @@ class ShopReader:
         key = (inv._get_address(), str(inv.Name))
         if key not in self._items:
             record = {**named(item_name(inv), str(inv.Name)), "k": kind}
-            price = try_(lambda: games.GAME.selling_price(machine, inv, pc))  # (each game's call: games.py)
+            price = try_(lambda: games.GAME.shops.selling_price(machine, inv, pc))  # (each game's call: games.py)
             if price is not None and price >= 0:
                 record["v"] = price
             self._items[key] = record
@@ -142,7 +142,7 @@ class ShopReader:
                 loc = io.Location
                 machine: dict[str, Any] = {"i": addr(io), **self._named(io, kind), "k": kind,
                                            "x": round(loc.X), "y": round(loc.Y), "z": round(loc.Z)}
-                currency = CURRENCIES.get(try_(lambda io=io: games.GAME.shop_currency(io), "") or "", "other")  # (games.py)
+                currency = CURRENCIES.get(try_(lambda io=io: games.GAME.shops.currency(io), "") or "", "other")  # (games.py)
                 if currency != "cash":
                     machine["cur"] = currency
                 items, basics = [], []
@@ -180,7 +180,7 @@ class ShopReader:
         machines.sort(key=lambda m: m["i"])
         stock = json.dumps({"level": level_id, "client": int(client), "machines": machines}, separators=(",", ":"))
         # the timer: the game's count (games.py shop_timer_source - BL2's host: its own, a client: the replicated one)
-        source = try_(lambda: games.GAME.shop_timer_source(world_info))
+        source = try_(lambda: games.GAME.shops.timer_source(world_info))
         left = try_(lambda: float(source.SecondsUntilShopsReset))
         rate = try_(lambda: float(source.ShopTimerRate), 1.0)
         # the game paused (WorldInfo.Pauser, as the state's "paused"): its timer stands still - the page's count too

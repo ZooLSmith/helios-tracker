@@ -1243,24 +1243,24 @@ def check_helios_tracker() -> None:  # noqa: PLR0915
     profile_wi = ns(GetStreamingPersistentMapName=lambda: "Sanctuary_P", _path_name=lambda: "Loader.TheWorld:PersistentLevel.WorldInfo_1",
                     StreamingLevels=[ns(Class=ns(Name="LevelStreamingPersistent"), PackageName="arid_p"),
                                      ns(Class=ns(Name="LevelStreamingKismet"), PackageName="arid_env")])
-    assert profile_bl2.map_name(profile_wi) == "Sanctuary_P" and profile_bl1.map_name(profile_wi) == "arid_p"
+    assert profile_bl2.world.map_name(profile_wi) == "Sanctuary_P" and profile_bl1.world.map_name(profile_wi) == "arid_p"
     profile_menu = ns(_path_name=lambda: "menumap.TheWorld:PersistentLevel.WorldInfo_0", StreamingLevels=[])
-    assert profile_bl1.map_name(profile_menu) == "menumap" and profile_bl1.level_key(profile_menu, "menumap") == ("menumap",)
+    assert profile_bl1.world.map_name(profile_menu) == "menumap" and profile_bl1.world.level_key(profile_menu, "menumap") == ("menumap",)
     # BL1's pause: the escape menu's Pauser, or a status menu's bStatusMenuOnly (inventory, map, skills); its equipped
     # items' kind from their definition's slot (one class for them all)
     import enum  # noqa: PLC0415
-    assert profile_bl1.world_paused(ns(Pauser=None, bStatusMenuOnly=True)) and not profile_bl1.world_paused(ns(Pauser=None, bStatusMenuOnly=False))
-    assert profile_bl2.world_paused(ns(Pauser=object())) and not profile_bl2.world_paused(ns(Pauser=None, bStatusMenuOnly=True))
+    assert profile_bl1.world.paused(ns(Pauser=None, bStatusMenuOnly=True)) and not profile_bl1.world.paused(ns(Pauser=None, bStatusMenuOnly=False))
+    assert profile_bl2.world.paused(ns(Pauser=object())) and not profile_bl2.world.paused(ns(Pauser=None, bStatusMenuOnly=True))
     bl1_slot = enum.IntEnum("EEquipmentLoc", ["EQUIPLOC_Shield", "EQUIPLOC_MOD", "EQUIPLOC_Deck"], start=0)
     bl1_shield = ns(DefinitionData=ns(ItemDefinition=ns(EquipmentLocation=bl1_slot.EQUIPLOC_Shield)))
-    assert profile_bl1.equip_kind(bl1_shield) == "shield" and profile_bl2.equip_kind(bl1_shield) is None
+    assert profile_bl1.items.equip_kind(bl1_shield) == "shield" and profile_bl2.items.equip_kind(bl1_shield) is None
     # BL1's object behaviours: its behaviour sets' event arrays and reactions (its barrels' Behavior_Explode is there)
     bl1_explode = ns(Class=ns(Name="Behavior_Explode"))
     bl1_barrel = ns(DefaultBehaviorSet=ns(OnSpawn=[], OnBehaviorSetEnabled=[], OnBehaviorSetDisabled=[], OnTouch=[], OnUnTouch=[],
                                          OnUsedBy=[], OnTakeDamage=[None], OnKilled=[], TimerEvents=[], CounterEvents=[],
                                          CustomEvents=[ns(Behaviors=[bl1_explode])]),
                     ExtraBehaviorSets=[])
-    assert profile_bl1.object_behaviors(bl1_barrel) == [bl1_explode]
+    assert profile_bl1.objects.behaviors(bl1_barrel) == [bl1_explode]
     # BL1's vending machines: their own class (no WillowVendingMachineBase), no shop titles in its menu
     from helios_tracker import shops as profile_shops  # noqa: PLC0415
     bl1_machine = ns(Class=ns(Name="WillowVendingMachine", SuperField=ns(Name="WillowInteractiveObject", SuperField=None)))
@@ -1276,17 +1276,17 @@ def check_helios_tracker() -> None:  # noqa: PLR0915
     assert (profile_bl2.tick_function, profile_bl1.tick_function) == ("WillowGame.WillowGameViewportClient:Tick", "Engine.GameViewportClient:Tick")
     # the price: BL2's call (item, controller, quantity), BL1's (item, quantity) - no controller
     priced = ns(GetSellingPriceForInventory=lambda *a: 1000 + len(a))
-    assert (profile_bl2.selling_price(priced, "item", "pc"), profile_bl1.selling_price(priced, "item", "pc")) == (1003, 1002)
+    assert (profile_bl2.shops.selling_price(priced, "item", "pc"), profile_bl1.shops.selling_price(priced, "item", "pc")) == (1003, 1002)
     # its prices' currency: BL2's machine says (FormOfCurrency), BL1's has none - dollars
-    assert profile_bl1.shop_currency(ns()) == "CURRENCY_Credits"
+    assert profile_bl1.shops.currency(ns()) == "CURRENCY_Credits"
     assert profile_bl2.ui_stat_kinds == {"shield"} and profile_bl1.ui_stat_kinds == {"shield", "grenade", "classmod"}
     # card stat decimals: BL2's presentation says (FloatPrecision), BL1's has none - one (its SG330's accuracy 6.7)
-    assert (profile_bl2.presented_decimals(ns(FloatPrecision=2)), profile_bl1.presented_decimals(ns())) == (2, 1)
+    assert (profile_bl2.items.presented_decimals(ns(FloatPrecision=2)), profile_bl1.items.presented_decimals(ns())) == (2, 1)
     # the shops' timer: BL2's host count (a client: the replicated one), BL1's replicated one (what its menu shows)
     timer_host, timer_gri = ns(SecondsUntilShopsReset=922.85), ns(SecondsUntilShopsReset=925)
-    assert profile_bl2.shop_timer_source(ns(Game=timer_host, GRI=timer_gri)) is timer_host
-    assert profile_bl2.shop_timer_source(ns(Game=None, GRI=timer_gri)) is timer_gri
-    assert profile_bl1.shop_timer_source(ns(Game=timer_host, GRI=timer_gri)) is timer_gri
+    assert profile_bl2.shops.timer_source(ns(Game=timer_host, GRI=timer_gri)) is timer_host
+    assert profile_bl2.shops.timer_source(ns(Game=None, GRI=timer_gri)) is timer_gri
+    assert profile_bl1.shops.timer_source(ns(Game=timer_host, GRI=timer_gri)) is timer_gri
     # BL1's card lines (tools/probes/probe_bl1_cards.txt, an SG330): the modifier, remapped / its sign flipped / x 100 /
     # rounded as its presentation says - the game's "4.0x", "+43%", "+1"; BL2's: the page's own (None)
     line_rounding = enum.IntEnum("EAttributePresentationRoundingMode", ["ATTRROUNDING_Float", "ATTRROUNDING_IntRound", "ATTRROUNDING_IntCeil",
@@ -1300,12 +1300,12 @@ def check_helios_tracker() -> None:  # noqa: PLR0915
         InputValueMx=ns(BaseValueConstant=0.0, BaseValueAttribute=None, InitializationDefinition=None, BaseValueScaleConstant=1.0),
         OutputValueMn=ns(BaseValueConstant=-10.0, BaseValueAttribute=None, InitializationDefinition=None, BaseValueScaleConstant=1.0),
         OutputValueMx=ns(BaseValueConstant=0.0, BaseValueAttribute=None, InitializationDefinition=None, BaseValueScaleConstant=1.0)))
-    card_shown = [profile_bl1.card_line_value(ns(ModifierValue=-40.0), zoom_pres, ns()),
-                  profile_bl1.card_line_value(ns(ModifierValue=-0.4318), bl1_pres(bDisplayAsInverse=True, bDisplayAsPercentage=True), ns()),
-                  profile_bl1.card_line_value(ns(ModifierValue=1.0), bl1_pres(RoundingMode=line_rounding.ATTRROUNDING_IntFloor), ns()),
-                  profile_bl1.card_line_value(ns(ModifierValue=0.0673), bl1_pres(bDisplayAsPercentage=True, RoundingMode=line_rounding.ATTRROUNDING_IntCeil), ns())]
+    card_shown = [profile_bl1.items.card_line_value(ns(ModifierValue=-40.0), zoom_pres, ns()),
+                  profile_bl1.items.card_line_value(ns(ModifierValue=-0.4318), bl1_pres(bDisplayAsInverse=True, bDisplayAsPercentage=True), ns()),
+                  profile_bl1.items.card_line_value(ns(ModifierValue=1.0), bl1_pres(RoundingMode=line_rounding.ATTRROUNDING_IntFloor), ns()),
+                  profile_bl1.items.card_line_value(ns(ModifierValue=0.0673), bl1_pres(bDisplayAsPercentage=True, RoundingMode=line_rounding.ATTRROUNDING_IntCeil), ns())]
     assert card_shown == [(4.0, 1), (43.0, 0), (1.0, 0), (7.0, 0)], card_shown
-    assert profile_bl2.card_line_value(ns(ModifierValue=1.0), bl1_pres(), ns()) is None
+    assert profile_bl2.items.card_line_value(ns(ModifierValue=1.0), bl1_pres(), ns()) is None
     # weapon card damage rounding: BL1's presentation rounds up (85.2 -> 86), BL2's a whole number, rounded
     assert profile_bl1.damage_presentation.endswith("AttrPresent_WeaponDamage") and profile_bl2.damage_presentation is None
     damage_rounding = enum.IntEnum("EAttributePresentationRoundingMode", ["ATTRROUNDING_Float", "ATTRROUNDING_IntCeil"], start=0)
@@ -1313,12 +1313,12 @@ def check_helios_tracker() -> None:  # noqa: PLR0915
     # a game text's HTML entities decoded (BL1's manufacturer "S&amp;S Munitions": the page escaped it again)
     assert sys.modules["helios_tracker.inspector"]._localized(ns(Grades=[ns(DisplayName="S&amp;S Munitions")]), 0) == "S&S Munitions"
     # BL1's rarity table: its RarityLevelColors entries' level ranges (no index function) - 12 rare blue, 18 epic purple
-    bl1_rarity = profile_bl1.rarity_table(ns(RarityLevelColors=[
+    bl1_rarity = profile_bl1.items.rarity_table(ns(RarityLevelColors=[
         ns(MinLevel=-1, MaxLevel=1, Color=ns(R=255, G=255, B=255)), ns(MinLevel=2, MaxLevel=4, Color=ns(R=255, G=255, B=255)),
         ns(MinLevel=5, MaxLevel=10, Color=ns(R=61, G=210, B=11)), ns(MinLevel=11, MaxLevel=15, Color=ns(R=47, G=120, B=255)),
         ns(MinLevel=16, MaxLevel=49, Color=ns(R=145, G=50, B=200))]))
     assert bl1_rarity["12"] == [3, "#2f78ff"] and bl1_rarity["18"] == [4, "#9132c8"] and bl1_rarity["0"][0] == 0 and "-1" not in bl1_rarity, bl1_rarity
-    assert profile_bl2.shop_currency(ns(FormOfCurrency=enum.IntEnum("ECurrencyType", ["CURRENCY_Credits", "CURRENCY_Eridium"], start=0).CURRENCY_Eridium)) == "CURRENCY_Eridium"
+    assert profile_bl2.shops.currency(ns(FormOfCurrency=enum.IntEnum("ECurrencyType", ["CURRENCY_Credits", "CURRENCY_Eridium"], start=0).CURRENCY_Eridium)) == "CURRENCY_Eridium"
     # BL1's skills (tools/probes/probe_bl1_skills.txt): its action skill locked at Grade 0 (PlayerSkills[ActionSkillPlayerSkillIndex]);
     # its tree from SkillTreeBranches' tiers - indices into PlayerSkills (-1: an empty cell), the points a tier asks from
     # the class's PlayerSkillSet, the First branch (the action skill alone) the root
@@ -1332,47 +1332,47 @@ def check_helios_tracker() -> None:  # noqa: PLR0915
         ns(BranchIndex=branch_enum.SKILLBRANCH_Left, PointsSpentInBranch=2, Tiers=[ns(TierIndex=0, PlayerSkillIndexList=[2, -1])])],
         PlayerClass=ns(PlayerSkillSet=ns(FirstBranch=ns(Tiers=[ns(PointsToUnlockNextTier=1)]),
                                          LeftBranch=ns(Tiers=[ns(PointsToUnlockNextTier=5)]))))
-    assert profile_bl1.action_skill_locked(bl1_ctrl), "Bloodwing at Grade 0: locked"
+    assert profile_bl1.skills.action_locked(bl1_ctrl), "Bloodwing at Grade 0: locked"
     # BL1's item cards show the level the item needs (probe_bl1_levels: ExpLevel 6, its card 4), BL2's its level
     bl1_gun = ns(GetControllerPlayerExpLevelRequiredToUse=lambda c: 4)
-    assert profile_bl1.zippy_frame(ns(ZippyFrame="shield")) == "shield", "BL1's card type frame: a property"
+    assert profile_bl1.items.zippy_frame(ns(ZippyFrame="shield")) == "shield", "BL1's card type frame: a property"
     # BL1's mission items: usable items whose definition says bMissionItem (no WillowMissionItem class) - "Power Coupling"
     from helios_tracker.util import pickup_kind as bl1_pickup_kind  # noqa: PLC0415
     bl1_coupling = ns(Class=ns(Name="WillowUsableItem"), DefinitionData=ns(ItemDefinition=ns(
         _get_address=lambda: 0x7C1, bMissionItem=True, Presentation=ns(Name="MissionObject"))))
     assert bl1_pickup_kind(bl1_coupling) == "mission", bl1_pickup_kind(bl1_coupling)
     # its card element: an item's frame number (FlashTechFrame - probe_bl1_elements: an Explosive MIRV's 1.0), 0 none
-    assert profile_bl1.element_frame(ns(GetTechIconFrame=lambda: 1.0), "grenade") == "1"
-    assert profile_bl1.element_frame(ns(GetTechIconFrame=lambda: 0.0), "shield") == ""
+    assert profile_bl1.items.element_frame(ns(GetTechIconFrame=lambda: 1.0), "grenade") == "1"
+    assert profile_bl1.items.element_frame(ns(GetTechIconFrame=lambda: 0.0), "shield") == ""
     # a weapon's: its damage type's element and its tech level (probe_bl1_elements: The Clipper, "fire1" - its card's x1)
     bl1_dmg_enum = enum.IntEnum("EDamageType", ["DAMAGE_TYPE_Unknown", "DAMAGE_TYPE_Incindiary", "DAMAGE_TYPE_Shock"], start=0)
     bl1_clipper = ns(DefinitionData="data", StaticCalculateWeaponTechLevelForUI=lambda d: (1, d),
                      StaticGetWeaponDamageType=lambda d: (ns(DamageType=bl1_dmg_enum.DAMAGE_TYPE_Incindiary), d))
-    assert profile_bl1.element_frame(bl1_clipper, "weapon") == "fire1"
+    assert profile_bl1.items.element_frame(bl1_clipper, "weapon") == "fire1"
     bl1_plain_gun = ns(**{**vars(bl1_clipper), "StaticGetWeaponDamageType": lambda d: (ns(DamageType=bl1_dmg_enum.DAMAGE_TYPE_Unknown), d)})
-    assert profile_bl1.element_frame(bl1_plain_gun, "weapon") == ""
+    assert profile_bl1.items.element_frame(bl1_plain_gun, "weapon") == ""
     # its level: a stat of its own (the icon: the mark alone) - none without an element, BL2's never
-    assert profile_bl1.element_level(bl1_clipper, "weapon") == 1 and profile_bl1.element_level(bl1_plain_gun, "weapon") == 0
-    assert profile_bl1.element_level(ns(GetTechIconFrame=lambda: 3.0, CalculateItemTechLevel=lambda: 2), "grenade") == 2
-    assert profile_bl1.element_level(ns(GetTechIconFrame=lambda: 0.0, CalculateItemTechLevel=lambda: 2), "shield") == 0
-    assert profile_bl2.element_level(bl1_clipper, "weapon") == 0
+    assert profile_bl1.items.element_level(bl1_clipper, "weapon") == 1 and profile_bl1.items.element_level(bl1_plain_gun, "weapon") == 0
+    assert profile_bl1.items.element_level(ns(GetTechIconFrame=lambda: 3.0, CalculateItemTechLevel=lambda: 2), "grenade") == 2
+    assert profile_bl1.items.element_level(ns(GetTechIconFrame=lambda: 0.0, CalculateItemTechLevel=lambda: 2), "shield") == 0
+    assert profile_bl2.items.element_level(bl1_clipper, "weapon") == 0
     # a barrel's element (its explosion's damage type): its element's mark ("exp0") - not learned from the weapons
-    assert profile_bl1.damage_type_frame("DAMAGE_TYPE_Explosive") == "exp0" and profile_bl1.damage_type_frame("DAMAGE_TYPE_Unknown") == ""
+    assert profile_bl1.items.damage_type_frame("DAMAGE_TYPE_Explosive") == "exp0" and profile_bl1.items.damage_type_frame("DAMAGE_TYPE_Unknown") == ""
     # the markers' actors, each game's way (no feature flags): BL2's for a co-op client only, BL1's always - and its exits
-    assert (profile_bl2.level_lookups(False), profile_bl2.level_lookups(True), profile_bl1.level_lookups(False)) == (
+    assert (profile_bl2.missions.level_lookups(False), profile_bl2.missions.level_lookups(True), profile_bl1.missions.level_lookups(False)) == (
         [], ["waypoints"], ["waypoints", "exits"])
-    assert profile_bl2.mission_markers(None, None, None) is None, "BL2: the tracker's waypoint components"
-    assert profile_bl2.current_objectives([1], 3) == [1] and profile_bl1.current_objectives([1], 3) == [0, 1, 2]
+    assert profile_bl2.missions.markers(None, None, None) is None, "BL2: the tracker's waypoint components"
+    assert profile_bl2.missions.current_objectives([1], 3) == [1] and profile_bl1.missions.current_objectives([1], 3) == [0, 1, 2]
     assert not {"tacmap", "scan", "fontlibrary", "missionsteps", "waypointmarkers", "learnedelements"} & (
         profile_bl2.features | profile_tps.features | profile_bl1.features), "features: systems a game has - only"
     # its containers looted: no longer usable (probe_bl1_looted: bCanBeUsed a flag, no animation state)
-    assert profile_bl1.is_looted(ns(bCanBeUsed=False), False) and not profile_bl1.is_looted(ns(bCanBeUsed=True), False)
+    assert profile_bl1.objects.is_looted(ns(bCanBeUsed=False), False) and not profile_bl1.objects.is_looted(ns(bCanBeUsed=True), False)
     # its quest givers: their missions on the object; one offered = eligible (the game's word) and not picked up yet
     # its local player in a vehicle: no MyWillowPawn - the driver of the pawn it controls (the vehicle, or its seat)
     bl1_me = ns(Name="WillowPlayerPawn_0")
-    assert profile_bl1.local_pawn(ns(MyWillowPawn=None, Pawn=ns(Driver=bl1_me))) is bl1_me
-    assert profile_bl1.local_pawn(ns(MyWillowPawn=bl1_me, Pawn=ns(Driver=None))) is bl1_me
-    assert profile_bl2.local_pawn(ns(MyWillowPawn=bl1_me)) is bl1_me
+    assert profile_bl1.pawns.local(ns(MyWillowPawn=None, Pawn=ns(Driver=bl1_me))) is bl1_me
+    assert profile_bl1.pawns.local(ns(MyWillowPawn=bl1_me, Pawn=ns(Driver=None))) is bl1_me
+    assert profile_bl2.pawns.local(ns(MyWillowPawn=bl1_me)) is bl1_me
     # its map exits: a map changer's destination from the level's script - its event's output links to the map change
     # action's DefaultMap (W_Arid_P: Default_MapChanger -> ... -> WillowSeqAct_PrepareMapChangeFromDefinition)
     bl1_changer = ns(_get_address=lambda: 0xC1)
@@ -1381,12 +1381,12 @@ def check_helios_tracker() -> None:  # noqa: PLR0915
     bl1_used = ns(_get_address=lambda: 0xC2, Name="SeqEvent_Used_0", Originator=bl1_changer, Class=ns(Name="SeqEvent_Used"),
                   OutputLinks=[ns(Links=[ns(LinkedOp=bl1_gate)])])
     bl1_sdk = sys.modules["unrealsdk"]
-    bl1_real_find_all, bl1_real_map_name = getattr(bl1_sdk, "find_all", None), profile_bl1.map_name
+    bl1_real_find_all, bl1_real_map_name = getattr(bl1_sdk, "find_all", None), profile_bl1.world.map_name
     bl1_sdk.find_all = lambda cls, exact=True: [bl1_used, ns(Name="Default__SequenceEvent", Originator=None)]
-    profile_bl1.map_name = lambda wi_obj: "Arid_P"
+    profile_bl1.world.map_name = lambda wi_obj: "Arid_P"
     try:
-        assert profile_bl1.object_destination(bl1_changer) == "Dry_P"
-        assert profile_bl1.object_destination(ns(_get_address=lambda: 0xC9)) == "", "not a changer: none"
+        assert profile_bl1.objects.destination(bl1_changer) == "Dry_P"
+        assert profile_bl1.objects.destination(ns(_get_address=lambda: 0xC9)) == "", "not a changer: none"
         # a level change (util.level_changed: the profile's reset registered with it) - its events indexed again, not
         # kept by the area's name (stale after a save-quit-continue in the same area)
         from helios_tracker.util import level_changed as reset_level, on_level_change as on_reset  # noqa: PLC0415
@@ -1398,27 +1398,27 @@ def check_helios_tracker() -> None:  # noqa: PLR0915
             reset_level()
         finally:
             game_profiles.GAME = real_profile
-        assert reset_hits == [1] and not profile_bl1._events_indexed and not profile_bl1._destination_map, "reset with the level"
-        assert profile_bl1.object_destination(bl1_changer) == "Dry_P", "indexed again"
+        assert reset_hits == [1] and not profile_bl1.objects._events_indexed and not profile_bl1.objects._destination_map, "reset with the level"
+        assert profile_bl1.objects.destination(bl1_changer) == "Dry_P", "indexed again"
     finally:
-        bl1_sdk.find_all, profile_bl1.map_name = bl1_real_find_all, bl1_real_map_name
-    assert profile_bl2.object_destination(bl1_changer) == ""
+        bl1_sdk.find_all, profile_bl1.world.map_name = bl1_real_find_all, bl1_real_map_name
+    assert profile_bl2.objects.destination(bl1_changer) == ""
     # its vehicles' names: their own fields (no VehicleDef, no GetCustomizableName - the record had failed)
-    assert profile_bl1.vehicle_name(ns(DisplayName="", VehicleNameString="Runner")) == "Runner"
-    assert profile_bl2.vehicle_name(ns(VehicleDef=ns(DisplayName="Runner"))) == "Runner"
-    assert profile_bl1.object_directives(ns(MissionDirectives=["d"])) == ["d"] and profile_bl2.object_directives(ns(Directives=ns(MissionDirectives=["d"]))) == ["d"]
+    assert profile_bl1.pawns.vehicle_name(ns(DisplayName="", VehicleNameString="Runner")) == "Runner"
+    assert profile_bl2.pawns.vehicle_name(ns(VehicleDef=ns(DisplayName="Runner"))) == "Runner"
+    assert profile_bl1.objects.directives(ns(MissionDirectives=["d"])) == ["d"] and profile_bl2.objects.directives(ns(Directives=ns(MissionDirectives=["d"]))) == ["d"]
     bl1_eligibility = enum.IntEnum("EMissionEligibility", ["ME_Eligible", "ME_Ineligible_Level", "ME_Ineligible_Dependencies", "ME_Ineligible_Other"], start=0)
     bl1_tk = ns(Name="tk", _get_address=lambda: 0x7001)  # (missions: game objects - the eligibility cached by address)
     bl1_other = ns(Name="other", _get_address=lambda: 0x7002)
     bl1_eligibility_calls = []
     bl1_board_pc = ns(GetMissionEligibility=lambda m: bl1_eligibility_calls.append(m.Name) or (
         bl1_eligibility.ME_Eligible if m.Name == "tk" else bl1_eligibility.ME_Ineligible_Other))
-    assert profile_bl1.mission_offered(bl1_board_pc, bl1_tk, "", False), "eligible, not taken: its !"
-    assert not profile_bl1.mission_offered(bl1_board_pc, bl1_tk, "", True), "eligible but picked up already"
-    assert not profile_bl1.mission_offered(bl1_board_pc, bl1_other, "", False)
-    assert profile_bl1.mission_offered(bl1_board_pc, bl1_tk, "", False) and bl1_eligibility_calls == ["tk", "other"], (
+    assert profile_bl1.missions.offered(bl1_board_pc, bl1_tk, "", False), "eligible, not taken: its !"
+    assert not profile_bl1.missions.offered(bl1_board_pc, bl1_tk, "", True), "eligible but picked up already"
+    assert not profile_bl1.missions.offered(bl1_board_pc, bl1_other, "", False)
+    assert profile_bl1.missions.offered(bl1_board_pc, bl1_tk, "", False) and bl1_eligibility_calls == ["tk", "other"], (
         "eligibility read once per mission while the log stays the same (a call per giver mission per second)", bl1_eligibility_calls)
-    assert profile_bl2.mission_offered(None, "m", "begin", False) and not profile_bl2.mission_offered(None, "m", "", False)
+    assert profile_bl2.missions.offered(None, "m", "begin", False) and not profile_bl2.missions.offered(None, "m", "", False)
     # a profile method's failure logged (once per method and exception type), then raised as before: its callers keep
     # their defaults, but a method wrong for a game no longer fails silently (profiles.md point 1)
     profile_util = sys.modules["helios_tracker.util"]
@@ -1428,21 +1428,21 @@ def check_helios_tracker() -> None:  # noqa: PLR0915
         profile_logged = game_profiles.make_profile("BL2")
         for profile_bad in (None, ns(), ns(GetStreamingPersistentMapName=None)):  # (two AttributeErrors, a TypeError)
             try:
-                profile_logged.map_name(profile_bad)
+                profile_logged.world.map_name(profile_bad)
             except Exception:  # noqa: BLE001, S110
                 pass
     finally:
         profile_util.log_error = profile_real_log
-    assert profile_entries == [("games.Profile.map_name", "AttributeError"), ("games.Profile.map_name", "TypeError")], (
+    assert profile_entries == [("games.World.map_name", "AttributeError"), ("games.World.map_name", "TypeError")], (
         "logged once per exception type", profile_entries)
-    assert profile_logged.map_name(ns(GetStreamingPersistentMapName=lambda: "Ice_P")) == "Ice_P", "and works as before"
+    assert profile_logged.world.map_name(ns(GetStreamingPersistentMapName=lambda: "Ice_P")) == "Ice_P", "and works as before"
     # its class name: the globals' PlayerCharacters[] by the class's CharacterName (no identifier definitions: "Mordecai ?")
     bl1_globals = ns(PlayerCharacters=[ns(CharacterClassName="Soldier", DefaultCharacterName="Roland"),
                                        ns(CharacterClassName="Hunter", DefaultCharacterName="Mordecai")])
     bl1_real_find_object = sys.modules["unrealsdk"].find_object
     sys.modules["unrealsdk"].find_object = lambda cls, path: bl1_globals if cls == "GlobalsDefinition" else None
     try:
-        assert profile_bl1.class_name(ns(PlayerClass=ns(CharacterName=1)), None) == {"cls": "Hunter", "char": "Mordecai"}
+        assert profile_bl1.pawns.class_name(ns(PlayerClass=ns(CharacterName=1)), None) == {"cls": "Hunter", "char": "Mordecai"}
     finally:
         sys.modules["unrealsdk"].find_object = bl1_real_find_object
     # its missions not picked up: the log's entries, then every other mission loaded, not started - offered: eligible
@@ -1450,19 +1450,19 @@ def check_helios_tracker() -> None:  # noqa: PLR0915
     real_level_name = sys.modules["helios_tracker.collector"].level_name
     sys.modules["helios_tracker.collector"].level_name = lambda m: {"Arid_P": "Arid Badlands"}.get(m, "")
     try:
-        assert profile_bl1.mission_home(ns(TurnInWaypointDefinition=ns(PersistentLevelName="Arid_P"), TargetWaypointDefinition=None)) == {
+        assert profile_bl1.missions.home(ns(TurnInWaypointDefinition=ns(PersistentLevelName="Arid_P"), TargetWaypointDefinition=None)) == {
             "a": "Arid Badlands", "map": "Arid_P"}
-        assert profile_bl1.mission_home(ns(TurnInWaypointDefinition=ns(PersistentLevelName="None"),
+        assert profile_bl1.missions.home(ns(TurnInWaypointDefinition=ns(PersistentLevelName="None"),
                                            TargetWaypointDefinition=ns(PersistentLevelName="Arid_P")))["a"] == "Arid Badlands"
-        assert profile_bl1.mission_home(ns(TurnInWaypointDefinition=None, TargetWaypointDefinition=ns(PersistentLevelName="Nowhere_P"))) is None
+        assert profile_bl1.missions.home(ns(TurnInWaypointDefinition=None, TargetWaypointDefinition=ns(PersistentLevelName="Nowhere_P"))) is None
     finally:
         sys.modules["helios_tracker.collector"].level_name = real_level_name
-    bl1_offered = game_profiles._NotPickedUp(bl1_tk, bl1_board_pc, profile_bl1._eligible_for)
-    assert profile_bl1.mission_status(bl1_offered) == "NotStarted" and profile_bl1.mission_progress(bl1_offered) == ()
-    assert bl1_offered.bHeardKickoff and not game_profiles._NotPickedUp(bl1_other, bl1_board_pc, profile_bl1._eligible_for).bHeardKickoff
-    assert profile_bl2.element_frame(ns(ElementalFrame="shock"), "weapon") == "shock" and profile_bl2.element_frame(ns(ElementalFrame="None"), "weapon") == ""
-    assert profile_bl2.zippy_frame(ns(GetZippyFrame=lambda: "comm")) == "comm"
-    assert profile_bl1.item_card_level(bl1_gun, 6) == 4 and profile_bl2.item_card_level(bl1_gun, 6) == 6
+    bl1_offered = game_profiles.bl1.missions._NotPickedUp(bl1_tk, bl1_board_pc, profile_bl1.missions._eligible_for)
+    assert profile_bl1.missions.status(bl1_offered) == "NotStarted" and profile_bl1.missions.progress(bl1_offered) == ()
+    assert bl1_offered.bHeardKickoff and not game_profiles.bl1.missions._NotPickedUp(bl1_other, bl1_board_pc, profile_bl1.missions._eligible_for).bHeardKickoff
+    assert profile_bl2.items.element_frame(ns(ElementalFrame="shock"), "weapon") == "shock" and profile_bl2.items.element_frame(ns(ElementalFrame="None"), "weapon") == ""
+    assert profile_bl2.items.zippy_frame(ns(GetZippyFrame=lambda: "comm")) == "comm"
+    assert profile_bl1.items.card_level(bl1_gun, 6) == 4 and profile_bl2.items.card_level(bl1_gun, 6) == 6
     bl1_player = {"local": True}
     sys.modules["helios_tracker.inspector"]._skills_from_player_skills(bl1_ctrl, bl1_player, {})
     bl1_root, bl1_left = bl1_player["skills"]
@@ -1481,12 +1481,12 @@ def check_helios_tracker() -> None:  # noqa: PLR0915
     bl1_skag = ns(BalanceDefinitionState=ns(GradeIndex=1, BalanceDefinition=ns(Grades=[
         ns(GradeModifiers=ns(DisplayName="Skag Pup")), ns(GradeModifiers=ns(DisplayName="Adult Skag"))])), AIPawnName="None")
     bl1_claptrap = ns(BalanceDefinitionState=ns(GradeIndex=0, BalanceDefinition=None), AIPawnName="ClapTrap")
-    assert (profile_bl1.pawn_name(bl1_skag), profile_bl1.pawn_raw_name(bl1_skag)) == ("Adult Skag", "")
-    assert (profile_bl1.pawn_name(bl1_claptrap), profile_bl1.pawn_raw_name(bl1_claptrap)) == ("", "ClapTrap")
+    assert (profile_bl1.pawns.name(bl1_skag), profile_bl1.pawns.raw_name(bl1_skag)) == ("Adult Skag", "")
+    assert (profile_bl1.pawns.name(bl1_claptrap), profile_bl1.pawns.raw_name(bl1_claptrap)) == ("", "ClapTrap")
     # BL1's level names: its level list's entries, as properties (gd_globals.General.LevelList, offline)
     profile_levels = ns(LevelList=[ns(PersistentMap="arid_p", LevelName="Arid Badlands"), ns(PersistentMap="Arid_SkagGully_P", LevelName="Skag Gully")])
-    assert profile_bl1.level_name_in(profile_levels, "Arid_P") == "Arid Badlands" and profile_bl1.level_name_in(profile_levels, "Nope_P") == ""
-    assert profile_bl2.level_name_in(ns(GetFriendlyLevelNameFromMapName=lambda m: {"Ice_P": "Three Horns - Divide"}.get(m, "")), "Ice_P") == "Three Horns - Divide"
+    assert profile_bl1.world.level_name_in(profile_levels, "Arid_P") == "Arid Badlands" and profile_bl1.world.level_name_in(profile_levels, "Nope_P") == ""
+    assert profile_bl2.world.level_name_in(ns(GetFriendlyLevelNameFromMapName=lambda m: {"Ice_P": "Three Horns - Divide"}.get(m, "")), "Ice_P") == "Three Horns - Divide"
     # BL1's map placement (bl1map.placement: from its anchor and its shape's size alone) against the game's own: Arid's
     # map objects, world -> TransformedLocation (0-1) x ClipSize (tools/probes/probe_bl1_map.txt) - within 1.5 movie px
     from helios_tracker import bl1map as placement_map  # noqa: PLC0415
@@ -1497,7 +1497,7 @@ def check_helios_tracker() -> None:  # noqa: PLR0915
                                ((-46811.902, -29426.098), (0.338, 0.896))):
         arid_mx, arid_my = (wy - arid_center[1]) / arid_upp, -(wx - arid_center[0]) / arid_upp
         assert abs(arid_mx - mu * 779.5) < 1.5 and abs(arid_my - mv * 352.2) < 1.5, ((wx, wy), (arid_mx, arid_my), (mu * 779.5, mv * 352.2))
-    assert profile_bl2.movie_no_skip(ns(bForceNoSkip=1)) is True and profile_bl1.movie_no_skip(ns()) is False
+    assert profile_bl2.world.movie_no_skip(ns(bForceNoSkip=1)) is True and profile_bl1.world.movie_no_skip(ns()) is False
     try:
         game_profiles.make_profile("BL3")
         raise AssertionError("an unknown game: no profile")
@@ -2254,7 +2254,7 @@ def check_helios_tracker() -> None:  # noqa: PLR0915
                    ns(MissionDef=bl1_two, Status=bl1_status.MS_Active, Objectives=[ns(StatId="None", CurrentAmount=0), ns(StatId="None", CurrentAmount=3)])]
     real_game = mission_games.GAME
     mission_games.GAME = mission_games.make_profile("BL1")
-    mission_games.GAME.mission_entries = lambda tracker_obj: bl1_entries  # (the player's list: mods_base's controller, not faked here)
+    mission_games.GAME.missions.entries = lambda tracker_obj: bl1_entries  # (the player's list: mods_base's controller, not faked here)
     try:
         bl1_log = mission_log.MissionLog()
         bl1_log.full(ns(ActiveMission=bl1_food), [])
@@ -2277,8 +2277,8 @@ def check_helios_tracker() -> None:  # noqa: PLR0915
     bl1_waypoints = [bl1_waypoint(0xE1, wp_pearls, 1.0), bl1_waypoint(0xE2, wp_al, 2.0), bl1_waypoint(0xE3, wp_vendor, 3.0),
                      bl1_waypoint(0xE4, ns(_get_address=lambda: 0xD9), 4.0)]
     mission_games.GAME = mission_games.make_profile("BL1")
-    mission_games.GAME.mission_entries = lambda tracker_obj: bl1_entries
-    mission_games.GAME.map_name = lambda wi_obj: "arid_p"
+    mission_games.GAME.missions.entries = lambda tracker_obj: bl1_entries
+    mission_games.GAME.world.map_name = lambda wi_obj: "arid_p"
 
     def bl1_waypoints_of(points: list, exits: list) -> ns:  # (a collector's: its waypoints, and by definition - _lookup's)
         by_def: dict = {}
@@ -2821,6 +2821,24 @@ def check_script() -> None:
     print("  user script: autoexec.ps1 in the data folder (sdk_mods/.helios_tracker/, or the mod's folder), its log beside it")
 
 
+def check_games_import() -> None:
+    """The games package imports without the SDK (a child Python, no fakes - the files worker imports the mod's modules
+    so, under another name): its profiles registered, none picked (pick(): the mod's boot), a profile's parts built."""
+    import subprocess  # noqa: PLC0415
+
+    child = (
+        "import sys, types\n"
+        "pkg = types.ModuleType('helios_work'); pkg.__path__ = [sys.argv[1]]; sys.modules['helios_work'] = pkg\n"
+        "import helios_work.games as g\n"
+        "p = g.make_profile('BL1')\n"
+        "print(sorted(g._PROFILES), g.GAME, sorted(p.parts), 'unrealsdk' in sys.modules or 'mods_base' in sys.modules)\n"
+    )
+    out = subprocess.run([sys.executable, "-c", child, str(ROOT / "helios_tracker")], capture_output=True, text=True, check=True)
+    assert out.stdout.strip() == ("['AoDK', 'BL1', 'BL2', 'TPS'] None ['assets', 'items', 'missions', 'objects', 'pawns', "
+                                  "'shops', 'skills', 'ui', 'world'] False"), (out.stdout, out.stderr[-500:])
+    print("  games: imported without the SDK (the files worker's way), the profiles registered, none picked before boot")
+
+
 def check_sdkmod() -> None:
     """paths.py run from inside a .sdkmod (a zip, imported in a child Python): it finds the zip, reads the page's
     files out of it, and writes to sdk_mods/.helios_tracker/ - created, not a folder the loader would import; the debug
@@ -3046,6 +3064,7 @@ def main() -> None:
     check_helios_tracker()
     check_frames()
     check_script()
+    check_games_import()
     check_sdkmod()
     check_updater()
     check_ingame_text()

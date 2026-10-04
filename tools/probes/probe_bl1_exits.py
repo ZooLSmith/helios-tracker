@@ -80,7 +80,7 @@ def _fields(obj, limit: int = 3000) -> str:  # noqa: ANN001
 mods_base = __import__("mods_base")
 games = sys.modules.get("helios_tracker.games")
 wi = _try(lambda: mods_base.ENGINE.GetCurrentWorldInfo(), None)
-lines.append(f"current area: {_try(lambda: games.GAME.map_name(wi)) if games is not None else '-'}")
+lines.append(f"current area: {_try(lambda: games.GAME.world.map_name(wi)) if games is not None else '-'}")
 
 # 1. the missions
 pc = _try(lambda: mods_base.get_pc(), None)

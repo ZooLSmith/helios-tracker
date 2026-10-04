@@ -321,7 +321,7 @@ def rarity_table() -> dict[str, list[Any]]:
     globals_def = try_(lambda: unrealsdk.find_object("GlobalsDefinition", "GD_Globals.General.Globals"))
     if globals_def is None:
         return {}
-    _rarity.update(try_(lambda: games.GAME.rarity_table(globals_def), {}) or {})
+    _rarity.update(try_(lambda: games.GAME.items.rarity_table(globals_def), {}) or {})
     return _rarity
 
 

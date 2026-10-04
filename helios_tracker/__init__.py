@@ -32,6 +32,7 @@ from .server import Hub, TrackerServer
 from .i18n import t
 from .util import log, log_error, start_log
 
+games.pick()  # the game running's profile, once (games/__init__.py: importing it needs no SDK)
 start_log(games.GAME.key)  # (one log per game: helios_tracker_bl2.log...)
 i18n.set_game_language(game_language())  # (the in-game text: options, the updater's boxes)
 
@@ -107,7 +108,7 @@ open_page = ButtonOption(
 # (ui_utils.OptionBox) shows it - "Checking for updates..." (Cancel), then the answer; a newer one: asked first
 # (Download and Install / Not Now: nothing downloaded before), "Downloading vX...", then Reload Now / Later - each box
 # replacing the last (an open box's text can't be changed through ui_utils) - and the bottom-left message
-# (games.GAME.show_message) says what the automatic path did.
+# (games.GAME.ui.show_message) says what the automatic path did.
 # The checks run in a thread; what they show goes through _ui_queue, drained on the game thread by on_post_render.
 
 UPDATE_EVERY = 24 * 3600  # s between automatic checks
@@ -127,7 +128,7 @@ def _on_game_thread(fn: Any) -> None:
 
 def _toast(text: str) -> None:
     def show() -> None:
-        games.GAME.show_message(text, TOAST_FOR)
+        games.GAME.ui.show_message(text, TOAST_FOR)
         _toast_until[0] = time.monotonic() + TOAST_FOR
 
     _on_game_thread(show)
@@ -143,7 +144,7 @@ def _drain_ui(now: float) -> None:
     if _toast_until[0] and now > _toast_until[0]:
         _toast_until[0] = 0.0
         try:
-            games.GAME.hide_message()
+            games.GAME.ui.hide_message()
         except Exception as ex:  # noqa: BLE001
             log_error("update message", ex)
 
@@ -368,7 +369,7 @@ _collector = Collector(_hub)  # not `collector`: that would shadow the submodule
 def _publish_assets() -> None:
     """The game assets the server can serve now ("assets": the page asks for item card icons only once they're there -
     before, a 404). Any thread (gamecards.listener: the files' scan, the first players' read)."""
-    payload = '{"cards":%d,"textures":%d}' % (games.GAME.card_icons_ready(), gameicons.textures_ready())
+    payload = '{"cards":%d,"textures":%d}' % (games.GAME.assets.card_icons_ready(), gameicons.textures_ready())
     if payload != _assets_sent[0]:  # (only when it changed: the three kinds' keys come one by one)
         _assets_sent[0] = payload
         _hub.publish("assets", payload)
@@ -467,7 +468,7 @@ def _start_assets(boot: bool) -> None:
     politely, without one)."""
     if _assets_started[0]:
         return
-    if (job := games.GAME.assets_job(boot)) is None:
+    if (job := games.GAME.assets.job(boot)) is None:
         return
     _assets_started[0] = True
     threading.Thread(target=job, name="helios_tracker game files", daemon=True).start()
@@ -543,7 +544,7 @@ def on_bink_movie(obj: UObject, args: WrappedStruct, ret: Any, func: BoundFuncti
     """A cutscene video starting: the game renders nothing until it's over (tools/probes/probe_cutscene_watch.txt)."""
     with FRAMES.ours():
         try:
-            _collector.movie_started(obj, str(args.MovieName), games.GAME.movie_no_skip(args))
+            _collector.movie_started(obj, str(args.MovieName), games.GAME.world.movie_no_skip(args))
         except Exception as ex:  # noqa: BLE001
             log_error("movie hook", ex)
 

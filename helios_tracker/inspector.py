@@ -105,7 +105,7 @@ def _kind(inv: Any) -> str:
             return kind
         cls = cls.SuperField
     # a class that doesn't tell (BL1's WillowEquipAbleItem: shields, grenade mods, com decks): its definition's slot
-    return try_(lambda: games.GAME.equip_kind(inv), None) or "item"
+    return try_(lambda: games.GAME.items.equip_kind(inv), None) or "item"
 
 
 
@@ -130,14 +130,14 @@ def card_keys(inv: Any, kind: str | None = None) -> dict[str, str]:
         # (cached per definition; without one, read each time - an item's own address would outlive it as a key)
         zkey = (str(try_(lambda: inv.Class.Name, "")), definition._get_address()) if definition is not None else None
         if zkey is None or zkey not in _zippy:
-            frame = str(try_(lambda: games.GAME.zippy_frame(inv), "") or "")
+            frame = str(try_(lambda: games.GAME.items.zippy_frame(inv), "") or "")
             if zkey is not None:
                 _zippy[zkey] = frame
         else:
             frame = _zippy[zkey]
         if frame.lower() not in ("", "none"):
             out["wt"] = frame.lower()
-    if element := try_(lambda: games.GAME.element_frame(inv, kind), "") or "":  # (each game's: games.py)
+    if element := try_(lambda: games.GAME.items.element_frame(inv, kind), "") or "":  # (each game's: games.py)
         out["el"] = element
     return out
 
@@ -208,7 +208,7 @@ def _stats(inv: Any, kind: str) -> list[list[Any]]:
         if (chance := _element_chance(inv)) is not None:
             out.append(["elementChance", *chance])
     if (level := try_(lambda: _element_levels.get(inv))) is None:  # (static per item: read once - Borderlands 1's, games.py)
-        level = try_(lambda: games.GAME.element_level(inv, kind), 0) or 0
+        level = try_(lambda: games.GAME.items.element_level(inv, kind), 0) or 0
         try_(lambda: _element_levels.put(inv, level))  # (an object it can't key - the offline check's fakes: read each time)
     if level:
         out.append(["elementLevel", level, level])
@@ -243,7 +243,7 @@ def _presented(pres: Any, value: float) -> tuple[float, int]:
     if mode not in ("", "ATTRROUNDING_Float") and mode not in _rounding_logged:
         _rounding_logged.add(mode)
         log(f"item card stat rounding not handled: {mode} ({try_(lambda: pres._path_name(), '?')})")
-    decimals = try_(lambda: games.GAME.presented_decimals(pres), 0) or 0  # (each game's: games.py)
+    decimals = try_(lambda: games.GAME.items.presented_decimals(pres), 0) or 0  # (each game's: games.py)
     return round(value, decimals), decimals
 
 
@@ -390,7 +390,7 @@ def _item(inv: Any, equipped: bool, ctrl: Any = None) -> dict[str, Any]:
         "k": kind,
         "c": str(inv.Class.Name),
         "q": try_(lambda: int(inv.RarityLevel), 0),
-        "l": try_(lambda: games.GAME.item_card_level(inv, int(inv.ExpLevel)), 0),  # (the card's: games.py)
+        "l": try_(lambda: games.GAME.items.card_level(inv, int(inv.ExpLevel)), 0),  # (the card's: games.py)
         "v": try_(lambda: int(inv.MonetaryValue), 0),
         "e": equipped,
         "stats": _stats(inv, kind),
@@ -408,7 +408,7 @@ def _item(inv: Any, equipped: bool, ctrl: Any = None) -> dict[str, Any]:
         damage_type = next(iter(try_(lambda: list(inv.InstantHitDamageTypeDefinitions), []) or []), None)
         colour = try_(lambda: damage_type.HUDDamageColor) if damage_type is not None else None
         if damage_type is not None and (enum := _enum_name(try_(lambda: damage_type.DamageType, ""))):
-            games.GAME.learn_element(enum, item["el"])  # (its card frame next to its damage type: each game's - games.py)
+            games.GAME.items.learn_element(enum, item["el"])  # (its card frame next to its damage type: each game's - games.py)
         if damage_type is not None and (name := _element_name(damage_type, ctrl or get_pc())):
             item["eln"] = name  # the game's name for it ("shock": its localization)
         if colour is not None:
@@ -633,7 +633,7 @@ def _presentation_line(entry: Any, item: Any = None) -> dict[str, Any] | None:
         rgb = tuple(try_(lambda c=c: int(getattr(colour, c)), 255) for c in ("R", "G", "B"))
         if rgb != (255, 255, 255):
             line["col"] = "#%02x%02x%02x" % rgb
-    if item is not None and (shown := try_(lambda: games.GAME.card_line_value(entry, p, item))) is not None:
+    if item is not None and (shown := try_(lambda: games.GAME.items.card_line_value(entry, p, item))) is not None:
         line["dv"], line["dp"] = shown  # the number as the game shows it (games.py: BL1's card lines)
     elif item is not None and (current := _attribute_value(item, try_(lambda: p.Attribute))) is not None:
         line["cur"] = current
@@ -693,7 +693,7 @@ def learn_frame(enum: str, frame: str) -> None:
 def element_frame(enum: str) -> str:
     """A damage type's card frame ("" for none): each game's way (games.py damage_type_frame). The one place a damage
     type becomes its icon's frame (element_of, the collector's update of an object's "el")."""
-    return games.GAME.damage_type_frame(enum)
+    return games.GAME.items.damage_type_frame(enum)
 
 
 def learned_frame(enum: str) -> str:
@@ -761,7 +761,7 @@ def explosion_info(definition: Any, ctrl: Any = None) -> dict[str, Any]:
     key = definition._get_address()
     if key not in _explosions:
         found: dict[str, Any] = {}
-        for behavior in try_(lambda: games.GAME.object_behaviors(definition), []) or []:  # (each game's way: games.py)
+        for behavior in try_(lambda: games.GAME.objects.behaviors(definition), []) or []:  # (each game's way: games.py)
             if try_(lambda b=behavior: str(b.Class.Name), "") == "Behavior_Explode":
                 damage_type = try_(lambda b=behavior: b.Definition.DamageTypeDef)
                 found = {"xp": 1, **(element_of(damage_type, ctrl) if damage_type is not None else {})}
@@ -1196,7 +1196,7 @@ def _class_name_uncached(ctrl: Any, pri: Any) -> dict[str, Any]:
     """{"cls": class, "char": character} - the game's localized class name ("Gunzerker" / "Défourailleur", BL1's
     "Hunter") and character name ("Salvador"), each game's way (games.py class_name); else the class definition's
     object name, flagged made-up ("clsRaw")."""
-    out = dict(try_(lambda: games.GAME.class_name(ctrl, pri), {}) or {})
+    out = dict(try_(lambda: games.GAME.pawns.class_name(ctrl, pri), {}) or {})
     if out.get("cls"):
         return out
     raw = def_name(try_(lambda: ctrl.PlayerClass) if ctrl is not None else None)
@@ -1272,7 +1272,7 @@ def read_players(world_info: Any, me: Any, pc: Any = None) -> list[dict[str, Any
                 mark = part("card keys", mark)
                 _inventory(pawn, player)
                 mark = part("inventory", mark)
-                games.GAME.read_skills(ctrl, player, try_(lambda p=pawn: _skill_bonuses(p), {}))  # (each game's tree: games.py)
+                games.GAME.skills.read(ctrl, player, try_(lambda p=pawn: _skill_bonuses(p), {}))  # (each game's tree: games.py)
                 part("skills", mark)
                 players.append(player)
         except Exception as ex:  # noqa: BLE001

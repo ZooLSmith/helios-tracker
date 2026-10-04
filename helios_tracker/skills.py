@@ -190,7 +190,7 @@ class SkillReader:
             if not action_name:  # the host, another player: SavedSkillTreeSkill has no name - their tree's
                 action_name = try_(lambda: _tree_names(pc)[2], "") or ""
             cached = (now + MAX_EVERY, try_(lambda: float(pc.GetSkillCooldownTime()), 0.0),
-                      try_(lambda: float(pc.GetMeleeSkillCooldownTime()), 0.0), action_name, try_(lambda: games.GAME.action_skill_locked(pc), False))
+                      try_(lambda: float(pc.GetMeleeSkillCooldownTime()), 0.0), action_name, try_(lambda: games.GAME.skills.action_locked(pc), False))
             self._max[key] = cached
         _, action_max, melee_max, action_name, locked = cached
         out: dict[str, Any] = {}

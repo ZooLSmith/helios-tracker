@@ -183,7 +183,7 @@ def level_name(map_name: str) -> str:
         for lst in try_(lambda: list(unrealsdk.find_all("LevelDependencyList", exact=False)), []) or []:
             if str(lst.Name).startswith("Default__"):
                 continue
-            if cached := try_(lambda lst=lst: games.GAME.level_name_in(lst, map_name), "") or "":
+            if cached := try_(lambda lst=lst: games.GAME.world.level_name_in(lst, map_name), "") or "":
                 break
         _level_names[map_name] = cached
     return cached
@@ -487,8 +487,8 @@ class Collector:
         wi = ENGINE.GetCurrentWorldInfo()
         if wi is None:
             return
-        name = games.GAME.map_name(wi)
-        key = games.GAME.level_key(wi, name)
+        name = games.GAME.world.map_name(wi)
+        key = games.GAME.world.level_key(wi, name)
         if key == self._level_key:
             return
         self._clear_contents()
@@ -503,7 +503,7 @@ class Collector:
         if not game_name:
             level["raw"] = 1  # a made-up name (the page marks it)
         # its map: where it sits, how its images load - the game's own way (games.py map_source, levelmap.py)
-        source = games.GAME.map_source(wi, name)  # (None: no map for this level)
+        source = games.GAME.world.map_source(wi, name)  # (None: no map for this level)
         if source is None:
             level["status"] = "none"
         else:
@@ -697,7 +697,7 @@ class Collector:
         a pause / resume, a length changing by over a second, the page's count drifting (SCENE_DRIFT)."""
         if self._video_at:
             return
-        pawn = try_(lambda: games.GAME.local_pawn(pc)) or try_(lambda: field(pc, "Pawn"))
+        pawn = try_(lambda: games.GAME.pawns.local(pc)) or try_(lambda: field(pc, "Pawn"))
         background = (str((self._level or {}).get("map", "")).lower() == "menumap" or pawn is None
                       or try_(lambda: self._in_menu(pawn), False))
         on = not background and try_(lambda: bool(field(pc, "bCinematicMode")) and bool(field(pc, "bKismetEnabledCinematicMode")), False)
@@ -716,7 +716,7 @@ class Collector:
         pos = try_(lambda: float(seq.Position)) if seq is not None and try_(lambda: bool(seq.bIsPlaying), False) else None
         if pos is not None and pos != scene["pos"]:
             scene["pos"], scene["moved"] = pos, now
-        paused = try_(lambda: games.GAME.world_paused(wi), False) or (pos is not None and now - scene["moved"] > 0.3)
+        paused = try_(lambda: games.GAME.world.paused(wi), False) or (pos is not None and now - scene["moved"] > 0.3)
         if not paused:
             scene["played"] += now - scene["t"]
         scene["t"] = now
@@ -832,7 +832,7 @@ class Collector:
         # the level's other actors: one find_all per tick after this one (all in the first scan's tick: 95 ms)
         wi = ENGINE.GetCurrentWorldInfo()
         self._client = getattr(try_(lambda: wi.NetMode), "name", "") == "NM_Client"
-        actors = games.GAME.level_lookups(self._client)  # (the markers' actors, each game's: games.py)
+        actors = games.GAME.missions.level_lookups(self._client)  # (the markers' actors, each game's: games.py)
         self._lookups = [name for name, wanted in (
             ("tracker", self._tracker is None or self._tracker() is None),  # (one per game: only again if gone)
             # the mission markers' actors, each game's (games.py level_lookups: a co-op client's waypoints, BL1's always)
@@ -965,7 +965,7 @@ class Collector:
                     if ms > RECORD_NAMED_MS and records[key] is not None:
                         self._timings.add(f"object record {records[key].get('d') or '?'}", ms)
                 self._note_incomplete(key, io)
-                self._note_giver(key[0], io, try_(lambda io=io: games.GAME.object_directives(io), []))
+                self._note_giver(key[0], io, try_(lambda io=io: games.GAME.objects.directives(io), []))
                 if (record := records[key]) is not None and not Collector._out_of_sight(io) and not io.bDeleteMe:
                     self._objects[key] = record
                     self._objects_dirty = True
@@ -1022,7 +1022,7 @@ class Collector:
         self._object_records[key] = record = self._object_record(io, self._client)
         self._queue_odds(key, io, record)
         self._note_incomplete(key, io)
-        self._note_giver(key[0], io, try_(lambda: games.GAME.object_directives(io), []))
+        self._note_giver(key[0], io, try_(lambda: games.GAME.objects.directives(io), []))
         self._shops.note(io)
         if not Collector._out_of_sight(io):
             self._objects[key] = record
@@ -1170,7 +1170,7 @@ class Collector:
     @staticmethod
     def _is_looted(io: Any, client: bool = False) -> bool:
         """A container looted - each game's test (games.py is_looted)."""
-        return bool(try_(lambda: games.GAME.is_looted(io, client), False))
+        return bool(try_(lambda: games.GAME.objects.is_looted(io, client), False))
 
     @staticmethod
     def _lootable(io: Any, balance: Any) -> bool:
@@ -1232,7 +1232,7 @@ class Collector:
         part("name.path")
         # a map exit (Borderlands 1's map changers: no name of their own - their level script's destination, as the game
         # names that area: games.py object_destination)
-        if (destination := try_(lambda: games.GAME.object_destination(io), "") or "") and (area := level_name(destination)):
+        if (destination := try_(lambda: games.GAME.objects.destination(io), "") or "") and (area := level_name(destination)):
             record["exit"] = area
         part("exit")
         # an air dome's bubble (the Pre-Sequel's): its breathable area and whether it's on (its definition "_On" either
@@ -1326,13 +1326,13 @@ class Collector:
         elif kind == "vehicle":
             # Its own name (each game's: games.py vehicle_name) - GetTargetName gives the driver's once someone
             # drives it
-            name = named(try_(lambda: games.GAME.vehicle_name(pawn), "") or "",
+            name = named(try_(lambda: games.GAME.pawns.vehicle_name(pawn), "") or "",
                          def_name(try_(lambda: pawn.VehicleDef)), str(pawn.Class.Name))
         else:
             # Its balance's DisplayName (games.py pawn_name - BL2: per playthrough, BL1: per grade): what GetTargetName
             # / GetMapDisplayName / GetTransformedName give - read as a property: calling those crashed the game (a
             # native fatal error from call_str here, helios_crash.log, 2026-09-23, Tundra Express)
-            name = named(try_(lambda: games.GAME.pawn_name(pawn), "") or "", try_(lambda: games.GAME.pawn_raw_name(pawn), "") or "",
+            name = named(try_(lambda: games.GAME.pawns.name(pawn), "") or "", try_(lambda: games.GAME.pawns.raw_name(pawn), "") or "",
                          str(pawn.Class.Name))
             self._note_giver(addr, pawn, try_(lambda: list(pawn.MissionDirectives.MissionDirectives), []))  # (its missions)
         info = {"i": f"{addr:x}", "k": kind, **name}
@@ -1382,7 +1382,7 @@ class Collector:
             "q": try_(lambda: int(p.InventoryRarityLevel), 0),
         }
         if inv is not None and (level := exp_level(inv)):
-            info["l"] = try_(lambda: games.GAME.item_card_level(inv, level), level)  # (the card's: games.py)
+            info["l"] = try_(lambda: games.GAME.items.card_level(inv, level), level)  # (the card's: games.py)
         kind = pickup_kind(inv)
         # its own icon (the game's: its definition's PickupFlagIcon - fx_shared_items...Credits, Ammo_SMG...: the
         # tooltip / panel, served by /texture/<path>.png) - any usable item's, of a known kind or not ("other")
@@ -1414,7 +1414,7 @@ class Collector:
         wi = ENGINE.GetCurrentWorldInfo()
         if pc is None or wi is None:
             return
-        me = try_(lambda: games.GAME.local_pawn(pc))  # (each game's: games.py)
+        me = try_(lambda: games.GAME.pawns.local(pc))  # (each game's: games.py)
         view_yaw = try_(lambda: pc.Rotation.Yaw, 0)
         self._state_n += 1
         t0 = time.perf_counter()
@@ -1585,7 +1585,7 @@ class Collector:
                 pickups.append(pickup)
                 # at rest (and its card built, if it's gear): read again in PICKUP_RESTING_EVERY - staggered by its
                 # address the first time (a level's pickups all at rest at once: not all re-read in one tick)
-                if (not gear or item is not None) and try_(lambda get=get: games.GAME.pickup_at_rest(get), False):
+                if (not gear or item is not None) and try_(lambda get=get: games.GAME.objects.pickup_at_rest(get), False):
                     first = key not in self._resting
                     later = PICKUP_RESTING_EVERY * ((1 + (key >> 4) % 10 / 10) if first else 1)
                     self._resting[key] = (pickup, item, now + later)
@@ -1601,7 +1601,7 @@ class Collector:
         self.hub.publish_records("items", "items", list(items.values()), {"level": self.level_id})  # (before their pickups)
         self.hub.publish_records("pickups", "pickups", pickups, {"level": self.level_id})
         self.hub.publish_records("pawninfo", "pawns", infos, {"level": self.level_id})
-        paused = try_(lambda: games.GAME.world_paused(wi), False)  # the game paused (its menu: games.py)
+        paused = try_(lambda: games.GAME.world.paused(wi), False)  # the game paused (its menu: games.py)
         self.hub.publish_records("state", "pawns", pawns, {"level": self.level_id, "hz": self.rate, **({"paused": 1} if paused else {})},
                                  {"t": round(now, 3)})  # (the time: not a change)
         t_end = time.perf_counter()
@@ -1799,10 +1799,10 @@ class Collector:
         wanted: dict[int, tuple[Any, str, Any]] = {}  # waypoint definition address -> (mission, kind, its entry)
         elsewhere: list[tuple[str, Any, str, Any]] = []  # (the area it's in, mission, kind, entry): marked on its exit
         started = time.perf_counter()
-        here = str(try_(lambda: games.GAME.map_name(ENGINE.GetCurrentWorldInfo()), "") or "").lower()
-        for entry in try_(lambda: list(games.GAME.picked_mission_entries(tracker)), []) or []:
+        here = str(try_(lambda: games.GAME.world.map_name(ENGINE.GetCurrentWorldInfo()), "") or "").lower()
+        for entry in try_(lambda: list(games.GAME.missions.picked_entries(tracker)), []) or []:
             mission = try_(lambda e=entry: e.MissionDef)
-            status = try_(lambda e=entry: games.GAME.mission_status(e), "")
+            status = try_(lambda e=entry: games.GAME.missions.status(e), "")
             if mission is None or status not in ("Active", "ReadyToTurnIn"):
                 continue
             kind = "objective" if status == "Active" else "directive"
@@ -1827,8 +1827,8 @@ class Collector:
             if kind == "directive":
                 marker["end"] = 1  # (ready to hand in: the page's turn-in "?")
             else:
-                progress = try_(lambda e=entry: games.GAME.mission_progress(e), ()) or ()
-                for i, (_key, objective) in enumerate(try_(lambda m=mission: games.GAME.mission_objectives(m), []) or []):
+                progress = try_(lambda e=entry: games.GAME.missions.progress(e), ()) or ()
+                for i, (_key, objective) in enumerate(try_(lambda m=mission: games.GAME.missions.objectives(m), []) or []):
                     if (progress[i] if i < len(progress) else 0) < (try_(lambda o=objective: int(o.ObjectiveCount), 1) or 1):
                         marker["objective"] = named(try_(lambda o=objective: str(o.ProgressMessage), ""), "")
                         break
@@ -1904,7 +1904,7 @@ class Collector:
                     mid = mission_id(mission)
                     state = states.get(mid, "")
                     if state != "end":  # can be picked up now: each game's word (games.py mission_offered - BL1's: the game's eligibility)
-                        offered = try_(lambda m=mission, s=state, i=mid: games.GAME.mission_offered(pc, m, s, i in logged), False)
+                        offered = try_(lambda m=mission, s=state, i=mid: games.GAME.missions.offered(pc, m, s, i in logged), False)
                         state = "begin" if begins and offered else ""
                     if ((state == "begin" and begins) or (state == "end" and ends)) and all(e["i"] != mid for e in listed):
                         entry = {"i": mid, **named(try_(lambda m=mission: str(m.MissionName), ""), def_name(mission))}
@@ -1956,7 +1956,7 @@ class Collector:
         markers, giver_npcs = [], set()
         states = None  # the log's missions to pick up / hand in (giver_states): read once, for the game's directives
         # each game's markers (games.py mission_markers - BL1's: its waypoint actors), else the tracker's components
-        by_actors = (game_markers := games.GAME.mission_markers(self, tracker, active_addr)) is not None
+        by_actors = (game_markers := games.GAME.missions.markers(self, tracker, active_addr)) is not None
         if by_actors:
             markers = game_markers
         for entry in [] if by_actors else try_(lambda: list(tracker.MissionWaypoints), []):
@@ -2074,7 +2074,7 @@ class Collector:
         if wi is None or pc is None:
             return
         started = time.perf_counter()
-        players = read_players(wi, try_(lambda: games.GAME.local_pawn(pc)), pc)
+        players = read_players(wi, try_(lambda: games.GAME.pawns.local(pc)), pc)
         if DIAGNOSTICS and (time.perf_counter() - started) * 1000 > SLOW_MS:  # slow: which part - debug only
             for name, part_s in players_parts.items():
                 if part_s * 1000 > 1.0:
