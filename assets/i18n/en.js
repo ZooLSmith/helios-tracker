@@ -136,7 +136,6 @@ export default {
   "install.bl1": "<span class=\"game bl1\">Borderlands</span> <small>(experimental)</small>",
   "install.bl1Text": "Helios Tracker also runs in <a class=\"game bl1\" href=\"https://store.steampowered.com/app/729040/\">Borderlands</a>, the original and the Game of the Year Enhanced edition. It's newer and less tested than the other two games.",
   "install.bl1Sdk": "The SDK is its own build: get it from <a href=\"https://github.com/bl-sdk/willow1-mod-manager/releases\">its releases page</a>. The mod is the same <code>helios_tracker.sdkmod</code>, installed the same way.",
-  "install.bl1Fog": "The game has no fog of war: the map shows the whole level from the start.",
   "install.bl1Report": "Something wrong or missing? <a href=\"https://github.com/ZooLSmith/helios-tracker/issues/new\">Open an issue</a> and say which edition you play.",
   "install.coop": "Playing co-op",
   "install.coopText": "Only one player needs the mod. If you can choose, install it on the <strong>host</strong>'s PC: the host's game knows everything, while a client's game only knows what the host sends it.",
