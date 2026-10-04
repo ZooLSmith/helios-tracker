@@ -9,6 +9,12 @@ from ..base import Part
 class Skills(Part):
     """The players' skill trees and action skill."""
 
+    def icon(self, skill_def: Any) -> str:
+        """A skill's icon texture path, as the game's movies name it ("SharedSkillIcons_Soldier.SkillIcon-Able":
+        files/gameicons.py serves it), "" without one: its SkillIcon movie's path."""
+        movie = skill_def.SkillIcon
+        return str(movie._path_name()) if movie is not None else ""
+
     def read(self, ctrl: Any, player: dict[str, Any], bonuses: dict[str, Any]) -> None:
         """A player's skill tree into their record ("skills": trees -> tiers -> cells, "skillPoints"): BL2's PlayerSkillTree
         (inspector._skills)."""

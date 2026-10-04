@@ -86,6 +86,9 @@ class Bl1Missions(Missions):
             self._missions = [d for d in unrealsdk.find_all("MissionDefinition", exact=False) if not d.Name.startswith("Default__")]
         return self._missions
 
+    def objective_name(self, objective: Any) -> str:
+        return ""  # (its objectives are structs: no name of their own)
+
     def objectives(self, mdef: Any) -> list[tuple[int, Any]]:
         # Objectives[] = MissionObjectiveData structs {StatId, ObjectiveCount, ProgressMessage}: keyed by their index
         return list(enumerate(mdef.Objectives))

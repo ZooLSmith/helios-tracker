@@ -5,13 +5,75 @@ from typing import Any
 
 from ..base import Part
 
+ITEM_KINDS = {  # class (or a superclass) -> kind shown by the page
+    "WillowWeapon": "weapon",
+    "WillowShield": "shield",
+    "WillowGrenadeMod": "grenade",
+    "WillowClassMod": "classmod",
+    "WillowArtifact": "relic",
+    "WillowMissionItem": "mission",
+    "WillowUsableItem": "usable",
+}
+# A usable item's kind, by its definition's inventory card (Presentation): the game's own grouping
+# (probe_pickups.py: GD_InventoryPresentations.Definitions.Credits / Health / WeaponAmmo_* / GrenadeAmmo)
+PRESENTATION_KINDS = {"Credits": "cash", "Health": "health", "GrenadeAmmo": "ammo", "Oxygen": "oxygen"}
+# ("Oxygen": the Pre-Sequel's Oxygen Canister - GD_BuffDrinks.A_Item.BuffDrink_OxygenInstant, presentation
+# GD_InventoryPresentations.Definitions.Oxygen, icon fx_shared_items.Textures.OxygenCannister_Particle - Startup.upk)
+# The "Credits" presentation is shared by every currency: the definition's FormOfCurrency tells them
+# apart (seen in game, tools/probes/probe_eridium.py: GD_Currency.A_Item.EridiumStick = CURRENCY_Eridium).
+# Other currencies (not seen yet: Seraph crystals, Torgue tokens...) stay "other".
+CURRENCY_KINDS = {"CURRENCY_Credits": "cash", "CURRENCY_Eridium": "eridium"}
+
 
 class Items(Part):
     """Items and their cards: their kind, level, card frames, elements, stat lines, the rarity colours."""
 
-    def equip_kind(self, inv: Any) -> str | None:
-        """An item's kind from its definition, for a class that doesn't tell it (inspector._kind): BL2's classes all do."""
-        return None
+    def __init__(self, profile: Any) -> None:
+        super().__init__(profile)
+        # Per item definition (static game data, set when the item spawns - never changes): its pickup kind. Never
+        # cleared; keyed by definition, not by pickup (a destroyed pickup's address can be reused).
+        self._pickup_kinds: dict[int, str] = {}
+
+    def kind(self, inv: Any) -> str:
+        """An item's kind as the page shows it ("weapon", "shield", "grenade"...; "item" if nothing tells): its class
+        or a superclass's (ITEM_KINDS)."""
+        cls = inv.Class
+        while cls is not None:
+            if (kind := ITEM_KINDS.get(str(cls.Name))) is not None:
+                return kind
+            cls = cls.SuperField
+        return "item"
+
+    def pickup_kind(self, inv: Any) -> str:
+        """ "ammo" / "cash" / "eridium" / "health" / "oxygen" for a usable item (a non-gear pickup), "mission" for a
+        mission item (WillowMissionItem: ECHO logs, Princess Fluffybutt... - tools/probes/probe_pickups.txt), ""
+        for anything else. Weapons / gear aren't looked at; each definition is resolved once (_usable_kind)."""
+        from ...util import try_  # noqa: PLC0415
+
+        if inv is None:
+            return ""
+        if inv.Class.Name == "WillowMissionItem":
+            return "mission"
+        if inv.Class.Name != "WillowUsableItem":
+            return ""
+        item_def = try_(lambda: inv.DefinitionData.ItemDefinition)
+        if item_def is None:
+            return ""
+        key = item_def._get_address()
+        if (kind := self._pickup_kinds.get(key)) is None:
+            kind = self._pickup_kinds[key] = self._usable_kind(item_def)
+        return kind
+
+    def _usable_kind(self, item_def: Any) -> str:
+        """A usable item's kind from its definition: its inventory card (Presentation), a currency by its FormOfCurrency."""
+        from ...util import try_  # noqa: PLC0415
+
+        name = try_(lambda: str(item_def.Presentation.Name), "")
+        kind = "ammo" if name.startswith("WeaponAmmo_") else PRESENTATION_KINDS.get(name, "")
+        if kind == "cash":
+            currency = getattr(try_(lambda: item_def.FormOfCurrency), "name", "CURRENCY_Credits")
+            kind = CURRENCY_KINDS.get(currency, "")
+        return kind
 
     def card_level(self, inv: Any, level: int) -> int:
         """The level an item's card shows, from its level (ExpLevel / GetExpLevel()): BL2's, as is."""

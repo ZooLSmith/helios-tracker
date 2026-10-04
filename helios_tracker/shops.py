@@ -28,7 +28,7 @@ from unrealsdk.unreal import WeakPointer
 
 from .inspector import _item
 from . import games
-from .util import addr, def_name, field, item_name, log_error, named, pickup_kind, try_
+from .util import addr, def_name, field, item_name, log_error, named, try_
 
 KINDS = {"SType_Weapons": "weapons", "SType_Items": "items", "SType_Health": "health", "SType_BlackMarket": "blackmarket"}
 TITLES = {"weapons": "WeaponsShopTitle", "items": "ItemsShopTitle", "health": "HealthShopTitle"}
@@ -150,7 +150,7 @@ class ShopReader:
                     if inv is None:
                         continue
                     seen.add((inv._get_address(), str(inv.Name)))
-                    if (always := pickup_kind(inv)) in ALWAYS_SOLD:
+                    if (always := games.GAME.items.pickup_kind(inv)) in ALWAYS_SOLD:
                         basics.append(self._basic(inv, always, io, pc))
                         continue
                     if (record := self._record(inv, io, pc, deadline)) is None:
@@ -161,7 +161,7 @@ class ShopReader:
                 if basics:
                     machine["basics"] = basics
                 featured = try_(lambda io=io: io.FeaturedItem)
-                if featured is not None and pickup_kind(featured) not in ALWAYS_SOLD:
+                if featured is not None and games.GAME.items.pickup_kind(featured) not in ALWAYS_SOLD:
                     seen.add((featured._get_address(), str(featured.Name)))
                     if (record := self._record(featured, io, pc, deadline)) is None:
                         complete = False

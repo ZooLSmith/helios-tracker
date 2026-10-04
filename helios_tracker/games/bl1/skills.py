@@ -24,6 +24,9 @@ class Bl1Skills(Skills):
         self._skill_icons: dict[int, dict[tuple[str, int, int], str]] = {}  # CharacterName -> its cells' icons (skill_icons)
         self._skill_clips: dict[int, tuple[str, str]] = {}  # CharacterName -> (the skill clip, its frame) (_skill_clip)
 
+    def icon(self, skill_def: Any) -> str:
+        return ""  # (no skill icon textures served: its tree's icons are its skill menu's - skill_icons)
+
     def read(self, ctrl: Any, player: dict[str, Any], bonuses: dict[str, Any]) -> None:
         # No PlayerSkillTree: the controller's PlayerSkills[] and SkillTreeBranches[] (tools/probes/probe_bl1_skills.txt) -
         # _player_skills; its branches' names: the skill menu's (branch_names)

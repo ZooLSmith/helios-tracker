@@ -52,15 +52,9 @@ _unnamed: set[int] = set()  # nameless timed skills' definitions already logged
 
 
 def skill_icon(skill_def: Any) -> str:
-    """A skill's icon texture path, as the game's movies name it ("SharedSkillIcons_Soldier.SkillIcon-Able"; gameicons.py
-    serves it): its SkillIcon movie's path - or, with a SkillIconTextureName (the Pre-Sequel's), that texture in the
-    movie's package: its DLC classes' skills all share one movie ("SharedSkillIcons_Cro_Aurelia.SkillIcon-Aurelia",
-    every icon an image of it), the name picks theirs ("SkillIcon-Avalanche"). "" without an icon."""
-    movie = try_(lambda: skill_def.SkillIcon._path_name(), "") or ""
-    texture = str(try_(lambda: skill_def.SkillIconTextureName, "") or "")
-    if movie and texture and texture.lower() != "none":
-        return f"{movie.split('.')[0]}.{texture}"
-    return movie
+    """A skill's icon texture path, as the game's movies name it ("SharedSkillIcons_Soldier.SkillIcon-Able" - the
+    game's assets serve it), "" without one: each game's (games.GAME.skills.icon)."""
+    return try_(lambda: games.GAME.skills.icon(skill_def), "") or ""
 
 
 def _tree_names(pc: Any) -> tuple[set[int], dict[str, str], str]:

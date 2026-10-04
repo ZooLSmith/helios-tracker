@@ -36,15 +36,6 @@ from .skills import skill_icon
 from .util import PerObject, addr, call_str, def_name, field, item_name, log, log_error, named, player_info, try_
 
 MAX_CHAIN = 32  # guard for the linked inventory chains
-ITEM_KINDS = {  # class (or a superclass) -> kind shown by the page
-    "WillowWeapon": "weapon",
-    "WillowShield": "shield",
-    "WillowGrenadeMod": "grenade",
-    "WillowClassMod": "classmod",
-    "WillowArtifact": "relic",
-    "WillowMissionItem": "mission",
-    "WillowUsableItem": "usable",
-}
 
 _static: dict[int, dict[str, Any]] = {}  # SkillDefinition / branch address -> names (static data)
 # Backpack items, by (address, class): they only change when picked up / sold, so each is read
@@ -99,13 +90,8 @@ _xp_logged = [False]  # why the local player's XP is missing: logged once
 
 
 def _kind(inv: Any) -> str:
-    cls = inv.Class
-    while cls is not None:
-        if (kind := ITEM_KINDS.get(str(cls.Name))) is not None:
-            return kind
-        cls = cls.SuperField
-    # a class that doesn't tell (BL1's WillowEquipAbleItem: shields, grenade mods, com decks): its definition's slot
-    return try_(lambda: games.GAME.items.equip_kind(inv), None) or "item"
+    """An item's kind as the page shows it ("weapon", "shield"... - "item" if nothing tells): each game's."""
+    return try_(lambda: games.GAME.items.kind(inv), "item") or "item"
 
 
 

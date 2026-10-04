@@ -51,10 +51,20 @@ class Objects(Part):
         opened = any(state >> n & 1 for n in opened_bits) if opened_bits else state == 7
         return opened and (client or not try_(lambda: io.bCanBeUsed[0], 1))
 
-    def destination(self, io: Any) -> str:
-        """The map an interactive object takes the player to ("" if none): BL2's exits are travel stations, named by the
-        game ("Exit to ..." - exit_text): none here."""
-        return ""
+    def extra_fields(self, io: Any, definition: Any) -> dict[str, Any]:
+        """An object's record fields for a system only some games have (an air dome's "dome": [radius, on] - re-read
+        with dome(); its generator "dg", an oxygen source "o2"): none here."""
+        return {}
+
+    def dome(self, io: Any) -> list[int] | None:
+        """An air dome bubble's [radius (uu), 1 on / 0 off] now (a record whose extra_fields had "dome"): none here."""
+        return None
+
+    def exit(self, io: Any) -> tuple[str, str]:
+        """A map exit's names (an object taking the player to another map): (the game's text for it - "Exit to Frostburn
+        Canyon" -, the area it leads to as the game names it - the page words that "Exit to <area>"); ("", "") if it
+        isn't one. BL2's exits are travel stations, their text the game's (exit_text)."""
+        return self.exit_text(io), ""
 
     def directives(self, io: Any) -> list[Any]:
         """An interactive object's missions it gives / takes back ({MissionDefinition, bBeginsMission, bEndsMission}):

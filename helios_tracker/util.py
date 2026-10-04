@@ -263,48 +263,6 @@ def exp_level(obj: Any) -> int:
     return 0
 
 
-# A usable item's kind, by its definition's inventory card (Presentation): the game's own grouping
-# (probe_pickups.py: GD_InventoryPresentations.Definitions.Credits / Health / WeaponAmmo_* / GrenadeAmmo)
-PRESENTATION_KINDS = {"Credits": "cash", "Health": "health", "GrenadeAmmo": "ammo", "Oxygen": "oxygen"}
-# ("Oxygen": the Pre-Sequel's Oxygen Canister - GD_BuffDrinks.A_Item.BuffDrink_OxygenInstant, presentation
-# GD_InventoryPresentations.Definitions.Oxygen, icon fx_shared_items.Textures.OxygenCannister_Particle - Startup.upk)
-# The "Credits" presentation is shared by every currency: the definition's FormOfCurrency tells them
-# apart (seen in game, tools/probes/probe_eridium.py: GD_Currency.A_Item.EridiumStick = CURRENCY_Eridium).
-# Other currencies (not seen yet: Seraph crystals, Torgue tokens...) stay "other".
-CURRENCY_KINDS = {"CURRENCY_Credits": "cash", "CURRENCY_Eridium": "eridium"}
-# Per item definition (static game data, set when the item spawns - never changes): kind. Never
-# cleared; keyed by definition, not by pickup (a destroyed pickup's address can be reused).
-_pickup_kinds: dict[int, str] = {}
-
-
-def pickup_kind(inv: Any) -> str:
-    """ "ammo" / "cash" / "eridium" / "health" / "oxygen" for a usable item (a non-gear pickup), "mission" for a
-    mission item (WillowMissionItem: ECHO logs, Princess Fluffybutt... - tools/probes/probe_pickups.txt), ""
-    for anything else. Weapons / gear aren't looked at; each definition is resolved once."""
-    if inv is None:
-        return ""
-    if inv.Class.Name == "WillowMissionItem":
-        return "mission"
-    if inv.Class.Name != "WillowUsableItem":
-        return ""
-    item_def = try_(lambda: inv.DefinitionData.ItemDefinition)
-    if item_def is None:
-        return ""
-    key = item_def._get_address()
-    if (kind := _pickup_kinds.get(key)) is None and try_(lambda: bool(item_def.bMissionItem), False):
-        # a mission item as a usable item - its definition says so (Borderlands 1's: no WillowMissionItem class -
-        # Z0_MissionData's ID_SpareVendingPart "Power Coupling": bMissionItem, the MissionObject presentation)
-        kind = _pickup_kinds[key] = "mission"
-    if kind is None:
-        name = try_(lambda: str(item_def.Presentation.Name), "")
-        kind = "ammo" if name.startswith("WeaponAmmo_") else PRESENTATION_KINDS.get(name, "")
-        if kind == "cash":
-            currency = getattr(try_(lambda: item_def.FormOfCurrency), "name", "CURRENCY_Credits")
-            kind = CURRENCY_KINDS.get(currency, "")
-        _pickup_kinds[key] = kind
-    return kind
-
-
 # The game's rarity per RarityLevel: its colour entry and colour (games.py rarity_table: each game's own way)
 _rarity: dict[str, list[Any]] = {}
 

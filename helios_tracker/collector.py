@@ -34,7 +34,7 @@ from .frames import FRAMES
 from .paths import DIAGNOSTICS
 from .server import Hub
 from .util import (addr, call_str, def_name, exp_level, field, item_name, level_changed, log, log_error, named,
-                   on_level_change, pickup_kind, player_info, rarity_table, reader, try_)
+                   on_level_change, player_info, rarity_table, reader, try_)
 
 LEVEL_CHECK_EVERY = 1.0  # s
 SCAN_EVERY = 120.0  # s between full pickup scans: a safety net, new ones come from the spawn hook
@@ -369,7 +369,7 @@ class Collector:
         self._incomplete: dict[tuple[int, str], WeakPointer] = {}  # records built before their definition: built again
         self._next_incomplete = 0.0
         self._unlooted: dict[tuple[int, str], WeakPointer] = {}  # lootable containers not opened yet
-        self._domes: dict[tuple[int, str], WeakPointer] = {}  # the Pre-Sequel's air dome bubbles: their on / off re-read
+        self._domes: dict[tuple[int, str], WeakPointer] = {}  # air dome bubbles (a record's "dome"): their on / off re-read
         self._damageable: dict[tuple[int, str], WeakPointer] = {}  # objects with health (barrels...): re-read
         self._next_looted = 0.0
         self._next_domes = 0.0
@@ -1093,7 +1093,7 @@ class Collector:
             if io is None or record is None:
                 self._domes.pop(key, None)
                 continue
-            if (dome := self._dome(io)) is not None and dome != record.get("dome"):
+            if (dome := try_(lambda io=io: games.GAME.objects.dome(io))) is not None and dome != record.get("dome"):
                 record["dome"] = dome  # in place: the published list holds this dict
                 changed = True
         if changed:
@@ -1145,17 +1145,6 @@ class Collector:
         return _vital(try_(lambda: float(io.Health), 0.0)), _vital_max(top)
 
     @staticmethod
-    def _dome(io: Any) -> list[int] | None:
-        """An air dome bubble's (the Pre-Sequel's IO_AirDome_Bubble_*): [its radius (uu), 1 on / 0 off] - its
-        CollisionComponent, a SphereComponent: Bounds.BoxExtent its radius (1500 x the object's DrawScale), bAttached
-        whether it's on (False until its generator's button is pushed: tools/probes/probe_dome_state.txt). None without it."""
-        comp = try_(lambda: io.CollisionComponent)
-        radius = try_(lambda: float(comp.Bounds.BoxExtent.X), 0.0) if comp is not None else 0.0
-        if radius <= 0:
-            return None
-        return [round(radius), 1 if try_(lambda: bool(comp.bAttached), False) else 0]
-
-    @staticmethod
     def _is_looted(io: Any, client: bool = False) -> bool:
         """A container looted - each game's test (games.py is_looted)."""
         return bool(try_(lambda: games.GAME.objects.is_looted(io, client), False))
@@ -1183,13 +1172,14 @@ class Collector:
         loc = io.Location
         definition = try_(lambda: io.InteractiveObjectDefinition)
         # The game's name for it, in the game's language (e.g. "Incendiary Barrel"): a map exit's where it leads (a
-        # LevelTravelStation's "Exit to Frostburn Canyon" - games.GAME.objects.exit_text; its map header only "Map Exit": the user), the
+        # LevelTravelStation's "Exit to Frostburn Canyon" - games.GAME.objects.exit; its map header only "Map Exit": the user), the
         # balance's DefaultDisplayName, else its definition's StatusMenuMapInfoBoxHeader (what the game's map shows on
         # hover: the Pre-Sequel's "Oxygen Source", "Air Dome Generator" - no balance name, no target name), else what
         # targeting it shows
         balance = try_(lambda: io.BalanceDefinitionState.BalanceDefinition)
-        # (each read its own part - the slow report's breakdown: a Borderlands 1 record's names took 22 ms)
-        display = games.GAME.objects.exit_text(io)
+        # (each read its own part - the slow report's breakdown: a record's names took 22 ms)
+        exit_name, exit_area = try_(lambda: games.GAME.objects.exit(io), ("", "")) or ("", "")
+        display = exit_name
         part("name.exit")
         if not display:
             display = try_(lambda: str(balance.DefaultDisplayName), "")
@@ -1218,19 +1208,12 @@ class Collector:
             "z": round(loc.Z),
         }
         part("name.path")
-        # a map exit (Borderlands 1's map changers: no name of their own - their level script's destination, as the game
-        # names that area: games.py object_destination)
-        if (destination := try_(lambda: games.GAME.objects.destination(io), "") or "") and (area := level_name(destination)):
-            record["exit"] = area
-        part("exit")
-        # an air dome's bubble (the Pre-Sequel's): its breathable area and whether it's on (its definition "_On" either
-        # way - the name isn't the state)
-        if definition is not None and "AirDome_Bubble" in str(definition.Name) and (dome := Collector._dome(io)):
-            record["dome"] = dome
-        elif definition is not None and "AirDome_Generator" in str(definition.Name):
-            record["dg"] = 1  # its generator (its button switches a dome on - its own state: none that changes)
-        elif definition is not None and "OxygenCracks" in str(definition.Name):
-            record["o2"] = 1  # an oxygen fissure (IO_OxygenCracks, _Large, _NoMesh: "Oxygen Source" - refills Oz kits)
+        # a map exit with no text of its own: the area it leads to (the page: "Exit to <area>")
+        if exit_area:
+            record["exit"] = exit_area
+        # what it is for a system only some games have (an air dome: "dome", its state re-read - _check_domes)
+        if definition is not None:
+            record.update(try_(lambda: games.GAME.objects.extra_fields(io, definition), {}) or {})
         # health (barrels, generators... - "h" / "m", the pawns' names: the page's health lines and bars as theirs), and
         # whether it explodes (its behaviours: a Behavior_Explode - its element from the explosion's damage type)
         if (health := Collector._health(io)) is not None:
@@ -1359,7 +1342,7 @@ class Collector:
         }
         if inv is not None and (level := exp_level(inv)):
             info["l"] = try_(lambda: games.GAME.items.card_level(inv, level), level)  # (the card's: games.py)
-        kind = pickup_kind(inv)
+        kind = games.GAME.items.pickup_kind(inv)
         # its own icon (the game's: its definition's PickupFlagIcon - fx_shared_items...Credits, Ammo_SMG...: the
         # tooltip / panel, served by /texture/<path>.png) - any usable item's, of a known kind or not ("other")
         if kind or (inv is not None and inv.Class.Name == "WillowUsableItem"):

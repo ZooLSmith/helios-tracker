@@ -463,7 +463,11 @@ def check_helios_tracker() -> None:  # noqa: PLR0915
     from helios_tracker import collector as col  # noqa: PLC0415
     from helios_tracker.server import Hub, TrackerServer  # noqa: PLC0415
     from helios_tracker.games.bl2.files.tacmap import load_tactical_map  # noqa: PLC0415
-    from helios_tracker.util import clear_fields, field, pickup_kind  # noqa: PLC0415
+    from helios_tracker import games as kind_games  # noqa: PLC0415
+    from helios_tracker.util import clear_fields, field  # noqa: PLC0415
+
+    def pickup_kind(inv: object) -> str:  # (the game's: BL2's here)
+        return kind_games.GAME.items.pickup_kind(inv)
     from helios_tracker.util import reader as field_reader  # noqa: PLC0415 - ("reader": a SkillReader below)
 
     # Every @hook of the mod is in build_mod's hooks list (an explicit list: one left out never runs -
@@ -567,7 +571,7 @@ def check_helios_tracker() -> None:  # noqa: PLR0915
                                      ItemName="Data Log", MissionDirective=echo_mission, AssociatedMissionObjective=None)))
     assert col.item_name(echo) == "Data Log", col.item_name(echo)
     echo.Class = types.SimpleNamespace(Name="WillowMissionItem")
-    assert col.pickup_kind(echo) == "mission", "a mission item: the Mission items layer"
+    assert pickup_kind(echo) == "mission", "a mission item: the Mission items layer"
     assert col.pickup_mission(echo) == {"i": "gd_z1_nohardfeelings.M_NoHardFeelings", "n": "No Hard Feelings", "k": "gives"}
     part = types.SimpleNamespace(ProgressMessage="Collect parts", Outer=echo_mission)
     echo.DefinitionData.ItemDefinition.MissionDirective, echo.DefinitionData.ItemDefinition.AssociatedMissionObjective = None, part
@@ -689,17 +693,19 @@ def check_helios_tracker() -> None:  # noqa: PLR0915
     print(f"  skill icons: {len(icons)} indexed, Able {len(able)} bytes ({time.perf_counter() - t:.2f} s)")
     # A skill's icon path (skills.skill_icon): its SkillIcon movie's - or the Pre-Sequel's SkillIconTextureName in that
     # movie's package (its DLC classes' skills share one movie: Aurelia's "SkillIcon-Aurelia", 37 skills)
-    from helios_tracker.skills import skill_icon  # noqa: PLC0415
+    from helios_tracker import games as icon_games  # noqa: PLC0415
+    tps_icon, bl2_icon = icon_games.make_profile("TPS").skills.icon, icon_games.make_profile("BL2").skills.icon
+
     def icon_movie(path: str) -> types.SimpleNamespace:
         return types.SimpleNamespace(_path_name=lambda: path)
-    aurelia_icon = skill_icon(types.SimpleNamespace(SkillIcon=icon_movie("SharedSkillIcons_Cro_Aurelia.SkillIcon-Aurelia"),
+    aurelia_icon = tps_icon(types.SimpleNamespace(SkillIcon=icon_movie("SharedSkillIcons_Cro_Aurelia.SkillIcon-Aurelia"),
                                                     SkillIconTextureName="SkillIcon-Avalanche"))
     assert aurelia_icon == "SharedSkillIcons_Cro_Aurelia.SkillIcon-Avalanche", aurelia_icon
-    assert skill_icon(types.SimpleNamespace(SkillIcon=icon_movie("SharedSkillIcons_Soldier.SkillIcon-Able"))) == \
+    assert bl2_icon(types.SimpleNamespace(SkillIcon=icon_movie("SharedSkillIcons_Soldier.SkillIcon-Able"))) == \
         "SharedSkillIcons_Soldier.SkillIcon-Able", "BL2: no SkillIconTextureName, the movie's path"
-    assert skill_icon(types.SimpleNamespace(SkillIcon=icon_movie("SharedSkillIcons_Soldier.SkillIcon-Able"),
+    assert tps_icon(types.SimpleNamespace(SkillIcon=icon_movie("SharedSkillIcons_Soldier.SkillIcon-Able"),
                                             SkillIconTextureName="None")) == "SharedSkillIcons_Soldier.SkillIcon-Able"
-    assert skill_icon(types.SimpleNamespace(SkillIcon=None, SkillIconTextureName="SkillIcon-Avalanche")) == "", "no movie: none"
+    assert tps_icon(types.SimpleNamespace(SkillIcon=None, SkillIconTextureName="SkillIcon-Avalanche")) == "", "no movie: none"
     gameicons._pngs.clear()
     t = time.perf_counter()
     assert gameicons.icon_png("SharedSkillIcons_Soldier.SkillIcon-Able") == able and time.perf_counter() - t < 0.2, \
@@ -949,8 +955,17 @@ def check_helios_tracker() -> None:  # noqa: PLR0915
     def dome_io(extent: float, attached: bool) -> types.SimpleNamespace:
         return types.SimpleNamespace(CollisionComponent=types.SimpleNamespace(
             Bounds=types.SimpleNamespace(BoxExtent=types.SimpleNamespace(X=extent)), bAttached=attached))
-    assert col.Collector._dome(dome_io(1687.2, True)) == [1687, 1] and col.Collector._dome(dome_io(976.0, False)) == [976, 0]
-    assert col.Collector._dome(types.SimpleNamespace(CollisionComponent=None)) is None, "no sphere: no dome"
+    from helios_tracker import games as dome_games  # noqa: PLC0415
+    dome_tps, dome_bl2 = dome_games.make_profile("TPS").objects, dome_games.make_profile("BL2").objects
+    assert dome_tps.dome(dome_io(1687.2, True)) == [1687, 1] and dome_tps.dome(dome_io(976.0, False)) == [976, 0]
+    assert dome_tps.dome(types.SimpleNamespace(CollisionComponent=None)) is None, "no sphere: no dome"
+    # the Pre-Sequel's oxygen system's objects: its objects part's (BL2 has none - its objects not even tested by name)
+    dome_def = lambda name: types.SimpleNamespace(Name=name)  # noqa: E731
+    assert dome_tps.extra_fields(dome_io(1500.0, False), dome_def("IO_AirDome_Bubble_On")) == {"dome": [1500, 0]}
+    assert dome_tps.extra_fields(dome_io(1500.0, False), dome_def("IO_AirDome_Generator_On")) == {"dg": 1}
+    assert dome_tps.extra_fields(None, dome_def("IO_OxygenCracks_Large")) == {"o2": 1}
+    assert dome_tps.extra_fields(None, dome_def("IO_FireBarrel")) == {}
+    assert dome_bl2.extra_fields(dome_io(1500.0, False), dome_def("IO_AirDome_Bubble_On")) == {} and dome_bl2.dome(dome_io(1.0, True)) is None
     vacuum_state = enum.IntEnum("EVacuumState", ["VS_InAir", "VS_InVacuum"], start=0)
     assert col.Collector._in_vacuum(types.SimpleNamespace(VacuumComponent=types.SimpleNamespace(State=vacuum_state.VS_InVacuum)))
     assert not col.Collector._in_vacuum(types.SimpleNamespace(VacuumComponent=types.SimpleNamespace(State=vacuum_state.VS_InAir)))
@@ -1264,8 +1279,10 @@ def check_helios_tracker() -> None:  # noqa: PLR0915
     assert profile_bl1.world.paused(ns(Pauser=None, bStatusMenuOnly=True)) and not profile_bl1.world.paused(ns(Pauser=None, bStatusMenuOnly=False))
     assert profile_bl2.world.paused(ns(Pauser=object())) and not profile_bl2.world.paused(ns(Pauser=None, bStatusMenuOnly=True))
     bl1_slot = enum.IntEnum("EEquipmentLoc", ["EQUIPLOC_Shield", "EQUIPLOC_MOD", "EQUIPLOC_Deck"], start=0)
-    bl1_shield = ns(DefinitionData=ns(ItemDefinition=ns(EquipmentLocation=bl1_slot.EQUIPLOC_Shield)))
-    assert profile_bl1.items.equip_kind(bl1_shield) == "shield" and profile_bl2.items.equip_kind(bl1_shield) is None
+    bl1_shield = ns(Class=ns(Name="WillowEquipAbleItem", SuperField=None),
+                    DefinitionData=ns(ItemDefinition=ns(EquipmentLocation=bl1_slot.EQUIPLOC_Shield)))
+    assert profile_bl1.items.kind(bl1_shield) == "shield" and profile_bl2.items.kind(bl1_shield) == "item"
+    assert profile_bl1.items.kind(ns(Class=ns(Name="WillowWeapon", SuperField=None))) == "weapon", "the class first"
     # BL1's object behaviours: its behaviour sets' event arrays and reactions (its barrels' Behavior_Explode is there)
     bl1_explode = ns(Class=ns(Name="Behavior_Explode"))
     bl1_barrel = ns(DefaultBehaviorSet=ns(OnSpawn=[], OnBehaviorSetEnabled=[], OnBehaviorSetDisabled=[], OnTouch=[], OnUnTouch=[],
@@ -1349,10 +1366,10 @@ def check_helios_tracker() -> None:  # noqa: PLR0915
     bl1_gun = ns(GetControllerPlayerExpLevelRequiredToUse=lambda c: 4)
     assert profile_bl1.items.zippy_frame(ns(ZippyFrame="shield")) == "shield", "BL1's card type frame: a property"
     # BL1's mission items: usable items whose definition says bMissionItem (no WillowMissionItem class) - "Power Coupling"
-    from helios_tracker.util import pickup_kind as bl1_pickup_kind  # noqa: PLC0415
     bl1_coupling = ns(Class=ns(Name="WillowUsableItem"), DefinitionData=ns(ItemDefinition=ns(
         _get_address=lambda: 0x7C1, bMissionItem=True, Presentation=ns(Name="MissionObject"))))
-    assert bl1_pickup_kind(bl1_coupling) == "mission", bl1_pickup_kind(bl1_coupling)
+    assert profile_bl1.items.pickup_kind(bl1_coupling) == "mission", profile_bl1.items.pickup_kind(bl1_coupling)
+    assert profile_bl2.items.pickup_kind(bl1_coupling) == "", "BL2's: its presentation (no bMissionItem rule)"
     # its card element: an item's frame number (FlashTechFrame - probe_bl1_elements: an Explosive MIRV's 1.0), 0 none
     assert profile_bl1.items.element_frame(ns(GetTechIconFrame=lambda: 1.0), "grenade") == "1"
     assert profile_bl1.items.element_frame(ns(GetTechIconFrame=lambda: 0.0), "shield") == ""
@@ -1400,8 +1417,8 @@ def check_helios_tracker() -> None:  # noqa: PLR0915
     bl1_sdk.find_all = lambda cls, exact=True: [bl1_used, ns(Name="Default__SequenceEvent", Originator=None)]
     profile_bl1.world.map_name = lambda wi_obj: "Arid_P"
     try:
-        assert profile_bl1.objects.destination(bl1_changer) == "Dry_P"
-        assert profile_bl1.objects.destination(ns(_get_address=lambda: 0xC9)) == "", "not a changer: none"
+        assert profile_bl1.objects._destination(bl1_changer) == "Dry_P"
+        assert profile_bl1.objects._destination(ns(_get_address=lambda: 0xC9)) == "", "not a changer: none"
         # a level change (util.level_changed: the profile's reset registered with it) - its events indexed again, not
         # kept by the area's name (stale after a save-quit-continue in the same area)
         from helios_tracker.util import level_changed as reset_level, on_level_change as on_reset  # noqa: PLC0415
@@ -1414,10 +1431,10 @@ def check_helios_tracker() -> None:  # noqa: PLR0915
         finally:
             game_profiles.GAME = real_profile
         assert reset_hits == [1] and not profile_bl1.objects._events_indexed and not profile_bl1.objects._destination_map, "reset with the level"
-        assert profile_bl1.objects.destination(bl1_changer) == "Dry_P", "indexed again"
+        assert profile_bl1.objects._destination(bl1_changer) == "Dry_P", "indexed again"
     finally:
         bl1_sdk.find_all, profile_bl1.world.map_name = bl1_real_find_all, bl1_real_map_name
-    assert profile_bl2.objects.destination(bl1_changer) == ""
+    assert profile_bl2.objects.exit(bl1_changer) == ("", "")
     # its vehicles' names: their own fields (no VehicleDef, no GetCustomizableName - the record had failed)
     assert profile_bl1.pawns.vehicle_name(ns(DisplayName="", VehicleNameString="Runner")) == "Runner"
     assert profile_bl2.pawns.vehicle_name(ns(VehicleDef=ns(DisplayName="Runner"))) == "Runner"

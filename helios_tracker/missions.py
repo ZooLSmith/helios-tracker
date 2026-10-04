@@ -84,7 +84,7 @@ def _definition(mdef: Any) -> tuple[dict[str, Any], dict[int, int]]:
     for i, (obj_key, obj) in enumerate(try_(lambda: games.GAME.missions.objectives(mdef), []) or []):  # (each game's: games.py)
         index[obj_key] = i
         objectives.append({
-            **named(_text(obj, "ProgressMessage"), try_(lambda o=obj: def_name(o), "") or ""),  # (BL1's: structs, no name)
+            **named(_text(obj, "ProgressMessage"), try_(lambda o=obj: games.GAME.missions.objective_name(o), "") or ""),
             "c": try_(lambda o=obj: int(o.ObjectiveCount), 1) or 1,
             **({"opt": 1} if try_(lambda o=obj: bool(o.bObjectiveIsOptional), False) else {}),
         })

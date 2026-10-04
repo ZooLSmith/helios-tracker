@@ -16,12 +16,22 @@ BL1_ELEMENT_FRAMES = {"DAMAGE_TYPE_Explosive": "exp", "DAMAGE_TYPE_Shock": "shoc
 class Bl1Items(Items):
     """Borderlands 1's items."""
 
-    def equip_kind(self, inv: Any) -> str | None:
-        # One class for the equipped items (WillowEquipAbleItem): the slot its definition goes in - ItemDefinition
-        # .EquipmentLocation, EEquipmentLoc (WillowGame.u, offline; a shield: gd_shields.A_Item.Item_Shield, its
-        # UIStatModifiers BL2's - probe_bl1_pause.txt). Compared by name (unrealsdk's enums are int-based).
+    def kind(self, inv: Any) -> str:
+        # One class for the equipped items (WillowEquipAbleItem: shields, grenade mods, com decks), the class not
+        # telling: the slot its definition goes in - ItemDefinition.EquipmentLocation, EEquipmentLoc (WillowGame.u,
+        # offline; a shield: gd_shields.A_Item.Item_Shield, its UIStatModifiers BL2's - probe_bl1_pause.txt). Compared
+        # by name (unrealsdk's enums are int-based).
+        if (kind := super().kind(inv)) != "item":
+            return kind
         slot = inv.DefinitionData.ItemDefinition.EquipmentLocation
-        return BL1_EQUIP_KINDS.get(getattr(slot, "name", slot))
+        return BL1_EQUIP_KINDS.get(getattr(slot, "name", slot), "item")
+
+    def _usable_kind(self, item_def: Any) -> str:
+        # a mission item as a usable item - its definition says so (no WillowMissionItem class - Z0_MissionData's
+        # ID_SpareVendingPart "Power Coupling": bMissionItem, the MissionObject presentation)
+        if item_def.bMissionItem:
+            return "mission"
+        return super()._usable_kind(item_def)
 
     def zippy_frame(self, inv: Any) -> str:
         # No GetZippyFrame: a property, WillowInventory.ZippyFrame (a name - Engine.u, offline)

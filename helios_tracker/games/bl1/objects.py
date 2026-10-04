@@ -39,7 +39,15 @@ class Bl1Objects(Objects):
         # yet True). (A co-op client's: not seen.)
         return not bool(io.bCanBeUsed)
 
-    def destination(self, io: Any) -> str:
+    def exit(self, io: Any) -> tuple[str, str]:
+        # its map changers have no text of their own: the area their level script takes the player to (_destination),
+        # by the game's level lists
+        from ...collector import level_name  # noqa: PLC0415
+
+        destination = self._destination(io)
+        return "", level_name(destination) if destination else ""
+
+    def _destination(self, io: Any) -> str:
         # Its map changers (gd_MapChangeObjects.Default_MapChanger, Vehicle_MapChanger_Arid: "Map Changer ?" on the
         # page - the user) have no destination of their own: the level's script has it - an event of theirs (a
         # SeqEvent_Used / SeqEvent_Touch whose Originator is the changer) leads to a

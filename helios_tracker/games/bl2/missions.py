@@ -9,6 +9,12 @@ from ..base import Part
 class Missions(Part):
     """The mission log: its entries, their statuses / objectives / progress, where a mission is, its markers."""
 
+    def objective_name(self, objective: Any) -> str:
+        """An objective's own name, the guess when it has no text (an objective of objectives()): its definition's."""
+        from ...util import def_name  # noqa: PLC0415
+
+        return def_name(objective)
+
     def entries(self, tracker: Any) -> Any:
         """The playthrough's missions, each {MissionDef, Status, its progress...} (missions.py MissionLog): the
         tracker's MissionList - every mission of the game, not started ones too. None: not there yet (loading)."""
