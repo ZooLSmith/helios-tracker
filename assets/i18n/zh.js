@@ -23,8 +23,8 @@ export default {
   "foot.legal": "Helios Tracker 是玩家自製的模組，並非由 Gearbox Software 或 2K 製作或認可。Borderlands 及其名稱屬於他們所有。",
 
   // ---- index.html ----
-  "index.title": "Helios Tracker | Borderlands 2 與 The Pre-Sequel 的即時地圖",
-  "index.description": "Helios Tracker 是 Borderlands 2 與 Borderlands: The Pre-Sequel 的模組，在網頁瀏覽器中以即時地圖顯示你所在的關卡：玩家、敵人、戰利品與任務，隨你的遊玩即時更新。",
+  "index.title": "Helios Tracker | Borderlands 的即時地圖",
+  "index.description": "Helios Tracker 是 Borderlands、Borderlands 2 與 Borderlands: The Pre-Sequel 的模組，在網頁瀏覽器中以即時地圖顯示你所在的關卡：玩家、敵人、戰利品與任務，隨你的遊玩即時更新。",
   "index.lead": "你所在關卡的地圖，即時顯示在瀏覽器中：玩家、敵人、戰利品和任務，邊玩 <a class=\"game bl1\" href=\"https://store.steampowered.com/app/729040/\">Borderlands</a>、<a class=\"game\" href=\"https://store.steampowered.com/app/49520/\">Borderlands 2</a> 或 <a class=\"game\" href=\"https://store.steampowered.com/app/261640/\"><span class=\"the\">The</span> Pre-Sequel</a> 邊看。",
   "index.lead2": "可在第二螢幕、手機、OBS 中使用，或分享給朋友。它只讀取遊戲。",
   "index.install": "安裝",

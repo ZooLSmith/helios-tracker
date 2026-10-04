@@ -23,8 +23,8 @@ export default {
   "foot.legal": "Helios Tracker es un mod hecho por fans, ni creado ni respaldado por Gearbox Software o 2K. Borderlands y sus nombres les pertenecen.",
 
   // ---- index.html ----
-  "index.title": "Helios Tracker | Un mapa en directo para Borderlands 2 y The Pre-Sequel",
-  "index.description": "Helios Tracker es un mod para Borderlands 2 y Borderlands: The Pre-Sequel que muestra el nivel en el que estás como un mapa en directo en tu navegador: jugadores, enemigos, botín y misiones, mientras juegas.",
+  "index.title": "Helios Tracker | Un mapa en directo para Borderlands",
+  "index.description": "Helios Tracker es un mod para Borderlands, Borderlands 2 y Borderlands: The Pre-Sequel que muestra el nivel en el que estás como un mapa en directo en tu navegador: jugadores, enemigos, botín y misiones, mientras juegas.",
   "index.lead": "El mapa del nivel en el que estás, en directo en tu navegador: jugadores, enemigos, botín y misiones, mientras juegas a <a class=\"game bl1\" href=\"https://store.steampowered.com/app/729040/\">Borderlands</a>, <a class=\"game\" href=\"https://store.steampowered.com/app/49520/\">Borderlands 2</a> o <a class=\"game\" href=\"https://store.steampowered.com/app/261640/\"><span class=\"the\">The</span> Pre-Sequel</a>.",
   "index.lead2": "En una segunda pantalla, un móvil, en OBS o compartido con amigos. Solo lee el juego.",
   "index.install": "Instalarlo",

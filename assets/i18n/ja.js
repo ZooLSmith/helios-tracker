@@ -23,8 +23,8 @@ export default {
   "foot.legal": "Helios Tracker はファンが作った MOD で、Gearbox Software および 2K が作成・承認したものではありません。Borderlands とその名称は両社に帰属します。",
 
   // ---- index.html ----
-  "index.title": "Helios Tracker | Borderlands 2 と The Pre-Sequel のライブマップ",
-  "index.description": "Helios Tracker は Borderlands 2 と Borderlands: The Pre-Sequel 用の MOD で、今いるレベルを Web ブラウザーにライブマップとして表示します：プレイヤー、敵、戦利品、ミッションを、プレイしながら。",
+  "index.title": "Helios Tracker | Borderlands のライブマップ",
+  "index.description": "Helios Tracker は Borderlands、Borderlands 2 と Borderlands: The Pre-Sequel 用の MOD で、今いるレベルを Web ブラウザーにライブマップとして表示します：プレイヤー、敵、戦利品、ミッションを、プレイしながら。",
   "index.lead": "<a class=\"game bl1\" href=\"https://store.steampowered.com/app/729040/\">Borderlands</a>、<a class=\"game\" href=\"https://store.steampowered.com/app/49520/\">Borderlands 2</a> や <a class=\"game\" href=\"https://store.steampowered.com/app/261640/\"><span class=\"the\">The</span> Pre-Sequel</a> をプレイしながら、今いるレベルのマップをブラウザーでリアルタイムに：プレイヤー、敵、戦利品、ミッション。",
   "index.lead2": "セカンドモニター、スマートフォン、OBS で、あるいは友達と共有して。ゲームを読み取るだけです。",
   "index.install": "インストールする",

@@ -23,8 +23,8 @@ export default {
   "foot.legal": "Helios Tracker는 팬이 만든 모드로, Gearbox Software나 2K가 만들거나 보증한 것이 아닙니다. Borderlands와 그 명칭은 해당 회사의 소유입니다.",
 
   // ---- index.html ----
-  "index.title": "Helios Tracker | Borderlands 2와 The Pre-Sequel을 위한 실시간 지도",
-  "index.description": "Helios Tracker는 Borderlands 2와 Borderlands: The Pre-Sequel용 모드로, 지금 있는 레벨을 웹 브라우저에 실시간 지도로 보여 줍니다: 플레이하는 동안 플레이어, 적, 전리품, 미션까지.",
+  "index.title": "Helios Tracker | Borderlands를 위한 실시간 지도",
+  "index.description": "Helios Tracker는 Borderlands, Borderlands 2와 Borderlands: The Pre-Sequel용 모드로, 지금 있는 레벨을 웹 브라우저에 실시간 지도로 보여 줍니다: 플레이하는 동안 플레이어, 적, 전리품, 미션까지.",
   "index.lead": "<a class=\"game bl1\" href=\"https://store.steampowered.com/app/729040/\">Borderlands</a>, <a class=\"game\" href=\"https://store.steampowered.com/app/49520/\">Borderlands 2</a>나 <a class=\"game\" href=\"https://store.steampowered.com/app/261640/\"><span class=\"the\">The</span> Pre-Sequel</a>을 플레이하는 동안, 지금 있는 레벨의 지도를 브라우저에서 실시간으로: 플레이어, 적, 전리품, 미션.",
   "index.lead2": "보조 모니터, 휴대폰, OBS에서, 또는 친구와 공유해서. 게임을 읽기만 합니다.",
   "index.install": "설치하기",

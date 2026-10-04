@@ -23,8 +23,8 @@ export default {
   "foot.legal": "Helios Tracker — фанатский мод, не созданный и не одобренный Gearbox Software или 2K. Borderlands и её названия принадлежат им.",
 
   // ---- index.html ----
-  "index.title": "Helios Tracker | Живая карта для Borderlands 2 и The Pre-Sequel",
-  "index.description": "Helios Tracker — мод для Borderlands 2 и Borderlands: The Pre-Sequel, который показывает текущий уровень как живую карту в браузере: игроки, враги, добыча и задания, прямо во время игры.",
+  "index.title": "Helios Tracker | Живая карта для Borderlands",
+  "index.description": "Helios Tracker — мод для Borderlands, Borderlands 2 и Borderlands: The Pre-Sequel, который показывает текущий уровень как живую карту в браузере: игроки, враги, добыча и задания, прямо во время игры.",
   "index.lead": "Карта уровня, где вы находитесь, в реальном времени в браузере: игроки, враги, добыча и задания, пока вы играете в <a class=\"game bl1\" href=\"https://store.steampowered.com/app/729040/\">Borderlands</a>, <a class=\"game\" href=\"https://store.steampowered.com/app/49520/\">Borderlands 2</a> или <a class=\"game\" href=\"https://store.steampowered.com/app/261640/\"><span class=\"the\">The</span> Pre-Sequel</a>.",
   "index.lead2": "На втором экране, телефоне, в OBS или вместе с друзьями. Мод только читает игру.",
   "index.install": "Установить",
