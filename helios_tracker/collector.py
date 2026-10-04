@@ -336,15 +336,11 @@ class Collector:
         self._next_missions = 0.0
         self._missions_json = ""
         self._tracker: WeakPointer | None = None  # the MissionTracker, found at each scan
-        # A co-op client: the level's WillowWaypoint actors (no waypoint components there: the
-        # markers are worked out from them - _client_markers), found at each objects scan
-        self._waypoints: list[WeakPointer] = []
-        # the same, by their definition's address (_lookup: once per objects scan - a waypoint's definition never changes):
-        # BL1's markers read only the active missions' waypoints each second, not every one (70: 4-5 ms a second)
-        self._waypoints_by_def: dict[int, list[WeakPointer]] = {}
-        # BL1's area exits (PersistentTransitionLandmark {FromMapName, ToMapName}): where a mission in another area is
-        # marked (games.py mission_markers: _waypoint_markers), found at each objects scan
-        self._exits: list[WeakPointer] = []
+        # The level's actors the game's mission markers read (games.GAME.missions.level_lookups: name -> class), found
+        # at each objects scan, by name: "waypoints" (WillowWaypoint - a co-op client has no waypoint components, its
+        # markers are worked out from them: _client_markers)...
+        self._actors: dict[str, list[WeakPointer]] = {}
+        self._actor_classes: dict[str, str] = {}  # (the lookups' classes, by name: the last scan's)
         self._client = False  # a co-op client (set at each objects scan): containers opened by their state alone
         # NPCs giving / taking back missions (their MissionDirectives: tools/probes/probe_directors.txt), by
         # pawn address -> (the pawn, [(mission, begins, ends)]): a co-op client's quest-giver markers
@@ -832,12 +828,11 @@ class Collector:
         # the level's other actors: one find_all per tick after this one (all in the first scan's tick: 95 ms)
         wi = ENGINE.GetCurrentWorldInfo()
         self._client = getattr(try_(lambda: wi.NetMode), "name", "") == "NM_Client"
-        actors = games.GAME.missions.level_lookups(self._client)  # (the markers' actors, each game's: games.py)
+        # the mission markers' actors, each game's (name -> class)
+        self._actor_classes = games.GAME.missions.level_lookups(self._client)
         self._lookups = [name for name, wanted in (
             ("tracker", self._tracker is None or self._tracker() is None),  # (one per game: only again if gone)
-            # the mission markers' actors, each game's (games.py level_lookups: a co-op client's waypoints, BL1's always)
-            ("waypoints", "waypoints" in actors),
-            ("exits", "exits" in actors),
+            *((name, True) for name in self._actor_classes),
             ("areas", not self._areas_found and games.DISCOVERY in games.GAME.features),  # (placed, never moved: once)
         ) if wanted]
         self._publish_objects()
@@ -859,21 +854,14 @@ class Collector:
                 None,
             )
             self._next_missions = 0.0  # (found: the markers read now)
-        elif name == "waypoints":
-            self._waypoints = [WeakPointer(w) for w in unrealsdk.find_all("WillowWaypoint", exact=False)
-                               if not w.Name.startswith("Default__")]
-            self._waypoints_by_def = {}
-            for ptr in self._waypoints:
-                if (w := ptr()) is not None and (definition := try_(lambda w=w: field(w, "WaypointDefinition"))) is not None:
-                    self._waypoints_by_def.setdefault(definition._get_address(), []).append(ptr)
-        elif name == "exits":
-            self._exits = [WeakPointer(x) for x in unrealsdk.find_all("PersistentTransitionLandmark", exact=False)
-                           if not x.Name.startswith("Default__")]
         elif name == "areas":
             self._areas_found = True
             self._areas = [a for w in unrealsdk.find_all("WorldDiscoveryArea", exact=False)
                            if (a := try_(lambda w=w: self._area_record(w) if self._in_world(w) else None))]
             self._next_areas = 0.0
+        elif (cls := self._actor_classes.get(name)) is not None:  # (the markers' actors: a new list - the profile's
+            # indexes of it are rebuilt)
+            self._actors[name] = [WeakPointer(a) for a in unrealsdk.find_all(cls, exact=False) if not a.Name.startswith("Default__")]
 
     def _queue_odds(self, key: tuple[int, str], io: Any, record: dict[str, Any] | None) -> None:
         """A container record without its odds yet: they're worked out a few ms per tick (_work_odds)."""
@@ -1740,7 +1728,7 @@ class Collector:
             return steps[key]
 
         markers = []
-        for ptr in self._waypoints:
+        for ptr in self._actors.get("waypoints", ()):
             w = ptr()
             if w is None:
                 continue
@@ -1771,98 +1759,6 @@ class Collector:
                 })
             except Exception as ex:  # noqa: BLE001
                 log_error("client mission marker", ex)
-        return markers
-
-    def _waypoint_markers(self, tracker: Any, active_addr: int | None) -> list[dict[str, Any]]:
-        """BL1's objective markers (games.py mission_markers): the level's WillowWaypoint actors of each picked-up mission's
-        waypoint definition (WillowWaypoint.WaypointDefinition) - its TargetWaypointDefinition while it's Active (an
-        "objective": its first objective not done), its TurnInWaypointDefinition once it's ReadyToTurnIn (where to hand it
-        in: a "directive", "end") - tools/probes/probe_bl1_missions.txt: Buy Grenades, active -> WP_WeaponVendor, its one
-        waypoint at the weapon vendor; Nine-Toes: T.K.'s Food ready -> WP_Al, at T.K.'s. A definition's waypoints are a
-        numbered path: the next one only (below). The waypoints are all bHidden
-        (markers, not things): not a reason to leave one out. A definition in another area (its PersistentLevelName - Nine-
-        Toes: Take Him Down's WP_NineToes, 'Arid_SkagGully_P'): the exit leading there, as the game marks it - the area's
-        PersistentTransitionLandmark whose ToMapName it is (tools/probes/probe_bl1_exits.txt: by the map changer); further
-        than one exit away: none. Property reads only."""
-        wanted: dict[int, tuple[Any, str, Any]] = {}  # waypoint definition address -> (mission, kind, its entry)
-        elsewhere: list[tuple[str, Any, str, Any]] = []  # (the area it's in, mission, kind, entry): marked on its exit
-        started = time.perf_counter()
-        here = str(try_(lambda: games.GAME.world.map_name(ENGINE.GetCurrentWorldInfo()), "") or "").lower()
-        for entry in try_(lambda: list(games.GAME.missions.picked_entries(tracker)), []) or []:
-            mission = try_(lambda e=entry: e.MissionDef)
-            status = try_(lambda e=entry: games.GAME.missions.status(e), "")
-            if mission is None or status not in ("Active", "ReadyToTurnIn"):
-                continue
-            kind = "objective" if status == "Active" else "directive"
-            target = try_(lambda m=mission, k=kind: m.TargetWaypointDefinition if k == "objective" else m.TurnInWaypointDefinition)
-            if target is None:
-                continue
-            area = str(try_(lambda t=target: t.PersistentLevelName, "") or "").lower()
-            if area and area != "none" and here and area != here:
-                elsewhere.append((area, mission, kind, entry))
-            else:
-                wanted.setdefault(target._get_address(), (mission, kind, entry))
-        markers = []
-
-        def marker_at(actor: Any, mission: Any, kind: str, entry: Any) -> dict[str, Any]:
-            loc = actor.Location
-            marker = {
-                "i": addr(actor), "k": kind, "x": round(loc.X), "y": round(loc.Y), "z": round(loc.Z), "rad": 0,
-                "tracked": mission._get_address() == active_addr,
-                "mission": named(try_(lambda m=mission: str(m.MissionName), ""), def_name(mission)),
-                "mi": mission_id(mission),
-            }
-            if kind == "directive":
-                marker["end"] = 1  # (ready to hand in: the page's turn-in "?")
-            else:
-                progress = try_(lambda e=entry: games.GAME.missions.progress(e), ()) or ()
-                for i, (_key, objective) in enumerate(try_(lambda m=mission: games.GAME.missions.objectives(m), []) or []):
-                    if (progress[i] if i < len(progress) else 0) < (try_(lambda o=objective: int(o.ObjectiveCount), 1) or 1):
-                        marker["objective"] = named(try_(lambda o=objective: str(o.ProgressMessage), ""), "")
-                        break
-            return marker
-
-        t_entries = time.perf_counter()
-        for area, mission, kind, entry in elsewhere:
-            for ptr in self._exits:
-                exit_mark = ptr()
-                if exit_mark is not None and str(try_(lambda x=exit_mark: field(x, "ToMapName"), "") or "").lower() == area:
-                    try:
-                        markers.append({**marker_at(exit_mark, mission, kind, entry), "i": f"x{addr(exit_mark)}-{mission_id(mission)}"})
-                    except Exception as ex:  # noqa: BLE001
-                        log_error("exit marker", ex)
-        # a definition's waypoints: a path, numbered (WillowWaypoint.WaypointNumber; 0: a single one) - the game shows the
-        # next one, its lowest number not bCompleted (tools/probes/probe_bl1_waypoints.txt: Bone Head's Theft's
-        # WP_Checkpoint #1 done, #2 the one shown - the page had both, "Digistruct Module:" twice - the user); the same
-        # number twice: alternatives, both (T.K.'s Food's two #3)
-        t_exits = time.perf_counter()
-        candidates: dict[int, list[tuple[int, Any]]] = {}  # definition address -> (number, waypoint) not completed
-        for key in wanted:  # (the wanted definitions' waypoints only: _waypoints_by_def, indexed once per scan)
-            for ptr in self._waypoints_by_def.get(key, ()):
-                w = ptr()
-                if w is None:
-                    continue
-                get = reader(w)
-                if try_(lambda get=get: bool(get("bCompleted")), False):
-                    continue
-                candidates.setdefault(key, []).append((try_(lambda get=get: int(get("WaypointNumber")), 0) or 0, w))
-        t_waypoints = time.perf_counter()
-        for key, found in candidates.items():
-            mission, kind, entry = wanted[key]
-            first = min(number for number, _w in found)
-            for number, w in found:
-                if number != first:
-                    continue
-                try:
-                    markers.append(marker_at(w, mission, kind, entry))
-                except Exception as ex:  # noqa: BLE001
-                    log_error("waypoint marker", ex)
-        if DIAGNOSTICS and (time.perf_counter() - started) * 1000 > SLOW_MS:  # slow: which part - debug only
-            for name, part_s in (("entries", t_entries - started), ("exits", t_exits - t_entries),
-                                 ("waypoints", t_waypoints - t_exits), ("markers", time.perf_counter() - t_waypoints)):
-                if part_s * 1000 > 1.0:
-                    self._timings.add("missions.markers." + name, part_s * 1000)
-            self._timings.size("waypoints", len(self._waypoints))
         return markers
 
     def _npc_givers(self, active_addr: int | None, skip: set[int]) -> list[dict[str, Any]]:
@@ -1943,10 +1839,16 @@ class Collector:
         active_addr = active._get_address() if active is not None else None
         markers, giver_npcs = [], set()
         states = None  # the log's missions to pick up / hand in (giver_states): read once, for the game's directives
-        # each game's markers (games.py mission_markers - BL1's: its waypoint actors), else the tracker's components
-        by_actors = (game_markers := games.GAME.missions.markers(self, tracker, active_addr)) is not None
+        # the game's own markers (from the level's actors), else the tracker's waypoint components
+        by_actors = (game_markers := games.GAME.missions.markers(self._actors, tracker, active_addr)) is not None
         if by_actors:
             markers = game_markers
+            marker_parts = games.GAME.missions.marker_parts
+            if DIAGNOSTICS and sum(marker_parts.values()) * 1000 > SLOW_MS:  # slow: which part - debug only
+                for name, part_s in marker_parts.items():
+                    if part_s * 1000 > 1.0:
+                        self._timings.add("missions.markers." + name, part_s * 1000)
+                self._timings.size("waypoints", len(self._actors.get("waypoints", ())))
         for entry in [] if by_actors else try_(lambda: list(tracker.MissionWaypoints), []):
             mission = try_(lambda e=entry: e.Mission)
             for comp in try_(lambda e=entry: list(e.Waypoints), []):
@@ -1984,7 +1886,7 @@ class Collector:
                     markers.append(marker)
                 except Exception as ex:  # noqa: BLE001
                     log_error("mission marker", ex)
-        if not markers and self._waypoints and not by_actors:  # a co-op client: none registered here
+        if not markers and self._actors.get("waypoints") and not by_actors:  # a co-op client: none registered here
             markers = self._client_markers(tracker, active_addr)
         part("markers")
         markers += self._npc_givers(active_addr, giver_npcs)

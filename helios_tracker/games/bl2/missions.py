@@ -53,13 +53,16 @@ class Missions(Part):
         SubObjectiveSets): BL2's objectives come in steps - those."""
         return current
 
-    def level_lookups(self, client: bool) -> list[str]:
-        """The level's actors to look up after an objects scan for the mission markers (collector._lookup):
-        "waypoints" (WillowWaypoint actors), "exits" (PersistentTransitionLandmark). BL2: its markers come from the
-        tracker's waypoint components - but a co-op client has none: the waypoint actors then (_client_markers)."""
-        return ["waypoints"] if client else []
+    # the last markers() call's time per part (s): the debug report's breakdown (assigned, never changed in place)
+    marker_parts: dict[str, float] = {}
 
-    def markers(self, collector: Any, tracker: Any, active_addr: int | None) -> list[dict[str, Any]] | None:
+    def level_lookups(self, client: bool) -> dict[str, str]:
+        """The level's actors to look up after an objects scan for the mission markers (collector._lookup, one a tick):
+        name -> class; markers() gets them by name. BL2: its markers come from the tracker's waypoint components - but a
+        co-op client has none: the level's waypoint actors then ("waypoints": collector._client_markers)."""
+        return {"waypoints": "WillowWaypoint"} if client else {}
+
+    def markers(self, actors: dict[str, list[Any]], tracker: Any, active_addr: int | None) -> list[dict[str, Any]] | None:
         """The mission markers when they don't come from the tracker's waypoint components (the collector reads those:
-        BL2's - None here)."""
+        BL2's - None here), from the level's actors (level_lookups': name -> [WeakPointer])."""
         return None

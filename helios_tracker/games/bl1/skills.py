@@ -6,6 +6,8 @@ from typing import Any
 
 from ..bl2.skills import Skills
 
+BRANCHES = {"SKILLBRANCH_First": "FirstBranch", "SKILLBRANCH_Left": "LeftBranch", "SKILLBRANCH_Middle": "MiddleBranch",
+            "SKILLBRANCH_Right": "RightBranch"}  # a branch's state -> its static data in the class's PlayerSkillSet
 # a tree branch -> the skill clip's text field naming it: tree1..3 sit under treeLeft / treeCenter / treeRight (the
 # skill clip's placements, x 21.75 / 199.75 / 378.75 against 17.2 / 195.4 / 339.2 - its movie, offline)
 BL1_BRANCH_TEXTS = {"SKILLBRANCH_Left": "tree1.text", "SKILLBRANCH_Middle": "tree2.text", "SKILLBRANCH_Right": "tree3.text"}
@@ -24,10 +26,84 @@ class Bl1Skills(Skills):
 
     def read(self, ctrl: Any, player: dict[str, Any], bonuses: dict[str, Any]) -> None:
         # No PlayerSkillTree: the controller's PlayerSkills[] and SkillTreeBranches[] (tools/probes/probe_bl1_skills.txt) -
-        # inspector._skills_from_player_skills; its branches' names: the skill menu's (branch_names)
-        from ...inspector import _skills_from_player_skills  # noqa: PLC0415
+        # _player_skills; its branches' names: the skill menu's (branch_names)
+        self._player_skills(ctrl, player, bonuses, self.branch_names(ctrl), self._cached_skill_icons(ctrl))
 
-        _skills_from_player_skills(ctrl, player, bonuses, self.branch_names(ctrl), self._cached_skill_icons(ctrl))
+    def _player_skills(self, ctrl: Any, player: dict[str, Any], bonuses: dict[str, list[list[Any]]] | None = None,
+                       branch_names: dict[str, str] | None = None,
+                       icons: dict[tuple[str, int, int], str] | None = None) -> None:
+        """A player's skill tree, as the inspector's _skills's record (tools/probes/probe_bl1_skills.txt): no PlayerSkillTree -
+        the controller's SkillTreeBranches[] = {BranchIndex (SKILLBRANCH_First: the action skill alone; Left / Middle / Right),
+        PointsSpentInBranch, Tiers[]: {TierIndex, PlayerSkillIndexList (-1: an empty cell)}}, each index into PlayerSkills[] =
+        {Definition, Grade...} (the tree's ~25 among input "skills", proficiencies...); the points a tier asks: the class's
+        PlayerSkillSet's <Branch>.Tiers[].PointsToUnlockNextTier (5). Its branches' names: `branch_names` (the skill menu's -
+        branch_names), else their own technical name, marked as a guess; its cells' icons: `icons` ((branch, tier, cell) ->
+        an icon path - skill_icons)."""
+        from ... import inspector  # noqa: PLC0415
+        from ...inspector import _enum_name, _skill_stats, _skills_cache, _static_info  # noqa: PLC0415
+        from ...util import def_name, named, try_  # noqa: PLC0415
+
+        entries = try_(lambda: list(ctrl.PlayerSkills), None) if ctrl is not None else None
+        branch_states = try_(lambda: list(ctrl.SkillTreeBranches), None) if ctrl is not None else None
+        if not entries or not branch_states:
+            player["skillsWhy"] = "unavailable" if player["local"] else "coopClient"
+            return
+        points = sum(try_(lambda b=b: int(b.PointsSpentInBranch), 0) or 0 for b in branch_states)
+        bonuses = bonuses or {}
+        branch_names, icons = branch_names or {}, icons or {}
+        cache_key = (points, tuple(sorted((k, tuple(map(tuple, v))) for k, v in bonuses.items())), tuple(sorted(branch_names.items())))
+        cached = _skills_cache.get(ctrl)
+        if cached is not None and cached[0] == cache_key:
+            player.update(cached[1])
+            return
+        skipped = inspector._items_pass["skipped"]
+        skill_set = try_(lambda: ctrl.PlayerClass.PlayerSkillSet)
+        trees = []
+        for state in branch_states:
+            branch_name = _enum_name(try_(lambda s=state: s.BranchIndex, ""))
+            static_tiers = try_(lambda n=branch_name: list(getattr(skill_set, BRANCHES[n]).Tiers), []) or []
+            tiers, flat, spent = [], [], 0
+            for tier in try_(lambda s=state: list(s.Tiers), []) or []:
+                index = try_(lambda t=tier: int(t.TierIndex), 0)
+                need = try_(lambda i=index: int(static_tiers[i].PointsToUnlockNextTier), 0) if index < len(static_tiers) else 0
+                cells: list[dict[str, Any] | None] = []
+                for cell, slot in enumerate(try_(lambda t=tier: list(t.PlayerSkillIndexList), []) or []):
+                    entry = entries[slot] if 0 <= slot < len(entries) else None
+                    sd = try_(lambda e=entry: e.Definition) if entry is not None else None
+                    if sd is None:
+                        cells.append(None)
+                        continue
+                    info = _static_info(sd, lambda d: {
+                        **named(try_(lambda: str(d.SkillName), ""), def_name(d)),
+                        "m": try_(lambda: int(d.MaxGrade), 0),
+                        "d": try_(lambda: str(d.SkillDescription), ""),
+                    })
+                    grade = try_(lambda e=entry: int(e.Grade), 0) or 0
+                    skill = {**info, "g": grade, "t": index + 1}
+                    if ic := icons.get((branch_name, index, cell)):
+                        skill["ic"] = ic
+                    sources = bonuses.get(try_(lambda: str(sd.Name), "").lower(), [])  # (a class mod's ranks, as BL2's)
+                    if bonus := sum(ranks for ranks, _name in sources):
+                        skill["b"], skill["bs"] = bonus, sources
+                    effective = grade + bonus if grade > 0 else 0
+                    if effective > 0 and (fx := _skill_stats(sd, ctrl, effective)):
+                        skill["fx"] = fx
+                    if grade < info["m"] and (fxn := _skill_stats(sd, ctrl, grade + bonus + 1)):
+                        skill["fxn"] = fxn
+                    cells.append(skill)
+                    flat.append(skill)
+                    spent += grade
+                tiers.append({"need": need, "cells": cells})
+            if not flat:
+                continue
+            tree = {**named(branch_names.get(branch_name, ""), branch_name), "pts": spent, "skills": flat, "tiers": tiers}
+            if branch_name == "SKILLBRANCH_First":
+                tree["root"] = True  # (the action skill's: not a tree of its own)
+            trees.append(tree)
+        result = {"skills": trees, "skillPoints": points}
+        if inspector._items_pass["skipped"] == skipped:  # (complete - else again at the next pass)
+            _skills_cache.put(ctrl, (cache_key, result, 0.0))
+        player.update(result)
 
     def _cached_skill_icons(self, ctrl: Any) -> dict[tuple[str, int, int], str]:
         """skill_icons, once per character (static: its class's layout - every players pass walked it: 3-4 ms)."""
@@ -60,14 +136,12 @@ class Bl1Skills(Skills):
         tile: bl1map.clip_icon) - offline, .agent/bl1.md."""
         import unrealsdk  # noqa: PLC0415
 
-        from ...inspector import BL1_BRANCHES  # noqa: PLC0415
-
         clip, frame = self._skill_clip(ctrl)
         layout = ctrl.PlayerClass.PlayerSkillSet.SkillTreeLayout
         movie_def = unrealsdk.find_class("SkillTreeGFxDefinition").ClassDefaultObject
         on, off = str(movie_def.IconOnName), str(movie_def.IconOffName)
         icons = {}
-        for branch, field in BL1_BRANCHES.items():
+        for branch, field in BRANCHES.items():
             for tier, tier_data in enumerate(getattr(layout, field).Tiers):
                 for cell, nav in enumerate(tier_data.Skills):
                     if nav is not None:

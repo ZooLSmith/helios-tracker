@@ -1360,7 +1360,7 @@ def check_helios_tracker() -> None:  # noqa: PLR0915
     assert profile_bl1.items.damage_type_frame("DAMAGE_TYPE_Explosive") == "exp0" and profile_bl1.items.damage_type_frame("DAMAGE_TYPE_Unknown") == ""
     # the markers' actors, each game's way (no feature flags): BL2's for a co-op client only, BL1's always - and its exits
     assert (profile_bl2.missions.level_lookups(False), profile_bl2.missions.level_lookups(True), profile_bl1.missions.level_lookups(False)) == (
-        [], ["waypoints"], ["waypoints", "exits"])
+        {}, {"waypoints": "WillowWaypoint"}, {"waypoints": "WillowWaypoint", "exits": "PersistentTransitionLandmark"})
     assert profile_bl2.missions.markers(None, None, None) is None, "BL2: the tracker's waypoint components"
     assert profile_bl2.missions.current_objectives([1], 3) == [1] and profile_bl1.missions.current_objectives([1], 3) == [0, 1, 2]
     assert not {"tacmap", "scan", "fontlibrary", "missionsteps", "waypointmarkers", "learnedelements"} & (
@@ -1464,16 +1464,16 @@ def check_helios_tracker() -> None:  # noqa: PLR0915
     assert profile_bl2.items.zippy_frame(ns(GetZippyFrame=lambda: "comm")) == "comm"
     assert profile_bl1.items.card_level(bl1_gun, 6) == 4 and profile_bl2.items.card_level(bl1_gun, 6) == 6
     bl1_player = {"local": True}
-    sys.modules["helios_tracker.inspector"]._skills_from_player_skills(bl1_ctrl, bl1_player, {})
+    profile_bl1.skills._player_skills(bl1_ctrl, bl1_player, {})
     bl1_root, bl1_left = bl1_player["skills"]
     assert bl1_player["skillPoints"] == 2 and bl1_root.get("root") and [c and c["n"] for c in bl1_root["tiers"][0]["cells"]] == [None, "Bloodwing"], bl1_player
     assert bl1_left["pts"] == 2 and bl1_left["tiers"] == [{"need": 5, "cells": [bl1_left["skills"][0], None]}] and bl1_left["skills"][0]["g"] == 2, bl1_left
     assert bl1_left["raw"] == 1, "no game name for its branches: its own, marked"
     bl1_named = {"local": True}
-    sys.modules["helios_tracker.inspector"]._skills_from_player_skills(bl1_ctrl, bl1_named, {}, {"SKILLBRANCH_Left": "SNIPER"})
+    profile_bl1.skills._player_skills(bl1_ctrl, bl1_named, {}, {"SKILLBRANCH_Left": "SNIPER"})
     assert bl1_named["skills"][1]["n"] == "SNIPER" and "raw" not in bl1_named["skills"][1], bl1_named["skills"][1]
     bl1_iconed = {"local": True}
-    sys.modules["helios_tracker.inspector"]._skills_from_player_skills(
+    profile_bl1.skills._player_skills(
         bl1_ctrl, bl1_iconed, {}, {}, {("SKILLBRANCH_Left", 0, 0): "menu.skills.mordecai.icon4.on"})
     assert bl1_iconed["skills"][1]["tiers"][0]["cells"][0]["ic"] == "menu.skills.mordecai.icon4.on", bl1_iconed["skills"][1]
     assert "ic" not in bl1_iconed["skills"][0]["tiers"][0]["cells"][1], "no icon for that cell: none"
@@ -2164,13 +2164,13 @@ def check_helios_tracker() -> None:  # noqa: PLR0915
                Location=ns(X=float(a), Y=2.0, Z=3.0), AreaRadius=radius)
         return lambda: w
 
-    c._waypoints = [waypoint_actor(0x6c0, kill, [step_set], 500),  # its step: shown (3 / 5)
-                    waypoint_actor(0x6c1, secure, []),  # done (1 / 1), not in the step anyway
-                    waypoint_actor(0x6c2, kill, [other_set]),  # another step's
-                    waypoint_actor(0x6c3, extra, [])]  # no restrictions, in the current step: shown
+    c._actors = {"waypoints": [waypoint_actor(0x6c0, kill, [step_set], 500),  # its step: shown (3 / 5)
+                               waypoint_actor(0x6c1, secure, []),  # done (1 / 1), not in the step anyway
+                               waypoint_actor(0x6c2, kill, [other_set]),  # another step's
+                               waypoint_actor(0x6c3, extra, [])]}  # no restrictions, in the current step: shown
     client_marks = c._client_markers(tracker, mission._get_address())
     log_entries[1].ActiveObjectiveSet = saved_step
-    c._waypoints = []
+    c._actors = {}
     assert [(m["i"], m["rad"], m["tracked"], m["objective"]["n"]) for m in client_marks] == [
         ("6c0", 500, True, "Tuer des bandits"), ("6c3", 0, True, "Bonus")], client_marks
     # Quest givers from the NPCs (tools/probes/probe_directors.txt; a client has no directive waypoints, the host's
@@ -2268,7 +2268,7 @@ def check_helios_tracker() -> None:  # noqa: PLR0915
     assert bl1_live["M_ExterminateSkag"]["p"] == [4] and bl1_defs["M_ExterminateSkag"]["obj"][0]["c"] == 4, (bl1_live, bl1_defs)
     assert bl1_live["M_TwoThings"]["cur"] == [0, 1] and bl1_live["M_TwoThings"]["p"] == [0, 3], ("no steps: every objective current", bl1_live)
     assert bl1_defs["M_TwoThings"]["num"] == 8 and bl1_defs["M_TwoThings"]["obj"][1]["n"] == "Bandits killed:", bl1_defs
-    # BL1's objective markers (collector._waypoint_markers): the level's waypoint actors of an active mission's target
+    # BL1's objective markers (its missions part's markers): the level's waypoint actors of an active mission's target
     # definition (its first objective not done), of a ready one's turn-in definition ("end"); the others not
     def bl1_waypoint(addr: int, definition: object, x: float) -> types.SimpleNamespace:
         return ns(_get_address=lambda: addr, WaypointDefinition=definition, Location=ns(X=x, Y=0.0, Z=0.0), bHidden=True)
@@ -2282,27 +2282,24 @@ def check_helios_tracker() -> None:  # noqa: PLR0915
     mission_games.GAME.missions.entries = lambda tracker_obj: bl1_entries
     mission_games.GAME.world.map_name = lambda wi_obj: "arid_p"
 
-    def bl1_waypoints_of(points: list, exits: list) -> ns:  # (a collector's: its waypoints, and by definition - _lookup's)
-        by_def: dict = {}
-        for point in points:
-            by_def.setdefault(point.WaypointDefinition._get_address(), []).append(lambda w=point: w)
-        return ns(_waypoints=[lambda w=w: w for w in points], _waypoints_by_def=by_def, _exits=exits)
+    def bl1_waypoints_of(points: list, exits: list) -> dict:  # (the level's actors the collector looked up: by name)
+        return {"waypoints": [lambda w=w: w for w in points], "exits": exits}
 
     try:
-        bl1_markers = col.Collector._waypoint_markers(bl1_waypoints_of(bl1_waypoints, []), ns(), 0xB102)
+        bl1_markers = mission_games.GAME.missions.markers(bl1_waypoints_of(bl1_waypoints, []), ns(), 0xB102)
         # a mission whose target is in another area: marked on the exit leading there (its transition landmark's
         # ToMapName - Nine-Toes: Take Him Down, WP_NineToes in Arid_SkagGully_P)
         bl1_two.TargetWaypointDefinition = ns(_get_address=lambda: 0xD4, PersistentLevelName="Arid_SkagGully_P")
         bl1_gully = ns(_get_address=lambda: 0xF1, ToMapName="Arid_SkagGully_P", Location=ns(X=-22012.0, Y=44803.0, Z=1370.0))
         bl1_cave = ns(_get_address=lambda: 0xF2, ToMapName="Arid_Cave_P", Location=ns(X=-26730.0, Y=-11709.0, Z=-1122.0))
-        bl1_exit_markers = col.Collector._waypoint_markers(bl1_waypoints_of(bl1_waypoints, [lambda: bl1_gully, lambda: bl1_cave]),
-                                                           ns(), 0xB102)
+        bl1_exit_markers = mission_games.GAME.missions.markers(bl1_waypoints_of(bl1_waypoints, [lambda: bl1_gully, lambda: bl1_cave]),
+                                                               ns(), 0xB102)
         # a definition's waypoints: a numbered path - the next one only, its lowest number not completed (Bone Head's
         # Theft's checkpoints: #1 done, #2 shown - the page had both); the same number twice: both (alternatives)
         bl1_two.TargetWaypointDefinition = wp_vendor
         bl1_path = [ns(**{**vars(bl1_waypoint(0xE5 + n, wp_vendor, x)), "WaypointNumber": number, "bCompleted": done})
                     for n, (x, number, done) in enumerate([(5.0, 1, True), (6.0, 2, False), (7.0, 2, False), (8.0, 3, False)])]
-        bl1_path_markers = col.Collector._waypoint_markers(bl1_waypoints_of(bl1_path, []), ns(), 0xB102)
+        bl1_path_markers = mission_games.GAME.missions.markers(bl1_waypoints_of(bl1_path, []), ns(), 0xB102)
     finally:
         mission_games.GAME = real_game
     assert [(m["x"], m["k"]) for m in bl1_exit_markers if m["k"] == "objective"] == [(-22012, "objective")], bl1_exit_markers

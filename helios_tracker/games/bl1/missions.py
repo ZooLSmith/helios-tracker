@@ -39,6 +39,7 @@ class Bl1Missions(Missions):
         self._not_picked: list[Any] = []
         self._eligible: dict[int, bool] = {}  # mission definition address -> GetMissionEligibility is ME_Eligible
         self._missions: list[Any] = []  # every MissionDefinition loaded (_mission_definitions)
+        self._by_def: tuple[Any, dict[int, list[Any]]] = (None, {})  # (the waypoints list, its index: _waypoints_by_def)
 
     def entries(self, tracker: Any) -> Any:
         # The tracker's MissionList is bare definitions (its active one): the player's own, per playthrough -
@@ -126,10 +127,118 @@ class Bl1Missions(Missions):
     def current_objectives(self, current: list[int], count: int) -> list[int]:
         return list(range(count))  # (no steps: all its objectives at once)
 
-    def level_lookups(self, client: bool) -> list[str]:
-        return ["waypoints", "exits"]  # (no waypoint components: its markers from the waypoint actors, and its exits)
+    def level_lookups(self, client: bool) -> dict[str, str]:
+        # no waypoint components: its markers from the waypoint actors - and its area exits (PersistentTransitionLandmark
+        # {FromMapName, ToMapName}: where a mission in another area is marked)
+        return {"waypoints": "WillowWaypoint", "exits": "PersistentTransitionLandmark"}
 
-    def markers(self, collector: Any, tracker: Any, active_addr: int | None) -> list[dict[str, Any]] | None:
-        # the level's waypoint actors of its picked-up missions' waypoint definitions, the exits to other areas
-        # (collector._waypoint_markers - to its own module with the rest of BL1's code: profiles.md step 5)
-        return collector._waypoint_markers(tracker, active_addr)
+    def markers(self, actors: dict[str, list[Any]], tracker: Any, active_addr: int | None) -> list[dict[str, Any]] | None:
+        """Its objective markers: the level's WillowWaypoint actors of each picked-up mission's
+        waypoint definition (WillowWaypoint.WaypointDefinition) - its TargetWaypointDefinition while it's Active (an
+        "objective": its first objective not done), its TurnInWaypointDefinition once it's ReadyToTurnIn (where to hand it
+        in: a "directive", "end") - tools/probes/probe_bl1_missions.txt: Buy Grenades, active -> WP_WeaponVendor, its one
+        waypoint at the weapon vendor; Nine-Toes: T.K.'s Food ready -> WP_Al, at T.K.'s. A definition's waypoints are a
+        numbered path: the next one only (below). The waypoints are all bHidden
+        (markers, not things): not a reason to leave one out. A definition in another area (its PersistentLevelName - Nine-
+        Toes: Take Him Down's WP_NineToes, 'Arid_SkagGully_P'): the exit leading there, as the game marks it - the area's
+        PersistentTransitionLandmark whose ToMapName it is (tools/probes/probe_bl1_exits.txt: by the map changer); further
+        than one exit away: none. Property reads only."""
+        import time  # noqa: PLC0415
+
+        from mods_base import ENGINE  # noqa: PLC0415
+
+        from ... import games  # noqa: PLC0415
+        from ...missions import mission_id  # noqa: PLC0415
+        from ...util import addr, def_name, field, log_error, named, reader, try_  # noqa: PLC0415
+
+        wanted: dict[int, tuple[Any, str, Any]] = {}  # waypoint definition address -> (mission, kind, its entry)
+        elsewhere: list[tuple[str, Any, str, Any]] = []  # (the area it's in, mission, kind, entry): marked on its exit
+        started = time.perf_counter()
+        here = str(try_(lambda: games.GAME.world.map_name(ENGINE.GetCurrentWorldInfo()), "") or "").lower()
+        for entry in try_(lambda: list(games.GAME.missions.picked_entries(tracker)), []) or []:
+            mission = try_(lambda e=entry: e.MissionDef)
+            status = try_(lambda e=entry: games.GAME.missions.status(e), "")
+            if mission is None or status not in ("Active", "ReadyToTurnIn"):
+                continue
+            kind = "objective" if status == "Active" else "directive"
+            target = try_(lambda m=mission, k=kind: m.TargetWaypointDefinition if k == "objective" else m.TurnInWaypointDefinition)
+            if target is None:
+                continue
+            area = str(try_(lambda t=target: t.PersistentLevelName, "") or "").lower()
+            if area and area != "none" and here and area != here:
+                elsewhere.append((area, mission, kind, entry))
+            else:
+                wanted.setdefault(target._get_address(), (mission, kind, entry))
+        markers = []
+
+        def marker_at(actor: Any, mission: Any, kind: str, entry: Any) -> dict[str, Any]:
+            loc = actor.Location
+            marker = {
+                "i": addr(actor), "k": kind, "x": round(loc.X), "y": round(loc.Y), "z": round(loc.Z), "rad": 0,
+                "tracked": mission._get_address() == active_addr,
+                "mission": named(try_(lambda m=mission: str(m.MissionName), ""), def_name(mission)),
+                "mi": mission_id(mission),
+            }
+            if kind == "directive":
+                marker["end"] = 1  # (ready to hand in: the page's turn-in "?")
+            else:
+                progress = try_(lambda e=entry: games.GAME.missions.progress(e), ()) or ()
+                for i, (_key, objective) in enumerate(try_(lambda m=mission: games.GAME.missions.objectives(m), []) or []):
+                    if (progress[i] if i < len(progress) else 0) < (try_(lambda o=objective: int(o.ObjectiveCount), 1) or 1):
+                        marker["objective"] = named(try_(lambda o=objective: str(o.ProgressMessage), ""), "")
+                        break
+            return marker
+
+        t_entries = time.perf_counter()
+        for area, mission, kind, entry in elsewhere:
+            for ptr in actors.get("exits", ()):
+                exit_mark = ptr()
+                if exit_mark is not None and str(try_(lambda x=exit_mark: field(x, "ToMapName"), "") or "").lower() == area:
+                    try:
+                        markers.append({**marker_at(exit_mark, mission, kind, entry), "i": f"x{addr(exit_mark)}-{mission_id(mission)}"})
+                    except Exception as ex:  # noqa: BLE001
+                        log_error("exit marker", ex)
+        # a definition's waypoints: a path, numbered (WillowWaypoint.WaypointNumber; 0: a single one) - the game shows the
+        # next one, its lowest number not bCompleted (tools/probes/probe_bl1_waypoints.txt: Bone Head's Theft's
+        # WP_Checkpoint #1 done, #2 the one shown - the page had both, "Digistruct Module:" twice - the user); the same
+        # number twice: alternatives, both (T.K.'s Food's two #3)
+        t_exits = time.perf_counter()
+        candidates: dict[int, list[tuple[int, Any]]] = {}  # definition address -> (number, waypoint) not completed
+        by_def = self._waypoints_by_def(actors.get("waypoints", []))
+        for key in wanted:  # (the wanted definitions' waypoints only: indexed once per lookup)
+            for ptr in by_def.get(key, ()):
+                w = ptr()
+                if w is None:
+                    continue
+                get = reader(w)
+                if try_(lambda get=get: bool(get("bCompleted")), False):
+                    continue
+                candidates.setdefault(key, []).append((try_(lambda get=get: int(get("WaypointNumber")), 0) or 0, w))
+        t_waypoints = time.perf_counter()
+        for key, found in candidates.items():
+            mission, kind, entry = wanted[key]
+            first = min(number for number, _w in found)
+            for number, w in found:
+                if number != first:
+                    continue
+                try:
+                    markers.append(marker_at(w, mission, kind, entry))
+                except Exception as ex:  # noqa: BLE001
+                    log_error("waypoint marker", ex)
+        self.marker_parts = {"entries": t_entries - started, "exits": t_exits - t_entries, "waypoints": t_waypoints - t_exits,
+                             "markers": time.perf_counter() - t_waypoints}
+        return markers
+
+    def _waypoints_by_def(self, waypoints: list[Any]) -> dict[int, list[Any]]:
+        """The level's waypoints by their definition's address, once per lookup (a new list: a waypoint's definition
+        never changes) - the markers read only the active missions' waypoints each second, not every one (70: 4-5 ms a
+        second)."""
+        from ...util import field, try_  # noqa: PLC0415
+
+        if self._by_def[0] is not waypoints:
+            index: dict[int, list[Any]] = {}
+            for ptr in waypoints:
+                if (w := ptr()) is not None and (definition := try_(lambda w=w: field(w, "WaypointDefinition"))) is not None:
+                    index.setdefault(definition._get_address(), []).append(ptr)
+            self._by_def = (waypoints, index)
+        return self._by_def[1]
