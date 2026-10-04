@@ -201,8 +201,7 @@ spawns, the page shows it then). Dropped items and enemies show at any distance 
   named as the container it spawns (the game's name for it - its definition's, as a spawned one's: **game text only**,
   nothing made up; unknown: the definition's name as a guess, "?").
 - Once it has spawned (`bHasSpawned`), the point's marker gives way to the real object (the same position: no
-  duplicate); culled again (the player 80 m away): the point back - but keeping what was learned while it existed
-  (looted: still looted - if the game remembers it, see below).
+  duplicate) - for good: spawned objects stay for the rest of the map (below, 3).
 - Its tooltip / panel: what it is, "spawns within 80 m" (its radius), and its loot odds if the type's are known
   (lootodds: per balance - the same as a spawned one's, if the point says which balance).
 - Big chests first: if only some are worth it (the map would fill with cash boxes and coolers), the chests' points only
@@ -226,12 +225,13 @@ spawns, the page shows it then). Dropped items and enemies show at any distance 
    1.0 (a constant): always that container. Only `Pop_BarrelMixture` picks one of 5 barrels (incendiary 0.75, the others
    1.0). Nothing seen that may spawn nothing (`bUseRandomSpawns` False everywhere) - other levels may differ: a point with
    several entries shown as its choices, with their weights' shares.
-3. **A looted container culled and spawned again**: the definitions say whether it comes back -
-   `RespawnStyle` POPRESPAWN_Never (chests, coolers, cash boxes, ammo boxes), OnlyOnLevelLoad (piles, gas tanks,
-   barrels), OnTimeDelay (vending machines); the factory's `bUseSavedLocationWhenRestored` True hints a culled one is
-   saved and restored, not made anew. Still to see in game: loot one, walk > 80 m away, come back - looted still?
-   And on the point (a sub-object of it): `bCleanupActorsWhenIrrelevant` True, `ActorIrrelvantDistance` 6000 (60 m:
-   culled nearer than it spawns?) - not understood yet.
+3. **Once spawned, it stays** (the user: objects never despawn within a map; and seen: piles still there 110-182 m away,
+   spawned as the player passed - probe_hidden_pile.txt, probe_chest_spawn.txt; every point seen not spawned was one
+   never approached). So a point's marker gives way to its object once, for the rest of the map - looted or not; no
+   cull to follow. (The point's sub-object has `bCleanupActorsWhenIrrelevant` True, `ActorIrrelvantDistance` 6000 -
+   not seen doing anything to containers.) The definitions' `RespawnStyle` - POPRESPAWN_Never (chests, coolers, cash
+   boxes, ammo boxes), OnlyOnLevelLoad (piles, gas tanks, barrels), OnTimeDelay (vending machines) - is about a new
+   one after this one's gone (a level load...), not seen.
 - **A point and its object**: the point keeps no reference to what it spawned (`SpawnList` empty, nothing else) - matched
   by position (a pile appeared at its point's exact location: probe_chest_spawn.txt), the spawn hook telling when.
 4. **A co-op client**: whether the points exist there at all (the host spawns, replicates the containers) - likely the
