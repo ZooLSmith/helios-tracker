@@ -149,7 +149,8 @@ class Profile:
     def object_directives(self, io: Any) -> list[Any]:
         """An interactive object's missions it gives / takes back ({MissionDefinition, bBeginsMission, bEndsMission}):
         its Directives' (a MissionDirectivesDefinition - the bounty board, tools/probes/probe_bounty.txt)."""
-        return list(io.Directives.MissionDirectives)
+        directives = io.Directives  # (None: most objects - no mission to give or take back)
+        return list(directives.MissionDirectives) if directives is not None else []
 
     def mission_offered(self, pc: Any, mission: Any, state: str, logged: bool) -> bool:
         """Whether a giver's mission can be picked up now (its "!"): the mission log's word (MissionLog.giver_states:
