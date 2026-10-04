@@ -64,6 +64,7 @@ class ShopReader:
         # (stock json, seconds left, rate, when: the collector's clock, the game paused)
         self._sent: tuple[str, float, float, float, bool] | None = None
         self.pending = False  # item records left to build: read again soon
+        self._built = 0  # item records built this pass (read: at least one per pass, whatever the time)
 
     def note(self, io: Any) -> None:
         # (per class, once a level: is_machine walks the class chain - every object of every full scan, 3-14 ms)
@@ -101,11 +102,14 @@ class ShopReader:
 
     def _record(self, inv: Any, machine: Any, pc: Any, deadline: float) -> dict[str, Any] | None:
         """An item's record (inspector.py's, as in a backpack) with the machine's price as its value ("v"), or None
-        if it isn't built yet and this pass has no time left."""
+        if it isn't built yet and this pass has no time left - one built per pass at least: reading the machines
+        themselves may take the pass's time already (the Pre-Sequel's Pity's Fall: every pass ran out before its first
+        item - none was ever built, the page never got the stock)."""
         key = (inv._get_address(), str(inv.Name))
         if key not in self._items:
-            if time.perf_counter() > deadline:
+            if self._built and time.perf_counter() > deadline:
                 return None
+            self._built += 1
             item = _item(inv, False, pc)
             price = try_(lambda: games.GAME.shops.selling_price(machine, inv, pc))  # (each game's call)
             if price is not None and price >= 0:
@@ -129,6 +133,7 @@ class ShopReader:
         None for what's unchanged, or not complete yet (records left to build: `pending`, the next pass). `now`: the
         collector's clock (s)."""
         deadline = time.perf_counter() + BUILD_SECONDS
+        self._built = 0
         machines, seen, complete = [], set(), True
         for key, ptr in list(self._machines.items()):
             io = ptr()
