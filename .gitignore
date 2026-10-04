@@ -5,9 +5,7 @@ __pycache__/
 tools/probes/*.txt
 
 # Mod logs
-helios_tracker/helios_tracker.log
-helios_tracker/helios_crash.log
-helios_tracker/autoexec.log
+helios_tracker/*.log
 
 # Personal startup scripts (tunnel commands, tokens)
 helios_tracker/autoexec.ps1
