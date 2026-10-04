@@ -15,6 +15,7 @@ New game: its class here, registered under mods_base's name for it (Game.<NAME>)
 import functools
 import inspect
 import re
+import time
 from typing import Any
 
 # The features (systems some games have, others don't); the page reads the same names (game.js)
@@ -180,6 +181,40 @@ class Profile:
         tools/probes/probe_weapon_card2.txt)."""
         element = str(inv.ElementalFrame)
         return "" if element.lower() == "none" else element
+
+    def assets_job(self, boot: bool) -> Any:
+        """The work reading the game's files (fonts, item card / skill icons) - to run once, in a thread - at boot or when
+        a page first connects (`boot`), or None (__init__._start_assets): BL2's files scan (gamescan.py: one pass,
+        cached on disk) when a page connects - not at every game start. Its language read now (the game thread: its
+        font library, gamefonts.font_library)."""
+        if boot:
+            return None
+        from . import gamefonts, gamescan, gamework  # noqa: PLC0415
+        from .collector import game_language  # noqa: PLC0415
+        from .gamedir import cooked_dir  # noqa: PLC0415
+        from .util import log, log_error  # noqa: PLC0415
+
+        # the game's language (Core.Object's static GetLanguage: "INT", "RUS"... - read here, on the game thread)
+        language = game_language()
+
+        def scan() -> None:
+            try:
+                t = time.monotonic()
+                gamescan.run(cooked_dir(), language)
+                log(f"game files indexed in {time.monotonic() - t:.1f} s ({gamework.mode()}): language {language or '?'}"
+                    f" ({gamefonts.font_library(language)}), fonts {', '.join(gamefonts.FONTS.names())}")
+            except Exception as ex:  # noqa: BLE001
+                log_error("game files scan", ex)
+
+        return scan
+
+    def wait_for_assets(self, path: str, timeout: float) -> None:
+        """A server thread asked for a file of the game's (path: "/font/...", "/icon/"...): waits, up to `timeout`, for
+        what it needs to be read - BL2's: the files scan (a page just opened: its scan's running)."""
+        from . import gamescan  # noqa: PLC0415
+
+        if path.startswith(("/font/", "/icon/", "/cardicon/", "/texture/")) and not gamescan.ready():
+            gamescan.wait(timeout)
 
     def card_icon_png(self, kind: str, key: str) -> bytes | None:
         """An item card icon (/cardicon/<kind>/<key>.png) as a PNG, or None: the game's UI movies' (gamecards.py, from
@@ -631,12 +666,31 @@ class Borderlands1(Profile):
 
         return all(gamecards.keys(kind) for kind in BL1_CARD_KINDS if kind != "element")
 
-    def font_catalogue(self, cooked: Any) -> dict[str, tuple]:
-        # Its fonts: Packages/Fonts/Fonts_en.upk's movie (bl1fonts.py: DefineFont3 - WillowBody, WillowHead, Brush
-        # Script Std); no scan finds them (its packages: version 584) - the page had no WillowBody (/font 404s)
-        from . import bl1fonts  # noqa: PLC0415
+    def assets_job(self, boot: bool) -> Any:
+        # Its fonts at boot: Packages/Fonts/Fonts_en.upk's movie (bl1fonts.py: DefineFont3 - WillowBody, WillowHead,
+        # Brush Script Std) - a few headers; no scan finds them (its packages: version 584 - the page had no WillowBody,
+        # /font 404s); its card / menu icons read on demand (card_icon_png)
+        if not boot:
+            return None
+        from . import bl1fonts, gamefonts  # noqa: PLC0415
+        from .gamedir import cooked_dir  # noqa: PLC0415
+        from .util import log, log_error  # noqa: PLC0415
 
-        return bl1fonts.catalogue(cooked)
+        def fonts() -> None:
+            try:
+                gamefonts.set_catalogue(bl1fonts.catalogue(cooked_dir()))
+                log(f"game fonts: {', '.join(gamefonts.FONTS.names()) or 'none'}")
+            except Exception as ex:  # noqa: BLE001
+                log_error("game fonts", ex)
+
+        return fonts
+
+    def wait_for_assets(self, path: str, timeout: float) -> None:
+        # (its fonts' catalogue: read as the mod starts - its icons read on demand, nothing to wait for)
+        from . import gamefonts  # noqa: PLC0415
+
+        if path.startswith("/font/"):
+            gamefonts.FONTS.wait(timeout)
 
     def learn_element(self, enum: str, frame: str) -> None:
         pass  # (its damage types' frames are known - damage_type_frame: nothing to learn from the weapons)

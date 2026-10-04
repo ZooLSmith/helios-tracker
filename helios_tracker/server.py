@@ -28,7 +28,7 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from typing import Any
 
-from . import bl1map, gamefonts, games, gamescan, paths
+from . import bl1map, games, paths
 from .frames import FRAMES
 from .gameicons import icon_png, texture_by_path
 
@@ -248,11 +248,7 @@ class _Handler(BaseHTTPRequestHandler):
             except (ConnectionError, TimeoutError):
                 pass  # tab closed / navigated away
             return
-        if path.startswith("/font/") and games.FONT_LIBRARY in games.GAME.features:
-            gamefonts.FONTS.wait(SCAN_WAIT)  # (its font library's catalogue: read as the server starts)
-        if (path.startswith(("/font/", "/icon/", "/cardicon/", "/texture/")) and games.SCAN in games.GAME.features
-                and not gamescan.ready()):
-            gamescan.wait(SCAN_WAIT)  # (the game's files not indexed yet: a page just opened - its scan's running)
+        games.GAME.wait_for_assets(path, SCAN_WAIT)  # (the game's files not read yet: a page just opened - games.py)
         start = time.perf_counter()  # (after the waits: they hold no GIL - the work from here may)
         try:
             self._get(path)

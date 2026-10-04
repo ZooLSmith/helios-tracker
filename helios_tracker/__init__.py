@@ -25,8 +25,7 @@ from unrealsdk.hooks import Type, add_hook, remove_hook
 from unrealsdk.unreal import BoundFunction, UObject, WrappedStruct
 
 from .collector import Collector, game_language
-from .gamedir import cooked_dir
-from . import gamecards, gamefonts, gameicons, games, gamescan, gamework, i18n, updater
+from . import gamecards, gamefonts, gameicons, games, gamework, i18n, updater
 from .frames import FRAMES
 from .script import start_script
 from .server import Hub, TrackerServer
@@ -454,52 +453,27 @@ def _start_locked(new_port: int | None, new_lan: bool | None) -> None:
         where += f" (LAN: http://{ip}:{port_value}/)"
     log(f"live map at {where}")
     setattr(sys, _STALE_SCRIPT, start_script(port_value))
-    _hub.fonts = gamefonts.FONTS  # (its catalogue from the game files' scan: when a page connects)
-    if games.FONT_LIBRARY in games.GAME.features:
-        _scan_game_files()  # (a font library, no scan: read now - a few headers - not when a page connects, after its fonts)
+    _hub.fonts = gamefonts.FONTS  # (its catalogue from the game files: as the game's profile reads them)
+    _start_assets(True)  # (a game whose files are read at once - BL1's font library: a few headers)
 
 
-_scan_started = [False]
+_assets_started = [False]
 
 
-def _scan_game_files() -> None:
-    """The game files' index (fonts, item card / skill icons: gamescan.py - one pass, cached on disk), once per
-    session, when a page first connects (not at every game start); a thread waiting on gamework's subinterpreter
-    (the scan itself runs there, beside the game - or here, politely, without one)."""
-    if _scan_started[0]:
+def _start_assets(boot: bool) -> None:
+    """The game's files (fonts, item card / skill icons) - read once per session, in a thread, when its profile says:
+    at boot, or when a page first connects (games.py assets_job: BL2's scan when a page connects - not at every game
+    start; BL1's font library at boot). The work itself waits on gamework's subinterpreter (beside the game - or here,
+    politely, without one)."""
+    if _assets_started[0]:
         return
-    if games.SCAN not in games.GAME.features:
-        if games.FONT_LIBRARY in games.GAME.features:  # (Borderlands 1: its font library, no scan - games.py)
-            _scan_started[0] = True
-            threading.Thread(target=_load_font_library, name="helios_tracker fonts", daemon=True).start()
+    if (job := games.GAME.assets_job(boot)) is None:
         return
-    _scan_started[0] = True
-    # the game's language (Core.Object's static GetLanguage: "INT", "RUS"... - read here, on the game thread): its font
-    # library (gamefonts.font_library)
-    language = game_language()
-
-    def scan() -> None:
-        try:
-            t = time.monotonic()
-            gamescan.run(cooked_dir(), language)
-            log(f"game files indexed in {time.monotonic() - t:.1f} s ({gamework.mode()}): language {language or '?'}"
-                f" ({gamefonts.font_library(language)}), fonts {', '.join(gamefonts.FONTS.names())}")
-        except Exception as ex:  # noqa: BLE001
-            log_error("game files scan", ex)
-
-    threading.Thread(target=scan, name="helios_tracker game files", daemon=True).start()
+    _assets_started[0] = True
+    threading.Thread(target=job, name="helios_tracker game files", daemon=True).start()
 
 
-def _load_font_library() -> None:
-    """A game without the scan: its fonts' catalogue from its own font library (games.py font_catalogue)."""
-    try:
-        gamefonts.set_catalogue(games.GAME.font_catalogue(cooked_dir()))
-        log(f"game fonts: {', '.join(gamefonts.FONTS.names()) or 'none'}")
-    except Exception as ex:  # noqa: BLE001
-        log_error("game fonts", ex)
-
-
-_collector.on_page = lambda: _scan_game_files()
+_collector.on_page = lambda: _start_assets(False)
 
 
 def _on_enable() -> None:
