@@ -31,7 +31,7 @@ class MapFog:
 class MapResult:
     images: list[MapImage]
     fog: MapFog | None = None
-    placement: dict[str, Any] = field(default_factory=dict)  # what only the files tell (BL1: center, upp)
+    placement: dict[str, Any] = field(default_factory=dict)  # what only the files tell (a map its files place: center, upp)
 
 
 @dataclass

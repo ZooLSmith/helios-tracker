@@ -1,6 +1,6 @@
 """
 The game's folders: the install, its cooked packages, a package by file name. Files only (any thread); the folders'
-names and depth per game come from the profile (games.py).
+names and depth per game come from the profile (games/).
 """
 
 import sys
@@ -10,8 +10,8 @@ from . import games
 
 
 def game_dir() -> Path | None:
-    """This install's folder, the one holding WillowGame: up from the game's executable (games.py exe_depth: BL2's
-    Binaries/Win32/Borderlands2.exe, BL1's Binaries/Borderlands.exe), else up from this file (the mod folder in
+    """This install's folder, the one holding WillowGame: up from the game's executable (its profile's exe_depth: BL2's
+    Binaries/Win32/Borderlands2.exe), else up from this file (the mod folder in
     sdk_mods - unresolved: it may be a junction elsewhere)."""
     candidates = [Path(sys.executable).parents[games.GAME.exe_depth], *Path(__file__).absolute().parents]
     for base in candidates:

@@ -243,7 +243,7 @@ class _Handler(BaseHTTPRequestHandler):
             except (ConnectionError, TimeoutError):
                 pass  # tab closed / navigated away
             return
-        games.GAME.assets.wait_for(path, SCAN_WAIT)  # (the game's files not read yet: a page just opened - games.py)
+        games.GAME.assets.wait_for(path, SCAN_WAIT)  # (the game's files not read yet: a page just opened - each game's)
         start = time.perf_counter()  # (after the waits: they hold no GIL - the work from here may)
         try:
             self._get(path)

@@ -2870,6 +2870,24 @@ def check_games_import() -> None:
     print("  games: imported without the SDK (the files worker's way), the profiles registered, none picked before boot")
 
 
+def check_shared_names() -> None:
+    """The rule (profiles.md "the main code doesn't know other ways exist"): the shared code - the mod's modules, the
+    formats, the profiles' base, Borderlands 2's parts and files (every game's default) - never names a game with its
+    own code (a folder of its own: Borderlands 1) nor imports from it; that game's way, and the why of it, live in its
+    folder. games/__init__.py registers the games: the one place naming them. (A game sharing BL2's code - the
+    Pre-Sequel, Dragon Keep - may be named in it as context.) Probe files (probe_bl1_*.txt) are evidence: not a mention."""
+    import re  # noqa: PLC0415
+
+    pkg = ROOT / "helios_tracker"
+    shared = [*pkg.glob("*.py"), *(pkg / "formats").glob("*.py"), pkg / "games" / "base.py",
+              *(pkg / "games" / "bl2").rglob("*.py")]
+    mention = re.compile(r"\bbl1\b|borderlands 1\b|\bbl1(?:map|fonts|textures)\b|\bupk_bl1\b|games[./]bl1\b|\bfrom \.+bl1\b", re.I)
+    hits = [f"{f.relative_to(ROOT)}:{n}: {line.strip()[:120]}" for f in shared
+            for n, line in enumerate(f.read_text(encoding="utf-8").splitlines(), 1) if mention.search(line)]
+    assert not hits, "the shared code names another game's way (its folder's business):\n" + "\n".join(hits)
+    print(f"  shared code: {len(shared)} files name no game with its own code")
+
+
 def check_sdkmod() -> None:
     """paths.py run from inside a .sdkmod (a zip, imported in a child Python): it finds the zip, reads the page's
     files out of it, and writes to sdk_mods/.helios_tracker/ - created, not a folder the loader would import; the debug
@@ -3096,6 +3114,7 @@ def main() -> None:
     check_frames()
     check_script()
     check_games_import()
+    check_shared_names()
     check_sdkmod()
     check_updater()
     check_ingame_text()

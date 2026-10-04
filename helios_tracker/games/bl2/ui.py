@@ -11,7 +11,7 @@ class Ui(Part):
 
     def show_message(self, text: str, duration: float) -> None:
         """The game's bottom-left message (ui_utils' co-op one: it stays until hide_message)."""
-        from ui_utils import show_coop_message  # noqa: PLC0415 (not in every game's ui_utils: BL1's)
+        from ui_utils import show_coop_message  # noqa: PLC0415 (not in every game's ui_utils: imported here, in BL2's)
 
         show_coop_message(text)
 

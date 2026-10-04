@@ -72,13 +72,13 @@ INFO_REFRESH_PER_TICK = 2  # descriptions (names, allegiances) dropped per tick 
 ODDS_SECONDS = 0.003  # s per tick working out containers' loot odds (lootodds.odds_job: a tree in steps)
 NEW_PAWN_INFOS_PER_TICK = 4  # new pawns described per tick (the others, the next ticks: a level's first tick had them
                              # all - 14 ms); ours always
-PICKUP_RESTING_EVERY = 1.0  # s between full reads of a pickup at rest (its flag: games.py pickup_at_rest) - each tick
+PICKUP_RESTING_EVERY = 1.0  # s between full reads of a pickup at rest (its flag: games.GAME.objects.pickup_at_rest) - each tick
                             # meanwhile: only whether it's gone (picked up); a knocked one: back to every tick then
 RECORD_SLOW_MS = 5.0  # an object record taking this long: its parts reported (the slow-task report)
 RECORD_NAMED_MS = 20.0  # ...and this long: its definition named too
 # the last object record's parts (s): names, exit, kind (plant / explosion), buff, loot (its pools), odds
 _record_parts: dict[str, float] = {}
-# An object definition's GetTargetName (a function call - 27 ms in Borderlands 1): once per definition and level (its
+# An object definition's GetTargetName (a function call - up to 27 ms seen): once per definition and level (its
 # objects get the same text from the game); cleared with the level (_clear_contents)
 _target_names: dict[int, str] = {}
 on_level_change(_target_names.clear)  # (by definition address: a level's)
@@ -175,7 +175,7 @@ _level_names: dict[str, str] = {}
 
 def level_name(map_name: str) -> str:
     """The level's name as the game shows it (the map screen's): its LevelDependencyLists, each read the game's
-    way (games.py level_name_in - BL2: GetFriendlyLevelNameFromMapName) - one list for the base game
+    way (games.GAME.world.level_name_in - BL2: GetFriendlyLevelNameFromMapName) - one list for the base game
     (GD_Globals.General.LevelList) and one per DLC, each knowing only its own maps (tools/probes/probe_area.txt:
     "Ice_P" -> "Three Horns - Divide"). Cached per map; "" if none knows it."""
     if (cached := _level_names.get(map_name)) is None:
@@ -322,14 +322,14 @@ class Collector:
         # job under way: (its object's key, its pointer, lootodds.odds_job)
         self._odds_queue: dict[tuple[int, str], WeakPointer] = {}
         self._odds_job: tuple[tuple[int, str], WeakPointer, Any] | None = None
-        # pickups at rest (games.py pickup_at_rest): address -> (their last record, its item, the next full read)
+        # pickups at rest (games.GAME.objects.pickup_at_rest): address -> (their last record, its item, the next full read)
         self._resting: dict[int, tuple[dict[str, Any], dict[str, Any] | None, float]] = {}
         self._areas_json = ""
         self._next_scan = 0.0
         self._next_objects = 0.0
         self._next_players = 0.0
         # a players pass left gear cards to build (inspector's budget): the next one at PLAYERS_RETRY, outside the
-        # tick's budget (its own bounds it - behind the tick budget a 40-item backpack took a minute in BL1, the pane
+        # tick's budget (its own bounds it - behind the tick budget a 40-item backpack took a minute, the pane
         # empty meanwhile, 2026-10-04); and whether this level / page got its first pass, built or not (the pane at once)
         self._players_pending = False
         self._players_shown = False
@@ -498,7 +498,7 @@ class Collector:
                                  "rarity": try_(rarity_table, {}) or {}}  # the game's rarity colours
         if not game_name:
             level["raw"] = 1  # a made-up name (the page marks it)
-        # its map: where it sits, how its images load - the game's own way (games.py map_source, levelmap.py)
+        # its map: where it sits, how its images load - the game's own way (games.GAME.world.map_source, levelmap.py)
         source = games.GAME.world.map_source(wi, name)  # (None: no map for this level)
         if source is None:
             level["status"] = "none"
@@ -534,7 +534,7 @@ class Collector:
             self._set_level(level)
             return
         images, fog = result.images, result.fog
-        level.update(result.placement)  # (what only the files tell: BL1's center / upp)
+        level.update(result.placement)  # (what only the files tell: a map placed by its files - its center / upp)
         self.hub.set_images(level_id, [img.data for img in images] + ([fog.blob.data] if fog else []))
         if fog:  # the game's fog of war: its blob (the image after the map's) and where it goes, per area
             level["fog"] = {
@@ -993,8 +993,8 @@ class Collector:
     @staticmethod
     def _out_of_sight(io: Any) -> bool:
         """Not in the game's world: hidden (bHidden), or every mesh it has hidden in game (its components' HiddenGame) -
-        an object switched off by its behaviours (Behavior_ChangeVisibility): BL1's T.K.'s Food, picked up for its
-        mission, its mesh hidden, the actor not (tools/probes/probe_bl1_mission_objects.txt - the page still showed it).
+        an object switched off by its behaviours (Behavior_ChangeVisibility): a mission's object picked up, its mesh
+        hidden, the actor not (tools/probes/probe_bl1_mission_objects.txt: T.K.'s Food - the page still showed it).
         An object without a mesh: as its actor."""
         if field(io, "bHidden"):
             return True
@@ -1034,7 +1034,7 @@ class Collector:
 
     def _note_giver(self, key: int, actor: Any, entries: list[Any]) -> None:
         """An NPC's / object's missions it gives / takes back ({MissionDefinition, bBeginsMission, bEndsMission} - an NPC's
-        MissionDirectives' MissionDirectives, an interactive object's: games.py object_directives - the bounty board,
+        MissionDirectives' MissionDirectives, an interactive object's: games.GAME.objects.directives - the bounty board,
         tools/probes/probe_bounty.txt; static): kept for the quest-giver markers (_npc_givers)."""
         directives = [(d.MissionDefinition, bool(d.bBeginsMission), bool(d.bEndsMission))
                       for d in entries or [] if try_(lambda d=d: d.MissionDefinition) is not None]
@@ -1146,7 +1146,7 @@ class Collector:
 
     @staticmethod
     def _is_looted(io: Any, client: bool = False) -> bool:
-        """A container looted - each game's test (games.py is_looted)."""
+        """A container looted - each game's test (games.GAME.objects.is_looted)."""
         return bool(try_(lambda: games.GAME.objects.is_looted(io, client), False))
 
     @staticmethod
@@ -1193,7 +1193,7 @@ class Collector:
             elif (display := _target_names.get(definition._get_address())) is None:
                 display = _target_names[definition._get_address()] = call_str(io.GetTargetName)
             part("name.target")
-        # GetHumanReadableName: a fallback after the definition's name - called only when there's none (11 ms in BL1)
+        # GetHumanReadableName: a fallback after the definition's name - called only when there's none (up to 11 ms seen)
         definition_name = def_name(definition)
         human = call_str(io.GetHumanReadableName) if not display and not definition_name else ""
         part("name.human")
@@ -1283,12 +1283,12 @@ class Collector:
         if kind in ("me", "player"):
             name = named(try_(lambda: str(player_info(pawn).PlayerName), ""), "Player")
         elif kind == "vehicle":
-            # Its own name (each game's: games.py vehicle_name) - GetTargetName gives the driver's once someone
+            # Its own name (each game's: games.GAME.pawns.vehicle_name) - GetTargetName gives the driver's once someone
             # drives it
             name = named(try_(lambda: games.GAME.pawns.vehicle_name(pawn), "") or "",
                          def_name(try_(lambda: pawn.VehicleDef)), str(pawn.Class.Name))
         else:
-            # Its balance's DisplayName (games.py pawn_name - BL2: per playthrough, BL1: per grade): what GetTargetName
+            # Its balance's DisplayName (games.GAME.pawns.name - each game's: BL2's per playthrough): what GetTargetName
             # / GetMapDisplayName / GetTransformedName give - read as a property: calling those crashed the game (a
             # native fatal error from call_str here, helios_crash.log, 2026-09-23, Tundra Express)
             name = named(try_(lambda: games.GAME.pawns.name(pawn), "") or "", try_(lambda: games.GAME.pawns.raw_name(pawn), "") or "",
@@ -1341,7 +1341,7 @@ class Collector:
             "q": try_(lambda: int(p.InventoryRarityLevel), 0),
         }
         if inv is not None and (level := exp_level(inv)):
-            info["l"] = try_(lambda: games.GAME.items.card_level(inv, level), level)  # (the card's: games.py)
+            info["l"] = try_(lambda: games.GAME.items.card_level(inv, level), level)  # (the card's: each game's)
         kind = games.GAME.items.pickup_kind(inv)
         # its own icon (the game's: its definition's PickupFlagIcon - fx_shared_items...Credits, Ammo_SMG...: the
         # tooltip / panel, served by /texture/<path>.png) - any usable item's, of a known kind or not ("other")
@@ -1373,7 +1373,7 @@ class Collector:
         wi = ENGINE.GetCurrentWorldInfo()
         if pc is None or wi is None:
             return
-        me = try_(lambda: games.GAME.pawns.local(pc))  # (each game's: games.py)
+        me = try_(lambda: games.GAME.pawns.local(pc))  # (each game's)
         view_yaw = try_(lambda: pc.Rotation.Yaw, 0)
         self._state_n += 1
         t0 = time.perf_counter()
@@ -1404,8 +1404,8 @@ class Collector:
                 # vehicle and its passengers are already shown
                 # (reader(): the per-update reads through properties looked up once - ~10x cheaper)
                 get = reader(pawn)
-                # Hidden (bHidden): not in the game's world - BL1's bus stop Claptrap, parked hidden for a later scene
-                # (tools/probes/probe_bl1_npc.txt); as the pickups' and objects' - but a player: hidden while
+                # Hidden (bHidden): not in the game's world - an NPC parked hidden for a later scene (a bus stop Claptrap:
+                # tools/probes/probe_bl1_npc.txt); as the pickups' and objects' - but a player: hidden while
                 # respawning, shown where they'll come back (_respawn_state)
                 hidden = get("bHidden") and self._pawn_info(pawn, me)["k"] not in ("me", "player")
                 # new ones: NEW_PAWN_INFOS_PER_TICK described per tick, the others shown from the next ticks (ours first)
@@ -1560,7 +1560,7 @@ class Collector:
         self.hub.publish_records("items", "items", list(items.values()), {"level": self.level_id})  # (before their pickups)
         self.hub.publish_records("pickups", "pickups", pickups, {"level": self.level_id})
         self.hub.publish_records("pawninfo", "pawns", infos, {"level": self.level_id})
-        paused = try_(lambda: games.GAME.world.paused(wi), False)  # the game paused (its menu: games.py)
+        paused = try_(lambda: games.GAME.world.paused(wi), False)  # the game paused (its menu: each game's)
         self.hub.publish_records("state", "pawns", pawns, {"level": self.level_id, "hz": self.rate, **({"paused": 1} if paused else {})},
                                  {"t": round(now, 3)})  # (the time: not a change)
         t_end = time.perf_counter()
@@ -1770,7 +1770,7 @@ class Collector:
                 for mission, begins, ends in directives:
                     mid = mission_id(mission)
                     state = states.get(mid, "")
-                    if state != "end":  # can be picked up now: each game's word (games.py mission_offered - BL1's: the game's eligibility)
+                    if state != "end":  # can be picked up now: each game's word (games.GAME.missions.offered)
                         offered = try_(lambda m=mission, s=state, i=mid: games.GAME.missions.offered(pc, m, s, i in logged), False)
                         state = "begin" if begins and offered else ""
                     if ((state == "begin" and begins) or (state == "end" and ends)) and all(e["i"] != mid for e in listed):

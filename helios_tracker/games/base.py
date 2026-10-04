@@ -5,7 +5,7 @@ from typing import Any
 
 class Part:
     """One domain of a game's profile (world, missions...). Borderlands 2's parts are the base (bl2/); a game whose way
-    differs subclasses the part (bl1/). The main code calls a part's methods and never names a game's class."""
+    differs subclasses the part (in its own folder). The main code calls a part's methods and never names a game's class."""
 
     def __init__(self, profile: Any) -> None:
         self.profile = profile  # (its profile: another part's, if it ever needs one - self.profile.world...)

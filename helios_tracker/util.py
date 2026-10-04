@@ -112,8 +112,8 @@ _fields: dict[int, dict[str, Any]] = {}  # class address -> property name -> pro
 
 
 # A level change: what's kept per level forgets it (the collector calls level_changed - _clear_contents). Each such cache
-# registers its reset where it's defined (on_level_change): nothing works out by itself that the level changed (BL1's
-# exits once did, by the area's name - stale after a save-quit-continue in the same area: profiles.md "Level changes").
+# registers its reset where it's defined (on_level_change): nothing works out by itself that the level changed (a
+# cache once did, by the area's name - stale after a save-quit-continue in the same area: profiles.md "Level changes").
 _level_resets: list[Any] = []
 
 
@@ -263,7 +263,7 @@ def exp_level(obj: Any) -> int:
     return 0
 
 
-# The game's rarity per RarityLevel: its colour entry and colour (games.py rarity_table: each game's own way)
+# The game's rarity per RarityLevel: its colour entry and colour (games.GAME.items.rarity_table: each game's own way)
 _rarity: dict[str, list[Any]] = {}
 
 

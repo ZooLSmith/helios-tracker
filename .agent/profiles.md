@@ -565,12 +565,12 @@ Each step leaves the mod working and `offline_check` passing:
    kept (gamescan...): the docs still find them.)* **BL1's code gathered** into `games/bl1/`, **the decoders split** (the inventory's "File decoding": formats,
    each game's `files/`, the worker's stub packages and `fn` jobs, `assets.serve`); the inspector's skill reading,
    `levelmap.landmark`, the file readers; the probes' paths.
-6. *(1/2 done, 2026-10-04: items.kind, items.pickup_kind (BL1: its bMissionItem rule, _usable_kind), skills.icon (TPS: its
-   texture name), missions.objective_name, objects.exit (text, area: BL2's the game's text, BL1's its destination's
-   area); the Pre-Sequel's oxygen objects its objects part's (extra_fields, dome). Kept, runtime conditions - not a
-   game's way: the controller's player info for our own pawn, `hasattr(owner, "ObjectiveDefs")` (is it a mission
-   definition), the cutscene check's `pawns.local(pc) or pc.Pawn`. Left: the comments naming another game, the grep
-   test.)* **The leftover checks** (point 5 and the inventory's hidden differences table), the new `offline_check` tests
+6. *(done, 2026-10-04: items.kind, items.pickup_kind (BL1: its bMissionItem rule, _usable_kind), skills.icon (TPS: its
+   texture name), missions.objective_name, objects.exit (text, area); the Pre-Sequel's oxygen objects its objects part's
+   (extra_fields, dome). Kept, runtime conditions - not a game's way: the controller's player info for our own pawn,
+   `hasattr(owner, "ObjectiveDefs")` (is it a mission definition), the cutscene check's `pawns.local(pc) or pc.Pawn`.
+   The shared code's comments name no game with its own code (the evidence kept: probe files, measurements), its
+   games.py references the parts' - offline_check check_shared_names. The page's per-game data: still "To decide".)* **The leftover checks** (point 5 and the inventory's hidden differences table), the new `offline_check` tests
    (contract, grep rule, worker imports, jobs, reset, logging).
 7. **Docs**: the inventory's list (`AGENTS.md`, `spec.md`, `bl1.md`, `notes.md`, `design.md`, `presequel.md`);
    this file goes.

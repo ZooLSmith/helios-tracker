@@ -75,5 +75,5 @@ class Objects(Part):
     def pickup_at_rest(self, get: Any) -> bool:
         """Whether a pickup has stopped moving (`get`: its util.reader): WillowPickup.bPickupAtRest - False while it
         tumbles or slides, True ~0.25-1 s after it fully stopped (tools/probes/probe_pickup_rest.txt: two drops, one
-        sliding down a slope; .agent/notes.md "Pickups at rest"). Borderlands 1's the same (the probe there, 2026-10-04)."""
+        sliding down a slope; .agent/notes.md "Pickups at rest")."""
         return bool(get("bPickupAtRest"))

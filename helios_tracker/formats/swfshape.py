@@ -1,12 +1,12 @@
 """
 Scaleform vector shapes -> images: a DefineShape's edges (straight and curved, each with the fill styles on its two
 sides and the line style stroking it) filled and stroked in their solid colours, anti-aliased, as BGRA ("PF_A8R8G8B8":
-what the page's decodeTexture takes, like the game's own textures). Borderlands 1's map is drawn this way (bl1map.py).
+what the page's decodeTexture takes, like the game's own textures) - a game's vector map, its menus' icons.
 Pure Python, no SDK.
 
-Drawn as Flash layers them: style list by style list (a shape may start new ones mid-way: BL1's maps keep their lines
+Drawn as Flash layers them: style list by style list (a shape may start new ones mid-way: some maps keep their lines
 in them), each list's fills, then its lines. Only what the maps use: solid fills, gradients as their colours' average
-(three BL1 maps have one: arid_bunker, interlude2, trash - not drawn as gradients yet), no bitmaps; lines solid, round
+(three maps have one: arid_bunker, interlude2, trash - not drawn as gradients yet), no bitmaps; lines solid, round
 joins and caps (Flash's default).
 """
 

@@ -196,6 +196,17 @@ Direction:
 - `_out_of_sight` (~50-100 us per object, every scan) - cheaper reads, only for definitions that can hide, a hook on
   the visibility change if one exists (`profiles.md`, "Game-thread costs").
 
+## 9. The mod folder: code and what it writes, mixed (the user, 2026-10-04)
+
+A folder install's DATA is the package itself (paths.py): its modules sit next to the logs (`helios_tracker_<game>.log`,
+`helios_crash_<game>.log`, the old unsuffixed ones), the user's `autoexec.ps1`, `.cache/`, a `diagnostics` file - "not a
+big fan" (the user). To do after the profiles' moves (profiles.md step 7):
+- what the mod writes in a folder of its own, the .sdkmod's way (`sdk_mods/.helios_tracker/`: already apart) - e.g.
+  DATA = `<package>/.data/` or the same `sdk_mods/.helios_tracker/` for both installs (the dev's logs then outside the
+  repo: the tools reading them follow paths.DATA); the old files moved once (or left: gitignored);
+- maybe the package's ~20 top modules grouped too (collecting, the page's server, the mod's shell: settings, updater,
+  script) - the same kind of split as games/ and formats/; its own decision.
+
 ## Known, accepted for now (2026-10-04)
 
 - **A freeze when the mod loads into a level**: the first level check (`level`) ~870 ms, once - BL2, twice measured

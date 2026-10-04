@@ -46,7 +46,7 @@ def _enum_name(value: Any) -> str:
 def is_machine(obj: Any) -> bool:
     cls = try_(lambda: obj.Class)
     while cls is not None:
-        if str(try_(lambda c=cls: c.Name, "")) == games.GAME.vending_class:  # (each game's: games.py)
+        if str(try_(lambda c=cls: c.Name, "")) == games.GAME.vending_class:  # (each game's)
             return True
         cls = try_(lambda c=cls: c.SuperField)  # (never raises: the collector's object scan calls it on everything)
     return False
@@ -82,7 +82,7 @@ class ShopReader:
         self._sent = None
 
     def _title(self, kind: str) -> str:
-        if self._titles is None:  # the vending menu's localized titles (static; games.py: its class, if it has them)
+        if self._titles is None:  # the vending menu's localized titles (static; its profile's vending class, if it has them)
             title_class = games.GAME.vending_titles
             cls = try_(lambda: unrealsdk.find_class(title_class)) if title_class else None
             cdo = try_(lambda: cls.ClassDefaultObject) if cls is not None else None
@@ -91,8 +91,8 @@ class ShopReader:
 
     def _named(self, io: Any, kind: str) -> dict[str, Any]:
         """A machine's name record (util.named): the game's (_name) - else its definition's own name, as the map object's
-        ("VendingMachine GrenadesAndAmmo": what it sells - BL1's machines have no map header, no shop titles; their name
-        is on their texture only), not its class's (every machine "Vending Machine ?" - the user)."""
+        ("VendingMachine GrenadesAndAmmo": what it sells - a machine with no map header, no shop title: its name on
+        its texture only), not its class's (every machine "Vending Machine ?" - the user)."""
         return named(self._name(io, kind), def_name(try_(lambda: io.InteractiveObjectDefinition)), str(io.Class.Name))
 
     def _name(self, io: Any, kind: str) -> str:
@@ -107,7 +107,7 @@ class ShopReader:
             if time.perf_counter() > deadline:
                 return None
             item = _item(inv, False, pc)
-            price = try_(lambda: games.GAME.shops.selling_price(machine, inv, pc))  # (each game's call: games.py)
+            price = try_(lambda: games.GAME.shops.selling_price(machine, inv, pc))  # (each game's call)
             if price is not None and price >= 0:
                 item["v"] = price
             self._items[key] = item
@@ -118,7 +118,7 @@ class ShopReader:
         key = (inv._get_address(), str(inv.Name))
         if key not in self._items:
             record = {**named(item_name(inv), str(inv.Name)), "k": kind}
-            price = try_(lambda: games.GAME.shops.selling_price(machine, inv, pc))  # (each game's call: games.py)
+            price = try_(lambda: games.GAME.shops.selling_price(machine, inv, pc))  # (each game's call)
             if price is not None and price >= 0:
                 record["v"] = price
             self._items[key] = record
@@ -142,7 +142,7 @@ class ShopReader:
                 loc = io.Location
                 machine: dict[str, Any] = {"i": addr(io), **self._named(io, kind), "k": kind,
                                            "x": round(loc.X), "y": round(loc.Y), "z": round(loc.Z)}
-                currency = CURRENCIES.get(try_(lambda io=io: games.GAME.shops.currency(io), "") or "", "other")  # (games.py)
+                currency = CURRENCIES.get(try_(lambda io=io: games.GAME.shops.currency(io), "") or "", "other")  # (each game's)
                 if currency != "cash":
                     machine["cur"] = currency
                 items, basics = [], []
@@ -179,14 +179,14 @@ class ShopReader:
             del self._items[key]
         machines.sort(key=lambda m: m["i"])
         stock = json.dumps({"level": level_id, "client": int(client), "machines": machines}, separators=(",", ":"))
-        # the timer: the game's count (games.py shop_timer_source - BL2's host: its own, a client: the replicated one)
+        # the timer: the game's count (games.GAME.shops.timer_source - BL2's host: its own, a client: the replicated one)
         source = try_(lambda: games.GAME.shops.timer_source(world_info))
         left = try_(lambda: float(source.SecondsUntilShopsReset))
         rate = try_(lambda: float(source.ShopTimerRate), 1.0)
         # the game paused (WorldInfo.Pauser, as the state's "paused"): its timer stands still - the page's count too
         # (it went on, then jumped back at each resend: the user saw it)
-        # (Pauser only, not games.py world_paused: BL1's status menus stop the world, but its shops' timer runs on -
-        # the user saw it count down in the inventory, not in the escape menu)
+        # (Pauser only, not the world's paused: a game's status menus may stop the world while its shops' timer runs
+        # on - the user saw it count down in the inventory, not in the escape menu)
         paused = try_(lambda: field(world_info, "Pauser") is not None, False)
         sent = self._sent
         stock_out = stock if sent is None or stock != sent[0] else None

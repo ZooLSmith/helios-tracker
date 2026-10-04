@@ -2,8 +2,8 @@
 Reads Unreal Engine 3 packages (.upk / .umap / .u) straight from disk: the summary, names, imports, exports, tagged
 properties, textures' top mips. Pure Python, no SDK: on background threads, in gamework's worker, offline in tests.
 
-This is BL2's format (file version 832; the Pre-Sequel's too). Another game's format is a subclass in its own file
-(upk_bl1.py: Borderlands 1), overriding only what differs - its code opens its packages with it; nothing here asks
+This is BL2's format (file version 832; the Pre-Sequel's too). Another game's format is a subclass in that game's
+files (games/<game>/files/), overriding only what differs - its code opens its packages with it; nothing here asks
 which game it is.
 
 Package format notes (UE3, BL2 = file version 832): either "fully compressed" (the whole file is a

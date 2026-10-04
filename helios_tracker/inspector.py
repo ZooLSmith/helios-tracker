@@ -81,8 +81,8 @@ SKILLS_UNKNOWN_EVERY = 10.0  # s
 players_parts: dict[str, float] = {}
 # Skill trees by controller (checked alive: util.PerObject): re-read only when the points spent change
 _skills_cache = PerObject()
-# An item's element level (Borderlands 1's: games.py element_level - function calls, static per item): every players
-# pass read it again for each equipped item (2026-10-04: players.inventory 3-5 ms a pass)
+# An item's element level (games.GAME.items.element_level - a game's may be function calls; static per item): every
+# players pass read it again for each equipped item (2026-10-04: players.inventory 3-5 ms a pass)
 _element_levels = PerObject()
 _grids: dict[tuple[str, int], list[dict[str, Any]]] = {}  # branch grids (static per class)
 _level_start: dict[int, int] = {}  # level -> total XP where it starts (a fixed game table)
@@ -99,7 +99,7 @@ def _kind(inv: Any) -> str:
 def card_keys(inv: Any, kind: str | None = None) -> dict[str, str]:
     """Its item card icons' keys, the game's (gamecards.py serves them: /cardicon/<kind>/<key>.png): "mf" its
     manufacturer's FlashLabelName ("maliwan"), "wt" a weapon's type's ScaleformFrameName ("pistol" - a property),
-    another item's type frame from the card's own IItemCardable.GetZippyFrame() (games.py zippy_frame: "Artifact", "comm",
+    another item's type frame from the card's own IItemCardable.GetZippyFrame() (games.GAME.items.zippy_frame: "Artifact", "comm",
     "Customization_Head": tools/probes/probe_zippy.txt; a call - once per definition, cached; the game calls it for a ground
     item's card too), "el" its ElementalFrame ("shock" - an identifier: the game has no display name for it,
     tools/probes/probe_weapon_card2.txt). Those it has. Also for the pickups on the map (their type icon)."""
@@ -123,7 +123,7 @@ def card_keys(inv: Any, kind: str | None = None) -> dict[str, str]:
             frame = _zippy[zkey]
         if frame.lower() not in ("", "none"):
             out["wt"] = frame.lower()
-    if element := try_(lambda: games.GAME.items.element_frame(inv, kind), "") or "":  # (each game's: games.py)
+    if element := try_(lambda: games.GAME.items.element_frame(inv, kind), "") or "":  # (each game's)
         out["el"] = element
     return out
 
@@ -174,7 +174,7 @@ def _stats(inv: Any, kind: str) -> list[list[Any]]:
     if kind == "weapon":
         (dmg0, dmg), pellets = pair("InstantHitDamage"), get("ProjectilesPerShot")
         if dmg:
-            # rounded as the game's card does (games.py damage_presentation: BL1's rounds up), else to the nearest
+            # rounded as the game's card does (its profile's damage_presentation), else to the nearest
             if (pres := _damage_presentation()) is not None:
                 out.append(["damage", _presented(pres, dmg0)[0], _presented(pres, dmg)[0], round(pellets or 1)])
             else:
@@ -193,7 +193,7 @@ def _stats(inv: Any, kind: str) -> list[list[Any]]:
             out.append(["reload", round(reload0, 2), round(reload, 2)])
         if (chance := _element_chance(inv)) is not None:
             out.append(["elementChance", *chance])
-    if (level := try_(lambda: _element_levels.get(inv))) is None:  # (static per item: read once - Borderlands 1's, games.py)
+    if (level := try_(lambda: _element_levels.get(inv))) is None:  # (static per item: read once)
         level = try_(lambda: games.GAME.items.element_level(inv, kind), 0) or 0
         try_(lambda: _element_levels.put(inv, level))  # (an object it can't key - the offline check's fakes: read each time)
     if level:
@@ -219,17 +219,17 @@ _accuracy_pres: list[Any] = []  # [the presentation, or None]: found once
 def _presented(pres: Any, value: float) -> tuple[float, int]:
     """A value rounded as its attribute presentation shows it: (value, decimals). RoundingMode ATTRROUNDING_IntRound
     -> a whole number (half away from zero, not Python's to-even); ATTRROUNDING_IntCeil -> rounded up; ATTRROUNDING_Float
-    (the accuracy's) or unset -> the game's decimals (games.py presented_decimals: BL2's FloatPrecision, BL1's 1);
+    (the accuracy's) or unset -> the game's decimals (games.GAME.items.presented_decimals: BL2's FloatPrecision);
     another mode: logged once, those decimals meanwhile (not guessed)."""
     mode = str(getattr(try_(lambda: pres.RoundingMode), "name", "") or "")
     if mode == "ATTRROUNDING_IntRound":
         return math.floor(abs(value) + 0.5) * (1 if value >= 0 else -1), 0
-    if mode == "ATTRROUNDING_IntCeil":  # (BL1's projectile damage: up to the next whole number)
+    if mode == "ATTRROUNDING_IntCeil":  # (up to the next whole number: a projectile's damage - probe_bl1_cards.txt)
         return math.ceil(value), 0
     if mode not in ("", "ATTRROUNDING_Float") and mode not in _rounding_logged:
         _rounding_logged.add(mode)
         log(f"item card stat rounding not handled: {mode} ({try_(lambda: pres._path_name(), '?')})")
-    decimals = try_(lambda: games.GAME.items.presented_decimals(pres), 0) or 0  # (each game's: games.py)
+    decimals = try_(lambda: games.GAME.items.presented_decimals(pres), 0) or 0  # (each game's)
     return round(value, decimals), decimals
 
 
@@ -249,11 +249,11 @@ def _remapped(pres: Any, value: float, inv: Any) -> float | None:
     return out_mn + (value - in_mn) * (out_mx - out_mn) / (in_mx - in_mn)
 
 
-_damage_pres: list[Any] = []  # the game's damage presentation (games.py), looked up once
+_damage_pres: list[Any] = []  # the game's damage presentation (its profile's), looked up once
 
 
 def _damage_presentation() -> Any:
-    """The weapon card damage's attribute presentation, if the game has one for it (games.py damage_presentation)."""
+    """The weapon card damage's attribute presentation, if the game has one for it (games.GAME.damage_presentation)."""
     if not _damage_pres:
         path = games.GAME.damage_presentation
         _damage_pres.append(try_(lambda: unrealsdk.find_object("AttributePresentationDefinition", path)) if path else None)
@@ -297,7 +297,7 @@ def _localized(obj: Any, grade: int) -> str:
 
     Localized properties (see the repo's .agent/notes.md): name parts' PartName, weapon types'
     Typename, item definitions' ItemName, manufacturers' Grades[grade].DisplayName. HTML entities decoded, as the
-    game's (Scaleform, HTML) text fields show them: BL1's "S&amp;S Munitions" (the page escapes what it shows itself).
+    game's (Scaleform, HTML) text fields show them: "S&amp;S Munitions" (the page escapes what it shows itself).
     """
     for prop in ("PartName", "Typename", "ItemName"):
         text = try_(lambda p=prop: str(getattr(obj, p)), "")
@@ -376,11 +376,11 @@ def _item(inv: Any, equipped: bool, ctrl: Any = None) -> dict[str, Any]:
         "k": kind,
         "c": str(inv.Class.Name),
         "q": try_(lambda: int(inv.RarityLevel), 0),
-        "l": try_(lambda: games.GAME.items.card_level(inv, int(inv.ExpLevel)), 0),  # (the card's: games.py)
+        "l": try_(lambda: games.GAME.items.card_level(inv, int(inv.ExpLevel)), 0),  # (the card's: each game's)
         "v": try_(lambda: int(inv.MonetaryValue), 0),
         "e": equipped,
         "stats": _stats(inv, kind),
-        # its card's stats, the game's labels - the kinds whose card lists them (games.py ui_stat_kinds: a shield)
+        # its card's stats, the game's labels - the kinds whose card lists them (games.GAME.ui_stat_kinds: a shield)
         **({"ui": ui} if kind in games.GAME.ui_stat_kinds and (ui := _ui_stats(inv)) else {}),
     }
     if card := _card_lines(inv, kind):
@@ -394,7 +394,7 @@ def _item(inv: Any, equipped: bool, ctrl: Any = None) -> dict[str, Any]:
         damage_type = next(iter(try_(lambda: list(inv.InstantHitDamageTypeDefinitions), []) or []), None)
         colour = try_(lambda: damage_type.HUDDamageColor) if damage_type is not None else None
         if damage_type is not None and (enum := _enum_name(try_(lambda: damage_type.DamageType, ""))):
-            games.GAME.items.learn_element(enum, item["el"])  # (its card frame next to its damage type: each game's - games.py)
+            games.GAME.items.learn_element(enum, item["el"])  # (its card frame next to its damage type: each game's)
         if damage_type is not None and (name := _element_name(damage_type, ctrl or get_pc())):
             item["eln"] = name  # the game's name for it ("shock": its localization)
         if colour is not None:
@@ -620,7 +620,7 @@ def _presentation_line(entry: Any, item: Any = None) -> dict[str, Any] | None:
         if rgb != (255, 255, 255):
             line["col"] = "#%02x%02x%02x" % rgb
     if item is not None and (shown := try_(lambda: games.GAME.items.card_line_value(entry, p, item))) is not None:
-        line["dv"], line["dp"] = shown  # the number as the game shows it (games.py: BL1's card lines)
+        line["dv"], line["dp"] = shown  # the number as the game shows it (its profile's card_line_value)
     elif item is not None and (current := _attribute_value(item, try_(lambda: p.Attribute))) is not None:
         line["cur"] = current
     return line
@@ -677,14 +677,14 @@ def learn_frame(enum: str, frame: str) -> None:
 
 
 def element_frame(enum: str) -> str:
-    """A damage type's card frame ("" for none): each game's way (games.py damage_type_frame). The one place a damage
+    """A damage type's card frame ("" for none): each game's way (games.GAME.items.damage_type_frame). The one place a damage
     type becomes its icon's frame (element_of, the collector's update of an object's "el")."""
     return games.GAME.items.damage_type_frame(enum)
 
 
 def learned_frame(enum: str) -> str:
     """BL2's damage type frame: learned from the weapons seen (learn_frame), else the enum's name in lower case ("" for
-    none) - games.py damage_type_frame. Another source (another enum, a mapping found in the game's data) replaces
+    none) - games.GAME.items.damage_type_frame. Another source (another enum, a mapping found in the game's data) replaces
     this function's body, nothing else."""
     frame = _element_frames.get(enum) or _ENUM_FRAMES.get(enum) or enum.removeprefix("DAMAGE_TYPE_").lower()
     return "" if frame in ("", "none", "normal", "unknown") else frame
@@ -740,14 +740,14 @@ def buff_info(definition: Any, lootable: bool = False) -> bool:
 
 def explosion_info(definition: Any, ctrl: Any = None) -> dict[str, Any]:
     """An interactive object that explodes (a barrel): its definition's behaviours hold a Behavior_Explode
-    (games.py object_behaviors - BL2: BehaviorProviderDefinition.BehaviorSequences[].BehaviorData2[].Behavior; BL1: its
-    behaviour sets - the Pre-Sequel's barrels: bBarrelSource;
+    (games.GAME.objects.behaviors - BL2: BehaviorProviderDefinition.BehaviorSequences[].BehaviorData2[].Behavior - the
+    Pre-Sequel's barrels: bBarrelSource;
     the air dome generator, with health too: no behaviours) -> {"xp": 1, its explosion's element (element_of:
     Behavior_Explode.Definition.DamageTypeDef)}, {} if it doesn't. Per definition, once (static data)."""
     key = definition._get_address()
     if key not in _explosions:
         found: dict[str, Any] = {}
-        for behavior in try_(lambda: games.GAME.objects.behaviors(definition), []) or []:  # (each game's way: games.py)
+        for behavior in try_(lambda: games.GAME.objects.behaviors(definition), []) or []:  # (each game's way)
             if try_(lambda b=behavior: str(b.Class.Name), "") == "Behavior_Explode":
                 damage_type = try_(lambda b=behavior: b.Definition.DamageTypeDef)
                 found = {"xp": 1, **(element_of(damage_type, ctrl) if damage_type is not None else {})}
@@ -1102,8 +1102,8 @@ def _class_name(ctrl: Any, pri: Any) -> dict[str, Any]:
 
 
 def _class_name_uncached(ctrl: Any, pri: Any) -> dict[str, Any]:
-    """{"cls": class, "char": character} - the game's localized class name ("Gunzerker" / "Défourailleur", BL1's
-    "Hunter") and character name ("Salvador"), each game's way (games.py class_name); else the class definition's
+    """{"cls": class, "char": character} - the game's localized class name ("Gunzerker" / "Défourailleur") and
+    character name ("Salvador"), each game's way (games.GAME.pawns.class_name); else the class definition's
     object name, flagged made-up ("clsRaw")."""
     out = dict(try_(lambda: games.GAME.pawns.class_name(ctrl, pri), {}) or {})
     if out.get("cls"):
@@ -1113,7 +1113,7 @@ def _class_name_uncached(ctrl: Any, pri: Any) -> dict[str, Any]:
 
 
 def class_identifiers(ctrl: Any, pri: Any) -> dict[str, Any]:
-    """BL2's class / character names (games.py class_name): the player info (shared with everyone: works for others on
+    """BL2's class / character names (games.GAME.pawns.class_name): the player info (shared with everyone: works for others on
     a client too) or the class definition points at the *character* (PlayerNameIdentifierDefinition: "Salvador"), whose
     CharacterClassId is the class (PlayerClassIdentifierDefinition: "Gunzerker") - seen in game. Those it has."""
     character = try_(lambda: pri.CharacterNameIdDef) or try_(lambda: ctrl.PlayerClass.CharacterNameId)
@@ -1151,7 +1151,7 @@ def read_players(world_info: Any, me: Any, pc: Any = None) -> list[dict[str, Any
             # the class first (cheap): the player info (slow reads) only for players
             pri = player_info(pawn) if "PlayerPawn" in str(pawn.Class.Name) else None  # the vehicle's while driving
             if pri is None and me is not None and pc is not None and addr(pawn) == me_addr:
-                # (ours: the controller's own - Borderlands 1's driver pawn has none in a vehicle, nor its seat:
+                # (ours without one: the controller's own - a driver pawn may have none in a vehicle, nor its seat:
                 # tools/probes/probe_bl1_driving.txt - left out, the list lost us)
                 pri = try_(lambda: pc.PlayerReplicationInfo)
             if pri is not None and not field(pawn, "bDeleteMe"):
@@ -1181,7 +1181,7 @@ def read_players(world_info: Any, me: Any, pc: Any = None) -> list[dict[str, Any
                 mark = part("card keys", mark)
                 _inventory(pawn, player)
                 mark = part("inventory", mark)
-                games.GAME.skills.read(ctrl, player, try_(lambda p=pawn: _skill_bonuses(p), {}))  # (each game's tree: games.py)
+                games.GAME.skills.read(ctrl, player, try_(lambda p=pawn: _skill_bonuses(p), {}))  # (each game's tree)
                 part("skills", mark)
                 players.append(player)
         except Exception as ex:  # noqa: BLE001

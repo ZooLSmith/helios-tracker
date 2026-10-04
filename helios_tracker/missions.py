@@ -81,7 +81,7 @@ def _definition(mdef: Any) -> tuple[dict[str, Any], dict[int, int]]:
     objectives, index = [], {}
     # (obj_key, not key: the cache's - reusing it filed every definition under its last objective's key, never found
     # again: every pass read every mission's texts, ~0.9 ms each - tools/probes/probe_bl1_log_cost.txt)
-    for i, (obj_key, obj) in enumerate(try_(lambda: games.GAME.missions.objectives(mdef), []) or []):  # (each game's: games.py)
+    for i, (obj_key, obj) in enumerate(try_(lambda: games.GAME.missions.objectives(mdef), []) or []):  # (each game's)
         index[obj_key] = i
         objectives.append({
             **named(_text(obj, "ProgressMessage"), try_(lambda o=obj: games.GAME.missions.objective_name(o), "") or ""),
@@ -104,7 +104,7 @@ def _definition(mdef: Any) -> tuple[dict[str, Any], dict[int, int]]:
     # Its area: the travel station's name, as the game shows it (tools/probes/probe_mission_areas.py:
     # TravelStation.StationDisplayName - "Three Horns Divide", "Claptrap's Place"...)
     # Where it comes from - where its giver is (Name Game: Sanctuary); not where it's done: see _live)
-    if (home := try_(lambda: games.GAME.missions.home(mdef))) is not None:  # (each game's: games.py)
+    if (home := try_(lambda: games.GAME.missions.home(mdef))) is not None:  # (each game's)
         if home["a"]:
             record["area"] = home["a"]
         if home["map"]:
@@ -442,8 +442,7 @@ class MissionLog:
         return out
 
     def ids(self) -> set[str]:
-        """The missions picked up (any status but not started), as of the last full pass - Borderlands 1's not started
-        ones are the game's other missions (games.Borderlands1.mission_entries)."""
+        """The missions picked up (any status but not started), as of the last full pass."""
         return {r["i"] for r, live in zip(self._records, self._live, strict=True) if live[0] != "NotStarted"}
 
     def entry_addresses(self) -> list[tuple[int, int]]:

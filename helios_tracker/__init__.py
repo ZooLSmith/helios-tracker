@@ -307,7 +307,7 @@ def _start_check(auto: bool) -> None:
 # The automatic path reloads by itself: from a one-shot hook on another function (the queue drains in our PostRender
 # hook, which the reload removes - not done from inside it), the next frame; the new module says it (the old one's
 # message would never be hidden: its hook is gone) - the tag handed over on sys.
-RELOAD_HOOK = (games.GAME.tick_function, "helios_tracker.auto_reload")  # (each game's: games.py)
+RELOAD_HOOK = (games.GAME.tick_function, "helios_tracker.auto_reload")  # (each game's)
 _UPDATED = "_helios_tracker_updated"  # sys attribute: the tag just installed by the automatic path, for the new module
 
 
@@ -455,7 +455,7 @@ def _start_locked(new_port: int | None, new_lan: bool | None) -> None:
     log(f"live map at {where}")
     setattr(sys, _STALE_SCRIPT, start_script(port_value))
     _hub.fonts = assets.FONTS  # (its catalogue from the game files: as the game's profile reads them)
-    _start_assets(True)  # (a game whose files are read at once - BL1's font library: a few headers)
+    _start_assets(True)  # (a game whose files are read at once, at boot: its profile's assets.job)
 
 
 _assets_started = [False]
@@ -463,8 +463,8 @@ _assets_started = [False]
 
 def _start_assets(boot: bool) -> None:
     """The game's files (fonts, item card / skill icons) - read once per session, in a thread, when its profile says:
-    at boot, or when a page first connects (games.py assets_job: BL2's scan when a page connects - not at every game
-    start; BL1's font library at boot). The work itself waits on gamework's subinterpreter (beside the game - or here,
+    at boot, or when a page first connects (games.GAME.assets.job: BL2's scan when a page connects - not at every game
+    start - another game's few headers at boot). The work itself waits on gamework's subinterpreter (beside the game - or here,
     politely, without one)."""
     if _assets_started[0]:
         return

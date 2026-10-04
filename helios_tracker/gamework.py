@@ -30,7 +30,7 @@ from . import paths
 
 HERE = Path(__file__).parent
 ASSETS = paths.DATA / ".cache" / "assets"
-VERSION = 4  # the rendering's: another number = every asset decoded again (4: BL1's element icons without their level)
+VERSION = 4  # the rendering's: another number = every asset decoded again (4: element icons drawn without their level)
 JOB_TIMEOUT = 300.0  # s a job may take in the worker (the first scan: ~5 s)
 POLITE_PAUSE = 0.003  # s slept after each decompressed block, a job run in process
 POLITE_SWITCH = 0.001  # s (Python's default: 0.005), a job run in process
