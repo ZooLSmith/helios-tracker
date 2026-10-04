@@ -367,6 +367,12 @@ kbd { padding: .05em .4em; background: var(--control); border: 1px solid var(--p
 .wordmark { display: flex; align-items: baseline; margin: 0 0 1.2rem; line-height: 1; white-space: nowrap; }
 .wordmark span { font: 800 clamp(2.3rem, 4.4vw, 3.7rem)/1 var(--font-head); letter-spacing: .01em; }
 .hero .lead { max-width: 44rem; }
+/* a phone: the buttons in one column, the whole width, Install the biggest (the row of four is ~32rem) */
+@media (max-width: 36rem) {
+  .hero .actions { flex-direction: column; gap: .5rem; }
+  .hero .actions .button { justify-content: center; padding-block: .4rem; font-size: .95rem; }
+  .hero .actions .button.primary { padding-block: .65rem; font-size: 1.05rem; }
+}
 
 /* ---- home: the previews - screenshots drifting right to left, looped, draggable (site.js initPreviews moves the
    reel: its transform), the edges fading out. None yet: hidden. ---- */
