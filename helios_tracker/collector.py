@@ -78,6 +78,9 @@ RECORD_SLOW_MS = 5.0  # an object record taking this long: its parts reported (t
 RECORD_NAMED_MS = 20.0  # ...and this long: its definition named too
 # the last object record's parts (s): names, exit, kind (plant / explosion), buff, loot (its pools), odds
 _record_parts: dict[str, float] = {}
+# An object definition's GetTargetName (a function call - 27 ms in Borderlands 1): once per definition and level (its
+# objects get the same text from the game); cleared with the level (_clear_contents)
+_target_names: dict[int, str] = {}
 
 
 class _Timings:
@@ -310,6 +313,7 @@ class Collector:
 
     def _clear_contents(self) -> None:
         clear_fields()  # a new level: packages may have been unloaded (the property cache re-fills at once)
+        _target_names.clear()  # (by definition address: a level's)
         self._seats: dict[int, bool] = {}  # class address -> a vehicle seat's (_is_seat; addresses: per level, as above)
         self._areas = []
         self._areas_found = False  # (the discovery areas: found once a level - _scan_objects)
@@ -324,6 +328,11 @@ class Collector:
         self._next_scan = 0.0
         self._next_objects = 0.0
         self._next_players = 0.0
+        # a players pass left gear cards to build (inspector's budget): the next one at PLAYERS_RETRY, outside the
+        # tick's budget (its own bounds it - behind the tick budget a 40-item backpack took a minute in BL1, the pane
+        # empty meanwhile, 2026-10-04); and whether this level / page got its first pass, built or not (the pane at once)
+        self._players_pending = False
+        self._players_shown = False
         self._next_missions = 0.0
         self._missions_json = ""
         self._tracker: WeakPointer | None = None  # the MissionTracker, found at each scan
@@ -407,6 +416,7 @@ class Collector:
             if self.on_page is not None:  # (the mod: the game files' scan, once)
                 self.on_page()
             self._next_scan = self._next_objects = self._next_players = self._next_missions = self._next_log = 0.0
+            self._players_shown = False  # (the new page: the players at once, their cards following)
             self._log.dirty = self._log.defs_dirty = True  # the new page needs the log
             self._missions_json = self._areas_json = ""  # (the record channels: the Hub sends a new page everything)
             self._pools_sent = None
@@ -441,7 +451,7 @@ class Collector:
         if self._objects_dirty:
             self._objects_dirty = False
             run("objects", self._publish_objects)
-        if due(self._next_players, PLAYERS_EVERY) and not heavy:
+        if (due(self._next_players, PLAYERS_EVERY) or (self._players_pending and now >= self._next_players)) and not heavy:
             self._next_players = now + PLAYERS_EVERY
             run("players", self._publish_players)
             heavy = True
@@ -1183,13 +1193,28 @@ class Collector:
         # hover: the Pre-Sequel's "Oxygen Source", "Air Dome Generator" - no balance name, no target name), else what
         # targeting it shows
         balance = try_(lambda: io.BalanceDefinitionState.BalanceDefinition)
-        display = (Collector._exit_text(io)
-                   or try_(lambda: str(balance.DefaultDisplayName), "")
-                   or (try_(lambda: str(definition.StatusMenuMapInfoBoxHeader), "") if definition is not None else "")
-                   or call_str(io.GetTargetName))
+        # (each read its own part - the slow report's breakdown: a Borderlands 1 record's names took 22 ms)
+        display = Collector._exit_text(io)
+        part("name.exit")
+        if not display:
+            display = try_(lambda: str(balance.DefaultDisplayName), "")
+            part("name.balance")
+        if not display and definition is not None:
+            display = try_(lambda: str(definition.StatusMenuMapInfoBoxHeader), "")
+            part("name.header")
+        if not display:
+            if definition is None:
+                display = call_str(io.GetTargetName)
+            elif (display := _target_names.get(definition._get_address())) is None:
+                display = _target_names[definition._get_address()] = call_str(io.GetTargetName)
+            part("name.target")
+        # GetHumanReadableName: a fallback after the definition's name - called only when there's none (11 ms in BL1)
+        definition_name = def_name(definition)
+        human = call_str(io.GetHumanReadableName) if not display and not definition_name else ""
+        part("name.human")
         record = {
             "i": addr(io),
-            **named(display, def_name(definition), call_str(io.GetHumanReadableName), str(io.Class.Name)),
+            **named(display, definition_name, human, str(io.Class.Name)),
             "d": str(definition.Name) if definition is not None else "",
             "dp": try_(lambda: str(definition._path_name()), "") if definition is not None else "",  # (its panel's Details: in full)
             "c": io.Class.Name,
@@ -1197,7 +1222,7 @@ class Collector:
             "y": round(loc.Y),
             "z": round(loc.Z),
         }
-        part("names")
+        part("name.path")
         # a map exit (Borderlands 1's map changers: no name of their own - their level script's destination, as the game
         # names that area: games.py object_destination)
         if (destination := try_(lambda: games.GAME.object_destination(io), "") or "") and (area := level_name(destination)):
@@ -1766,6 +1791,7 @@ class Collector:
         than one exit away: none. Property reads only."""
         wanted: dict[int, tuple[Any, str, Any]] = {}  # waypoint definition address -> (mission, kind, its entry)
         elsewhere: list[tuple[str, Any, str, Any]] = []  # (the area it's in, mission, kind, entry): marked on its exit
+        started = time.perf_counter()
         here = str(try_(lambda: games.GAME.map_name(ENGINE.GetCurrentWorldInfo()), "") or "").lower()
         for entry in try_(lambda: list(games.GAME.mission_entries(tracker)), []) or []:
             mission = try_(lambda e=entry: e.MissionDef)
@@ -1801,10 +1827,11 @@ class Collector:
                         break
             return marker
 
+        t_entries = time.perf_counter()
         for area, mission, kind, entry in elsewhere:
             for ptr in self._exits:
                 exit_mark = ptr()
-                if exit_mark is not None and str(try_(lambda x=exit_mark: x.ToMapName, "") or "").lower() == area:
+                if exit_mark is not None and str(try_(lambda x=exit_mark: field(x, "ToMapName"), "") or "").lower() == area:
                     try:
                         markers.append({**marker_at(exit_mark, mission, kind, entry), "i": f"x{addr(exit_mark)}-{mission_id(mission)}"})
                     except Exception as ex:  # noqa: BLE001
@@ -1813,15 +1840,18 @@ class Collector:
         # next one, its lowest number not bCompleted (tools/probes/probe_bl1_waypoints.txt: Bone Head's Theft's
         # WP_Checkpoint #1 done, #2 the one shown - the page had both, "Digistruct Module:" twice - the user); the same
         # number twice: alternatives, both (T.K.'s Food's two #3)
+        t_exits = time.perf_counter()
         candidates: dict[int, list[tuple[int, Any]]] = {}  # definition address -> (number, waypoint) not completed
-        for ptr in self._waypoints:
+        for ptr in self._waypoints:  # (every waypoint of the level, every second: field reads - by name 15-24 us each)
             w = ptr()
             if w is None:
                 continue
-            definition = try_(lambda w=w: w.WaypointDefinition)
-            if definition is None or definition._get_address() not in wanted or try_(lambda w=w: bool(w.bCompleted), False):
+            get = reader(w)
+            definition = try_(lambda get=get: get("WaypointDefinition"))
+            if definition is None or definition._get_address() not in wanted or try_(lambda get=get: bool(get("bCompleted")), False):
                 continue
-            candidates.setdefault(definition._get_address(), []).append((try_(lambda w=w: int(w.WaypointNumber), 0) or 0, w))
+            candidates.setdefault(definition._get_address(), []).append((try_(lambda get=get: int(get("WaypointNumber")), 0) or 0, w))
+        t_waypoints = time.perf_counter()
         for key, found in candidates.items():
             mission, kind, entry = wanted[key]
             first = min(number for number, _w in found)
@@ -1832,6 +1862,12 @@ class Collector:
                     markers.append(marker_at(w, mission, kind, entry))
                 except Exception as ex:  # noqa: BLE001
                     log_error("waypoint marker", ex)
+        if DIAGNOSTICS and (time.perf_counter() - started) * 1000 > SLOW_MS:  # slow: which part - debug only
+            for name, part_s in (("entries", t_entries - started), ("exits", t_exits - t_entries),
+                                 ("waypoints", t_waypoints - t_exits), ("markers", time.perf_counter() - t_waypoints)):
+                if part_s * 1000 > 1.0:
+                    self._timings.add("missions.markers." + name, part_s * 1000)
+            self._timings.size("waypoints", len(self._waypoints))
         return markers
 
     def _npc_givers(self, active_addr: int | None, skip: set[int]) -> list[dict[str, Any]]:
@@ -1892,6 +1928,15 @@ class Collector:
         tracker = self._tracker() if self._tracker is not None else None
         if tracker is None:
             return
+        started = mark = time.perf_counter()
+        parts: dict[str, float] = {}  # (the slow-task report's breakdown - diagnostics)
+
+        def part(name: str) -> None:
+            nonlocal mark
+            now = time.perf_counter()
+            parts[name] = now - mark
+            mark = now
+
         active = try_(lambda: tracker.ActiveMission)
         active_addr = active._get_address() if active is not None else None
         markers, giver_npcs = [], set()
@@ -1938,7 +1983,9 @@ class Collector:
                     log_error("mission marker", ex)
         if not markers and self._waypoints and not by_actors:  # a co-op client: none registered here
             markers = self._client_markers(tracker, active_addr)
+        part("markers")
         markers += self._npc_givers(active_addr, giver_npcs)
+        part("givers")
         payload = {
             "level": self.level_id,
             "tracked": named(try_(lambda: str(active.MissionName), ""), def_name(active)) if active is not None else None,
@@ -1948,10 +1995,17 @@ class Collector:
         if missions_json != self._missions_json:
             self._missions_json = missions_json
             self.hub.publish("missions", missions_json)
+        part("json")
         # The mission log's fast pass: the tracked / active missions' objectives, every second
         if not self._log.fast(tracker):
             self._next_log = 0.0  # the list changed (a mission started...): a full pass next tick
+        part("fast")
         self._publish_log()
+        part("log")
+        if DIAGNOSTICS and (time.perf_counter() - started) * 1000 > SLOW_MS:  # slow: which part - debug only
+            for name, part_s in parts.items():
+                if part_s * 1000 > 1.0:
+                    self._timings.add("missions." + name, part_s * 1000)
 
     def _full_log(self) -> None:
         """One step of the full pass; published when the cycle completes."""
@@ -2016,9 +2070,12 @@ class Collector:
             for name, part_s in players_parts.items():
                 if part_s * 1000 > 1.0:
                     self._timings.add("players." + name, part_s * 1000)
-        if not players_complete():  # gear cards left to build (a budget per pass): not half a player - soon again
+        self._players_pending = not players_complete()
+        if self._players_pending:  # gear cards left to build (a budget per pass): again soon - the next pass's cards
             self._next_players = time.monotonic() + PLAYERS_RETRY
-            return
+            if self._players_shown:  # (not half a player again: the complete one when its cards are built)
+                return
+        self._players_shown = True  # (the first pass of a level / page: published as it is - the pane's top at once)
         self.hub.publish_records("players", "players", players, {"level": self.level_id})  # (only the fields that changed go out)
 
     # endregion

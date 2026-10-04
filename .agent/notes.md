@@ -417,6 +417,8 @@ tick with 45 of them); one at rest could be read less often.
   `OnWakeRBPhysics`, `Landed`.
 - Not seen yet: whether the flag goes back to False when resting loot is pushed (an explosion: `ConvertFixedToRigidBody`
   suggests it can wake).
+- **Borderlands 1: the same** (the probe there, 2026-10-04): the same property and `PickupAtRest()`; a weapon dropped
+  (speed 452 -> 0.0 at 10.05 s) flagged at rest at 10.30 s, its net updates lowered the same way.
 - (The probe read the first pickup's SkeletalMeshComponent fields on the others' components too - other classes: junk
   values, ignored.)
 

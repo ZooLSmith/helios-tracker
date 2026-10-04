@@ -278,7 +278,7 @@ class Profile:
     def pickup_at_rest(self, get: Any) -> bool:
         """Whether a pickup has stopped moving (`get`: its util.reader): WillowPickup.bPickupAtRest - False while it
         tumbles or slides, True ~0.25-1 s after it fully stopped (tools/probes/probe_pickup_rest.txt: two drops, one
-        sliding down a slope; .agent/notes.md "Pickups at rest")."""
+        sliding down a slope; .agent/notes.md "Pickups at rest"). Borderlands 1's the same (the probe there, 2026-10-04)."""
         return bool(get("bPickupAtRest"))
 
     def show_message(self, text: str, duration: float) -> None:
@@ -365,8 +365,9 @@ class Borderlands1(Profile):
         self._eligible: dict[int, bool] = {}  # mission definition address -> GetMissionEligibility is ME_Eligible
         self._skill_clips: dict[int, tuple[str, str]] = {}  # CharacterName -> (the skill clip, its frame) (_skill_clip)
         self._missions: list[Any] = []  # every MissionDefinition loaded (_mission_definitions)
-        self._destination_area: str = ""  # the area its map changes were read in (_destinations)
-        self._destination_map: dict[int, str] = {}  # object address -> the map it changes to
+        self._destination_area: str = ""  # the area its level script's events were indexed in (_events_by_origin)
+        self._events_by_origin: dict[int, list[Any]] = {}  # object address -> WeakPointers to the events it triggers
+        self._destination_map: dict[int, str] = {}  # object address -> the map it changes to ("": none), worked out
 
     def map_name(self, wi: Any) -> str:
         # The world is "Loader" in every area (tools/probes/probe_bl1.txt): the area is streamed in, the first of its
@@ -484,37 +485,54 @@ class Borderlands1(Profile):
         # SeqEvent_Used / SeqEvent_Touch whose Originator is the changer) leads to a
         # WillowSeqAct_PrepareMapChangeFromDefinition, its DefaultMap the map (W_Arid_P.umap, offline: 6 of them -
         # Dry_P, Arid_SkagGully_P, Arid_Mine_P, interlude_1_p - the vehicle's -, Arid_Arena_Coliseum_P, Arid_Cave_P).
-        # Read once per level (_destinations).
-        return self._destinations().get(io._get_address(), "")
+        # The events indexed once per area (_events_by_origin), followed for the objects asked about only (the whole
+        # script followed at once: 151 ms in one record - 2026-10-04).
+        key = io._get_address()
+        changed = self._area_changed()  # (first: a new area's events indexed, its answers forgotten)
+        if not changed and (found := self._destination_map.get(key)) is not None:
+            return found
+        found = ""
+        for ptr in self._events_by_origin.get(key, []):
+            if (event := ptr()) is not None and (found := self._map_change_from(event)):
+                break
+        self._destination_map[key] = found
+        return found
 
-    def _destinations(self) -> dict[int, str]:
-        """Every object's map change in the level's script: its event's Originator -> the DefaultMap its output links
-        reach (a few steps: gates, delays between) - property reads, once per area (its map name: the world is
-        "Loader" in every area)."""
+    def _area_changed(self) -> bool:
+        """The area (its map name: the world is "Loader" in every area) changed since the events were indexed: indexed
+        again - every event's Originator (a find_all and a property read each), its object's address -> the event."""
         import unrealsdk  # noqa: PLC0415
         from mods_base import ENGINE  # noqa: PLC0415
 
+        from .util import field  # noqa: PLC0415
+        from unrealsdk.unreal import WeakPointer  # noqa: PLC0415
+
         area = self.map_name(ENGINE.GetCurrentWorldInfo())
         if self._destination_area == area:
-            return self._destination_map
-        found: dict[int, str] = {}
+            return False
+        index: dict[int, list[Any]] = {}
         for event in unrealsdk.find_all("SequenceEvent", exact=False):
-            origin = event.Originator
-            if origin is None or event.Name.startswith("Default__"):
+            if event.Name.startswith("Default__") or (origin := field(event, "Originator")) is None:
                 continue
-            queue, seen = [(event, 0)], set()
-            while queue:
-                op, depth = queue.pop(0)
-                if op is None or op._get_address() in seen or depth > MAP_CHANGE_STEPS:
-                    continue
-                seen.add(op._get_address())
-                if op.Class.Name == "WillowSeqAct_PrepareMapChangeFromDefinition" and (to := str(op.DefaultMap)) not in ("", "None"):
-                    found.setdefault(origin._get_address(), to)
-                    break
-                for output in op.OutputLinks:
-                    queue += [(link.LinkedOp, depth + 1) for link in output.Links]
-        self._destination_area, self._destination_map = area, found
-        return found
+            index.setdefault(origin._get_address(), []).append(WeakPointer(event))
+        self._destination_area, self._events_by_origin, self._destination_map = area, index, {}
+        return True
+
+    def _map_change_from(self, event: Any) -> str:
+        """The DefaultMap an event's output links reach (a few steps: gates, delays between), "" if none."""
+        from .util import field  # noqa: PLC0415
+
+        queue, seen = [(event, 0)], set()
+        while queue:
+            op, depth = queue.pop(0)
+            if op is None or op._get_address() in seen or depth > MAP_CHANGE_STEPS:
+                continue
+            seen.add(op._get_address())
+            if op.Class.Name == "WillowSeqAct_PrepareMapChangeFromDefinition" and (to := str(field(op, "DefaultMap"))) not in ("", "None"):
+                return to
+            for output in field(op, "OutputLinks"):
+                queue += [(link.LinkedOp, depth + 1) for link in output.Links]
+        return ""
 
     def local_pawn(self, pc: Any) -> Any:
         # In a vehicle its MyWillowPawn is None, its Pawn the vehicle (driving) or its seat (a turret: a
@@ -813,9 +831,6 @@ class Borderlands1(Profile):
 
     def movie_no_skip(self, args: Any) -> bool:
         return False  # no bForceNoSkip argument (the log: AttributeError)
-
-    def pickup_at_rest(self, get: Any) -> bool:
-        return False  # (not probed in Borderlands 1 yet - probe_pickup_rest.py: read every tick, as before)
 
     def show_message(self, text: str, duration: float) -> None:
         # BL1's ui_utils (1.3) has no co-op message: its HUD one, which goes away by itself

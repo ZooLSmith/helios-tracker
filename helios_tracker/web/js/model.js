@@ -217,6 +217,7 @@ export function objectCategory(o) {
   // machines you use: fast travel, New-U, Quick Change, the Catch-A-Ride terminals (vehicle spawns)
   if (/fasttravel|fast travel|travelstation|newu|respawn|quickchange|customiz|catcharide|catch-a-ride|vehiclespawn/.test(s)) return "station";
   if (o.exit) return "station"; // (a map exit: BL1's map changers - collector.py "exit")
+  if (gameData().stationClasses.includes(o.c)) return "station"; // (a game's stations by their class: game.js)
   // it has loot (the game's: its own or its balance's - collector.py _lootable), whatever its name (the Pre-Sequel's
   // Hyperion ammo crate: "InteractiveObj_HyperionAmmo", no container word in it); else guessed from the name
   if (o.cost && !o.lootable) return "slots"; // a machine you pay to use, no loot of its own (the slot machines: collector "cost")

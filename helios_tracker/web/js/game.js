@@ -21,6 +21,7 @@ const BL2 = {
   eridiumGlyph: "", // its eridium's map marker: a plain dot ("": no sign)
   gearClasses: [], // its gear's classes besides the common ones (model.js isGear)
   noLayers: [], // layers of things the game doesn't have (model.js layerInGame - besides a feature's "needs", the rarities)
+  stationClasses: [], // object classes that are stations (model.js objectKind), besides the names that say so
   // a chest's tier from its own definition's name (2: the big chest, 1: a weapon chest), before the loot lists' names
   // (model.js chestTier: BL2's tiers are in its loot lists' names - EpicChest..., WeaponChest...)
   chestByDefinition: [],
@@ -46,6 +47,9 @@ const DATA = {
   // items with bMissionItem - util.pickup_kind)
   bl1: { ...BL2, rarities: [...RARITIES, "pearl"], chestByDefinition: [[/treasurechest/i, 2]], gearClasses: ["WillowEquipAbleItem"],
     noLayers: ["pickup.eridium", "vaultsymbol", "buff", "slots"],
+    // its New-U stations: EmergencyTeleportOutpost objects (gd_emergencyteleportoutpost.OutpostDefinition) - no word of
+    // the stations' in their names: "Outpost Definition ?" in the objects, not a station (the user, 2026-10-04)
+    stationClasses: ["EmergencyTeleportOutpost"],
     // (entry 0 white like 1: common - gear at rarity 0, a Tediore shield; BL2's entry 0 its beige "misc". The wiki: common
     // 0-4, uncommon 5-10, rare 11-15, epic 16-49, legendary 50-60 / 61-65 / 66-100 - the game's entries, checked)
     tierByEntry: { 0: "common", 1: "common", 2: "uncommon", 3: "rare", 4: "epic", 5: "legendary", 6: "legendary", 7: "legendary",

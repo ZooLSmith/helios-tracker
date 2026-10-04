@@ -210,7 +210,12 @@ const { isGear: gameIsGear, cardIconKey } = await load("js/model.js");
 gameBl1.push(gameIsGear("WillowEquipAbleItem"), gameIsGear("WillowUsableItem"));
 // card icon keys: "none" (the game's frame for no logo) and odd ones not fetched
 gameBl1.push([cardIconKey("jakobs"), cardIconKey("none"), cardIconKey("None"), cardIconKey("a/b"), cardIconKey(undefined)]);
+// its New-U stations: their class (game.js stationClasses) - no station word in their names ("Outpost Definition ?")
+const { objectCategory: gameCategory } = await load("js/model.js");
+const gameOutpost = { d: "OutpostDefinition", n: "OutpostDefinition", raw: 1, c: "EmergencyTeleportOutpost" };
+gameBl1.push(gameCategory(gameOutpost));
 setGame("bl2", ["discovery", "tacmap"]);
+gameBl1.push(gameCategory(gameOutpost)); // (BL2's: not a class of its - not a station by it)
 const gameBl2 = { shown: gameShown(), seraph: rarity(501)[0], etech: lootLayer({ q: 6, c: "WillowWeapon" }) };
 setGame("", []);
 setRarityTable(null);
@@ -2599,10 +2604,12 @@ def check_helios_tracker() -> None:  # noqa: PLR0915
                                              "pickup.eridium", "vaultsymbol", "buff", "slots", "pickup.mission"],
                                    "glitch": "glitch", "etech": "loot.legendary"}, game_out["gameTps"]
     # (BL1: no eridium, vault symbols, buffs, slot machines - game.js noLayers; its mission items: bMissionItem)
-    assert game_out["gameBl1"] == ["loot.pearl", "enemy", "pickup.mission", 2, 0, "common", "common", True, False,
-                                   ["jakobs", "", "", "", ""]], \
+    assert game_out["gameBl1"][:-2] == ["loot.pearl", "enemy", "pickup.mission", 2, 0, "common", "common", True, False,
+                                        ["jakobs", "", "", "", ""]], \
         ("BL1: no discovery areas, its pearlescent (500) but no other BL2 / TPS tiers; its treasure chest big; rarity 0 common",
          game_out["gameBl1"])
+    assert game_out["gameBl1"][-2] == "station" and game_out["gameBl1"][-1] != "station", ("BL1's New-U: a station by its class",
+                                                                                          game_out["gameBl1"][-2:])
     assert game_out["gameBl2"] == {"shown": ["loot.pearl", "loot.etech", "area", "fog", "enemy", "pickup.eridium", "vaultsymbol", "buff", "slots", "pickup.mission"], "seraph": "seraph",
                                    "etech": "loot.etech"}, game_out["gameBl2"]
     assert mig["layers"]["player"] == {"names": True, "nameSize": 100, "floors": "show", "size": 100}, mig["layers"]["player"]

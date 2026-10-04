@@ -420,8 +420,8 @@ bottom-left message).
   (`_info`: names, allegiances) are refreshed `INFO_REFRESH_PER_TICK` per tick, not all on the next one. `looted`,
   `domes`, `object health`: a slot each (together: a 15 ms tick); `looted` checks `LOOTED_PER_PASS` containers a pass
   on the host (the usability hook tells it at once - the check is a safety net), all of them on a co-op client.
-- Pickups at rest (`games.py` `pickup_at_rest`: BL2's `bPickupAtRest`, set once it fully stopped - notes.md "Pickups at
-  rest"; BL1: not probed, never) keep their last record: each tick only whether they're gone (`bDeleteMe` / `bHidden`),
+- Pickups at rest (`games.py` `pickup_at_rest`: `bPickupAtRest`, set once it fully stopped - BL2 and BL1 alike, notes.md
+  "Pickups at rest") keep their last record: each tick only whether they're gone (`bDeleteMe` / `bHidden`),
   a full read every `PICKUP_RESTING_EVERY` (1 s - staggered by address the first time), a knocked one back to every tick.
   After a pickup scan only the pawns' descriptions are refreshed (a pickup's name never changes). The discovery areas
   are found once a level. `scan objects`: `_out_of_sight` reads through `util.field`, `ShopReader.note` remembers which
