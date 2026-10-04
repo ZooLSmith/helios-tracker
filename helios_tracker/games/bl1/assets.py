@@ -40,7 +40,7 @@ class Bl1Assets(Assets):
         return True  # (its textures found by their package's name, on demand: nothing to index first - serve)
 
     def serve(self, path: str) -> bytes | None:
-        # its skills' menu icons (/icon/menu.<clip>.<frame>.<icon>.<on>.<off>.png - skills.skill_icons), its item card
+        # its skills' menu icons (/icon/menu.<clip>.<frame>.<icon>.<on>.<off>.png - skills._read_skill_icons), its item card
         # icons, a texture by path (/texture/<path>.png: a pickup's icon, its PickupFlagIcon - files/bl1textures.py); no
         # skill icon textures (its skills' icons: the menu's)
         from ... import gamedir  # noqa: PLC0415

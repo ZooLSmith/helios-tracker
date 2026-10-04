@@ -4,7 +4,7 @@
 # localized) - the class's likely the same. Lists the alias map's entries (WillowUIDataStore_StringAliasMap's default
 # object, MenuInputMapArray: FieldName -> MappedText) that mention a class / a character - a property read, nothing
 # called - and each one's localized text when it's a <Strings:...> reference (Object.Localize on that reference: the
-# call branch_names already makes, games.py).
+# call games/bl1/skills.py _read_branch_names already makes).
 # Writes tools/probes/probe_bl1_class_alias.txt (overwrites)
 #   py exec(open(r"<repo>\tools\probes\probe_bl1_class_alias.py").read())
 import re

@@ -233,7 +233,7 @@ def clip_texts_later(cooked: Path, clip: str, frame: str) -> dict[str, str] | No
 
 
 # A menu clip's icon, as the skill tree's cells name them: "menu.<clip>.<frame>.<placement>.<label>.<other>" -
-# "menu.skills.mordecai.icon17.on.off" (games.Borderlands1.skill_icons): the root's clip "skills", its frame
+# "menu.skills.mordecai.icon17.on.off" (games/bl1/skills.py _read_skill_icons): the root's clip "skills", its frame
 # "mordecai", the clip placed there as "icon17", drawn at its frame "on" - what its frame "off" shows too
 MENU_ICON = re.compile(r"menu" + r"\.([A-Za-z0-9_]+)" * 5)
 ICON_SIZE = 128  # px, the larger side (BL2's skill icons: 64 x 64 textures)

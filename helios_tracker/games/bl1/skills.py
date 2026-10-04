@@ -25,12 +25,12 @@ class Bl1Skills(Skills):
         self._skill_clips: dict[int, tuple[str, str]] = {}  # CharacterName -> (the skill clip, its frame) (_skill_clip)
 
     def icon(self, skill_def: Any) -> str:
-        return ""  # (no skill icon textures served: its tree's icons are its skill menu's - skill_icons)
+        return ""  # (no skill icon textures served: its tree's icons are its skill menu's - _read_skill_icons)
 
     def read(self, ctrl: Any, player: dict[str, Any], bonuses: dict[str, Any]) -> None:
         # No PlayerSkillTree: the controller's PlayerSkills[] and SkillTreeBranches[] (tools/probes/probe_bl1_skills.txt) -
-        # _player_skills; its branches' names: the skill menu's (branch_names)
-        self._player_skills(ctrl, player, bonuses, self.branch_names(ctrl), self._cached_skill_icons(ctrl))
+        # _player_skills; its branches' names: the skill menu's (_read_branch_names)
+        self._player_skills(ctrl, player, bonuses, self._read_branch_names(ctrl), self._cached_skill_icons(ctrl))
 
     def _player_skills(self, ctrl: Any, player: dict[str, Any], bonuses: dict[str, list[list[Any]]] | None = None,
                        branch_names: dict[str, str] | None = None,
@@ -40,8 +40,8 @@ class Bl1Skills(Skills):
         PointsSpentInBranch, Tiers[]: {TierIndex, PlayerSkillIndexList (-1: an empty cell)}}, each index into PlayerSkills[] =
         {Definition, Grade...} (the tree's ~25 among input "skills", proficiencies...); the points a tier asks: the class's
         PlayerSkillSet's <Branch>.Tiers[].PointsToUnlockNextTier (5). Its branches' names: `branch_names` (the skill menu's -
-        branch_names), else their own technical name, marked as a guess; its cells' icons: `icons` ((branch, tier, cell) ->
-        an icon path - skill_icons)."""
+        _read_branch_names), else their own technical name, marked as a guess; its cells' icons: `icons` ((branch, tier,
+        cell) -> an icon path - _read_skill_icons)."""
         from ... import inspector  # noqa: PLC0415
         from ...inspector import _enum_name, _skill_stats, _skills_cache, _static_info  # noqa: PLC0415
         from ...util import def_name, named, try_  # noqa: PLC0415
@@ -109,10 +109,10 @@ class Bl1Skills(Skills):
         player.update(result)
 
     def _cached_skill_icons(self, ctrl: Any) -> dict[tuple[str, int, int], str]:
-        """skill_icons, once per character (static: its class's layout - every players pass walked it: 3-4 ms)."""
+        """_read_skill_icons, once per character (static: its class's layout - every players pass walked it: 3-4 ms)."""
         key = int(ctrl.PlayerClass.CharacterName)
         if (icons := self._skill_icons.get(key)) is None:
-            icons = self._skill_icons[key] = self.skill_icons(ctrl)
+            icons = self._skill_icons[key] = self._read_skill_icons(ctrl)
         return icons
 
     def _skill_clip(self, ctrl: Any) -> tuple[str, str]:
@@ -129,7 +129,7 @@ class Bl1Skills(Skills):
             found = self._skill_clips[int(character)] = (clip, str(helper.GetCharacterName()))
         return found
 
-    def skill_icons(self, ctrl: Any) -> dict[tuple[str, int, int], str]:
+    def _read_skill_icons(self, ctrl: Any) -> dict[tuple[str, int, int], str]:
         """The tree's cells' icons: (branch, tier, cell) -> a menu icon path ("menu.skills.mordecai.icon17.on.off":
         bl1map.MENU_ICON, served as /icon/<path>.png). No icon of their own on the skills (SkillDefinition
         .ScaleformFrameName: the HUD's popups, a few skills): the skill menu's cells - the class's SkillTreeLayout
@@ -151,7 +151,7 @@ class Bl1Skills(Skills):
                         icons[(branch, tier, cell)] = f"menu.{clip}.{frame}.{nav.IconClipName}.{on}.{off}"
         return icons
 
-    def branch_names(self, ctrl: Any) -> dict[str, str]:
+    def _read_branch_names(self, ctrl: Any) -> dict[str, str]:
         """The player's tree branches' names, as the skill menu shows them ("SNIPER"...: BL1_BRANCH_TEXTS' keys -> the
         game's text), {} until its movie is read. No branch definition has one: the menu's movie sets them, per
         character (tools/probes/probe_bl1_branches.txt; WillowGame.u, its movie, DefaultGame.ini - offline):

@@ -817,12 +817,12 @@ def check_helios_tracker() -> None:  # noqa: PLR0915
             (bl1_lobby_img,) = bl1map.load_map(bl1_cooked, "dlcmap1", "dlc2_maps.dlcmap_lobby")
             assert bl1_lobby_img.width > 100 and bl1_map_alpha(bl1_lobby_img) > 0.1, (bl1_lobby_img.width, bl1_lobby_img.height)
             assert bl1map.load_map(bl1_cooked, "dlcmap1", "nope_maps.dlcmap_nope") == []
-        # the skill menu's branch names (games.Borderlands1.branch_names): the "skills" clip's character frame's texts
+        # the skill menu's branch names (Bl1Skills._read_branch_names): the "skills" clip's character frame's texts
         bl1_hunter = bl1map.clip_texts(bl1_cooked, "skills", "mordecai")
         assert bl1_hunter["tree1.text"] == "$<StringAliasMap:skills_hunter_branch1>" and bl1_hunter["tree3.text"].endswith("hunter_branch3>"), bl1_hunter
         assert bl1map.clip_texts(bl1_cooked, "skills", "roland")["tree2.text"].endswith("soldier_branch2>"), "no 'roland' label: the first frame"
         assert bl1map.clip_texts(bl1_cooked, "nope", "mordecai") == {}
-        # its skill icons (games.Borderlands1.skill_icons): the cell's clip in the character's frame, its "on" frame drawn
+        # its skill icons (Bl1Skills._read_skill_icons): the cell's clip in the character's frame, its "on" frame drawn
         # (the drawing only: what its "on" and "off" frames both show - not their state's tile, notched at the
         # bottom right: transparent corners then)
         bl1_icon_w, bl1_icon_h, bl1_icon_px = bl1map.clip_icon(bl1_cooked, "skills", "mordecai", "icon17", "on", "off")
@@ -2870,6 +2870,33 @@ def check_games_import() -> None:
     print("  games: imported without the SDK (the files worker's way), the profiles registered, none picked before boot")
 
 
+def check_parts_contract() -> None:
+    """Every game's parts keep Borderlands 2's contract (profiles.md "The rules"): each a subclass of BL2's part, its
+    public methods BL2's with the same parameters, none of its own (a method only one game has: called through the base
+    type behind a test - the hole the features once were)."""
+    import inspect  # noqa: PLC0415
+
+    from helios_tracker import games as contract_games  # noqa: PLC0415
+
+    base = contract_games.make_profile("BL2")
+    checked = 0
+    for game in sorted(contract_games._PROFILES):
+        made = contract_games.make_profile(game)
+        assert set(made.parts) == set(base.parts), (game, sorted(made.parts))
+        for part_name, part in made.parts.items():
+            ref, own = type(base.parts[part_name]), type(part)
+            assert issubclass(own, ref), (game, part_name, own, ref)
+            public = {a for a in dir(own) if not a.startswith("_") and callable(getattr(own, a)) and a != "level_changed"}
+            ref_public = {a for a in dir(ref) if not a.startswith("_") and callable(getattr(ref, a)) and a != "level_changed"}
+            assert public == ref_public, (game, part_name, "public methods only one game has", sorted(public ^ ref_public))
+            for attr in public:
+                want = list(inspect.signature(getattr(ref, attr)).parameters)
+                got = list(inspect.signature(getattr(own, attr)).parameters)
+                assert got == want, (game, f"{part_name}.{attr}", got, want)
+                checked += 1
+    print(f"  parts: every game's {checked} public methods BL2's, the same parameters")
+
+
 def check_shared_names() -> None:
     """The rule (profiles.md "the main code doesn't know other ways exist"): the shared code - the mod's modules, the
     formats, the profiles' base, Borderlands 2's parts and files (every game's default) - never names a game with its
@@ -3115,6 +3142,7 @@ def main() -> None:
     check_script()
     check_games_import()
     check_shared_names()
+    check_parts_contract()
     check_sdkmod()
     check_updater()
     check_ingame_text()
