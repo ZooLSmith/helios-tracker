@@ -11,7 +11,7 @@ import { CATALOG, applyI18n, langPref, setLanguage, t } from "./i18n.js";
 // catalogs.
 const PAGES = [["index.html", null], ["install.html", "nav.install"], ["share.html", "nav.share"],
   ["troubleshooting.html", "nav.troubleshooting"]];
-const THEMES = [["default", "ECHO-2"], ["hyperion", "Hyperion"], ["vladof", "Vladof"], ["dahl", "Dahl"], ["eridian", "Eridian"]]; // (the tracker's)
+const THEMES = [["echo1", "ECHO-1"], ["echo1amber", "ECHO-1A"], ["default", "ECHO-2"], ["hyperion", "Hyperion"], ["vladof", "Vladof"], ["dahl", "Dahl"], ["eridian", "Eridian"]]; // (the tracker's)
 const THEME_KEY = "helios.site.theme";
 
 // ---- icon menus (language, theme): a button with an icon, a small list of choices under it ----

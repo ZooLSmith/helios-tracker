@@ -93,6 +93,21 @@
   --top-h: 3.4rem; /* the top bar's height (its band in the root's background: the same) */
 }
 /* The tracker's themes (its css/themes.css: the same inputs, title colours and logo palettes) */
+/* ECHO-1: Borderlands 1's ECHO - a slate teal, a sky blue frame and headings, its title a flat yellow (its logos: no
+   gradients) */
+:root[data-theme="echo1"] {
+  --bg: #0f181c; --tint: #2f5566; --panel: #1c2f38; --muted: #4a6470; --text: #bcd2e4; --accent: #ffcc00; --panel-edge: #669ecd;
+  --title-top: #ffcc00; --title-bottom: #ffcc00; --logo-palette: --helios-echo1;
+  --grad-h2: linear-gradient(#51aad6, #51aad6);
+}
+@font-palette-values --helios-echo1 { font-family: "Helios H"; override-colors: 0 #0f181c, 1 #fff0a0, 2 #ffcc00, 3 #ffcc00; }
+/* ECHO-1A: its amber menus - orange on brown, amber headings */
+:root[data-theme="echo1amber"] {
+  --bg: #120d08; --tint: #5a4426; --panel: #261c13; --muted: #5e5040; --text: #edd8a9; --accent: #ff9d0b; --panel-edge: #c27e20;
+  --title-top: #ff9d0b; --title-bottom: #ff9d0b; --logo-palette: --helios-echo1amber;
+  --grad-h2: linear-gradient(#e0952c, #e0952c);
+}
+@font-palette-values --helios-echo1amber { font-family: "Helios H"; override-colors: 0 #120d08, 1 #ffe9a0, 2 #ff9d0b, 3 #ff9d0b; }
 /* Hyperion: mustard, cream, black */
 :root[data-theme="hyperion"] {
   --bg: #0d0c06; --tint: #5c4c08; --muted: #5a5540; --text: #e6dec4; --accent: #d9c23a; --panel-edge: #7a6608;
