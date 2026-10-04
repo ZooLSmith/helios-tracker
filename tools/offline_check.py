@@ -1215,6 +1215,13 @@ def check_helios_tracker() -> None:  # noqa: PLR0915
     c.tick(1001.1)  # one heavy task per tick: pickups, then objects, the level's lookups (tracker, areas), then players
     for lookup_at in (1001.2, 1001.3, 1001.4):
         c.tick(lookup_at)
+    # the players' cards: a few ms a pass (inspector.ITEMS_SECONDS) - the passes go on until they're all built (its
+    # first one published as it is: the pane at once)
+    from helios_tracker.inspector import players_complete as collector_players_complete  # noqa: PLC0415
+    for _players_pass in range(30):  # (the pass itself, again: the ticks' clock left as the checks below expect it)
+        if collector_players_complete():
+            break
+        c._publish_players()
     level: dict = {}
     for _ in range(100):
         level = json.loads(hub.latest("level"))
@@ -1394,6 +1401,23 @@ def check_helios_tracker() -> None:  # noqa: PLR0915
     assert profile_bl1.mission_offered(bl1_board_pc, bl1_tk, "", False) and bl1_eligibility_calls == ["tk", "other"], (
         "eligibility read once per mission while the log stays the same (a call per giver mission per second)", bl1_eligibility_calls)
     assert profile_bl2.mission_offered(None, "m", "begin", False) and not profile_bl2.mission_offered(None, "m", "", False)
+    # a profile method's failure logged (once per method and exception type), then raised as before: its callers keep
+    # their defaults, but a method wrong for a game no longer fails silently (profiles.md point 1)
+    profile_util = sys.modules["helios_tracker.util"]
+    profile_real_log, profile_entries = profile_util.log_error, []
+    profile_util.log_error = lambda where, ex: profile_entries.append((where, type(ex).__name__))
+    try:
+        profile_logged = game_profiles.make_profile("BL2")
+        for profile_bad in (None, ns(), ns(GetStreamingPersistentMapName=None)):  # (two AttributeErrors, a TypeError)
+            try:
+                profile_logged.map_name(profile_bad)
+            except Exception:  # noqa: BLE001, S110
+                pass
+    finally:
+        profile_util.log_error = profile_real_log
+    assert profile_entries == [("games.Profile.map_name", "AttributeError"), ("games.Profile.map_name", "TypeError")], (
+        "logged once per exception type", profile_entries)
+    assert profile_logged.map_name(ns(GetStreamingPersistentMapName=lambda: "Ice_P")) == "Ice_P", "and works as before"
     # its class name: the globals' PlayerCharacters[] by the class's CharacterName (no identifier definitions: "Mordecai ?")
     bl1_globals = ns(PlayerCharacters=[ns(CharacterClassName="Soldier", DefaultCharacterName="Roland"),
                                        ns(CharacterClassName="Hunter", DefaultCharacterName="Mordecai")])

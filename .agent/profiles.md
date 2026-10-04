@@ -533,11 +533,14 @@ branches - "To decide".
 
 Each step leaves the mod working and `offline_check` passing:
 
-0. **Correctness and cost fixes that need no restructure** (the inventory): the controller-keyed caches
+0. *(mostly done, 2026-10-04 - tag `pre-profiles`: the controller caches, BL1's missions / eligibility / element levels /
+   skill icons / exits, `_out_of_sight`'s reads, plus the stall work - architecture.md. Left: the per-tick shield calls,
+   the air domes gated, `level_name`'s find_all per map name.)* **Correctness and cost fixes that need no restructure** (the inventory): the controller-keyed caches
    (`_skills_cache`, `_class_names`, `skills._trees`, `_zippy`'s fallback); BL1's mission list and eligibility
    (points 2-3), `element_level`, `skill_icons`; `level_name`'s `find_all` per map name; the per-tick shield calls;
    `_out_of_sight`'s cost; the air domes gated. Each measured against the baseline.
-1. **Log failures** (point 1) - small, and the next steps benefit from it.
+1. *(done: games.py `_logged` - each profile method's first failure of each exception type logged, then raised)*
+   **Log failures** (point 1) - small, and the next steps benefit from it.
 2. **The level reset** ("Level changes"): `on_level_change`, `clear_fields` and BL1's exits registered (point 4);
    reset from a load hook (or the hooks checking the level); the unsure caches settled by the WeakPointer probe.
 3. **Features into methods** (the table): the six "how" flags out, their call sites one line each. Doable in today's

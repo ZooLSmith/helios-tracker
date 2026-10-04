@@ -12,6 +12,8 @@ The page gets the profile's key and features in the level message (collector.py)
 New game: its class here, registered under mods_base's name for it (Game.<NAME>); .agent/<game>.md for what was seen.
 """
 
+import functools
+import inspect
 import re
 from typing import Any
 
@@ -894,10 +896,37 @@ class _NotPickedUp:
 
 
 def make_profile(name: str) -> Profile:
-    """The profile of a game, by mods_base's name for it ("BL2", "TPS"...)."""
+    """The profile of a game, by mods_base's name for it ("BL2", "TPS"...): its public methods logging their failures
+    (_logged)."""
     if (cls := _PROFILES.get(name)) is None:
         raise RuntimeError(f"Helios Tracker doesn't know the game {name!r}")
-    return cls()
+    profile = cls()
+    for attr in dir(cls):
+        if not attr.startswith("_") and inspect.ismethod(method := getattr(profile, attr)):
+            setattr(profile, attr, _logged(f"games.{cls.__name__}.{attr}", method))
+    return profile
+
+
+def _logged(where: str, method: Any) -> Any:
+    """A profile method that logs its first failure of each exception type (util.log_error: with its traceback), then
+    raises it as before. Its callers keep their defaults (try_(lambda: games.GAME.x(...), default)) - but a method wrong
+    for a game no longer fails silently: BL1's card accuracy once read 7 for the game's 6.7, a property it doesn't have
+    quietly read as the default (profiles.md, point 1). Once per type: the same failure on every object isn't a flood."""
+    seen: set[type] = set()
+
+    @functools.wraps(method)
+    def call(*args: Any, **kwargs: Any) -> Any:
+        try:
+            return method(*args, **kwargs)
+        except Exception as ex:
+            if type(ex) not in seen:
+                seen.add(type(ex))
+                from .util import log_error  # noqa: PLC0415 - (games: imported before util's log is set up)
+
+                log_error(where, ex)
+            raise
+
+    return call
 
 
 def _current() -> Profile:
