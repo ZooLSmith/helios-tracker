@@ -2228,21 +2228,28 @@ def check_helios_tracker() -> None:  # noqa: PLR0915
     mission_games.GAME = mission_games.make_profile("BL1")
     mission_games.GAME.mission_entries = lambda tracker_obj: bl1_entries
     mission_games.GAME.map_name = lambda wi_obj: "arid_p"
+
+    def bl1_waypoints_of(points: list, exits: list) -> ns:  # (a collector's: its waypoints, and by definition - _lookup's)
+        by_def: dict = {}
+        for point in points:
+            by_def.setdefault(point.WaypointDefinition._get_address(), []).append(lambda w=point: w)
+        return ns(_waypoints=[lambda w=w: w for w in points], _waypoints_by_def=by_def, _exits=exits)
+
     try:
-        bl1_markers = col.Collector._waypoint_markers(ns(_waypoints=[lambda w=w: w for w in bl1_waypoints], _exits=[]), ns(), 0xB102)
+        bl1_markers = col.Collector._waypoint_markers(bl1_waypoints_of(bl1_waypoints, []), ns(), 0xB102)
         # a mission whose target is in another area: marked on the exit leading there (its transition landmark's
         # ToMapName - Nine-Toes: Take Him Down, WP_NineToes in Arid_SkagGully_P)
         bl1_two.TargetWaypointDefinition = ns(_get_address=lambda: 0xD4, PersistentLevelName="Arid_SkagGully_P")
         bl1_gully = ns(_get_address=lambda: 0xF1, ToMapName="Arid_SkagGully_P", Location=ns(X=-22012.0, Y=44803.0, Z=1370.0))
         bl1_cave = ns(_get_address=lambda: 0xF2, ToMapName="Arid_Cave_P", Location=ns(X=-26730.0, Y=-11709.0, Z=-1122.0))
-        bl1_exit_markers = col.Collector._waypoint_markers(ns(_waypoints=[lambda w=w: w for w in bl1_waypoints],
-                                                               _exits=[lambda: bl1_gully, lambda: bl1_cave]), ns(), 0xB102)
+        bl1_exit_markers = col.Collector._waypoint_markers(bl1_waypoints_of(bl1_waypoints, [lambda: bl1_gully, lambda: bl1_cave]),
+                                                           ns(), 0xB102)
         # a definition's waypoints: a numbered path - the next one only, its lowest number not completed (Bone Head's
         # Theft's checkpoints: #1 done, #2 shown - the page had both); the same number twice: both (alternatives)
         bl1_two.TargetWaypointDefinition = wp_vendor
         bl1_path = [ns(**{**vars(bl1_waypoint(0xE5 + n, wp_vendor, x)), "WaypointNumber": number, "bCompleted": done})
                     for n, (x, number, done) in enumerate([(5.0, 1, True), (6.0, 2, False), (7.0, 2, False), (8.0, 3, False)])]
-        bl1_path_markers = col.Collector._waypoint_markers(ns(_waypoints=[lambda w=w: w for w in bl1_path], _exits=[]), ns(), 0xB102)
+        bl1_path_markers = col.Collector._waypoint_markers(bl1_waypoints_of(bl1_path, []), ns(), 0xB102)
     finally:
         mission_games.GAME = real_game
     assert [(m["x"], m["k"]) for m in bl1_exit_markers if m["k"] == "objective"] == [(-22012, "objective")], bl1_exit_markers

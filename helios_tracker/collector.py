@@ -339,6 +339,9 @@ class Collector:
         # A co-op client: the level's WillowWaypoint actors (no waypoint components there: the
         # markers are worked out from them - _client_markers), found at each objects scan
         self._waypoints: list[WeakPointer] = []
+        # the same, by their definition's address (_lookup: once per objects scan - a waypoint's definition never changes):
+        # BL1's markers read only the active missions' waypoints each second, not every one (70: 4-5 ms a second)
+        self._waypoints_by_def: dict[int, list[WeakPointer]] = {}
         # BL1's area exits (PersistentTransitionLandmark {FromMapName, ToMapName}): where a mission in another area is
         # marked (games.WAYPOINT_MARKERS: _waypoint_markers), found at each objects scan
         self._exits: list[WeakPointer] = []
@@ -859,6 +862,10 @@ class Collector:
         elif name == "waypoints":
             self._waypoints = [WeakPointer(w) for w in unrealsdk.find_all("WillowWaypoint", exact=False)
                                if not w.Name.startswith("Default__")]
+            self._waypoints_by_def = {}
+            for ptr in self._waypoints:
+                if (w := ptr()) is not None and (definition := try_(lambda w=w: field(w, "WaypointDefinition"))) is not None:
+                    self._waypoints_by_def.setdefault(definition._get_address(), []).append(ptr)
         elif name == "exits":
             self._exits = [WeakPointer(x) for x in unrealsdk.find_all("PersistentTransitionLandmark", exact=False)
                            if not x.Name.startswith("Default__")]
@@ -1842,15 +1849,15 @@ class Collector:
         # number twice: alternatives, both (T.K.'s Food's two #3)
         t_exits = time.perf_counter()
         candidates: dict[int, list[tuple[int, Any]]] = {}  # definition address -> (number, waypoint) not completed
-        for ptr in self._waypoints:  # (every waypoint of the level, every second: field reads - by name 15-24 us each)
-            w = ptr()
-            if w is None:
-                continue
-            get = reader(w)
-            definition = try_(lambda get=get: get("WaypointDefinition"))
-            if definition is None or definition._get_address() not in wanted or try_(lambda get=get: bool(get("bCompleted")), False):
-                continue
-            candidates.setdefault(definition._get_address(), []).append((try_(lambda get=get: int(get("WaypointNumber")), 0) or 0, w))
+        for key in wanted:  # (the wanted definitions' waypoints only: _waypoints_by_def, indexed once per scan)
+            for ptr in self._waypoints_by_def.get(key, ()):
+                w = ptr()
+                if w is None:
+                    continue
+                get = reader(w)
+                if try_(lambda get=get: bool(get("bCompleted")), False):
+                    continue
+                candidates.setdefault(key, []).append((try_(lambda get=get: int(get("WaypointNumber")), 0) or 0, w))
         t_waypoints = time.perf_counter()
         for key, found in candidates.items():
             mission, kind, entry = wanted[key]

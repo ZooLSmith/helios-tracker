@@ -204,6 +204,12 @@ says when it was seen.
   `InteractiveObjectBehaviorSet` - OnKilled, OnTakeDamage... arrays of behaviours, CustomEvents / TimerEvents /
   CounterEvents of reactions with `Behaviors[]`); the barrel's `Behavior_Explode` (its `Definition.DamageTypeDef` as
   BL2's) is there - games.py `object_behaviors`.
+- **New-U / fast travel stations** (tools/probes/probe_object_text.txt, 2026-10-04): `EmergencyTeleportOutpost` objects -
+  definitions `gd_emergencyteleportoutpost.OutpostDefinition`, `CheckpointOutpostDefinition` (two kinds, likely: fast
+  travel, New-U checkpoint). No name of theirs in the game's data: the object's `OutpostName` empty, the definition's
+  `DisplayName` empty, no function of their own for one (only every interactive object's - `GetTargetName`, called:
+  nothing). Named by their definition, as guessed ("Outpost Definition ?"); shown as stations by their class (game.js
+  `stationClasses` - no station word in their names).
 
 ## Item cards, rarities, exits (2026-10-03: probe_bl1_cards.txt, probe_bl1_exits.txt, offline)
 
