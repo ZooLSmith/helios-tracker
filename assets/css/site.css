@@ -279,9 +279,10 @@ p, li, figcaption { text-wrap: pretty; } /* no one-word last lines */
 li + li { margin-top: .3rem; }
 strong { color: var(--text-bright); font-weight: 700; }
 /* a game's name in the text ("Borderlands 2"): the title's letters - its display font, its gradient, all caps like
-   the games' logos - on one line (the text stays as written: search, copy) */
+   the games' logos - on one line (the text stays as written: search, copy). Their logos' colors, whatever the theme:
+   the default theme's yellow (Borderlands 2, the Pre-Sequel), Borderlands' silver (.bl1) */
 .game { font: 800 1.08em/1 var(--font-head); letter-spacing: .03em; text-transform: uppercase; white-space: nowrap;
-  background: linear-gradient(var(--title-top), var(--title-bottom)); -webkit-background-clip: text; background-clip: text;
+  background: linear-gradient(#fef900, #d69900); -webkit-background-clip: text; background-clip: text;
   -webkit-text-fill-color: transparent; }
 /* (a link to the game's Steam page: no link colour or underline - the gradient is the cue; brighter on hover) */
 a.game { text-decoration: none; }
@@ -289,6 +290,10 @@ a.game:hover { filter: brightness(1.25); }
 /* the Pre-Sequel's "The" as on its logo: half the height, its top on the top of PRE (Big Shoulders' caps: .8em; vertical-align's em is its own, half the name's: raised .8 x 2 - .8) */
 .game .the { font-size: .5em; vertical-align: .8em; margin-right: -.45em; /* (most of the space after it) */ letter-spacing: .12em;
   -webkit-text-stroke: .035em transparent; } /* (bolder than the font's 800: an outline, the gradient showing through it) */
+/* Borderlands' silver: its metal, a bright top, a dark band at the middle */
+.game.bl1 { background-image: linear-gradient(#ffffff, #d4d9de 46%, #5f676f 50%, #9aa2a9 72%, #eaedf0); }
+/* a heading's aside ("(experimental)"): smaller than its title */
+h2 small, h3 small { font-size: .6em; }
 .anchor { margin-left: .4rem; color: var(--divider); text-decoration: none; font-weight: 400; opacity: 0; }
 h2:hover .anchor, h3:hover .anchor, .anchor:focus { opacity: 1; }
 .anchor:hover { color: var(--accent); }
