@@ -357,3 +357,13 @@ says when it was seen.
   while their objective / mission matters). Open: BL1's mission pickups (bMissionItem, no MissionItemDefinition's
   MissionDirective / AssociatedMissionObjective seen) may not carry what missionItemWanted reads - ones placed
   ahead would show early; not seen yet.
+
+## Pickup icons (2026-10-04: probe_bl1_pickup_icons.txt, offline)
+
+- **The same as BL2's**: a pickup's `ItemDefinition.PickupFlagIcon` (`WillowInventoryDefinition`'s) - `FX_Items.Textures.Credits`,
+  `.Health`, `.Ammo_SMG`, `.Ammo_Repeater`... (47 textures, DXT5 128 x 128) in `Packages/effects/FX_Items.upk`. The
+  collector sent their paths all along (`fi`); with no files scan nothing served them (the page showed no symbol).
+  `games/bl1/files/bl1textures.py`: a texture by path - its package found by the path's first part anywhere under
+  CookedPC, the export by the rest (a package names its exports without itself: `Textures.Credits`) - served at
+  `/texture/<path>.png` like BL2's (`Bl1Assets.serve`). A weapon's pickup has no `ItemDefinition` (its
+  `DefinitionData` is a weapon's): no flag icon, as in BL2.

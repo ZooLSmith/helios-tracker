@@ -872,6 +872,13 @@ def check_helios_tracker() -> None:  # noqa: PLR0915
         assert bl1_item_png[:8] == b"\x89PNG\r\n\x1a\n", bl1_item_png[:16]
         assert bl1map.card_icon(bl1_cooked, bl1_brand_keys, "corazza") is None, "no logo of its own in the movie"
         assert bl1map.card_icon(bl1_cooked, ["nope"], "jakobs") is None
+        # a pickup's icon (its PickupFlagIcon, as BL2's - probe_bl1_pickup_icons): its package found by name under CookedPC
+        from helios_tracker.games.bl1.files import bl1textures  # noqa: PLC0415
+        bl1_credits = bl1textures.texture_png(bl1_cooked, "FX_Items.Textures.Credits")
+        assert bl1_credits and bl1_credits[:8] == b"\x89PNG\r\n\x1a\n" and struct.unpack(">II", bl1_credits[16:24]) == (128, 128), bl1_credits[:24]
+        assert bl1textures.texture_png(bl1_cooked, "FX_Items.Textures.Nope") is None and bl1textures.texture_png(bl1_cooked, "Nope_Pkg.X") is None
+        assert bl1textures.texture_png(bl1_cooked, "../x") is None
+        bl1_work.stop()  # (its job started the worker: stopped, as the scan's)
         bl1_logo_png = bl1_work.run_job(json.dumps({"fn": bl1_work.fn(bl1map.card_icon_job), "cooked": str(bl1_cooked), "keys": bl1_brand_keys,
                                                     "label": "s_and_s"}))
         assert bl1_logo_png[:8] == b"\x89PNG\r\n\x1a\n", bl1_logo_png[:16]
@@ -1369,7 +1376,7 @@ def check_helios_tracker() -> None:  # noqa: PLR0915
     assert profile_bl2.missions.markers(None, None, None) is None, "BL2: the tracker's waypoint components"
     # the game's images, each game's routes (the server knows none): not one of them -> None; BL1 has no skill icon textures
     assert profile_bl2.assets.serve("/nope.png") is None and profile_bl1.assets.serve("/nope.png") is None
-    assert profile_bl1.assets.serve("/icon/SharedSkillIcons_Soldier.SkillIcon-Able.png") is None and not profile_bl1.assets.textures_ready()
+    assert profile_bl1.assets.serve("/icon/SharedSkillIcons_Soldier.SkillIcon-Able.png") is None and profile_bl1.assets.textures_ready()
     assert profile_bl2.missions.current_objectives([1], 3) == [1] and profile_bl1.missions.current_objectives([1], 3) == [0, 1, 2]
     assert not {"tacmap", "scan", "fontlibrary", "missionsteps", "waypointmarkers", "learnedelements"} & (
         profile_bl2.features | profile_tps.features | profile_bl1.features), "features: systems a game has - only"
