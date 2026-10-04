@@ -21,15 +21,15 @@ the Hub, the server threads only read them.
 import json
 import re
 import threading
+import time
 from collections import deque
 from http import HTTPStatus
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from typing import Any
 
-from . import gamescan, paths
-from .gamecards import card_png
-from .gameicons import icon_png, texture_by_path
+from . import games, paths
+from .frames import FRAMES
 
 # The page's files: paths.read("web/...") (a folder, or inside the .sdkmod).
 # Files served from web/: lowercase names, folders allowed, no dots but the extension (no "..")
@@ -37,10 +37,7 @@ STATIC = re.compile(r"/(?:[a-z0-9_-]+/)*[a-z0-9_-]+\.(js|css|png|svg|woff2)")
 TYPES = {"js": "text/javascript; charset=utf-8", "css": "text/css; charset=utf-8", "png": "image/png",
          "svg": "image/svg+xml", "woff2": "font/woff2"}
 FONT = re.compile(r"/font/([a-z0-9-]+)\.ttf")
-ICON = re.compile(r"/icon/((?:UI_[A-Za-z0-9]+_)?SharedSkillIcons_[A-Za-z0-9_]+\.[A-Za-z0-9_-]+)\.png", re.I)
-CARD_ICON = re.compile(r"/cardicon/(manufacturer|type|element)/([A-Za-z0-9_]+)\.png")
-TEXTURE = re.compile(r"/texture/([A-Za-z0-9_]+(?:\.[A-Za-z0-9_-]+)+)\.png")  # an always-loaded texture by path (gameicons)
-SCAN_WAIT = 30.0  # s a font / icon request waits for the game files' index (gamescan) before giving up
+SCAN_WAIT = 30.0  # s a font / icon request waits for the game's files to be read (games.GAME.assets.wait_for)
 # Pages from these origins may read everything here (CORS): the project's site - its /live/ page opens the map through
 # a tunnel from a stable address, so the page's settings (localStorage: per origin) survive the tunnel's changing
 # ones - and pages on this PC (localhost, 127.0.0.1, any port: a local preview of the site)
@@ -139,9 +136,11 @@ class _Records:
                 if version > seen:
                     touched |= ids
                     reordered |= moved
+            FRAMES.server_count("catch-up")
             parts = [self._rec_json(rid, r) for rid, r in self.recs.items() if rid in touched]
             gone = sorted(rid for rid in touched if rid not in self.recs)  # (gone since - or came and went: the page ignores those)
             return self._message(seen, parts, gone, reordered, whole=True)
+        FRAMES.server_count("snapshot")
         return f'{{"v":{self.version},"full":1,"m":{self.meta_json},"set":[{",".join(self._rec_json(rid, r) for rid, r in self.recs.items())}]}}'
 
     def snapshot(self) -> dict[str, Any]:
@@ -205,12 +204,15 @@ class Hub:
         """Channels newer than `seen` (updated in place), waiting up to `timeout` for one."""
         with self._cond:
             self._cond.wait_for(lambda: self.closed or self._newer(seen), timeout)
+            start = time.perf_counter()
             out = []
             for channel, (version, payload) in self._channels.items():
                 if seen.get(channel) != version:
                     recs = self._records.get(channel)
                     out.append((channel, recs.since(seen.get(channel)) if recs is not None else payload))
                     seen[channel] = version
+            if out:  # (the messages built under the lock: the collector's publish waits meanwhile)
+                FRAMES.server_work("stream", time.perf_counter() - start)
             return out
 
     def _newer(self, seen: dict[str, int]) -> bool:
@@ -235,24 +237,30 @@ class _Handler(BaseHTTPRequestHandler):
 
     def do_GET(self) -> None:  # noqa: N802
         path = self.path.split("?", 1)[0]
-        if path.startswith(("/font/", "/icon/", "/cardicon/", "/texture/")) and not gamescan.ready():
-            gamescan.wait(SCAN_WAIT)  # (the game's files not indexed yet: a page just opened - its scan's running)
+        if path == "/events":  # (a stream: its messages are timed as they're built - Hub.wait)
+            try:
+                self._events()
+            except (ConnectionError, TimeoutError):
+                pass  # tab closed / navigated away
+            return
+        games.GAME.assets.wait_for(path, SCAN_WAIT)  # (the game's files not read yet: a page just opened - each game's)
+        start = time.perf_counter()  # (after the waits: they hold no GIL - the work from here may)
+        try:
+            self._get(path)
+        finally:
+            FRAMES.server_work("request", time.perf_counter() - start)
+
+    def _get(self, path: str) -> None:
         try:
             if path in ("/", "/index.html"):
                 self._send(HTTPStatus.OK, "text/html; charset=utf-8", paths.read("web/index.html") or b"")
             elif (m := STATIC.fullmatch(path)) and (data := paths.read("web" + path)) is not None:
                 self._send(HTTPStatus.OK, TYPES[m[1]], data)
-            elif path == "/events":
-                self._events()
             elif path.startswith("/image/"):
                 self._image(path)
             elif (m := FONT.fullmatch(path)) and (data := (self.server.hub.fonts or {}).get(m[1])) is not None:
                 self._send(HTTPStatus.OK, "font/ttf", data)
-            elif (m := ICON.fullmatch(path)) and (data := icon_png(m[1])) is not None:
-                self._send(HTTPStatus.OK, "image/png", data)
-            elif (m := CARD_ICON.fullmatch(path)) and (data := card_png(m[1], m[2])) is not None:
-                self._send(HTTPStatus.OK, "image/png", data)
-            elif (m := TEXTURE.fullmatch(path)) and (data := texture_by_path(m[1])) is not None:
+            elif (data := games.GAME.assets.serve(path)) is not None:  # (the game's own images: icons...)
                 self._send(HTTPStatus.OK, "image/png", data)
             else:
                 self._send(HTTPStatus.NOT_FOUND, "text/plain", b"not found")
@@ -303,9 +311,14 @@ class _Handler(BaseHTTPRequestHandler):
                     return
                 if not updates:
                     self.wfile.write(b": keepalive\n\n")
+                sent = 0
                 for channel, payload in updates:
-                    self.wfile.write(f"event: {channel}\ndata: {payload}\n\n".encode())
+                    data = f"event: {channel}\ndata: {payload}\n\n".encode()
+                    sent += len(data)
+                    self.wfile.write(data)
                 self.wfile.flush()
+                if sent:
+                    FRAMES.server_work("write", 0.0, sent)  # (the bytes; the write itself waits without the GIL)
         finally:
             hub.connected(-1)
 

@@ -37,7 +37,8 @@ from typing import Any
 
 from unrealsdk.unreal import WeakPointer
 
-from .util import def_name, field, log, try_
+from . import games
+from .util import PerObject, def_name, field, log, try_
 
 SKILLS_EVERY = 0.2  # s between reads of the skill manager (every player's running skills)
 MAX_EVERY = 5.0  # s between reads of a player's full cooldown lengths (function calls)
@@ -46,27 +47,20 @@ MAX_EVERY = 5.0  # s between reads of a player's full cooldown lengths (function
 _defs: dict[int, tuple[str, str, str]] = {}
 # Controller address -> (its tree's skill definition addresses, SkillIcon path -> tree skill name,
 # the action skill's name): a skill tree's definitions never change (static per class)
-_trees: dict[int, tuple[set[int], dict[str, str], str]] = {}
+_trees = PerObject()  # controller -> (tree skill definitions, names by icon, action skill name) - checked alive
 _unnamed: set[int] = set()  # nameless timed skills' definitions already logged
 
 
 def skill_icon(skill_def: Any) -> str:
-    """A skill's icon texture path, as the game's movies name it ("SharedSkillIcons_Soldier.SkillIcon-Able"; gameicons.py
-    serves it): its SkillIcon movie's path - or, with a SkillIconTextureName (the Pre-Sequel's), that texture in the
-    movie's package: its DLC classes' skills all share one movie ("SharedSkillIcons_Cro_Aurelia.SkillIcon-Aurelia",
-    every icon an image of it), the name picks theirs ("SkillIcon-Avalanche"). "" without an icon."""
-    movie = try_(lambda: skill_def.SkillIcon._path_name(), "") or ""
-    texture = str(try_(lambda: skill_def.SkillIconTextureName, "") or "")
-    if movie and texture and texture.lower() != "none":
-        return f"{movie.split('.')[0]}.{texture}"
-    return movie
+    """A skill's icon texture path, as the game's movies name it ("SharedSkillIcons_Soldier.SkillIcon-Able" - the
+    game's assets serve it), "" without one: each game's (games.GAME.skills.icon)."""
+    return try_(lambda: games.GAME.skills.icon(skill_def), "") or ""
 
 
 def _tree_names(pc: Any) -> tuple[set[int], dict[str, str], str]:
     """The player's tree skills: their definitions, their names by icon, and the action skill's name
     (the tree's SKILL_TYPE_Action skill) - read once per controller (an empty tree: again next time)."""
-    key = pc._get_address()
-    if (cached := _trees.get(key)) is None:
+    if (cached := _trees.get(pc)) is None:
         defs: set[int] = set()
         by_icon: dict[str, str] = {}
         action = ""
@@ -83,7 +77,7 @@ def _tree_names(pc: Any) -> tuple[set[int], dict[str, str], str]:
                 by_icon.setdefault(icon, name)
         cached = (defs, by_icon, action)
         if defs:
-            _trees[key] = cached
+            _trees.put(pc, cached)
     return cached
 
 
@@ -190,7 +184,7 @@ class SkillReader:
             if not action_name:  # the host, another player: SavedSkillTreeSkill has no name - their tree's
                 action_name = try_(lambda: _tree_names(pc)[2], "") or ""
             cached = (now + MAX_EVERY, try_(lambda: float(pc.GetSkillCooldownTime()), 0.0),
-                      try_(lambda: float(pc.GetMeleeSkillCooldownTime()), 0.0), action_name, _action_locked(pc))
+                      try_(lambda: float(pc.GetMeleeSkillCooldownTime()), 0.0), action_name, try_(lambda: games.GAME.skills.action_locked(pc), False))
             self._max[key] = cached
         _, action_max, melee_max, action_name, locked = cached
         out: dict[str, Any] = {}

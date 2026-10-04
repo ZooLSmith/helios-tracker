@@ -116,6 +116,8 @@ item's `DefinitionData.ItemDefinition` (a `UsableItemDefinition`):
   on the map): the page draws one only while it matters (missions.js missionItemWanted) - "for" (its
   objective `oi`): the mission picked up and that objective in the current step, not done; "gives":
   the mission not started. No link / mission not in the log: drawn. Seen right in game (the pizzas).
+  (The objects' side: an object a mission switches off by hiding its mesh - "Objects switched off without
+  being hidden" below, BL1's T.K.'s Food.)
 - Customization items (skins / heads) are gear: `WillowUsableCustomizationItem`, a real `RarityLevel`
   (2 on a vehicle skin), `ItemFrame` `customization_vehicle`, card `Customization_VehicleSkin`.
 
@@ -303,6 +305,10 @@ In game (probe_vending.py, Sanctuary_P, solo listen server, 2026-09-25): **confi
   yet). `ShopTimerRate` 1, empty modifier stack. When it expires: "Shops have new inventory!" (`NewShopInventory`, 5 s).
 - The timer stands still while the game is paused (`WorldInfo.Pauser`: the page's count went on, then jumped back
   at each resend - the user, 2026-09-25): the `shoptimer` payload says `paused`, the page holds it.
+- **Restock: not exact (open)**: the page's countdown and the game's restock differ by about a second either way
+  in BL2 (early or late - the user); in Borderlands 1 the game said "Shops have new inventory" while the page showed
+  0:05 left (.agent/bl1.md). Not looked into: where the gap comes from (the replicated count vs the host's, the
+  page's own clock between updates, the game's own timer granularity) is unknown.
 - Price: `GetSellingPriceForInventory(InventoryForSale, WPC, Quantity) -> int` (called since: the menu's prices); markup from
   `CommerceMarkup` (`GD_Economy.VendingMachine.Init_MarkupCalc_P1`).
 - Not seen yet: the reset itself (every machine at once? the timer back to 1200?), a level reload, a co-op client
@@ -393,6 +399,53 @@ worked out from the item definition by the attribute system, all of it readable 
   (`Textures` -> CookedPCConsole/Textures.tfc) at the mip header's offset, a compressed chunk (tacmap._texture).
 - Not seen yet: eridium, health (the collector tries eridium the same way; health left out - its amount may be a share
   of max health). The picker's own bonuses (skills, relics) aren't counted.
+
+## Pickups at rest (probe_pickup_rest.py, in game, BL2, 2026-10-03)
+
+Whether a dropped pickup says it stopped moving - the collector reads every pickup each tick (`state.pickups`: ~4 ms a
+tick with 45 of them); one at rest could be read less often.
+
+- **`WillowPickup.bPickupAtRest`** (a property): False while it moves, True once it has **fully stopped** - two drops:
+  a weapon on flat ground (speed 538 -> 0 at 5.45 s, the flag at 6.47 s) and one thrown on a slope (sliding down slowly,
+  speed 93 -> 25 -> 7 -> 0.2, still False; 0.0 at 6.71 s, the flag at 6.96 s). Set 0.25-1 s after the stop (a check on a
+  timer, it seems), never while it still slides. The game also lowers its net updates then (`NetUpdateFrequency` 8 -> 3,
+  `bForceNetUpdate`).
+- `Physics` stays `PHYS_RigidBody` at rest (not the signal); `bForceRBToSleep` turns True later (`MaxRBAwakeTime` 15 s
+  after the drop). Pickups placed with the level: `PHYS_None`, `bUseRBPhysics` False, `bPickupAtRest` True from the start.
+- Its functions (listed, not called): `PickupAtRest()` (likely what sets the flag - an event a hook could follow),
+  `CheckForRigidBodySleepState`, `ConvertRigidBodyToFixed` / `ConvertFixedToRigidBody`, `OnSleepRBPhysics` /
+  `OnWakeRBPhysics`, `Landed`.
+- Not seen yet: whether the flag goes back to False when resting loot is pushed (an explosion: `ConvertFixedToRigidBody`
+  suggests it can wake).
+- **Borderlands 1: the same** (the probe there, 2026-10-04): the same property and `PickupAtRest()`; a weapon dropped
+  (speed 452 -> 0.0 at 10.05 s) flagged at rest at 10.30 s, its net updates lowered the same way.
+- (The probe read the first pickup's SkeletalMeshComponent fields on the others' components too - other classes: junk
+  values, ignored.)
+
+## A container under the ground (probe_hidden_pile.py, in game, BL2, 2026-10-04)
+
+The page showed a Bullymong pile (GD_Balance_Treasure.InteractiveObjects.InteractiveObj_BullymongPile, "Not looted yet")
+where the game showed nothing. The game's data, not ours: an untouched pile like the level's four others (SimpleAnimState 4,
+bCanBeUsed (1, 0), Health 5, mesh shown, rendered) - but at Z 542 with the player standing at Z 1077 beside it: ~5 m
+under the terrain (the others on the ground, Z 60-85). Left as it is - telling it's buried would need a trace against the
+level's geometry (a function call). Also seen: a pile's anims are Open / Opened / Closed (bits 0 / 1 / 2) - untouched:
+4 (Closed alone), dug: 7; not the chests' layout (games.GAME.objects.is_looted: "Opened" by name, so it reads right either way).
+The probe compares an object with the others of its definition (the fields where it differs from most): reusable for
+any "why is this one different".
+
+## Containers spawned by distance (probe_chest_spawn.py, in game, BL2 Three Horns, 2026-10-04)
+
+Chests, coolers, cash boxes, ammo boxes and most Bullymong piles aren't placed in the level: the population system's
+`PopulationOpportunityPoint`s spawn them (each its `PopulationDef`: PopulationDefinition:CashBox, BanditCooler,
+BanditAmmo, WeaponChest_White, WeaponChest_BanditPotty, BullymongPile...) when the player comes within its
+`SpawnAndCullRadius` - 8000 uu (80 m): `bHasSpawned` / `bActiveSpawn` True within it, False past it. Seen: an area's
+five pile points from 224-330 m away - none spawned, no pile object there; from 36-141 m - the two within 80 m spawned
+(their piles at the points' exact positions), the ones at 82, 86, 122 m not. So the page shows them as the game spawns
+them (the spawn hook catches them) - we don't filter by distance. (Some piles exist much farther - up to 182 m: placed
+in the level, or not culled once spawned - not checked.) Also there: `PopulationOpportunityDen` (enemy dens:
+PopDef_PrimalBeastMix_Ice...) and `WillowPopulationPoint` (their spawn points: PopPointDef_PrimalDen_Walk...) - other
+fields (no bHasSpawned / SpawnAndCullRadius). An idea, not built: the points not spawned yet could show where a
+container will appear (design.md if wanted).
 
 ## Level geometry for a 3D map (offline, the level's packages, 2026-09-25 - parked: design.md)
 
@@ -576,6 +629,8 @@ Southern Shelf's `_P` alone: 404 `StaticMesh`, 4131 `StaticMeshComponent`, 11 `T
   station's LevelTravelMapDisplayName "Exit to %s", %s its TravelDefinition (LevelTravelStationDefinition
   GD_LevelTravelStations.Zone1.IceToIceCanyon) -> DestinationStationDefinition -> DisplayName ("Frostburn Canyon"; also
   StationDisplayName, StationLevelName icecanyon_p) - tools/probes/probe_waypoint_exit.txt, Three Horns Divide.
+  The exit object's own name too (collector._object_record): its map header (StatusMenuMapInfoBoxHeader) only says
+  "Map Exit" (the page showed that) - the same "Exit to <destination>" first.
 - **Elemental plants** (BL2's Firemelon, Acidolus, Shock Cactus; the Pre-Sequel's Cryo Vine _Normal / _Medium / _Large -
   GD_ElementalPlants): the game groups them - their definition's Allegiance GD_AI_Allegiance.Allegiance_ElementalPlant,
   no other object's (both games' packages). Like barrels, but shot empty they recharge (bDestroyWhenKilled False). Their
@@ -687,7 +742,7 @@ Southern Shelf's `_P` alone: 404 `StaticMesh`, 4131 `StaticMeshComponent`, 11 `T
 - **The Pre-Sequel's rarity table** (offline: Startup.upk, GD_Globals.General.Globals RarityLevelColors - its
   MinLevel / MaxLevel / Color, BGRA): 19 entries, BL2's 18 plus 505's (entry 17: a peach) - so 506 is its entry 18 (the
   legendary orange), not 17. 500 cyan (entry 12), 501 pink (13: BL2's Seraph colour - the Pre-Sequel's Glitch, the
-  user), 503 a purple (15). The page names the Pre-Sequel's tiers from its own entries (model.js TIER_BY_ENTRY_TPS).
+  user), 503 a purple (15). The page names the Pre-Sequel's tiers from its own entries (game.js: its tierByEntry).
   What uses the levels (offline, every definition's BaseRarity / Rarity - AttributeInitializationData: its
   BaseValueConstant, or an attribute's ConstantAttributeValueResolver): gear 1-5 (GD_Balance_Inventory.Rarity_Item
   .ItemRarity1_Common..5_Legendary: 1..5), Glitch = a glitch attachment's +497 (GD_Ma_Weapons.Rarity
@@ -884,3 +939,10 @@ Southern Shelf's `_P` alone: 404 `StaticMesh`, 4131 `StaticMeshComponent`, 11 `T
 - **Item card stats from the game** beyond shields (`_ui_stats`): other items' `UIStatModifiers`,
   weapons' `ItemCardModifierStats` / `ReplicatedWeaponCardModifierValues` -> their
   `AttributePresentationDefinition` text + value, instead of the hand-picked stat list. Probe first.
+- **Objects switched off without being hidden** (collector._out_of_sight): an object's behaviours can hide its mesh
+  (Behavior_ChangeVisibility: its components' `HiddenGame`) and leave the actor's `bHidden` False - BL1's T.K.'s Food
+  (Z0_MissionData.MissionObjects.MO_TKsFood, its MissionItemDefinition ID_TKsFood: used, the food picked up; then
+  unusable, its StaticMeshComponent hidden - tools/probes/probe_bl1_mission_objects.txt). Out of sight: hidden, or
+  every mesh component hidden in game (an object without a mesh: as its actor) - at the object scan (every 120 s).
+  The pickups' side of the same problem (things placed for a mission, shown by the game only when they matter):
+  "Mission items are placed ahead" above - the pizzas, missions.js missionItemWanted.

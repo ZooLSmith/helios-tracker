@@ -9,35 +9,52 @@ waited on it every frame, the page's first load lagged the game).
   __init__ - mods_base / unrealsdk aren't there). Jobs one at a time (a lock).
 - Its results cached on disk (.cache/assets in paths.DATA, gitignored): a font / an icon decoded once per install, keyed by the job
   and its packages' sizes and dates (a patched package: decoded again).
-- No subinterpreters (an older Python) / the worker won't start: the job runs here, politely (gamescan's pause and
-  switch interval), as before.
+- A job names its function (fn: a *_job of a file-only module, "games.bl2.files.gameicons:texture_job") and its
+  arguments: the worker imports that module and calls it - it knows no job, no game. Built in code only (fn()), never
+  from what a page asks.
+- No subinterpreters (an older Python) / the worker won't start: the job runs here, politely (a pause after each
+  decompressed block, a short switch interval), as before.
 Files only: no SDK, no UObjects.
 """
 
 import hashlib
+import importlib
 import json
 import sys
 import threading
 import time
 from pathlib import Path
+from typing import Any
 
 from . import paths
 
 HERE = Path(__file__).parent
 ASSETS = paths.DATA / ".cache" / "assets"
-VERSION = 1  # the rendering's: another number = every asset decoded again
+VERSION = 4  # the rendering's: another number = every asset decoded again (4: element icons drawn without their level)
 JOB_TIMEOUT = 300.0  # s a job may take in the worker (the first scan: ~5 s)
+POLITE_PAUSE = 0.003  # s slept after each decompressed block, a job run in process
+POLITE_SWITCH = 0.001  # s (Python's default: 0.005), a job run in process
 
 _lock = threading.Lock()
 _worker: dict = {}  # "interp", "jobs", "results", "thread" - or "failed": the in-process fallback
 
 WORKER_CODE = """
-import sys, types
-pkg = types.ModuleType("helios_work")
-pkg.__path__ = [mod_dir]
-sys.modules["helios_work"] = pkg
-from helios_work import gamework, tacmap
-tacmap.keep_open(True)  # (packages / atlases kept between jobs: a session's icons out of one atlas)
+import os, pkgutil, sys, types
+
+def package(name, path):
+    # the package and its subpackages as bare modules: their __init__ never runs here (games/__init__ picks a game,
+    # imports the parts - none of the worker's business); a job's module imports through them
+    pkg = types.ModuleType(name)
+    pkg.__path__ = [path]
+    sys.modules[name] = pkg
+    for info in pkgutil.iter_modules([path]):
+        if info.ispkg:
+            package(name + "." + info.name, os.path.join(path, info.name))
+
+package("helios_work", mod_dir)
+from helios_work import gamework
+from helios_work.formats import upk
+upk.keep_open(True)  # (packages / atlases kept between jobs: a session's icons out of one atlas)
 while True:
     job = jobs.get()
     if job is None:
@@ -49,22 +66,22 @@ while True:
 """
 
 
-def run_job(job: str) -> bytes:
-    """A job (JSON: {"do": ..., ...}) -> its bytes - in the worker (or here, the fallback)."""
-    from . import gamecards, gamefonts, gameicons, gamescan  # noqa: PLC0415 - (the worker: helios_work's)
+def fn(job: Any) -> str:
+    """A job's function as a job names it ("games.bl2.files.gameicons:texture_job"): a *_job function of the mod's
+    file-only modules (no SDK at their module level: the worker imports them)."""
+    module = job.__module__.partition(".")[2]  # (the package's name: helios_tracker here, helios_work in the worker)
+    assert job.__name__.endswith("_job") and module, job
+    return f"{module}:{job.__name__}"
 
+
+def run_job(job: str) -> bytes:
+    """A job (JSON: {"fn": fn(...), its arguments...}) -> its bytes: its function, called with the rest - in the worker
+    (or here, the fallback)."""
     j = json.loads(job)
-    do = j["do"]
-    if do == "scan":
-        gamescan.scan_to_cache(Path(j["cooked"]), Path(j["cache"]))
-        return b""
-    if do == "font":
-        return gamefonts.font_ttf(Path(j["package"]), j["export"], j["n"])
-    if do == "icon":
-        return gameicons.texture_png(Path(j["package"]), j["export"])
-    if do == "card":
-        return gamecards.layers_png(j["layers"])
-    raise ValueError(f"unknown job {do!r}")
+    module, _, name = j.pop("fn").partition(":")
+    if not name.endswith("_job"):
+        raise ValueError(f"not a job: {name!r}")
+    return getattr(importlib.import_module(f"{__package__}.{module}"), name)(**j)
 
 
 def _start() -> bool:
@@ -106,15 +123,15 @@ def _in_worker(job: str) -> bytes:
 
 def _polite(job: str) -> bytes:
     """In process: the thread yields to the game thread (1 ms switches, a pause after each decompressed block)."""
-    from . import gamescan, tacmap  # noqa: PLC0415
+    from .formats import upk  # noqa: PLC0415
 
     old = sys.getswitchinterval()
-    sys.setswitchinterval(gamescan.SWITCH_INTERVAL)
-    tacmap.set_pause(gamescan.PAUSE)
+    sys.setswitchinterval(POLITE_SWITCH)
+    upk.set_pause(POLITE_PAUSE)
     try:
         return run_job(job)
     finally:
-        tacmap.set_pause(0)
+        upk.set_pause(0)
         sys.setswitchinterval(old)
 
 

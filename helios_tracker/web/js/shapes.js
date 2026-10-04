@@ -1,6 +1,6 @@
 // Marker shapes and labels, in screen px on the canvas (view.js's ctx).
 import { tokenColor, tokenRaw } from "./look.js";
-import { setLayerColors } from "./model.js";
+import { cardIconKey, setLayerColors } from "./model.js";
 import { S } from "./state.js";
 import { invalidate } from "./scheduler.js";
 import { ctx } from "./view.js";
@@ -13,7 +13,7 @@ const TOKENS = { bg: "bg", grid: "grid", shield: "shield", health: "health", dea
 export function initColors() {
   for (const [k, token] of Object.entries(TOKENS)) COLORS[k] = tokenColor("--" + token);
   COLORS.mapFilter = tokenRaw("--map-filter") || "none"; // (the theme's map tint: draw.js mapCanvas)
-  setLayerColors(tokenColor, S.level?.game); // (a game's own layer colours: the level's game)
+  setLayerColors(tokenColor); // (the game's own layer colours: game.js)
 }
 
 // The last marker drawn: its half-width / half-height (px, drawn) - every marker shape records its own (drew), and its
@@ -206,7 +206,7 @@ function gameImage(url, ready) {
   return entry.ok ? entry.img : null;
 }
 
-// Gear's type icons (the game's item card art: /cardicon/type/<key>.png, gamecards.py), tinted per colour: its white
+// Gear's type icons (the game's item card art: /cardicon/type/<key>.png, the game's assets), tinted per colour: its white
 // fill multiplied into the rarity's colour, its black outline kept (the card's own look)
 const tintedIcons = new Map(); // "key|colour" -> a canvas
 function typeIconImage(key) {
@@ -233,7 +233,7 @@ function tintedIcon(key, color) {
 /** Gear on the ground as its item card's type icon (a rifle, a shield...) in its rarity's colour, `h` px high (wide ones
  *  capped); false (nothing drawn) until the icon's loaded / if the game has none - the caller draws its triangle. */
 export function typeIcon(x, y, key, color, h) {
-  if (!key || !/^[A-Za-z0-9_]+$/.test(key)) return false;
+  if (!cardIconKey(key)) return false;
   const c = tintedIcon(key, color);
   if (!c || !c.width || !c.height) return false;
   const w = Math.min(h * c.width / c.height, h * 2.4), hh = w * c.height / c.width;

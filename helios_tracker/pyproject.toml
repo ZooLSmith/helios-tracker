@@ -8,5 +8,5 @@ description = "A live map of the current level in your web browser: the game's m
 [tool.sdkmod]
 name = "Helios Tracker"
 mod_type = "Standard"
-supported_games = ["BL2", "TPS"]
+supported_games = ["BL2", "TPS", "BL1"]
 coop_support = "ClientSide"

@@ -17,13 +17,19 @@ export function skillStatText(f) {
 /** skillStatText in parts: [the text before the value, the value, the text after] - the value emphasised
  *  apart (the BONUSES). No value shown (bDontDisplayNumber): ["the text", "", ""]. */
 export function skillStatParts(f) {
-  // an item's line tied to one of its attributes: that attribute's current value (the shot cost: 2, not the +1)
-  let v = f.cur != null ? f.cur : f.inv && f.v ? 1 / f.v : f.v;
-  if (f.pct && f.cur == null) v *= 100;
-  if (f.pos) v = Math.abs(v);
-  const n = f.fl ? numUpTo(v, f.fp ?? 1) : num(Math.round(v));
-  const plus = v > 0 && !f.np ? "+" : "";
-  const number = `${plus}${f.pct && f.cur == null ? t("unit.percent", { n }) : n}`;
+  let number;
+  if (f.dv != null) { // the number as the game shows it, worked out by the mod (a game's card lines: its profile's card_line_value)
+    const n = num(f.pos ? Math.abs(f.dv) : f.dv, f.dp || 0);
+    number = `${f.dv > 0 && !f.np ? "+" : ""}${f.pct ? t("unit.percent", { n }) : n}`;
+  } else {
+    // an item's line tied to one of its attributes: that attribute's current value (the shot cost: 2, not the +1)
+    let v = f.cur != null ? f.cur : f.inv && f.v ? 1 / f.v : f.v;
+    if (f.pct && f.cur == null) v *= 100;
+    if (f.pos) v = Math.abs(v);
+    const n = f.fl ? numUpTo(v, f.fp ?? 1) : num(Math.round(v));
+    const plus = v > 0 && !f.np ? "+" : "";
+    number = `${plus}${f.pct && f.cur == null ? t("unit.percent", { n }) : n}`;
+  }
   // the prefix / suffix around the value (game text: "Consumes" 2 "ammo per shot."), a space on each side
   const pre = f.pre ? cleanText(f.pre) + " " : "", suf = f.suf ? " " + cleanText(f.suf) : "";
   const text = cleanText(f.d);
@@ -124,13 +130,17 @@ function skillGrid(b, index) {
   const frac = toLast > 0 ? Math.min(1, Math.max(0, b.pts / toLast)) : unlocked >= rows ? 1 : 0;
   // the edge: the grid's 5 px padding (3px: in its gaps) + that share of the rest; none / all: 0 / 100 %
   const fill = frac <= 0 ? "0%" : frac >= 1 ? "100%" : `calc(3px + ${+frac.toFixed(4)} * (100% - 6px))`;
-  let need = 0, html = `<div class="sgrid tree${Math.min(index, 2)}" style="grid-template-columns: repeat(${cols}, 1fr);` +
+  // half-width columns, each cell two of them: a row with fewer cells than the grid's columns centred (BL1's trees: two
+  // columns, their last tier one skill - in the middle, as the game's; BL2's rows: every column, empty ones too)
+  let need = 0, html = `<div class="sgrid tree${Math.min(index, 2)}" style="grid-template-columns: repeat(${cols * 2}, 1fr);` +
     ` --fill: ${fill}"${tipAttrs("", t("skills.tiers", { n: unlocked, m: rows, pts: num(b.pts) }))}>`;
   for (const tier of b.tiers) {
     const locked = b.pts < need; // points in this branch needed to reach the tier
-    for (let c = 0; c < cols; c++) {
+    const short = tier.cells.length < cols; // (centred: its first cell that many half-columns in)
+    for (let c = 0; c < (short ? tier.cells.length : cols); c++) {
       const sk = tier.cells[c];
-      if (!sk) { html += `<div class="scell empty"></div>`; continue; }
+      const at = short && c === 0 ? ` style="grid-column: ${cols - tier.cells.length + 1} / span 2"` : "";
+      if (!sk) { html += `<div class="scell empty"${at}></div>`; continue; }
       const pips = Array.from({ length: Math.max(sk.m, 0) }, (_, i) => `<i class="${i < sk.g ? "on" : ""}"></i>`).join("");
       // maxed / points in it (an outline: done / in progress) / none; locked (its tier out of reach: greyed, a
       // lock) or open (points can go in now: not maxed, its tier reached)
@@ -139,7 +149,7 @@ function skillGrid(b, index) {
       // boosted: an item gives it bonus ranks (counting or not yet): a second, blue outline like the game's
       const cls = ["scell", state, locked ? "locked" : maxed ? "" : "open", sk.b ? "boosted" : ""].filter(Boolean).join(" ");
       const tip = t(locked ? "skills.locked" : maxed ? "skills.maxed" : "skills.open");
-      html += `<div class="${cls}"${skillTip(sk, tip)}>` +
+      html += `<div class="${cls}"${at}${skillTip(sk, tip)}>` +
         (locked ? `<span class="slock">${icon("lock")}</span>` : "") +
         // its icon (the game's, from the mod: /icon/...png) - greyed until it has points, like the game's; tinted
         // with its tree's colour through a layer masked by the icon itself (--ic)

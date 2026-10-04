@@ -18,8 +18,13 @@ from PIL import Image
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))  # tools/: project.py
 import project  # noqa: E402
 
-sys.path.insert(0, str(project.ROOT / "helios_tracker"))
-from tacmap import Package, load_tactical_map  # noqa: E402  (no relative imports: loads without the SDK)
+import types  # noqa: E402
+
+_package = types.ModuleType("helios_tracker")  # the mod's package without its __init__ (that needs the SDK)
+_package.__path__ = [str(project.ROOT / "helios_tracker")]
+sys.modules["helios_tracker"] = _package
+from helios_tracker.formats.upk import Package  # noqa: E402
+from helios_tracker.games.bl2.files.tacmap import load_tactical_map  # noqa: E402
 
 Z_TOL = 120.0  # uu between the feet and the nav surface
 CELL = 512.0  # the triangle grid's cell, uu

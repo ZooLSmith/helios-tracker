@@ -1,6 +1,6 @@
 # Dev tool: links this repo's helios_tracker/ into the game's sdk_mods with a directory junction (no admin
-# needed), so edits here are live in game. The game: project.json's game.path, or another key's (tps: the Pre-Sequel).
-#   python tools/link_mod.py [tps]
+# needed), so edits here are live in game. The game: project.json's game.path, or another key's (tps: the Pre-Sequel, bl1: Borderlands 1).
+#   python tools/link_mod.py [tps | bl1]
 # Removing the link (rmdir <game>/sdk_mods/helios_tracker) leaves the repo alone.
 import subprocess
 import sys

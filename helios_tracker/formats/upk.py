@@ -1,13 +1,10 @@
 """
-Reads a level's tactical map (the in-game map screen's image) straight from the game's cooked
-packages on disk. Pure Python, no SDK: runs on a background thread, and offline in tests.
+Reads Unreal Engine 3 packages (.upk / .umap / .u) straight from disk: the summary, names, imports, exports, tagged
+properties, textures' top mips. Pure Python, no SDK: on background threads, in gamework's worker, offline in tests.
 
-A level's persistent package (e.g. Sanctuary_P.upk) holds:
-- SwfMovie UI_TacticalMap_<Level>.<Level>_P: a small Scaleform movie drawing the map image(s) as
-  shapes, in movie px;
-- Texture2D UI_TacticalMap_<Level>.<Level>_P_I1 (..._I2, ...): the images (DXT5, stored inline).
-World -> movie px uses the WillowTacticalMapVolume (see collector.py); this module only returns
-the images and where each sits in movie px.
+This is BL2's format (file version 832; the Pre-Sequel's too). Another game's format is a subclass in that game's
+files (games/<game>/files/), overriding only what differs - its code opens its packages with it; nothing here asks
+which game it is.
 
 Package format notes (UE3, BL2 = file version 832): either "fully compressed" (the whole file is a
 sequence of compressed chunks) or a plain summary whose chunk table maps the rest of the file to
@@ -15,11 +12,9 @@ compressed chunks. Chunks: tag, block size, sizes, block table, then LZO1X block
 """
 
 import struct
-import time
 import threading
-import zlib
+import time
 from contextlib import contextmanager
-from dataclasses import dataclass
 from pathlib import Path
 
 TAG = 0x9E2A83C1
@@ -165,6 +160,13 @@ def set_pause(seconds: float) -> None:
 class Package:
     """Lazy reader: only the blocks holding the requested byte ranges are decompressed."""
 
+    VERSION = FILE_VERSION  # the file version this reader reads (a subclass: its own format's)
+    # a texture's native data after its properties, before its mip count: BL2's 16 (source art / guid), or none
+    TEXTURE_HEADS: tuple[int, ...] = (16, 0)
+    SUMMARY_TABLES = 16  # the summary's bytes after the depends offset: import / export guids offset + counts, thumbnails
+    BOOL_SIZE = 1  # a BoolProperty's value
+    NAMED_TYPES = ("StructProperty", "ByteProperty")  # the property types whose tag carries a name (struct / enum)
+
     def __init__(self, path: Path) -> None:
         self.f = path.open("rb")
         self.blocks: list[tuple[int, int, int, int]] = []  # (uncomp offset, uncomp size, file offset, comp size)
@@ -185,16 +187,15 @@ class Package:
         end = f.tell()
         f.seek(0)
         tag, ver = struct.unpack("<II", f.read(8))
-        if tag == TAG and ver & 0xFFFF == FILE_VERSION:  # plain summary + chunk table
+        if tag == TAG and ver & 0xFFFF == self.VERSION:  # plain summary + chunk table
             chunks = self._summary_chunks()
             if not chunks:  # uncompressed package
                 self.blocks.append((0, end, 0, -1))
                 self.size = end
                 return
             self.blocks.append((0, chunks[0][0], 0, -1))  # the summary itself is stored raw
-            for uoff, _usize, coff, _csize in chunks:
-                f.seek(coff)
-                self._read_chunk(uoff)
+            for uoff, usize, coff, csize in chunks:
+                self._index_chunk(uoff, usize, coff, csize)
             self.size = chunks[-1][0] + chunks[-1][1]
             return
         f.seek(0)  # fully compressed
@@ -202,6 +203,11 @@ class Package:
         while f.tell() < end:
             uoff = self._read_chunk(uoff)
         self.size = uoff
+
+    def _index_chunk(self, uoff: int, _usize: int, coff: int, _csize: int) -> None:
+        """One entry of the summary's chunk table: a compressed chunk at `coff` (its blocks indexed)."""
+        self.f.seek(coff)
+        self._read_chunk(uoff)
 
     def _read_chunk(self, uoff: int) -> int:
         f = self.f
@@ -226,7 +232,7 @@ class Package:
         n = struct.unpack_from("<i", head, o)[0]
         o += 4 + (n if n >= 0 else -2 * n)  # folder name
         o += 4 + 6 * 4 + 4  # package flags, name/export/import count+offset, depends offset
-        o += 4 + 4 + 4 + 4  # import/export guids offset + counts, thumbnail table offset
+        o += self.SUMMARY_TABLES  # import/export guids offset + counts, thumbnail table offset
         o += 16  # guid
         gens = struct.unpack_from("<i", head, o)[0]
         o += 4 + 12 * gens
@@ -258,7 +264,7 @@ class Package:
     def _read_summary(self) -> None:
         head = self.read(0, 4096)
         tag, ver, _lic = struct.unpack_from("<IHH", head, 0)
-        if tag != TAG or ver != FILE_VERSION:
+        if tag != TAG or ver != self.VERSION:
             raise ValueError(f"unexpected package tag/version {tag:#x}/{ver}")
         o = 12
         n = struct.unpack_from("<i", head, o)[0]
@@ -355,10 +361,10 @@ class Package:
             size = struct.unpack_from("<i", data, o + 8)[0]
             o += 16
             if ptype == "BoolProperty":
-                props[pname] = (ptype, data[o : o + 1])
-                o += 1
+                props[pname] = (ptype, data[o : o + self.BOOL_SIZE])
+                o += self.BOOL_SIZE
                 continue
-            if ptype in ("StructProperty", "ByteProperty"):
+            if ptype in self.NAMED_TYPES:
                 o += 8  # struct / enum name
             props[pname] = (ptype, data[o : o + size])
             o += size
@@ -369,264 +375,7 @@ class Package:
 
 
 # endregion
-# region Scaleform movie
-
-
-class _Bits:
-    def __init__(self, d: bytes, o: int) -> None:
-        self.d, self.p = d, o * 8
-
-    def u(self, n: int) -> int:
-        v = 0
-        for _ in range(n):
-            v = (v << 1) | ((self.d[self.p >> 3] >> (7 - (self.p & 7))) & 1)
-            self.p += 1
-        return v
-
-    def s(self, n: int) -> int:
-        v = self.u(n)
-        return v - (1 << n) if n and v & (1 << (n - 1)) else v
-
-    def align(self) -> int:
-        self.p = (self.p + 7) // 8 * 8
-        return self.p // 8
-
-
-def _rect(b: _Bits) -> tuple[float, float, float, float]:
-    n = b.u(5)
-    x0, x1, y0, y1 = (b.s(n) / 20 for _ in range(4))  # twips -> px
-    return x0, x1, y0, y1
-
-
-def _matrix(b: _Bits) -> tuple[float, float, float, float]:
-    """(scale x, scale y, translate x, translate y); rotation/skew is read but ignored."""
-    sx = sy = 1.0
-    if b.u(1):
-        n = b.u(5)
-        sx, sy = b.s(n) / 65536, b.s(n) / 65536
-    if b.u(1):
-        n = b.u(5)
-        b.s(n), b.s(n)
-    n = b.u(5)
-    return sx, sy, b.s(n) / 20, b.s(n) / 20
-
-
-def _affine(b: _Bits) -> tuple[float, float, float, float, float, float]:
-    """The whole matrix, as a canvas transform (a, b, c, d, e, f): x' = a x + c y + e, y' = b x + d y + f
-    (SWF: ScaleX, RotateSkew0, RotateSkew1, ScaleY, TranslateX / Y in px)."""
-    sx = sy = 1.0
-    r0 = r1 = 0.0
-    if b.u(1):
-        n = b.u(5)
-        sx, sy = b.s(n) / 65536, b.s(n) / 65536
-    if b.u(1):
-        n = b.u(5)
-        r0, r1 = b.s(n) / 65536, b.s(n) / 65536
-    n = b.u(5)
-    return sx, r0, r1, sy, b.s(n) / 20, b.s(n) / 20
-
-
-def _cstr(d: bytes, o: int) -> tuple[str, int]:
-    e = d.index(0, o)
-    return d[o:e].decode("latin1"), e + 1
-
-
-def _movie_tags(raw: bytes):  # noqa: ANN202
-    """A movie's top level tags (CFX: zlib compressed, GFX: plain)."""
-    if raw[:3] == b"CFX":
-        d = raw[:8] + zlib.decompress(raw[8:])
-    elif raw[:3] == b"GFX":
-        d = raw
-    else:
-        raise ValueError(f"not a Scaleform movie ({raw[:3]!r})")
-    b = _Bits(d, 8)
-    _rect(b)
-    return _tags(d, b.align() + 4)  # (after the stage: frame rate, frame count)
-
-
-def _place2(body: bytes) -> tuple[int | None, tuple[float, ...] | None, str | None]:
-    """A PlaceObject2's (character id, matrix as _affine, name) - None for what it doesn't have."""
-    flags, o = body[0], 3
-    cid = matrix = name = None
-    if flags & 0x02:
-        cid = struct.unpack_from("<H", body, o)[0]
-        o += 2
-    if flags & 0x04:
-        b = _Bits(body, o)
-        matrix = _affine(b)
-        o = b.align()
-    if flags & 0x08:  # colour transform with alpha: skipped
-        b = _Bits(body, o)
-        add, mul, n = b.u(1), b.u(1), b.u(4)
-        b.u(n * 4 * (add + mul))
-        o = b.align()
-    if flags & 0x10:  # ratio
-        o += 2
-    if flags & 0x20:
-        name, o = _cstr(body, o)
-    return cid, matrix, name
-
-
-def _tags(d: bytes, o: int):  # noqa: ANN202
-    while o + 2 <= len(d):
-        code_len = struct.unpack_from("<H", d, o)[0]
-        o += 2
-        code, ln = code_len >> 6, code_len & 0x3F
-        if ln == 0x3F:
-            ln = struct.unpack_from("<I", d, o)[0]
-            o += 4
-        yield code, d[o : o + ln]
-        o += ln
-        if code == 0:
-            return
-
-
-def _shape_bitmap(code: int, body: bytes) -> tuple[int, tuple[float, float, float, float], int] | None:
-    """(shape id, bounds, bitmap id) of a DefineShape whose fill is a bitmap, else None."""
-    cid = struct.unpack_from("<H", body)[0]
-    b = _Bits(body, 2)
-    bounds = _rect(b)
-    o = b.align()
-    if code == 83:  # DefineShape4: edge bounds + flags
-        b = _Bits(body, o)
-        _rect(b)
-        o = b.align() + 1
-    count = body[o]
-    o += 1
-    if count == 0xFF and code != 2:
-        count = struct.unpack_from("<H", body, o)[0]
-        o += 2
-    for _ in range(count):
-        kind = body[o]
-        o += 1
-        if kind == 0x00:  # solid
-            o += 3 if code in (2, 22) else 4
-        elif 0x40 <= kind <= 0x43:  # bitmap
-            bmp = struct.unpack_from("<H", body, o)[0]
-            b = _Bits(body, o + 2)
-            _matrix(b)
-            o = b.align()
-            if bmp != 0xFFFF:  # 0xFFFF: Flash's placeholder "no bitmap" fill
-                return cid, bounds, bmp
-        else:  # gradients: not used by map movies
-            return None
-    return None
-
-
-def parse_map_movie(raw: bytes) -> list[tuple[str, tuple[float, float, float, float], tuple[int, int, int, int] | None]]:
-    """[(image file name, (x0, x1, y0, y1) in movie px, the part of the image drawn: (x, y, w, h) px or None - all of
-    it)] for each map image placed on the stage."""
-    images: dict[int, str] = {}
-    subs: dict[int, tuple[int, tuple[int, int, int, int]]] = {}  # sub-image id -> (its image's id, its rect)
-    shapes: dict[int, tuple[tuple[float, float, float, float], int]] = {}
-    out = []
-    for code, body in _movie_tags(raw):
-        if code == 1009:  # GFx DefineExternalImage2: id (u16, then 2 bytes: 0, or 9 - the Pre-Sequel's
-            # ComFacility_P, its image id 0), format, target w/h, export name, file name
-            cid = struct.unpack_from("<H", body)[0]
-            p = 10
-            p += 1 + body[p]  # export name
-            images[cid] = body[p + 1 : p + 1 + body[p]].decode("latin1")
-        elif code == 1008:  # GFx DefineSubImage: id, its image's id, x1 y1 x2 y2 (px, u16) - a part of an image
-            # (ComFacility_P: 743 x 644 of its 1024 x 1024 texture), what the shape shows
-            cid, image, x1, y1, x2, y2 = struct.unpack_from("<6H", body)
-            subs[cid] = (image, (x1, y1, x2 - x1, y2 - y1))
-        elif code in (2, 22, 32, 83):
-            if (s := _shape_bitmap(code, body)) is not None and (s[2] in images or s[2] in subs):
-                shapes[s[0]] = (s[1], s[2])
-        elif code == 26:  # PlaceObject2
-            flags = body[0]
-            if not flags & 0x02:
-                continue
-            cid = struct.unpack_from("<H", body, 3)[0]
-            if cid not in shapes:
-                continue
-            sx = sy = 1.0
-            tx = ty = 0.0
-            if flags & 0x04:
-                sx, sy, tx, ty = _matrix(_Bits(body, 5))
-            (x0, x1, y0, y1), bmp = shapes[cid]
-            image, crop = subs[bmp] if bmp in subs else (bmp, None)
-            if image in images:
-                out.append((images[image], (x0 * sx + tx, x1 * sx + tx, y0 * sy + ty, y1 * sy + ty), crop))
-    return out
-
-
-FOG_BLOB = "fog of war blob"  # the fog piece SharedWillowTacMaps exports (tools/probes/dump_tacmap_movie.txt)
-
-
-def parse_fog_pieces(raw: bytes) -> list[tuple[str, tuple[float, ...]]]:
-    """A level movie's fog of war (tools/probes/dump_tacmap_movie.txt): the fog blob it imports from
-    SharedWillowTacMaps, placed once per discovery area - named by the area's short name
-    ("SOUTHERNSHELF_PWDA_1"), its matrix (as _affine, movie px) stretching the blob over it. The map
-    screen hides an area's blob once it's discovered. -> [(name, matrix)]."""
-    blobs: set[int] = set()
-    out = []
-    for code, body in _movie_tags(raw):
-        if code == 71:  # ImportAssets2: url, 2 reserved bytes, count, (id, name)...
-            _url, p = _cstr(body, 0)
-            count = struct.unpack_from("<H", body, p + 2)[0]
-            p += 4
-            for _ in range(count):
-                cid = struct.unpack_from("<H", body, p)[0]
-                name, p = _cstr(body, p + 2)
-                if name == FOG_BLOB:
-                    blobs.add(cid)
-        elif code == 26:
-            cid, matrix, name = _place2(body)
-            if cid in blobs and name and matrix:
-                out.append((name, matrix))
-    return out
-
-
-def parse_fog_blob(raw: bytes) -> tuple[str, tuple[float, float, float, float]] | None:
-    """SharedWillowTacMaps' fog blob: the image file its tactical map frame shows and that shape's
-    bounds (movie px: -128..128 - its 64 x 64 texture declared 256 x 256). The export is a sprite
-    ("tacMap" frame: the map screen's blob, "miniMap": the minimap's); its first placement is the
-    tacMap one. None if it isn't there."""
-    images: dict[int, str] = {}
-    shapes: dict[int, tuple[tuple[float, float, float, float], int]] = {}
-    sprites: dict[int, int] = {}  # sprite id -> the first character it places
-    exports: dict[str, int] = {}
-    for code, body in _movie_tags(raw):
-        if code == 1009:
-            cid = struct.unpack_from("<I", body)[0]
-            p = 10
-            p += 1 + body[p]
-            images[cid] = body[p + 1 : p + 1 + body[p]].decode("latin1")
-        elif code in (2, 22, 32, 83):
-            if (s := _shape_bitmap(code, body)) is not None and s[2] in images:
-                shapes[s[0]] = (s[1], s[2])
-        elif code == 39:
-            sid = struct.unpack_from("<H", body)[0]
-            for sub, sbody in _tags(body, 4):
-                if sub == 26 and (cid := _place2(sbody)[0]) is not None:
-                    sprites[sid] = cid
-                    break
-        elif code == 56:  # ExportAssets: count, (id, name)...
-            count, p = struct.unpack_from("<H", body)[0], 2
-            for _ in range(count):
-                cid = struct.unpack_from("<H", body, p)[0]
-                name, p = _cstr(body, p + 2)
-                exports[name] = cid
-    cid = exports.get(FOG_BLOB)
-    shape = shapes.get(sprites.get(cid, cid)) if cid is not None else None
-    return (images[shape[1]], shape[0]) if shape else None
-
-
-# endregion
 # region Textures
-
-
-@dataclass
-class MapImage:
-    name: str
-    format: str  # EPixelFormat, e.g. "PF_DXT5" - decoded by the web page
-    width: int
-    height: int
-    data: bytes  # top mip, as stored
-    bounds: tuple[float, float, float, float]  # x0, x1, y0, y1 in movie px
-    crop: tuple[int, int, int, int] | None = None  # the part drawn in bounds (x, y, w, h px: a sub-image), None all
 
 
 BULK_SEPARATE_FILE = 0x01
@@ -643,7 +392,7 @@ def _texture(pkg: Package, idx: int) -> tuple[str, int, int, bytes]:
     sy = struct.unpack("<i", props["SizeY"][1])[0]
     # Native tail: 16 bytes (BL2: source art / guid), mip count, then per mip a bulk data header
     # (flags, element count, size on disk, offset in file), the data, SizeX, SizeY.
-    for skip in (16, 0):
+    for skip in pkg.TEXTURE_HEADS:
         o = end + skip
         if o + 20 > len(data):
             continue
@@ -725,66 +474,6 @@ def texture(path: Path, pkg: Package, idx: int) -> tuple[str, int, int, bytes]:
         while len(_textures) > KEEP_TEXTURES:
             _textures.pop(next(iter(_textures)))
     return _textures[key]
-
-
-@dataclass
-class MapFog:
-    blob: MapImage  # the fog piece (bounds: its shape's, around 0)
-    pieces: list[tuple[str, tuple[float, ...]]]  # (area short name, matrix placing the blob: _affine)
-
-
-SHARED_TACMAPS = "SharedWillowTacMaps.SharedWillowTacMaps"
-
-
-def _movie_raw(pkg: Package, idx: int) -> bytes:
-    props, _ = pkg.properties(pkg.export_data(idx))
-    raw = props["RawData"][1]
-    return raw[4 : 4 + struct.unpack_from("<i", raw)[0]]  # TArray<byte>: count + bytes
-
-
-def load_fog(package_file: Path, movie_path: str) -> MapFog | None:
-    """The level's fog of war: SharedWillowTacMaps' blob (its texture, cooked into the level's package
-    with the movie) and where the level's movie places it. None if either is missing."""
-    pkg = Package(package_file)
-    try:
-        idx, shared = pkg.find(movie_path, "SwfMovie"), pkg.find(SHARED_TACMAPS, "SwfMovie")
-        if idx is None or shared is None:
-            return None
-        pieces = parse_fog_pieces(_movie_raw(pkg, idx))
-        blob = parse_fog_blob(_movie_raw(pkg, shared))
-        if not pieces or blob is None:
-            return None
-        file_name, bounds = blob
-        stem = file_name.rpartition(".")[0] or file_name
-        tex = pkg.find(f"{SHARED_TACMAPS.partition('.')[0]}.{stem}", "Texture2D")
-        if tex is None:
-            return None
-        fmt, w, h, body = _texture(pkg, tex)
-        return MapFog(MapImage(stem, fmt, w, h, body, bounds), pieces)
-    finally:
-        pkg.close()
-
-
-def load_tactical_map(package_file: Path, movie_path: str) -> list[MapImage]:
-    """The images of the tactical map movie `movie_path` (e.g. "UI_TacticalMap_Sanctuary.Sanctuary_P")."""
-    pkg = Package(package_file)
-    try:
-        idx = pkg.find(movie_path, "SwfMovie")
-        if idx is None:
-            raise FileNotFoundError(f"{movie_path} not in {package_file.name}")
-        raw = _movie_raw(pkg, idx)
-        movie_pkg = movie_path.rpartition(".")[0]
-        out = []
-        for file_name, bounds, crop in parse_map_movie(raw):
-            stem = file_name.rpartition(".")[0] or file_name
-            tex = pkg.find(f"{movie_pkg}.{stem}", "Texture2D")
-            if tex is None:
-                raise FileNotFoundError(f"texture {movie_pkg}.{stem} not in {package_file.name}")
-            fmt, w, h, body = _texture(pkg, tex)
-            out.append(MapImage(stem, fmt, w, h, body, bounds, crop))
-        return out
-    finally:
-        pkg.close()
 
 
 # endregion

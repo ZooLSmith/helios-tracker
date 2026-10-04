@@ -92,6 +92,7 @@
 .stabs button .spts { flex: none; color: var(--dim); font-size: 11px; }
 /* the skill tree grid: a row per tier, the columns as in the game's menu */
 .sgrid { display: grid; gap: 4px; margin-top: 4px; }
+.sgrid > .scell { grid-column: span 2; } /* (each cell two half-columns: a short row centred - skills.js skillGrid) */
 .scell { background: var(--card); border: 1px solid var(--card-edge); border-radius: 4px; padding: 4px 5px; min-height: 40px;
   display: flex; flex-direction: column; justify-content: space-between; gap: 3px; cursor: help; }
 .scell.empty { background: none; border: 0; cursor: default; }
@@ -99,11 +100,10 @@
    to its last unlocked tier (--fill: skills.js), greyscale below (the same, greyed behind the tiles, a hard
    edge), framed in its highlight like the game's; its tiles over it: an outline and rank dots once invested -
    in progress orange, maxed green */
-/* --t-dim: the greyed part's brightness, per tree - the same grey for all three (grayscale() of green's / blue's
-   main: ~86 / 255, red's: ~51 - its main is darker): x 0.6 for green and blue, as is for red (~52 each) */
-.sgrid.tree0 { --t-hi: var(--tree-0-hi); --t-main: var(--tree-0-main); --t-shadow: var(--tree-0-shadow); --t-dim: .6; }
-.sgrid.tree1 { --t-hi: var(--tree-1-hi); --t-main: var(--tree-1-main); --t-shadow: var(--tree-1-shadow); --t-dim: .6; }
-.sgrid.tree2 { --t-hi: var(--tree-2-hi); --t-main: var(--tree-2-main); --t-shadow: var(--tree-2-shadow); --t-dim: 1; }
+/* --t-dim: the greyed part's brightness, per tree - the same grey for all three (base.css --tree-N-dim) */
+.sgrid.tree0 { --t-hi: var(--tree-0-hi); --t-main: var(--tree-0-main); --t-shadow: var(--tree-0-shadow); --t-dim: var(--tree-0-dim); }
+.sgrid.tree1 { --t-hi: var(--tree-1-hi); --t-main: var(--tree-1-main); --t-shadow: var(--tree-1-shadow); --t-dim: var(--tree-1-dim); }
+.sgrid.tree2 { --t-hi: var(--tree-2-hi); --t-main: var(--tree-2-main); --t-shadow: var(--tree-2-shadow); --t-dim: var(--tree-2-dim); }
 /* every row the same height (the tallest's): the colour's edge falls between two rows (skills.js --fill) */
 .sgrid[class*="tree"] { position: relative; isolation: isolate; padding: 5px; border-radius: 5px; grid-auto-rows: 1fr;
   border: 1px solid color-mix(in srgb, var(--t-hi) 80%, #000); /* 1 px, like the page's other cards */

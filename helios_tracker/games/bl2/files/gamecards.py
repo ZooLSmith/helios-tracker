@@ -12,7 +12,7 @@ Borderlands - the Pre-Sequel - should work as is):
   logos": a larger black one under, "bgdClip" - the outline -, a smaller one over it, "tintClip" - the fill the
   game tints; the weapon type the same), drawn in their depth order (the names aren't used);
 - which list: the one whose labels best match the game's own keys, given by the mod from the loaded definitions
-  (set_keys: ManufacturerDefinition.FlashLabelName, WeaponTypeDefinition.ScaleformFrameName, the damage types'
+  (assets.set_keys: ManufacturerDefinition.FlashLabelName, WeaponTypeDefinition.ScaleformFrameName, the damage types'
   enum); a type / element list also nearest the chosen manufacturer's in the movie's tree (BL2's "item card"
   places all three - other movies have type lists too: the ammo's, the vendors' tabs), then the largest;
 - the art: a GFx DefineSubImage (tag 1008: bitmap id, atlas image, the rectangle) of a DefineExternalImage2 atlas
@@ -32,19 +32,19 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
-from . import gamework
-from .gameicons import decode_dxt, png
-from .tacmap import _Bits, _matrix, _movie_raw, _rect, _shape_bitmap, _tags, opened, texture
+from .... import assets, gamework
+from ....formats.image import decode_dxt, png
+from ....formats.swf import _Bits, _matrix, _movie_raw, _rect, _shape_bitmap, _tags
+from ....formats.upk import opened, texture
 
 KINDS = ("manufacturer", "type", "element")
 MIN_SCORE = 3  # a list must share this many labels with a kind's keys (a manufacturer / type list, not a stray frame)
 FAR = 99  # the tree distance of lists in another movie than the manufacturer's
 
 _lock = threading.Lock()
-_keys: dict[str, set[str]] = {k: set() for k in KINDS}
 _index: dict[str, list["Art"]] | None = None  # frame label (lower case) -> the arts showing it (gamescan's)
 _pngs: dict[tuple[str, str], bytes | None] = {}
-_anchor: list = []  # the chosen manufacturer list's art (the card: type / element lists nearest it)
+_anchor: list = []  # [the manufacturer keys, the chosen manufacturer list's art] (the card: type / element lists nearest it)
 
 
 @dataclass
@@ -77,32 +77,12 @@ class Art:
                    {int(k): v for k, v in d["ancestry"].items()}, d.get("shape", 0))
 
 
-# Called (no arguments, any thread) when ready() may have changed: the mod publishes it ("assets") - the page asks
-# for icons only once they can be found (asked before: a 404, and a map marker gave up on it)
-listener: Any = None
-
-
 def ready() -> bool:
     """Whether icons can be looked up: the game's files indexed (gamescan) and every kind's keys known (the first
     players' read)."""
     with _lock:
-        return _index is not None and all(_keys[k] for k in KINDS)
-
-
-def _changed() -> None:
-    if listener is not None:
-        try:
-            listener()
-        except Exception:  # noqa: BLE001, S110 - (the page's news: never breaks the index / the game thread)
-            pass
-
-
-def set_keys(kind: str, keys: set[str]) -> None:
-    """The game's own keys for a kind (from the loaded definitions): what its icons' frames are labelled."""
-    with _lock:
-        _keys[kind] = {k.lower() for k in keys if k}
-        _anchor.clear()
-    _changed()
+        indexed = _index is not None
+    return indexed and all(assets.keys(k) for k in KINDS)
 
 
 def set_index(index: dict[str, list[Art]]) -> None:
@@ -112,46 +92,9 @@ def set_index(index: dict[str, list[Art]]) -> None:
         _index = index
         _pngs.clear()
         _anchor.clear()
-    _changed()
+    assets.changed()
 
 
-# region The packages: the engine's config
-
-
-def engine_packages(cooked: Path) -> list[Path]:
-    """The always-loaded packages, in the engine's order: [Engine.ScriptPackages] (every *Packages entry but the
-    editor's), [Engine.StartupPackages] (Package=), from Engine/Config/BaseEngine.ini then the game's
-    Config/DefaultEngine.ini (+ entries), then the cooked Startup - only the files that exist."""
-    game = cooked.parent.parent
-    names: list[str] = []
-    for ini in [game / "Engine" / "Config" / "BaseEngine.ini", *sorted(cooked.parent.glob("Config/DefaultEngine.ini"))]:
-        try:
-            text = ini.read_text(encoding="utf-8", errors="replace")
-        except OSError:
-            continue
-        section = ""
-        for line in text.splitlines():
-            line = line.strip()
-            if line.startswith("["):
-                section = line.strip("[]")
-            elif "=" in line and not line.startswith(";"):
-                key, value = (s.strip() for s in line.split("=", 1))
-                key = key.lstrip("+.-!")
-                if (section == "Engine.ScriptPackages" and key.endswith("Packages") and "Editor" not in key) or \
-                        (section == "Engine.StartupPackages" and key == "Package"):
-                    if value and value not in names:
-                        names.append(value)
-    names.append("Startup")
-    out, seen = [], set()
-    for name in names:
-        path = cooked / f"{name}.upk"
-        if path.is_file() and path not in seen:
-            seen.add(path)
-            out.append(path)
-    return out
-
-
-# endregion
 # region The movies: lists of atlas bitmaps
 
 
@@ -525,7 +468,7 @@ def _decode_region(fmt: str, w: int, h: int, data: bytes, rect: tuple[int, int, 
     return rw, rh, out
 
 
-def layers_png(layers: list[list]) -> bytes:
+def card_job(layers: list[list]) -> bytes:
     """An icon's layers - [[package, texture, rect, declared, offset, size(, movie, shape id)]], bottom first -
     drawn over each other at their offsets (gamework's job) -> a PNG. A vector layer (a shape id): drawn at the
     bitmaps' scale (the first one's), else VECTOR_SCALE."""
@@ -583,7 +526,7 @@ def layers_png(layers: list[list]) -> bytes:
 
 
 def _groups(kind: str, label: str) -> dict[tuple, list[Art]]:
-    keys = _keys[kind]
+    keys = assets.keys(kind)
     by: dict[tuple, list[Art]] = {}
     for a in (_index or {}).get(label, []):
         if len(a.labels & keys) >= MIN_SCORE:
@@ -593,16 +536,16 @@ def _groups(kind: str, label: str) -> dict[tuple, list[Art]]:
 
 def _manufacturer_anchor() -> Art | None:
     """The manufacturer lists' art the card uses (the best overlap, the largest), for the type / element choice."""
-    if not _anchor:
-        keys = _keys["manufacturer"]
+    keys = assets.keys("manufacturer")
+    if not _anchor or _anchor[0] != keys:  # (chosen again when the keys change)
         best = None
         for key in keys:
             for arts in _groups("manufacturer", key).values():
                 rank = (max(len(a.labels & keys) for a in arts), sum(a.area for a in arts))
                 if best is None or rank > best[0]:
                     best = (rank, arts[0])
-        _anchor.append(best[1] if best else None)
-    return _anchor[0]
+        _anchor[:] = [keys, best[1] if best else None]
+    return _anchor[1]
 
 
 def _distance(arts: list[Art], anchor: Art | None) -> int:
@@ -621,7 +564,7 @@ def _choose(kind: str, label: str) -> list[Art]:
     groups = _groups(kind, label)
     if not groups:
         return []
-    keys = _keys[kind]
+    keys = assets.keys(kind)
     anchor = _manufacturer_anchor() if kind != "manufacturer" else None
 
     def rank(arts: list[Art]) -> tuple:
@@ -640,14 +583,14 @@ def card_png(kind: str, label: str) -> bytes | None:
     with _lock:
         if key in _pngs:
             return _pngs[key]
-        if not _keys[kind] or _index is None:
+        if not assets.keys(kind) or _index is None:
             return None  # (not kept: the keys come with the first players' read, the index with gamescan)
         layers = _choose(kind, key[1])
     data = None
     if layers:
         job = [[str(a.package), a.texture, list(a.rect), list(a.declared), list(a.offset), list(a.size),
                 *([a.movie, a.shape] if a.shape else [])] for a in layers]
-        data = gamework.asset({"do": "card", "layers": job}, sorted({a.package for a in layers}))
+        data = gamework.asset({"fn": gamework.fn(card_job), "layers": job}, sorted({a.package for a in layers}))
     with _lock:
         _pngs[key] = data
     return data

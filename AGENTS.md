@@ -6,7 +6,7 @@ The mod itself is the `helios_tracker/` package: read `.agent/spec.md` (the spec
 `.agent/notes.md` when working on it
 (`.agent/design.md`: design wishes not built yet, and why). See
 `.agent/references.md` for the game's layout, installed SDK version, APIs and
-useful links. The Pre-Sequel: `.agent/presequel.md`.
+useful links. The Pre-Sequel: `.agent/presequel.md`; Borderlands 1: `.agent/bl1.md`.
 
 Machine paths live in `project.json` (repo root, gitignored; from `project.example.json`): never
 hard-code one. What needs a path names its key; `<game>` in the docs is `game.path`, `<repo>` this
@@ -28,7 +28,10 @@ bl2-helios-tracker/
 │   ├── notes.md                          #   findings about the game's objects
 │   ├── design.md                         #   design wishes not built yet, and why
 │   ├── references.md                     #   game layout, SDK facts, API notes
-│   └── presequel.md                      #   the mod in the Pre-Sequel: what works, what was seen
+│   ├── presequel.md                      #   the mod in the Pre-Sequel: what works, what was seen
+│   ├── bl1.md                            #   the mod in Borderlands 1 (the original): the same
+│   ├── profiles.md                       #   the game profiles: how each game's differences are handled
+│   └── architecture.md                   #   what's wrong beyond the profiles (stalls, caches, modules)
 ├── tools/                                # offline_check.py, project.py (reads project.json),
 │   │                                     # link_mod.py, build_sdkmod.py + use_sdkmod / use_dev.bat,
 │   │                                     # release.py, fake_release.py (the updater's test server)
@@ -36,7 +39,11 @@ bl2-helios-tracker/
 │                                         #   tools (check_navwalk, dump_tacmap_movie, find_fonts...)
 └── helios_tracker/                       # the mod (Python package + web/ page)
     ├── __init__.py                       # builds + registers the mod (build_mod)
-    └── pyproject.toml                    # mod metadata (name, version, authors, description)
+    ├── pyproject.toml                    # mod metadata (name, version, authors, description)
+    ├── games/                            # the game profiles: bl2/ the base (its parts, files/), tps.py,
+    │                                     # aodk.py, bl1/ (its parts, files/) - .agent/profiles.md
+    ├── formats/                          # the file formats, no game (UE3 packages, Scaleform, fonts, images)
+    └── collector.py, inspector.py...     # the main code (no game named), gamework.py (the files worker)
 ```
 
 ## Checking & reloading
@@ -79,6 +86,20 @@ bl2-helios-tracker/
 - **US English** in everything players read (the page's `en.js`, the mod's English in `i18n.py`, the README, the
   site's `en.js` and heads): color, centered, gray, favorite... - not colour, centred. (The `{n} %` spacing is
   on purpose: font issues.)
+- **Game differences: in `games/` and `web/js/game.js`, nowhere else** (`.agent/profiles.md`: the rules, the why,
+  how to add one). One profile per game, picked once at the mod's boot (`games.pick()`), a set of parts by domain
+  (world, missions, items, objects, pawns, shops, skills, assets, ui): Borderlands 2's are the base, another game
+  subclasses only the parts that differ. The main code calls `games.GAME.<part>.<method>()` and doesn't know other ways
+  exist: no branch on a game, no comment naming another game's way (its why lives in its override) - `offline_check`
+  greps for it, and checks every game's parts keep BL2's public methods. A system a game lacks is a feature it doesn't
+  list (`games.OXYGEN in games.GAME.features`: the work skipped; a page layer's `needs: "oxygen"`: its row hidden);
+  another way of doing a job is a method, never a feature ("if the else does something, it's a method"). A game's
+  file decoding is its own too (`games/<game>/files/`, the formats shared in `formats/`; the worker runs a job naming
+  its `*_job` function). No `hasattr` / `try_` / `getattr(args, ..., default)` to guess which game it is, no
+  `game === "tps"` on the page: those hide real failures (a property gone missing in BL2 would just read as "another
+  game" - a part's failure is logged, once per method and exception type). The page gets the profile's key and
+  features in the level message; its own per-game data (rarity tiers, a currency's sign) is `game.js`'s `gameData()`.
+  Each override says what showed the difference (a probe, a log).
 - **Game enums by name**: unrealsdk's enums are int-based, `str(value)` is the number ("0"), not
   "DMGSURFACE_Generic" - a string test silently never matches. Compare through `getattr(v, "name", v)`
   (inspector.py `_enum_name`); in offline_check fake them with `enum.IntEnum`, not strings.
@@ -121,8 +142,11 @@ bl2-helios-tracker/
 - **Line endings: keep each file's own.** The repo mixes CRLF and LF files and git converts nothing (`core.autocrlf`
   false): an edit script's Python `read_text` / `write_text` turns a file into CRLF on Windows (text mode) - whole
   files then show as rewritten in the diff (it happened to 8 files once). Scripts edit bytes (`read_bytes` /
-  `write_bytes`) or open with `newline=""`; check `git diff --stat` for a file suddenly "all changed" before committing.
-- Solo repo: commit straight to `master`, no branches - and only when asked. One exception: the website.
+  `write_bytes`) or open with `newline=""`; check `git diff --stat` for a file suddenly "all changed" before committing. Git Bash's `sed -i` does it the other way: a CRLF file
+  written back LF (it happened to two files once).
+- Solo repo: commit straight to `master`, no branches - and only when asked. Exceptions: the website; `bl1`, the
+  Borderlands 1 support (the user's call: experimental - the game profiles, its package reader and vector map; origin
+  only, `.agent/bl1.md`).
 - **Never push** (any remote, any branch): the user pushes.
 
 ## Repositories

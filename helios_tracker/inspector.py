@@ -17,32 +17,25 @@ is reported (as a reason code the page translates), not guessed. Stats are sent 
 """
 
 import base64
+import html
 import json
 import math
 import re
+import time
 import zlib
 from pathlib import Path
 from typing import Any
 
 import unrealsdk
 from unrealsdk.unreal import WeakPointer
-from mods_base import Game, get_pc
+from mods_base import get_pc
 
-from . import amounts, gamecards, paths
+from . import amounts, assets, games, paths
 
 from .skills import skill_icon
-from .util import addr, call_str, def_name, field, item_name, log, log_error, named, player_info, try_
+from .util import PerObject, addr, call_str, def_name, field, item_name, log, log_error, named, player_info, try_
 
 MAX_CHAIN = 32  # guard for the linked inventory chains
-ITEM_KINDS = {  # class (or a superclass) -> kind shown by the page
-    "WillowWeapon": "weapon",
-    "WillowShield": "shield",
-    "WillowGrenadeMod": "grenade",
-    "WillowClassMod": "classmod",
-    "WillowArtifact": "relic",
-    "WillowMissionItem": "mission",
-    "WillowUsableItem": "usable",
-}
 
 _static: dict[int, dict[str, Any]] = {}  # SkillDefinition / branch address -> names (static data)
 # Backpack items, by (address, class): they only change when picked up / sold, so each is read
@@ -75,20 +68,30 @@ class _ItemCache:
 _backpack_cache = _ItemCache()
 # Equipped items' static data (name, parts...) by the same key: only their stats are re-read
 _equipped_cache = _ItemCache()
-# Skill trees by controller address: re-read only when the points spent change
-_skills_cache: dict[int, tuple[Any, dict[str, Any]]] = {}
+# A players pass builds gear cards (function calls: a few ms each - a whole backpack in one pass: 80-560 ms, a hitch) for
+# at most ITEMS_SECONDS, at least one; the rest at the next pass - the collector retries soon, publishing only a complete
+# pass (players_complete).
+ITEMS_SECONDS = 0.004
+_items_pass = {"deadline": float("inf"), "built": 0, "left": False, "skipped": 0}  # (outside a pass: no limit)
+# A skill tree whose points can't be read (another player's, on the host - its cache never hit: re-read every pass,
+# ~13 ms, 2026-10-04 co-op) is cached anyway, read again after this long
+SKILLS_UNKNOWN_EVERY = 10.0  # s
+# the last players pass's parts (s): the player's own fields (class, xp...), card keys, inventory, skills - for the
+# slow-task report's breakdown (collector, paths.DIAGNOSTICS)
+players_parts: dict[str, float] = {}
+# Skill trees by controller (checked alive: util.PerObject): re-read only when the points spent change
+_skills_cache = PerObject()
+# An item's element level (games.GAME.items.element_level - a game's may be function calls; static per item): every
+# players pass read it again for each equipped item (2026-10-04: players.inventory 3-5 ms a pass)
+_element_levels = PerObject()
 _grids: dict[tuple[str, int], list[dict[str, Any]]] = {}  # branch grids (static per class)
 _level_start: dict[int, int] = {}  # level -> total XP where it starts (a fixed game table)
 _xp_logged = [False]  # why the local player's XP is missing: logged once
 
 
 def _kind(inv: Any) -> str:
-    cls = inv.Class
-    while cls is not None:
-        if (kind := ITEM_KINDS.get(str(cls.Name))) is not None:
-            return kind
-        cls = cls.SuperField
-    return "item"
+    """An item's kind as the page shows it ("weapon", "shield"... - "item" if nothing tells): each game's."""
+    return try_(lambda: games.GAME.items.kind(inv), "item") or "item"
 
 
 
@@ -96,7 +99,7 @@ def _kind(inv: Any) -> str:
 def card_keys(inv: Any, kind: str | None = None) -> dict[str, str]:
     """Its item card icons' keys, the game's (gamecards.py serves them: /cardicon/<kind>/<key>.png): "mf" its
     manufacturer's FlashLabelName ("maliwan"), "wt" a weapon's type's ScaleformFrameName ("pistol" - a property),
-    another item's type frame from the card's own IItemCardable.GetZippyFrame() ("Artifact", "comm",
+    another item's type frame from the card's own IItemCardable.GetZippyFrame() (games.GAME.items.zippy_frame: "Artifact", "comm",
     "Customization_Head": tools/probes/probe_zippy.txt; a call - once per definition, cached; the game calls it for a ground
     item's card too), "el" its ElementalFrame ("shock" - an identifier: the game has no display name for it,
     tools/probes/probe_weapon_card2.txt). Those it has. Also for the pickups on the map (their type icon)."""
@@ -110,17 +113,19 @@ def card_keys(inv: Any, kind: str | None = None) -> dict[str, str]:
             out["wt"] = wt
     if kind != "weapon":
         definition = try_(lambda: data.ItemDefinition) if data is not None else None
-        zkey = (str(try_(lambda: inv.Class.Name, "")), definition._get_address() if definition is not None else addr(inv))
-        if zkey not in _zippy:
-            _zippy[zkey] = str(try_(lambda: inv.GetZippyFrame(), "") or "")
-        if _zippy[zkey].lower() not in ("", "none"):
-            out["wt"] = _zippy[zkey].lower()
-    if (element := try_(lambda: str(inv.ElementalFrame), "") or "").lower() not in ("", "none"):
+        # (cached per definition; without one, read each time - an item's own address would outlive it as a key)
+        zkey = (str(try_(lambda: inv.Class.Name, "")), definition._get_address()) if definition is not None else None
+        if zkey is None or zkey not in _zippy:
+            frame = str(try_(lambda: games.GAME.items.zippy_frame(inv), "") or "")
+            if zkey is not None:
+                _zippy[zkey] = frame
+        else:
+            frame = _zippy[zkey]
+        if frame.lower() not in ("", "none"):
+            out["wt"] = frame.lower()
+    if element := try_(lambda: games.GAME.items.element_frame(inv, kind), "") or "":  # (each game's)
         out["el"] = element
     return out
-
-
-GIBBED_PREFIXES = {"BL2": "BL2", "TPS": "BLOZ"}  # Gibbed's save editors' code prefix per game (none: no code)
 
 
 def gibbed_code(inv: Any) -> str:
@@ -130,7 +135,7 @@ def gibbed_code(inv: Any) -> str:
     (PackedDataHelper.Encode): the unique id cleared (then the scrambling, seeded by it, does nothing), the check
     written (CRC32 of the 40 bytes with 0xFFFF in its place, its halves xored), the trailing 0xFF bytes dropped,
     base64. A call, once per item record (they're cached)."""
-    prefix = GIBBED_PREFIXES.get(getattr(Game.get_current(), "name", ""), "")
+    prefix = games.GAME.gibbed_prefix
     serial = try_(lambda: inv.CreateSerialNumber()) if prefix else None
     if serial is None or _enum_name(try_(lambda: serial.State, "")) != "SNS_Full":
         return ""
@@ -169,7 +174,11 @@ def _stats(inv: Any, kind: str) -> list[list[Any]]:
     if kind == "weapon":
         (dmg0, dmg), pellets = pair("InstantHitDamage"), get("ProjectilesPerShot")
         if dmg:
-            out.append(["damage", round(dmg0), round(dmg), round(pellets or 1)])
+            # rounded as the game's card does (its profile's damage_presentation), else to the nearest
+            if (pres := _damage_presentation()) is not None:
+                out.append(["damage", _presented(pres, dmg0)[0], _presented(pres, dmg)[0], round(pellets or 1)])
+            else:
+                out.append(["damage", round(dmg0), round(dmg), round(pellets or 1)])
         spread0, spread = pair("Spread")
         if spread is not None and (accuracy := _accuracy(inv, spread0, spread)) is not None:
             out.append(["accuracy", *accuracy])
@@ -184,6 +193,11 @@ def _stats(inv: Any, kind: str) -> list[list[Any]]:
             out.append(["reload", round(reload0, 2), round(reload, 2)])
         if (chance := _element_chance(inv)) is not None:
             out.append(["elementChance", *chance])
+    if (level := try_(lambda: _element_levels.get(inv))) is None:  # (static per item: read once)
+        level = try_(lambda: games.GAME.items.element_level(inv, kind), 0) or 0
+        try_(lambda: _element_levels.put(inv, level))  # (an object it can't key - the offline check's fakes: read each time)
+    if level:
+        out.append(["elementLevel", level, level])
     elif kind == "grenade":
         dmg0, dmg = pair("GrenadeDamage")
         if dmg:
@@ -204,16 +218,18 @@ _accuracy_pres: list[Any] = []  # [the presentation, or None]: found once
 
 def _presented(pres: Any, value: float) -> tuple[float, int]:
     """A value rounded as its attribute presentation shows it: (value, decimals). RoundingMode ATTRROUNDING_IntRound
-    -> a whole number (half away from zero, not Python's to-even); ATTRROUNDING_Float (the accuracy's) or unset ->
-    FloatPrecision decimals (its class default 1: the accuracy's 72.1; a shield's delay 2); another mode: logged once,
-    FloatPrecision meanwhile (not guessed)."""
+    -> a whole number (half away from zero, not Python's to-even); ATTRROUNDING_IntCeil -> rounded up; ATTRROUNDING_Float
+    (the accuracy's) or unset -> the game's decimals (games.GAME.items.presented_decimals: BL2's FloatPrecision);
+    another mode: logged once, those decimals meanwhile (not guessed)."""
     mode = str(getattr(try_(lambda: pres.RoundingMode), "name", "") or "")
     if mode == "ATTRROUNDING_IntRound":
         return math.floor(abs(value) + 0.5) * (1 if value >= 0 else -1), 0
+    if mode == "ATTRROUNDING_IntCeil":  # (up to the next whole number: a projectile's damage - probe_bl1_cards.txt)
+        return math.ceil(value), 0
     if mode not in ("", "ATTRROUNDING_Float") and mode not in _rounding_logged:
         _rounding_logged.add(mode)
         log(f"item card stat rounding not handled: {mode} ({try_(lambda: pres._path_name(), '?')})")
-    decimals = max(0, min(4, try_(lambda: int(pres.FloatPrecision), 0) or 0))
+    decimals = try_(lambda: games.GAME.items.presented_decimals(pres), 0) or 0  # (each game's)
     return round(value, decimals), decimals
 
 
@@ -231,6 +247,17 @@ def _remapped(pres: Any, value: float, inv: Any) -> float | None:
         return None
     in_mn, in_mx, out_mn, out_mx = bounds
     return out_mn + (value - in_mn) * (out_mx - out_mn) / (in_mx - in_mn)
+
+
+_damage_pres: list[Any] = []  # the game's damage presentation (its profile's), looked up once
+
+
+def _damage_presentation() -> Any:
+    """The weapon card damage's attribute presentation, if the game has one for it (games.GAME.damage_presentation)."""
+    if not _damage_pres:
+        path = games.GAME.damage_presentation
+        _damage_pres.append(try_(lambda: unrealsdk.find_object("AttributePresentationDefinition", path)) if path else None)
+    return _damage_pres[0]
 
 
 def _accuracy(inv: Any, spread0: float | None, spread: float) -> list[Any] | None:
@@ -269,16 +296,17 @@ def _localized(obj: Any, grade: int) -> str:
     """The game's own display text for a definition, in the game's language ("" if it has none).
 
     Localized properties (see the repo's .agent/notes.md): name parts' PartName, weapon types'
-    Typename, item definitions' ItemName, manufacturers' Grades[grade].DisplayName.
+    Typename, item definitions' ItemName, manufacturers' Grades[grade].DisplayName. HTML entities decoded, as the
+    game's (Scaleform, HTML) text fields show them: "S&amp;S Munitions" (the page escapes what it shows itself).
     """
     for prop in ("PartName", "Typename", "ItemName"):
         text = try_(lambda p=prop: str(getattr(obj, p)), "")
         if text and text != "None":  # ("None": an unset name, not a name - the Pre-Sequel's Tediore laser type has none)
-            return text
+            return html.unescape(text)
     grades = try_(lambda: list(obj.Grades), [])
     if grades:
         grade_data = grades[grade] if 0 <= grade < len(grades) else grades[0]
-        return try_(lambda: str(grade_data.DisplayName), "")
+        return html.unescape(try_(lambda: str(grade_data.DisplayName), "") or "")
     return ""
 
 
@@ -348,11 +376,12 @@ def _item(inv: Any, equipped: bool, ctrl: Any = None) -> dict[str, Any]:
         "k": kind,
         "c": str(inv.Class.Name),
         "q": try_(lambda: int(inv.RarityLevel), 0),
-        "l": try_(lambda: int(inv.ExpLevel), 0),
+        "l": try_(lambda: games.GAME.items.card_level(inv, int(inv.ExpLevel)), 0),  # (the card's: each game's)
         "v": try_(lambda: int(inv.MonetaryValue), 0),
         "e": equipped,
         "stats": _stats(inv, kind),
-        **({"ui": ui} if kind == "shield" and (ui := _ui_stats(inv)) else {}),  # its card's stats (the game's labels)
+        # its card's stats, the game's labels - the kinds whose card lists them (games.GAME.ui_stat_kinds: a shield)
+        **({"ui": ui} if kind in games.GAME.ui_stat_kinds and (ui := _ui_stats(inv)) else {}),
     }
     if card := _card_lines(inv, kind):
         item["card"] = card
@@ -365,7 +394,7 @@ def _item(inv: Any, equipped: bool, ctrl: Any = None) -> dict[str, Any]:
         damage_type = next(iter(try_(lambda: list(inv.InstantHitDamageTypeDefinitions), []) or []), None)
         colour = try_(lambda: damage_type.HUDDamageColor) if damage_type is not None else None
         if damage_type is not None and (enum := _enum_name(try_(lambda: damage_type.DamageType, ""))):
-            learn_frame(enum, item["el"])  # (its card frame, the game's: for the barrels' element icons)
+            games.GAME.items.learn_element(enum, item["el"])  # (its card frame next to its damage type: each game's)
         if damage_type is not None and (name := _element_name(damage_type, ctrl or get_pc())):
             item["eln"] = name  # the game's name for it ("shock": its localization)
         if colour is not None:
@@ -380,9 +409,36 @@ def _item(inv: Any, equipped: bool, ctrl: Any = None) -> dict[str, Any]:
     return item
 
 
-def _equipped_item(inv: Any) -> dict[str, Any]:
-    """An equipped item: static data from the cache, stats (owner's bonuses) and slot read now."""
-    static = _equipped_cache.get(inv) or _equipped_cache.put(inv, _item(inv, True))
+def _cached_item(cache: _ItemCache, inv: Any, equipped: bool) -> dict[str, Any] | None:
+    """An item's card from the cache - else built, if the pass has time left (ITEMS_SECONDS; at least one per pass);
+    None: left for the next pass (players_complete says so)."""
+    if (record := cache.get(inv)) is not None:
+        return record
+    if _later():
+        return None
+    _items_pass["built"] += 1
+    return cache.put(inv, _item(inv, equipped))
+
+
+def _later() -> bool:
+    """The pass's budget spent (at least one thing built): what's not cached yet is left for the next pass."""
+    if _items_pass["built"] and time.perf_counter() > _items_pass["deadline"]:
+        _items_pass["left"] = True
+        _items_pass["skipped"] += 1
+        return True
+    return False
+
+
+def players_complete() -> bool:
+    """Whether the last read_players built every card it met (else: some left for the next pass)."""
+    return not _items_pass["left"]
+
+
+def _equipped_item(inv: Any) -> dict[str, Any] | None:
+    """An equipped item: static data from the cache, stats (owner's bonuses) and slot read now (None: its card left
+    for the next pass)."""
+    if (static := _cached_item(_equipped_cache, inv, True)) is None:
+        return None
     item = {**static, "stats": _stats(inv, static["k"])}
     if item["k"] == "weapon":
         item.pop("slot", None)
@@ -397,7 +453,8 @@ def _chain(first: Any, equipped: bool) -> list[dict[str, Any]]:
         if inv is None:
             break
         try:
-            out.append(_equipped_item(inv) if equipped else _item(inv, equipped))
+            if (item := _equipped_item(inv) if equipped else _item(inv, equipped)) is not None:
+                out.append(item)
         except Exception as ex:  # noqa: BLE001
             log_error("inspect item", ex)
         inv = try_(lambda i=inv: field(i, "Inventory"))
@@ -415,7 +472,8 @@ def _inventory(pawn: Any, player: dict[str, Any]) -> None:
                 continue
             seen.add(key)
             try:
-                equipped.append(_equipped_item(inv))
+                if (item := _equipped_item(inv)) is not None:
+                    equipped.append(item)
             except Exception as ex:  # noqa: BLE001
                 log_error("inspect item", ex)
         equipped.sort(key=lambda it: (it["k"] != "weapon", it.get("slot", 9), it["k"]))
@@ -430,7 +488,8 @@ def _inventory(pawn: Any, player: dict[str, Any]) -> None:
         if inv is None:
             continue
         try:
-            backpack.append(_backpack_cache.get(inv) or _backpack_cache.put(inv, _item(inv, False)))
+            if (item := _cached_item(_backpack_cache, inv, False)) is not None:
+                backpack.append(item)
         except Exception as ex:  # noqa: BLE001
             log_error("inspect backpack item", ex)
     player["equipped"] = equipped
@@ -485,6 +544,10 @@ def _skill_stats(sd: Any, ctrl: Any, grade: int) -> list[dict[str, Any]]:
     key = (sd._get_address(), grade, level)
     if key in _stats_cache:
         return _stats_cache[key]
+    # (a players pass's budget, the cards': a first tree is ~100 calls - 90 ms in one pass, a player joining)
+    if _later():
+        return []
+    _items_pass["built"] += 1
     result = try_(lambda: sd.GetSkillEffectPresentations(grade, ctrl, []))
     entries = result[1] if isinstance(result, tuple) and len(result) > 1 else []
     out = [line for e in entries or [] if (line := _presentation_line(e))]
@@ -556,7 +619,9 @@ def _presentation_line(entry: Any, item: Any = None) -> dict[str, Any] | None:
         rgb = tuple(try_(lambda c=c: int(getattr(colour, c)), 255) for c in ("R", "G", "B"))
         if rgb != (255, 255, 255):
             line["col"] = "#%02x%02x%02x" % rgb
-    if item is not None and (current := _attribute_value(item, try_(lambda: p.Attribute))) is not None:
+    if item is not None and (shown := try_(lambda: games.GAME.items.card_line_value(entry, p, item))) is not None:
+        line["dv"], line["dp"] = shown  # the number as the game shows it (its profile's card_line_value)
+    elif item is not None and (current := _attribute_value(item, try_(lambda: p.Attribute))) is not None:
         line["cur"] = current
     return line
 
@@ -612,9 +677,15 @@ def learn_frame(enum: str, frame: str) -> None:
 
 
 def element_frame(enum: str) -> str:
-    """A damage type's card frame: learned, else the enum's name in lower case ("" for none). The one place a damage
-    type becomes its icon's frame (element_of, the collector's update of an object's "el"): another source - another
-    enum, a mapping found in the game's data - replaces this function's body, nothing else."""
+    """A damage type's card frame ("" for none): each game's way (games.GAME.items.damage_type_frame). The one place a damage
+    type becomes its icon's frame (element_of, the collector's update of an object's "el")."""
+    return games.GAME.items.damage_type_frame(enum)
+
+
+def learned_frame(enum: str) -> str:
+    """BL2's damage type frame: learned from the weapons seen (learn_frame), else the enum's name in lower case ("" for
+    none) - games.GAME.items.damage_type_frame. Another source (another enum, a mapping found in the game's data) replaces
+    this function's body, nothing else."""
     frame = _element_frames.get(enum) or _ENUM_FRAMES.get(enum) or enum.removeprefix("DAMAGE_TYPE_").lower()
     return "" if frame in ("", "none", "normal", "unknown") else frame
 _explosions: dict[int, dict[str, Any]] = {}  # object definition address -> its explosion's element ({} none), static
@@ -669,20 +740,17 @@ def buff_info(definition: Any, lootable: bool = False) -> bool:
 
 def explosion_info(definition: Any, ctrl: Any = None) -> dict[str, Any]:
     """An interactive object that explodes (a barrel): its definition's behaviours hold a Behavior_Explode
-    (BehaviorProviderDefinition.BehaviorSequences[].BehaviorData2[].Behavior - the Pre-Sequel's barrels: bBarrelSource;
+    (games.GAME.objects.behaviors - BL2: BehaviorProviderDefinition.BehaviorSequences[].BehaviorData2[].Behavior - the
+    Pre-Sequel's barrels: bBarrelSource;
     the air dome generator, with health too: no behaviours) -> {"xp": 1, its explosion's element (element_of:
     Behavior_Explode.Definition.DamageTypeDef)}, {} if it doesn't. Per definition, once (static data)."""
     key = definition._get_address()
     if key not in _explosions:
         found: dict[str, Any] = {}
-        for seq in try_(lambda: list(definition.BehaviorProviderDefinition.BehaviorSequences), []) or []:
-            for data in try_(lambda s=seq: list(s.BehaviorData2), []) or []:
-                behavior = try_(lambda d=data: d.Behavior)
-                if behavior is not None and try_(lambda b=behavior: str(b.Class.Name), "") == "Behavior_Explode":
-                    damage_type = try_(lambda b=behavior: b.Definition.DamageTypeDef)
-                    found = {"xp": 1, **(element_of(damage_type, ctrl) if damage_type is not None else {})}
-                    break
-            if found:
+        for behavior in try_(lambda: games.GAME.objects.behaviors(definition), []) or []:  # (each game's way)
+            if try_(lambda b=behavior: str(b.Class.Name), "") == "Behavior_Explode":
+                damage_type = try_(lambda b=behavior: b.Definition.DamageTypeDef)
+                found = {"xp": 1, **(element_of(damage_type, ctrl) if damage_type is not None else {})}
                 break
         _explosions[key] = found
     return _explosions[key]
@@ -810,27 +878,35 @@ def _card_lines(inv: Any, kind: str) -> list[dict[str, Any]]:
     return out
 
 
-_card_keys_sent = [False]
+_card_keys_done = [0]  # steps done (_card_keys: one per players pass)
+
+
+CARD_KEY_FINDS = (("manufacturer", "ManufacturerDefinition", "FlashLabelName"),
+                  ("type", "WeaponTypeDefinition", "ScaleformFrameName"))
 
 
 def _card_keys() -> None:
-    """Once: the game's keys for the item card icons, from the loaded definitions - every manufacturer's
-    FlashLabelName, every weapon type's ScaleformFrameName (gamecards.py picks the sprites labelled with them).
-    Two find_all (each walks every object): once per session."""
-    if _card_keys_sent[0]:
+    """Once a session: the game's keys for the item card icons, from the loaded definitions - every manufacturer's
+    FlashLabelName, every weapon type's ScaleformFrameName (gamecards.py picks the sprites labelled with them), the
+    elements'. A step per call - per players pass (each find_all walks every object: all of them in one pass were
+    74 ms, the first players pass's hitch)."""
+    step = _card_keys_done[0]
+    if step > len(CARD_KEY_FINDS):
         return
-    _card_keys_sent[0] = True
-    for kind, cls, prop in (("manufacturer", "ManufacturerDefinition", "FlashLabelName"),
-                            ("type", "WeaponTypeDefinition", "ScaleformFrameName")):
+    _card_keys_done[0] += 1
+    if step < len(CARD_KEY_FINDS):
+        kind, cls, prop = CARD_KEY_FINDS[step]
         keys = {str(try_(lambda d=d: getattr(d, prop), "") or "") for d in try_(lambda c=cls: list(unrealsdk.find_all(c, exact=False)), []) or []
                 if not d.Name.startswith("Default__")}
-        gamecards.set_keys(kind, keys - {"", "None"})
+        assets.set_keys(kind, keys - {"", "None"})
+        return
     # the elements': the damage types' DamageType enum, its names without DAMAGE_TYPE_ (Shock, Amp: slag...) - the
-    # element list's frames ("shock", "amp"; a weapon's ElementalFrame picks one)
-    damage_type = next(iter(try_(lambda: list(unrealsdk.find_all("WillowDamageTypeDefinition", exact=False)), []) or []), None)
-    enum = type(try_(lambda: damage_type.DamageType)) if damage_type is not None else None
+    # element list's frames ("shock", "amp"; a weapon's ElementalFrame picks one) - the enum's type from the class's
+    # default object (a find_all only for it walked every object)
+    default = try_(lambda: unrealsdk.find_class("WillowDamageTypeDefinition").ClassDefaultObject)
+    enum = type(try_(lambda: default.DamageType)) if default is not None else None
     members = getattr(enum, "__members__", None) or {}
-    gamecards.set_keys("element", {name.removeprefix("DAMAGE_TYPE_") for name in members} - {"", "MAX"})
+    assets.set_keys("element", {name.removeprefix("DAMAGE_TYPE_") for name in members} - {"", "MAX"})
 
 
 def _skill_bonuses(pawn: Any) -> dict[str, int]:
@@ -867,14 +943,15 @@ def _skills(ctrl: Any, player: dict[str, Any], bonuses: dict[str, list[list[Any]
         return
     # The whole tree is ~50 skills x several reads: only re-read when the points spent change
     points = try_(lambda: int(tree.GetSkillPointsSpentInTree()), None)
-    ctrl_key = ctrl._get_address()  # (not `key`: the loops below used to overwrite it - the cache never hit)
     bonuses = bonuses or {}
     # (a class mod swapped: the bonuses change, not the points)
     cache_key = (points, tuple(sorted((k, tuple(map(tuple, v))) for k, v in bonuses.items())))
-    cached = _skills_cache.get(ctrl_key)
-    if cached is not None and cached[0] == cache_key and points is not None:
+    cached = _skills_cache.get(ctrl)
+    # (unknown points - another player's on the host: the cached tree until its refresh time, not every pass)
+    if cached is not None and cached[0] == cache_key and (points is not None or time.monotonic() < cached[2]):
         player.update(cached[1])
         return
+    skipped = _items_pass["skipped"]
     # The tree's arrays (PlayerSkillTree*Data structs): Branches[] = {Definition, ...},
     # Tiers[] = {TierNumber, ParentBranchIndex, ...}, Skills[] = {Definition, Grade, ParentTierIndex,
     # ...}: a skill -> its tier -> its branch, by index. (Not the SkillTree*StateData structs:
@@ -952,7 +1029,8 @@ def _skills(ctrl: Any, player: dict[str, Any], bonuses: dict[str, list[list[Any]
     if loose:
         trees.insert(0, {"n": "", "pts": 0, "skills": loose})  # the page names it
     result = {"skills": trees, "skillPoints": points}
-    _skills_cache[ctrl_key] = (cache_key, result)
+    if _items_pass["skipped"] == skipped:  # (complete - else again at the next pass, its stats cached so far kept)
+        _skills_cache.put(ctrl, (cache_key, result, time.monotonic() + SKILLS_UNKNOWN_EVERY))
     player.update(result)
 
 
@@ -1008,45 +1086,58 @@ def _xp(ctrl: Any, pri: Any, level: int) -> dict[str, Any]:
     return {"xp": [total - start, next_at - start]}
 
 
-_class_names: dict[int, dict[str, Any]] = {}  # controller / player info address -> _class_name()
+_class_names = PerObject()  # controller / player info -> _class_name() (checked alive: util.PerObject)
 
 
 def _class_name(ctrl: Any, pri: Any) -> dict[str, Any]:
     """_class_name_uncached(), once per player (a player's class never changes)."""
     owner = ctrl if ctrl is not None else pri
-    key = try_(lambda: owner._get_address())
-    if key is None:
+    if owner is None:
         return _class_name_uncached(ctrl, pri)
-    if (cached := _class_names.get(key)) is None:
+    if (cached := _class_names.get(owner)) is None:
         cached = _class_name_uncached(ctrl, pri)
         if cached.get("cls") and not cached.get("clsRaw"):  # only the game's name (not yet loaded: again next time)
-            _class_names[key] = cached
+            _class_names.put(owner, cached)
     return cached
 
 
 def _class_name_uncached(ctrl: Any, pri: Any) -> dict[str, Any]:
-    """{"cls": class, "char": character} - the game's localized class name ("Gunzerker" /
-    "Défourailleur") and character name ("Salvador"), via the player info (shared with everyone:
-    works for others on a client too) or the class definition; else the class definition's object
-    name, flagged made-up ("clsRaw")."""
-    # The player info points at the *character* (PlayerNameIdentifierDefinition: "Salvador"), whose
-    # CharacterClassId is the class (PlayerClassIdentifierDefinition: "Gunzerker") - seen in game
+    """{"cls": class, "char": character} - the game's localized class name ("Gunzerker" / "Défourailleur") and
+    character name ("Salvador"), each game's way (games.GAME.pawns.class_name); else the class definition's
+    object name, flagged made-up ("clsRaw")."""
+    out = dict(try_(lambda: games.GAME.pawns.class_name(ctrl, pri), {}) or {})
+    if out.get("cls"):
+        return out
+    raw = def_name(try_(lambda: ctrl.PlayerClass) if ctrl is not None else None)
+    return {**out, "cls": raw, "clsRaw": 1} if raw else {**out, "cls": ""}
+
+
+def class_identifiers(ctrl: Any, pri: Any) -> dict[str, Any]:
+    """BL2's class / character names (games.GAME.pawns.class_name): the player info (shared with everyone: works for others on
+    a client too) or the class definition points at the *character* (PlayerNameIdentifierDefinition: "Salvador"), whose
+    CharacterClassId is the class (PlayerClassIdentifierDefinition: "Gunzerker") - seen in game. Those it has."""
     character = try_(lambda: pri.CharacterNameIdDef) or try_(lambda: ctrl.PlayerClass.CharacterNameId)
     class_id = try_(lambda: character.CharacterClassId)
     out: dict[str, Any] = {}
     if name := try_(lambda: str(character.LocalizedCharacterName), ""):
         out["char"] = name
-    text = try_(lambda: str(class_id.LocalizedClassNameNonCaps), "")
-    if text:
-        return {**out, "cls": text}
-    raw = def_name(try_(lambda: ctrl.PlayerClass) if ctrl is not None else None) or def_name(class_id)
-    return {**out, "cls": raw, "clsRaw": 1} if raw else {**out, "cls": ""}
+    if text := try_(lambda: str(class_id.LocalizedClassNameNonCaps), ""):
+        out["cls"] = text
+    return out
 
 
 def read_players(world_info: Any, me: Any, pc: Any = None) -> list[dict[str, Any]]:
     """Every player pawn in the level, with what can be read of their gear and skills."""
     for cache in (_backpack_cache, _equipped_cache):
         cache.sweep()  # the items destroyed since (sold, used, gone with a level)
+    _items_pass.update(deadline=time.perf_counter() + ITEMS_SECONDS, built=0, left=False, skipped=0)
+    players_parts.clear()
+
+    def part(name: str, since: float) -> float:  # (this part's time; the next one starts now)
+        now = time.perf_counter()
+        players_parts[name] = players_parts.get(name, 0.0) + now - since
+        return now
+
     players = []
     me_addr = addr(me) if me is not None else None
     # Who hosts: us unless we're a client (NetMode 3); then the party leader (the host's player info
@@ -1059,7 +1150,12 @@ def read_players(world_info: Any, me: Any, pc: Any = None) -> list[dict[str, Any
         try:
             # the class first (cheap): the player info (slow reads) only for players
             pri = player_info(pawn) if "PlayerPawn" in str(pawn.Class.Name) else None  # the vehicle's while driving
+            if pri is None and me is not None and pc is not None and addr(pawn) == me_addr:
+                # (ours without one: the controller's own - a driver pawn may have none in a vehicle, nor its seat:
+                # tools/probes/probe_bl1_driving.txt - left out, the list lost us)
+                pri = try_(lambda: pc.PlayerReplicationInfo)
             if pri is not None and not field(pawn, "bDeleteMe"):
+                mark = time.perf_counter()
                 # Driving, the controller possesses the vehicle and the player pawn's own is None:
                 # through the vehicle, and ours is always the local player controller
                 ctrl = try_(lambda p=pawn: p.Controller) or try_(lambda p=pawn: p.DrivenVehicle.Controller)
@@ -1080,12 +1176,17 @@ def read_players(world_info: Any, me: Any, pc: Any = None) -> list[dict[str, Any
                     log(f"xp unavailable for the local player: controller={ctrl is not None}"
                         f" total={try_(lambda: ctrl.ExpPool.Data.CurrentValue)}"
                         f" next={try_(lambda: pri.ExpPointsNextLevelAt)} level={try_(lambda: pri.ExpLevel)}")
+                mark = part("player", mark)
                 _card_keys()
+                mark = part("card keys", mark)
                 _inventory(pawn, player)
-                _skills(ctrl, player, try_(lambda p=pawn: _skill_bonuses(p), {}))
+                mark = part("inventory", mark)
+                games.GAME.skills.read(ctrl, player, try_(lambda p=pawn: _skill_bonuses(p), {}))  # (each game's tree)
+                part("skills", mark)
                 players.append(player)
         except Exception as ex:  # noqa: BLE001
             log_error("inspect player", ex)
         pawn = try_(lambda p=pawn: field(p, "NextPawn"))
+    _items_pass["deadline"] = float("inf")  # (the pass over: cards asked elsewhere are built)
     players.sort(key=lambda p: (not p["local"], p["n"].lower()))
     return players

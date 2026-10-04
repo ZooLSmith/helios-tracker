@@ -20,18 +20,20 @@ import time
 from typing import Any
 
 from mods_base import BoolOption, ButtonOption, HiddenOption, SliderOption, build_mod, hook
-from ui_utils import OptionBox, OptionBoxButton, hide_coop_message, show_coop_message
+from ui_utils import OptionBox, OptionBoxButton
 from unrealsdk.hooks import Type, add_hook, remove_hook
 from unrealsdk.unreal import BoundFunction, UObject, WrappedStruct
 
-from .collector import Collector, cooked_dir, game_language
-from . import gamecards, gamefonts, gameicons, gamescan, gamework, i18n, updater
+from .collector import Collector, game_language
+from . import assets, games, gamework, i18n, updater
+from .frames import FRAMES
 from .script import start_script
 from .server import Hub, TrackerServer
 from .i18n import t
 from .util import log, log_error, start_log
 
-start_log()
+games.pick()  # the game running's profile, once (games/__init__.py: importing it needs no SDK)
+start_log(games.GAME.key)  # (one log per game: helios_tracker_bl2.log...)
 i18n.set_game_language(game_language())  # (the in-game text: options, the updater's boxes)
 
 _STALE = "_helios_tracker_server"  # sys attribute: the running server, across module reloads
@@ -106,7 +108,7 @@ open_page = ButtonOption(
 # (ui_utils.OptionBox) shows it - "Checking for updates..." (Cancel), then the answer; a newer one: asked first
 # (Download and Install / Not Now: nothing downloaded before), "Downloading vX...", then Reload Now / Later - each box
 # replacing the last (an open box's text can't be changed through ui_utils) - and the bottom-left message
-# (show_coop_message) says what the automatic path did.
+# (games.GAME.ui.show_message) says what the automatic path did.
 # The checks run in a thread; what they show goes through _ui_queue, drained on the game thread by on_post_render.
 
 UPDATE_EVERY = 24 * 3600  # s between automatic checks
@@ -126,7 +128,7 @@ def _on_game_thread(fn: Any) -> None:
 
 def _toast(text: str) -> None:
     def show() -> None:
-        show_coop_message(text)
+        games.GAME.ui.show_message(text, TOAST_FOR)
         _toast_until[0] = time.monotonic() + TOAST_FOR
 
     _on_game_thread(show)
@@ -142,7 +144,7 @@ def _drain_ui(now: float) -> None:
     if _toast_until[0] and now > _toast_until[0]:
         _toast_until[0] = 0.0
         try:
-            hide_coop_message()
+            games.GAME.ui.hide_message()
         except Exception as ex:  # noqa: BLE001
             log_error("update message", ex)
 
@@ -305,7 +307,7 @@ def _start_check(auto: bool) -> None:
 # The automatic path reloads by itself: from a one-shot hook on another function (the queue drains in our PostRender
 # hook, which the reload removes - not done from inside it), the next frame; the new module says it (the old one's
 # message would never be hidden: its hook is gone) - the tag handed over on sys.
-RELOAD_HOOK = ("WillowGame.WillowGameViewportClient:Tick", "helios_tracker.auto_reload")
+RELOAD_HOOK = (games.GAME.tick_function, "helios_tracker.auto_reload")  # (each game's)
 _UPDATED = "_helios_tracker_updated"  # sys attribute: the tag just installed by the automatic path, for the new module
 
 
@@ -366,8 +368,8 @@ _collector = Collector(_hub)  # not `collector`: that would shadow the submodule
 
 def _publish_assets() -> None:
     """The game assets the server can serve now ("assets": the page asks for item card icons only once they're there -
-    before, a 404). Any thread (gamecards.listener: the files' scan, the first players' read)."""
-    payload = '{"cards":%d,"textures":%d}' % (gamecards.ready(), gameicons.textures_ready())
+    before, a 404). Any thread (assets.listener: the game's files read, the first players' read)."""
+    payload = '{"cards":%d,"textures":%d}' % (games.GAME.assets.card_icons_ready(), games.GAME.assets.textures_ready())
     if payload != _assets_sent[0]:  # (only when it changed: the three kinds' keys come one by one)
         _assets_sent[0] = payload
         _hub.publish("assets", payload)
@@ -376,7 +378,7 @@ def _publish_assets() -> None:
 _assets_sent = [""]
 
 
-gamecards.listener = _publish_assets
+assets.listener = _publish_assets
 _publish_assets()
 
 
@@ -452,40 +454,32 @@ def _start_locked(new_port: int | None, new_lan: bool | None) -> None:
         where += f" (LAN: http://{ip}:{port_value}/)"
     log(f"live map at {where}")
     setattr(sys, _STALE_SCRIPT, start_script(port_value))
-    _hub.fonts = gamefonts.FONTS  # (its catalogue from the game files' scan: when a page connects)
+    _hub.fonts = assets.FONTS  # (its catalogue from the game files: as the game's profile reads them)
+    _start_assets(True)  # (a game whose files are read at once, at boot: its profile's assets.job)
 
 
-_scan_started = [False]
+_assets_started = [False]
 
 
-def _scan_game_files() -> None:
-    """The game files' index (fonts, item card / skill icons: gamescan.py - one pass, cached on disk), once per
-    session, when a page first connects (not at every game start); a thread waiting on gamework's subinterpreter
-    (the scan itself runs there, beside the game - or here, politely, without one)."""
-    if _scan_started[0]:
+def _start_assets(boot: bool) -> None:
+    """The game's files (fonts, item card / skill icons) - read once per session, in a thread, when its profile says:
+    at boot, or when a page first connects (games.GAME.assets.job: BL2's scan when a page connects - not at every game
+    start - another game's few headers at boot). The work itself waits on gamework's subinterpreter (beside the game - or here,
+    politely, without one)."""
+    if _assets_started[0]:
         return
-    _scan_started[0] = True
-    # the game's language (Core.Object's static GetLanguage: "INT", "RUS"... - read here, on the game thread): its font
-    # library (gamefonts.font_library)
-    language = game_language()
-
-    def scan() -> None:
-        try:
-            t = time.monotonic()
-            gamescan.run(cooked_dir(), language)
-            log(f"game files indexed in {time.monotonic() - t:.1f} s ({gamework.mode()}): language {language or '?'}"
-                f" ({gamefonts.font_library(language)}), fonts {', '.join(gamefonts.FONTS.names())}")
-        except Exception as ex:  # noqa: BLE001
-            log_error("game files scan", ex)
-
-    threading.Thread(target=scan, name="helios_tracker game files", daemon=True).start()
+    if (job := games.GAME.assets.job(boot)) is None:
+        return
+    _assets_started[0] = True
+    threading.Thread(target=job, name="helios_tracker game files", daemon=True).start()
 
 
-_collector.on_page = lambda: _scan_game_files()
+_collector.on_page = lambda: _start_assets(False)
 
 
 def _on_enable() -> None:
     _collector.reset()
+    FRAMES.start_canary()  # (frames.py: tells a GIL held outside our hooks)
     _serving[0] = True
     _start()
     _announce_update()
@@ -497,6 +491,7 @@ def _on_disable() -> None:
         _serving[0] = False
         _stop_locked()
     _stop_worker()
+    FRAMES.stop_canary()
     _collector.reset()
 
 
@@ -520,67 +515,75 @@ _next = [0.0]
 
 @hook("WillowGame.WillowGameViewportClient:PostRender", Type.POST)
 def on_post_render(obj: UObject, args: WrappedStruct, ret: Any, func: BoundFunction) -> None:  # noqa: ARG001
-    now = time.monotonic()
-    if _ui_queue or _toast_until[0]:
-        _drain_ui(now)
-    if now < _next[0]:
-        return
-    _collector.rate = max(1.0, float(rate.value))
-    _next[0] = now + 1.0 / _collector.rate
-    try:
-        _collector.tick(now)
-    except Exception as ex:  # noqa: BLE001
-        log_error("tick", ex)
+    FRAMES.frame(time.perf_counter())  # (a frame starts: the one before is measured - frames.py)
+    with FRAMES.ours():
+        now = time.monotonic()
+        if _ui_queue or _toast_until[0]:
+            _drain_ui(now)
+        if now < _next[0]:
+            return
+        _collector.rate = max(1.0, float(rate.value))
+        _next[0] = now + 1.0 / _collector.rate
+        try:
+            _collector.tick(now)
+        except Exception as ex:  # noqa: BLE001
+            log_error("tick", ex)
 
 
 @hook("WillowGame.WillowScrollingList:HandlePopList", Type.POST)
 def on_menu_back(obj: UObject, args: WrappedStruct, ret: Any, func: BoundFunction) -> None:  # noqa: ARG001
     """Leaving an options screen (the mod menu saves there too): the Port slider moved - the server restarted once."""
-    if _port_changed[0]:
-        _port_changed[0] = False
-        _restart_soon()
+    with FRAMES.ours():
+        if _port_changed[0]:
+            _port_changed[0] = False
+            _restart_soon()
 
 
 @hook("WillowGame.WillowPlayerController:ClientPlayBinkMovie", Type.PRE)
 def on_bink_movie(obj: UObject, args: WrappedStruct, ret: Any, func: BoundFunction) -> None:  # noqa: ARG001
     """A cutscene video starting: the game renders nothing until it's over (tools/probes/probe_cutscene_watch.txt)."""
-    try:
-        _collector.movie_started(obj, str(args.MovieName), bool(args.bForceNoSkip))
-    except Exception as ex:  # noqa: BLE001
-        log_error("movie hook", ex)
+    with FRAMES.ours():
+        try:
+            _collector.movie_started(obj, str(args.MovieName), games.GAME.world.movie_no_skip(args))
+        except Exception as ex:  # noqa: BLE001
+            log_error("movie hook", ex)
 
 
 @hook("WillowGame.WillowPickup:PostBeginPlay", Type.POST)
 def on_pickup_spawn(obj: UObject, args: WrappedStruct, ret: Any, func: BoundFunction) -> None:  # noqa: ARG001
     """New pickups (loot drops...) as they appear: replaces frequent find_all scans (hitches)."""
-    try:
-        _collector.pickup_spawned(obj)
-    except Exception as ex:  # noqa: BLE001
-        log_error("pickup hook", ex)
+    with FRAMES.ours():
+        try:
+            _collector.pickup_spawned(obj)
+        except Exception as ex:  # noqa: BLE001
+            log_error("pickup hook", ex)
 
 
 @hook("WillowGame.WillowInteractiveObject:PostBeginPlay", Type.POST)
 def on_object_spawn(obj: UObject, args: WrappedStruct, ret: Any, func: BoundFunction) -> None:  # noqa: ARG001
-    try:
-        _collector.object_spawned(obj)
-    except Exception as ex:  # noqa: BLE001
-        log_error("object spawn hook", ex)
+    with FRAMES.ours():
+        try:
+            _collector.object_spawned(obj)
+        except Exception as ex:  # noqa: BLE001
+            log_error("object spawn hook", ex)
 
 
 @hook("WillowGame.WillowInteractiveObject:InitializeBalanceDefinitionState", Type.POST)
 def on_object_balance(obj: UObject, args: WrappedStruct, ret: Any, func: BoundFunction) -> None:  # noqa: ARG001
     """The balance (behind the display name) can be set after the spawn: refresh the record."""
-    try:
-        _collector.object_spawned(obj)
-    except Exception as ex:  # noqa: BLE001
-        log_error("object balance hook", ex)
+    with FRAMES.ours():
+        try:
+            _collector.object_spawned(obj)
+        except Exception as ex:  # noqa: BLE001
+            log_error("object balance hook", ex)
 
 
 def _on_usability(obj: UObject) -> None:
-    try:
-        _collector.object_usability_changed(obj)
-    except Exception as ex:  # noqa: BLE001
-        log_error("object usability hook", ex)
+    with FRAMES.ours():
+        try:
+            _collector.object_usability_changed(obj)
+        except Exception as ex:  # noqa: BLE001
+            log_error("object usability hook", ex)
 
 
 @hook("WillowGame.WillowInteractiveObject:SetUsability", Type.POST)
@@ -596,10 +599,11 @@ def on_change_usability(obj: UObject, args: WrappedStruct, ret: Any, func: Bound
 
 @hook("WillowGame.WillowInteractiveObject:Destroyed", Type.PRE)
 def on_object_destroyed(obj: UObject, args: WrappedStruct, ret: Any, func: BoundFunction) -> None:  # noqa: ARG001
-    try:
-        _collector.object_destroyed(obj)
-    except Exception as ex:  # noqa: BLE001
-        log_error("object destroyed hook", ex)
+    with FRAMES.ours():
+        try:
+            _collector.object_destroyed(obj)
+        except Exception as ex:  # noqa: BLE001
+            log_error("object destroyed hook", ex)
 
 
 # endregion

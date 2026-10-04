@@ -12,8 +12,9 @@ changes made for TPS ("patches"), so each finding says which build it was seen o
 - Dev link: `project.json`'s optional `tps` entry (the TPS install), then `python tools/link_mod.py tps` - the same
   junction as for BL2 (`<tps>\sdk_mods\helios_tracker` -> `<repo>\helios_tracker`), so one checkout runs in both
   games.
-- Both games write to the same log files (`helios_tracker/helios_tracker.log`, `helios_crash.log`) through the
-  junction: a TPS session is told apart by its paths (`...\BorderlandsPreSequel\sdk_mods\...`) and times.
+- Each game has its own log files (`helios_tracker/helios_tracker_tps.log`, `helios_crash_tps.log` - util.start_log, by
+  the profile's key): the junction is one folder for both games. (Before 2026-10-03 they shared one: a TPS session in the
+  old `helios_tracker.log` is told apart by its paths, `...\BorderlandsPreSequel\sdk_mods\...`, and times.)
 - `tools/offline_check.py` and the game file extraction use BL2 (`project.json`'s `game`); one Pre-Sequel map
   (ComFacility_P: its movie draws a part of its texture) is extracted too when `tps` is set.
 
@@ -122,7 +123,7 @@ notes.md "The Pre-Sequel's rarity table"; a mission's objective order - notes.md
   / "Éridium"). Localize(Section, Key, "WillowGame") on Object's default object returns them in game
   (tools/probes/probe_tps2.txt) - but the page's labels stay ours, static (the user's call): each label that differs gets a
   ".tps" twin in i18n (group.relic.tps "OZ KITS", currency.eridium.tps, layer.pickup.eridium.tps...), taken when the
-  level message says "game": "tps" (mods_base Game.get_current(); i18n.js setVariant).
+  level message says "game": "tps" (games/tps.py's profile; game.js gameKey -> i18n.js setVariant).
 - **The Oz meter** (the player's oxygen): `WillowPawn.OxygenPool` / `WillowPlayerReplicationInfo.OxygenPool` (the same
   pool: an OzOxygenResourcePool, CurrentValue / MaxValue 100 / 100, OnIdleRegenerationRate 50, delay 0.5 s -
   probe_tps2.txt). The collector sends "om" (its max, pawninfo) and "ox" (when not full, the state); the page: a white

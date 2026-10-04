@@ -2,7 +2,7 @@
 # Builds the working tree's .sdkmod with another version in its pyproject (default: ours, patch + 1), serves it the
 # way GitHub's API does (/releases/latest: tag_name, html_url, assets[].browser_download_url), and points the game's
 # updater at it (sdk_mods/.helios_tracker/update_source.txt - removed again on Ctrl+C).
-#   python tools/fake_release.py [0.2.0] [tps] [--delay 2]   (--delay: seconds before each answer, like a slow network)
+#   python tools/fake_release.py [0.2.0] [tps | bl1] [--delay 2]   (--delay: seconds before each answer, like a slow network)
 # In game (running the .sdkmod: tools/use_sdkmod.bat): the mod's options, Check for Updates -> the dialogs.
 import json
 import re
@@ -18,7 +18,7 @@ ASSET = "helios_tracker.sdkmod"
 
 args = sys.argv[1:]
 delay = float(args[args.index("--delay") + 1]) if "--delay" in args else 0.0
-key = "tps" if "tps" in args else "game"
+key = next((k for k in ("tps", "bl1") if k in args), "game")  # (project.json's keys: the Pre-Sequel, Borderlands 1)
 pyproject = (project.ROOT / "helios_tracker" / "pyproject.toml").read_text(encoding="utf-8")
 ours = re.search(r'(?m)^version = "(\d+)\.(\d+)\.(\d+)"$', pyproject)
 version = next((a for a in args if re.fullmatch(r"\d+\.\d+\.\d+", a)), None)

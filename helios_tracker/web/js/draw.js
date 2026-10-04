@@ -1,6 +1,7 @@
 // One frame: the map images, then the markers bottom to top (quest areas, objects, quest markers,
 // loot, pawns), each styled by its layer's settings; records what's where (S.hits) for hover /
 // click, updates the layer counts.
+import { gameData } from "./game.js";
 import { UU_PER_METER, mapTurn, worldToMap, yawToAngle } from "./geo.js";
 import { FLOOR_UU, LAYERS, LAYER_COLOR, chestTier, isGear, isGoldenChest, lootLayer, nameText, rainbowAt, rarity } from "./model.js";
 import { num } from "./i18n.js";
@@ -306,9 +307,10 @@ export function draw() {
     stem(o.x, o.y, sx, sy, oColor);
     // Containers (looted ones too, just dimmed): chests biggest, others by how many items they spawn
     const tier = chestTier(o);
-    const size = st.k * (o.cat === "other" ? 2.5 : o.cat === "oxygen" ? 9 : o.cat === "explosive" ? 7.5 : o.cat === "jumppad" ? 7 : o.cat === "buff" ? 4.5 : o.cat === "slots" ? 5.8 : tier === 2 ? 7 : tier === 1 ? 5.5 : o.slots ? 2.5 + Math.min(o.slots, 4) * 0.4 : 3.5);
+    const size = st.k * (o.cat === "other" ? 2.5 : o.cat === "npc" ? 4.5 : o.cat === "oxygen" ? 9 : o.cat === "explosive" ? 7.5 : o.cat === "jumppad" ? 7 : o.cat === "buff" ? 4.5 : o.cat === "slots" ? 5.8 : tier === 2 ? 7 : tier === 1 ? 5.5 : o.slots ? 2.5 + Math.min(o.slots, 4) * 0.4 : 3.5);
     if (o.cat === "oxygen") oxygenMark(sx, sy, LAYER_COLOR[o.cat], st.k); // (a generator, a fissure: a diamond, "O2")
     else if (o.cat === "jumppad") jumpMark(sx, sy, LAYER_COLOR[o.cat], st.k); // (a disc, an up chevron)
+    else if (o.cat === "npc") ring(sx, sy, size, LAYER_COLOR[o.cat], st.k); // (BL1's object NPCs: the NPC pawns' ring)
     else if (o.cat === "buff") dot(sx, sy, size, LAYER_COLOR[o.cat]); // (a buff: a disc - the pickups' dot, bigger)
     else if (o.cat === "explosive") burst(sx, sy, oColor, st.k); // (a burst in its element's colour: the game's)
     else if (o.cat === "vaultsymbol") vaultMark(sx, sy, LAYER_COLOR[o.cat], st.k); // (a ring and a dot)
@@ -385,7 +387,7 @@ export function draw() {
     else if (layer === "pickup.mission" && p.ms?.k === "gives") bang(sx, sy, LAYER_COLOR[layer], st.k);
     else if (layer === "pickup.mission") diamond(sx, sy, 6 * st.k, LAYER_COLOR[layer]);
     else if (layer === "pickup.cash") coin(sx, sy, LAYER_COLOR[layer], st.k); // money: a "$" disc
-    else if (layer === "pickup.eridium" && S.level?.game === "tps") coin(sx, sy, LAYER_COLOR[layer], st.k, "m"); // moonstones: an "m" disc (the game's own sign for them: a small m)
+    else if (layer === "pickup.eridium" && gameData().eridiumGlyph) coin(sx, sy, LAYER_COLOR[layer], st.k, gameData().eridiumGlyph); // moonstones: an "m" disc (game.js)
     else dot(sx, sy, 3.5 * st.k, LAYER_COLOR[layer]); // not gear (ammo, cash...): its kind's colour, no rarity
     const markR = lastMark(); // (label() clears it: the amount's line uses it too)
     if (st.names) label(sx, sy, nameText(p), isGear(p.c) ? color : LAYER_COLOR[layer], p.raw, st.ns); // (past its marker: shapes.js drew)

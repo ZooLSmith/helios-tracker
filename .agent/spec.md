@@ -156,14 +156,15 @@ bottom-left message).
   renders no frame meanwhile) = the `cutscene` payload -> a CUTSCENE block at the top of the Info tab, a video
   player's bar (elapsed / total, counted by the page); a player in cinematic mode (`bCinematicMode` /
   `GRI.bAllInCinematicMode`, `ct`) = "In a cutscene" over their bars, like a menu.
-- **Game fonts** (`gamefonts.py`, see notes): the game's own UI fonts (WillowBody, Compacta Bd BT, Chintzy CPU BRK)
+- **Game fonts** (`formats/fonts.py`, BL2's libraries `games/bl2/files/gamefonts.py`, the catalogue `assets.FONTS`;
+  see notes): the game's own UI fonts (WillowBody, Compacta Bd BT, Chintzy CPU BRK)
   rebuilt as TrueType from the player's `Startup.upk` at run time (a thread, once per session), served at
   `/font/<slug>.ttf`; `@font-face` + `--font-body` / `--font-head` in base.css (WillowBody is the page's text; Compacta unused: too condensed
   for the small headings).
   Never committed (extracted game files).
-- **Skill icons** (`gameicons.py`, see notes): the game's own, from the class packages at run time, served as
+- **Skill icons** (`games/bl2/files/gameicons.py`, see notes): the game's own, from the class packages at run time, served as
   PNGs (`/icon/<path>.png`, decoded on demand, never committed); on the Skills tab's tiles (greyed without points).
-- **Item card icons** (`gamecards.py`, see notes): the manufacturer logo and the item type icon, the game's (atlas
+- **Item card icons** (`games/bl2/files/gamecards.py`, the keys in `assets.py`; see notes): the manufacturer logo and the item type icon, the game's (atlas
   bitmaps of its item card movie), found from its data (the engine config's packages, the sprites labelled with the
   loaded definitions' keys, the element's: the damage types' enum) - no BL2 name hard-coded; served at
   `/cardicon/<manufacturer|element|type>/<key>.png`, **layered** (the lists placed together, by depth: a black outline
@@ -188,9 +189,11 @@ bottom-left message).
   of its own.
 - **The game files' work off the game's Python** (`gamework.py`): the scan and every decode (fonts, icons) run in a
   **subinterpreter** (Python 3.14, its own GIL: beside the game thread, not in turns with it - a plain thread of ours
-  froze / lagged the game), fed through a queue; results cached on disk (`.cache/assets`, gitignored). No
-  subinterpreters: in process, politely (1 ms switch interval, a pause per decompressed block).
-- **The game files' scan** (`gamescan.py`): the fonts, card icons and skill icons found in **one** pass over the packages
+  froze / lagged the game), fed through a queue; results cached on disk (`.cache/assets`, gitignored). A job names
+  its function (a `*_job` of a file-only module: `gamework.fn`) - the worker knows no job, no game. No
+  subinterpreters: in process, politely (1 ms switch interval, a pause per decompressed block). The server asks the
+  profile for the game's images (`games.GAME.assets.serve(path)`).
+- **The game files' scan** (`games/bl2/files/gamescan.py`, BL2's assets part): the fonts, card icons and skill icons found in **one** pass over the packages
   (a gamework job), started when a page first connects (once per session), cached in `.cache/scan.json` (per package,
   by size + date: later sessions scan nothing). Font / icon requests wait for it (`SCAN_WAIT`).
 - **Explosives** (Places, `explosive`): what explodes (a Behavior_Explode: barrels...) - a burst in its element's colour,
@@ -327,10 +330,19 @@ bottom-left message).
 
 ## How it works
 
+- `games/`: the game running, as a profile (BL2's, the Pre-Sequel's, Assault on Dragon Keep's, BL1's) - picked
+  once at the mod's boot from mods_base's game (`games.pick()`). Its features (`discovery`, `oxygen`, `jumppads`) say
+  which systems the game has; its parts (world, missions, items, objects, pawns, shops, skills, assets, ui - BL2's the
+  base, another game overriding what differs) do the jobs that differ (the map name, the map's source, the mission
+  markers, a video's no-skip flag, the bottom-left message...); its data the rest (`packages`: the cooked folders
+  read). The rest of the mod asks it, never which game it is - `profiles.md`.
 - `collector.py` (game thread, from `WillowGameViewportClient:PostRender`, rate-limited):
-  - level: every 1 s, `ENGINE.GetCurrentWorldInfo()` -> `GetStreamingPersistentMapName()`,
-    `GetMapInfo()` -> `TacticalMapMovie` + `TacticalMapVolume`. A change publishes the `level`
-    payload and starts the map extraction thread.
+  - level: every 1 s, `ENGINE.GetCurrentWorldInfo()` -> `games.GAME.world.map_name()` (BL2:
+    `GetStreamingPersistentMapName()`; BL1: its streamed area) and `level_key()` (BL2: + the map volume's path). A
+    change publishes the `level` payload (with the profile's `game` key and `features`) and takes
+    `games.GAME.world.map_source()` (a `levelmap.MapSource`, None for no map - BL2's tactical map: `GetMapInfo()` ->
+    `TacticalMapVolume` + `TacticalMapMovie`; BL1's landmark map: the area's LevelLandmarkAnchor): its placement now,
+    its images (and anything only the files tell: BL1's center / upp) from the map thread.
   - pawns: `WorldInfo.PawnList` / `NextPawn`, every update. Kind: me (`pc.MyWillowPawn`),
     `WillowPlayerPawn`, `WillowVehicle`, `IsEnemy(me)` -> enemy, else npc. Names: PRI.PlayerName
     / the balance's `PlayThroughs[].DisplayName` (a property: the name functions crashed the game) / AIClass. Health: `GetHealth()` / `GetMaxHealth()`.
@@ -338,17 +350,29 @@ bottom-left message).
     3 s (walks every object - never per update); pickups held as WeakPointers, positions read per
     update; objects are static (sent as their own `objects` payload on change).
   - Per-actor name / kind cached by address, re-resolved at each scan.
-- `tacmap.py` (background thread, files only): reads the level's `<Map>_P.upk` from
-  `WillowGame/CookedPCConsole` (LZO, both package layouts), the SwfMovie's image placements and the
-  Texture2D top mips (raw DXT - the page decodes them). ~0.3-0.5 s per level, cached.
+- Game files (pure Python, no SDK: the map thread, gamework's worker, offline_check) - the formats in `formats/`
+  (no game), each game's decoders in `games/<game>/files/`:
+  - `formats/upk.py`: UE3 packages in BL2's format (832; the Pre-Sequel's too) - LZO, both package layouts, names /
+    imports / exports, tagged properties, textures' top mips, the worker's open-package cache.
+    `games/bl1/files/upk_bl1.py`: Borderlands 1's format (584), a subclass overriding only what differs (class
+    attributes, one chunk hook, actors' state frame). Each game's code opens its packages with its own reader: no
+    version switch.
+  - `formats/swf.py`: Scaleform movies' tags, bit reader, rectangles, matrices; `swfshape.py` (vector shapes drawn),
+    `swffont.py` / `fonts.py` (fonts read, written as TrueType), `image.py` (DXT, PNG), `engine.py` (the engine's
+    always-loaded packages).
+  - `games/bl2/files/tacmap.py` (BL2 / TPS): reads the level's `<Map>_P.upk` from `WillowGame/CookedPCConsole`, the
+    SwfMovie's image placements and the Texture2D top mips (raw DXT - the page decodes them). ~0.3-0.5 s per level,
+    cached.
+  - `games/bl1/files/bl1map.py` (BL1): the level's map frame (its LevelLandmarkAnchor's `MapFrame`) out of the menu
+    movie (`status_menu`), its vector shapes rendered by `formats/swfshape.py` into one BGRA image (`PF_A8R8G8B8`, 2 px
+    per movie px, anti-aliased) - the page draws it like BL2's. 0.3-1.4 s per level.
 - `inspector.py` (game thread, every 2 s, only sent on change): each player pawn's gear
   (`InvManager.InventoryChain` / `ItemChain`), backpack (`InvManager.Backpack`) and skills
   (`pawn.Controller.PlayerSkillTree`); falls back to `pawn.Weapon` when there's no InvManager. Seen in game
   solo, as a co-op host and client (what each has: notes "Player inspection, co-op client / host").
 - The collector does nothing but follow the level while no page is connected (`Hub.clients`).
 - `script.py`: an optional PowerShell script runs while the server runs (e.g. a tunnel for sharing the map on
-  stream): `autoexec.ps1` in the data folder (`paths.DATA`: `sdk_mods/.helios_tracker/` beside a `.sdkmod` - the
-  players' place -, the mod's own folder in a folder install - the dev junction; gitignored). It gets
+  stream): `autoexec.ps1` in the data folder (`paths.DATA`: `sdk_mods/.helios_tracker/`, whichever the install). It gets
   `HELIOS_PORT`, runs hidden, and its output goes to `autoexec.log` beside it. It sits in a kill-on-close job object: server stop, port / LAN
   restart, mod disable, or the game exiting ends it along with its children.
 - `updater.py`: updates from the public repo's latest GitHub release (tag `vX.Y.Z`, `helios_tracker.sdkmod`
@@ -382,8 +406,56 @@ bottom-left message).
 - **Per-update / per-pass reads go through `util.field(obj, name)`** (the property looked up once per
   class, then `_get_field`: 1-2 us instead of 15-24 us by name - tools/probes/probe_perf.txt); structs held
   in hand (`loc.X`) and `_get_address()` are cheap already. Function calls cost ~18 us: cache them.
-  Slow tasks are logged every 30 s (`helios_tracker.log`), `state` with its parts (skills / pawns /
-  pickups / json) and the counts.
+  Slow tasks are logged every 30 s (`helios_tracker_<game>.log`), `state` with its parts (skills / pawns /
+  pickups / json - pawns.info / pawns.players, pickups.info / pickups.items: new descriptions, the players' part, gear
+  items built) and the counts (pawns, pickups, new descriptions, vitals read by function calls); `scan objects` with
+  its parts (odds, find, shops, sight, the rest of the loop, tracker, waypoints, exits, areas, publish).
+- **Debug measurements: `paths.DIAGNOSTICS`** - on in a folder install (dev), off in a `.sdkmod`; a `diagnostics` file
+  in the data folder (`sdk_mods/.helios_tracker/`) overrides it ("on" / "off"), read
+  at load. It switches frames.py (the frame report, its canary) and the slow-task report's breakdowns (`state.pawns.*`,
+  `state.pickups.*`, `scan objects.*`, `object records.*`, `players.*`); the plain slow-task report stays on.
+- `frames.py` (debug: `paths.DIAGNOSTICS`): frame times - what the game feels, beside our tasks' times. Each frame timed between PostRender
+  calls, with our hooks' time in it (every hook's body: `with FRAMES.ours()`), the tasks that ran, and the server
+  threads' work (requests, stream messages built under the hub's lock, catch-ups / snapshots, bytes sent): they share
+  the game's Python, so while one holds the GIL our hooks wait - and a canary thread's lateness (it wakes every 10 ms:
+  late while our hooks weren't running = something else held the GIL). A spike (over 2x the usual frame and 10 ms past
+  it): "ours" (our hooks took half the excess), "server" (its threads worked through a quarter of it - likely the GIL),
+  "gil" (the canary late by half the excess: Python elsewhere - another mod, a thread of ours not measured), "game"
+  (none: the GIL free - not Python). Logged every 30 s when there were spikes: the usual frame; per class the spikes,
+  how many over 50 / 100 ms, the time lost; the 3 worst.
+- The tick's periodic tasks (missions, areas, shops, looted, players, the mission log's start, incomplete records)
+  start only while the tick is under `TICK_BUDGET` (5 ms, state included), else the next tick - one a whole period late
+  runs anyway. Their 1 s timers used to fire together: ~15 ms every second. After a pickup scan the descriptions
+  (`_info`: names, allegiances) are refreshed `INFO_REFRESH_PER_TICK` per tick, not all on the next one. `looted`,
+  `domes`, `object health`: a slot each (together: a 15 ms tick); `looted` checks `LOOTED_PER_PASS` containers a pass
+  on the host (the usability hook tells it at once - the check is a safety net), all of them on a co-op client.
+- Pickups at rest (`games.GAME.objects.pickup_at_rest`: `bPickupAtRest`, set once it fully stopped - BL2 and BL1 alike, notes.md
+  "Pickups at rest") keep their last record: each tick only whether they're gone (`bDeleteMe` / `bHidden`),
+  a full read every `PICKUP_RESTING_EVERY` (1 s - staggered by address the first time), a knocked one back to every tick.
+  After a pickup scan only the pawns' descriptions are refreshed (a pickup's name never changes). The discovery areas
+  are found once a level. `scan objects`: `_out_of_sight` reads through `util.field`, `ShopReader.note` remembers which
+  classes are vending machines. `util.field` / `reader` read structs too (a `WrappedStruct`: its `_type`'s fields) -
+  `lootodds` reads everything through it (a Bullymong pile's pool tree: 64 ms by name).
+- A level's start, spread (it was one 100+ ms tick each): after an objects scan the level's other actors (the mission
+  tracker, waypoints, exits, discovery areas) are looked up one `find_all` per tick (`_lookup`, a heavy task); a
+  container type's loot odds are worked out `ODDS_SECONDS` per tick (`lootodds.odds_job`, a generator: its pools staged,
+  added to `POOLS` when done; the record goes out at once, its odds when they're known - an object's own Loot at once);
+  `NEW_PAWN_INFOS_PER_TICK` new pawns described per tick (ours first); the card icons' keys one `find_all` per players
+  pass (the elements' from the damage type class's default object - no find_all).
+- Caches keyed by a controller / player info (the skill trees - `inspector._skills_cache`, `skills._trees` -, the class
+  names) are `util.PerObject`s: each entry kept with a WeakPointer, never returned once its object is gone (a new
+  character's controller at a freed address got the old one's tree). An item's element level: read once per item.
+  Borderlands 1: its missions not picked up rebuilt only when the log, its statuses or the player's level change, their
+  eligibility read once per mission meanwhile (`games/bl1/missions.py` `_eligible_for` - the givers' "!" too); its skill
+  icons once per character.
+- A players pass builds gear cards and skill stats (`_skill_stats`: `GetSkillEffectPresentations`, ~100 calls for a
+  first tree - 90 ms, a player joining) for at most `inspector.ITEMS_SECONDS`; a tree missing some isn't cached (the
+  next pass goes on). A tree whose points can't be read (another player's, on the host) is cached anyway, refreshed
+  every `SKILLS_UNKNOWN_EVERY` (it was re-read every pass).
+- A players pass builds gear cards for at most `inspector.ITEMS_SECONDS` (at least one): the rest at the next pass,
+  `PLAYERS_RETRY` later - a half-built pass isn't published (`players_complete`). A whole backpack at once was 80-560 ms.
+- An object record over `RECORD_SLOW_MS` reports its parts in the slow-task report (`object records.names` / `exit` /
+  `kind` / `buff` / `loot` / `odds`), one over `RECORD_NAMED_MS` its definition too (`object record <name>`).
 - `server.py`: stdlib `ThreadingHTTPServer`; `/` (page, read per request: `paths.read`),
   `/<path>.js|css|png|svg|woff2` (any module / stylesheet / image / font under `web/`: `img/favicon.png` = the tab icon,
   64 x 64, the logo; `fonts/helios-h-*.woff2` = the panel title's "H", the logo as a font of one letter - see base.css;
@@ -405,15 +477,15 @@ bottom-left message).
 ## Files on disk
 
 `paths.py` decides (no SDK imports: the worker uses it too). Read: the package's own files (`paths.read("web/...")`:
-from the folder, or out of the `.sdkmod` - `Path.read_bytes` can't). Written: `paths.DATA` = the package folder in
-a folder install (dev: the junction, so the repo's `helios_tracker/`, gitignored), `sdk_mods/.helios_tracker/` from a
-`.sdkmod` (the loader skips dot names; any other folder in `sdk_mods` it imports as a mod) - also the place for a
-downloaded update. Everything written is built on the player's machine from their game: never shipped, never committed.
+from the folder, or out of the `.sdkmod` - `Path.read_bytes` can't). Written: `paths.DATA` =
+`sdk_mods/.helios_tracker/` beside the package, whichever the install - a `.sdkmod` or a folder (the dev junction): the
+package holds code only (the loader skips dot names; any other folder in `sdk_mods` it imports as a mod) - also the
+place for a downloaded update. (Run from the repo - offline_check -: the repo's `.helios_tracker/`, gitignored.) Everything written is built on the player's machine from their game: never shipped, never committed.
 
 | File (under `DATA`) | Written by | What | Kept until |
 |---|---|---|---|
-| `helios_tracker.log` | `util.log` | diagnostics: errors with tracebacks, slow tasks every 30 s, level loads | past 1 MB at a load: started over |
-| `helios_crash.log` | `util.start_crash_log` | faulthandler: every thread's Python stack at a native crash | grows (a line per load) |
+| `helios_tracker_<game>.log` | `util.log` | diagnostics: errors with tracebacks, slow tasks and frame spikes every 30 s, level loads - one per game (`games.GAME.key`: bl2, tps, aodk, bl1) | past 1 MB at a load: started over |
+| `helios_crash_<game>.log` | `util.start_crash_log` | faulthandler: every thread's Python stack at a native crash - one per game | grows (a line per load) |
 | `.cache/scan.json` | `gamescan` (in the worker) | the game packages' index: per package its exports' names / numbers / rectangles, no art (~0.5 MB) | its `VERSION` changes (all scanned again); a package's size / date changes (that one again) |
 | `.cache/assets/<2 hex>/<sha1>.bin` | `gamework` | decoded game assets, one per job: fonts (TTF), icons and textures (PNG), item card images (PNG) | never cleaned: the name hashes `VERSION`, the job and its packages' sizes / dates (a patch or a new `VERSION`: a new file; the old one stays) |
 | `.cache/element_frames.json` | `inspector` | which item card frame each damage type uses, learned from seen items (`{"DAMAGE_TYPE_Incindiary": "fire"}`) | grows |
@@ -436,6 +508,8 @@ js/settings.js    what's remembered (one object, validated, legacy migration)
 js/i18n.js        t(), num(), applyI18n(), setLanguage()    js/dom.js  $, esc... (small DOM / HTML helpers)
 js/geo.js         world <-> map, yaw (pure)        js/dxt.js    texture decoding (pure)
 js/model.js       LAYERS / LAYER_GROUPS / LAYER_SETTINGS, rarity, names, object categories (pure)
+js/game.js        the game running (the level's "game" / "features": setGame, hasFeature) and each game's own
+                  page data (gameData: rarity tiers, gear layers, eridium's sign) - nothing else names a game (pure)
 js/data.js        SSE /events -> S (onLevel, onState, onObjects, onPlayers, onMissions...)
 js/scheduler.js   invalidate(): frame requests per the Refresh rate setting
 js/view.js        canvas, W/H, toScreen / toMap, fit, zoom, follow, turning, the compass

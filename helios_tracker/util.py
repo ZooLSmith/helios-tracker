@@ -11,6 +11,7 @@ from .paths import DATA
 
 # Diagnostics (errors with tracebacks, slow tasks) also go here: the game console can't be copied.
 # Kept across sessions (a crash doesn't lose it) until it grows past LOG_MAX_BYTES.
+# One per game (start_log: helios_tracker_bl2.log...): a dev install is one folder for every game (the junction).
 # HELIOS_TRACKER_LOG overrides the path (tools/offline_check.py: a temp file, not the real log)
 LOG_FILE = Path(os.environ.get("HELIOS_TRACKER_LOG") or DATA / "helios_tracker.log")
 LOG_MAX_BYTES = 1_000_000
@@ -26,8 +27,13 @@ def log(message: str) -> None:
         pass
 
 
-def start_log() -> None:
-    """Called when the mod loads: marks the session, and starts over if the file got big."""
+def start_log(game: str) -> None:
+    """Called when the mod loads, with the game's key (games.GAME.key: "bl2", "tps"...): its own log and crash log
+    (helios_tracker_bl2.log, helios_crash_bl2.log); marks the session, and starts over if the file got big."""
+    global LOG_FILE, CRASH_FILE  # noqa: PLW0603 - (set once per load: the game is known by then)
+    if not os.environ.get("HELIOS_TRACKER_LOG"):
+        LOG_FILE = DATA / f"helios_tracker_{game}.log"
+    CRASH_FILE = LOG_FILE.with_name(f"helios_crash_{game}.log")
     try:
         if LOG_FILE.exists() and LOG_FILE.stat().st_size > LOG_MAX_BYTES:
             LOG_FILE.unlink()
@@ -105,9 +111,33 @@ def _str_result(r: Any) -> str:
 _fields: dict[int, dict[str, Any]] = {}  # class address -> property name -> property
 
 
+# A level change: what's kept per level forgets it (the collector calls level_changed - _clear_contents). Each such cache
+# registers its reset where it's defined (on_level_change): nothing works out by itself that the level changed (a
+# cache once did, by the area's name - stale after a save-quit-continue in the same area: profiles.md "Level changes").
+_level_resets: list[Any] = []
+
+
+def on_level_change(reset: Any) -> Any:
+    """Registers a reset (a function, no arguments) to call at each level change; returns it."""
+    _level_resets.append(reset)
+    return reset
+
+
+def level_changed() -> None:
+    """A new level: every registered reset (one failing doesn't stop the others - logged)."""
+    for reset in list(_level_resets):
+        try:
+            reset()
+        except Exception as ex:  # noqa: BLE001
+            log_error("level reset", ex)
+
+
 def clear_fields() -> None:
     """Forgets the looked-up properties (a level change: packages may have been unloaded)."""
     _fields.clear()
+
+
+on_level_change(clear_fields)
 
 
 def _prop(cls: Any, props: dict[str, Any], name: str) -> Any:
@@ -126,6 +156,18 @@ def _prop(cls: Any, props: dict[str, Any], name: str) -> Any:
     return prop
 
 
+_struct_types: dict[type, bool] = {}  # Python type -> a WrappedStruct (its fields' owner: _type) - else a UObject (Class)
+
+
+def _owner(obj: Any) -> Any:
+    """Where obj's properties are found: a struct's type (WrappedStruct._type), an object's class - which one told by
+    its Python type, once (a UObject's missing attribute would cost a by-name lookup each time)."""
+    kind = type(obj)
+    if (is_struct := _struct_types.get(kind)) is None:
+        is_struct = _struct_types[kind] = hasattr(kind, "_type")
+    return obj._type if is_struct else obj.Class
+
+
 def reader(obj: Any) -> Any:
     """field() bound to one object: `get = reader(pawn); get("Location")`. Its class and the class's properties
     looked up once for all the reads - field()'s own overhead (obj.Class, its address, the cache key) was a third of
@@ -133,7 +175,7 @@ def reader(obj: Any) -> Any:
     get = getattr(type(obj), "_get_field", None)
     if get is None:
         return lambda name: getattr(obj, name)
-    cls = obj.Class
+    cls = _owner(obj)
     props = _fields.get(cls_key := cls._get_address())
     if props is None:
         props = _fields[cls_key] = {}
@@ -144,15 +186,36 @@ def reader(obj: Any) -> Any:
     return read
 
 
+class PerObject:
+    """Values by a game object (its address), each kept with a WeakPointer to it: an entry whose object is gone -
+    destroyed, even with another object at its address since - is never returned (inspector._ItemCache's way). For the
+    caches keyed by a controller / player info: a new character's controller at a freed one's address got the old one's
+    skill tree (the audit, 2026-10-03 - profiles.md "Caches")."""
+
+    def __init__(self) -> None:
+        self._entries: dict[int, tuple[Any, Any]] = {}
+
+    def get(self, obj: Any) -> Any:
+        entry = self._entries.get(obj._get_address())
+        return entry[1] if entry is not None and entry[0]() is not None else None
+
+    def put(self, obj: Any, value: Any) -> Any:
+        from unrealsdk.unreal import WeakPointer  # noqa: PLC0415 - (util: no SDK at module level - release.py)
+
+        self._entries[obj._get_address()] = (WeakPointer(obj), value)
+        return value
+
+
 def field(obj: Any, name: str) -> Any:
     """obj.<name>, ~10x cheaper for the per-update reads: a property read by name costs 15-24 us (the
     name looked up through the class chain), the property looked up once then `_get_field` 1-2 us
-    (tools/probes/probe_perf.txt). Raises like obj.<name> if there's no such property. Plain Python objects
-    (the offline check's fakes): getattr."""
+    (tools/probes/probe_perf.txt). Objects and structs (a WrappedStruct: its _type's fields - the stubs: "look up
+    the UField beforehand via struct._type._find(), then pass it to _get_field"). Raises like obj.<name> if there's no
+    such property. Plain Python objects (the offline check's fakes): getattr."""
     get = getattr(type(obj), "_get_field", None)
     if get is None:
         return getattr(obj, name)
-    cls = obj.Class
+    cls = _owner(obj)
     props = _fields.get(cls_key := cls._get_address())
     if props is None:
         props = _fields[cls_key] = {}
@@ -200,48 +263,7 @@ def exp_level(obj: Any) -> int:
     return 0
 
 
-# A usable item's kind, by its definition's inventory card (Presentation): the game's own grouping
-# (probe_pickups.py: GD_InventoryPresentations.Definitions.Credits / Health / WeaponAmmo_* / GrenadeAmmo)
-PRESENTATION_KINDS = {"Credits": "cash", "Health": "health", "GrenadeAmmo": "ammo", "Oxygen": "oxygen"}
-# ("Oxygen": the Pre-Sequel's Oxygen Canister - GD_BuffDrinks.A_Item.BuffDrink_OxygenInstant, presentation
-# GD_InventoryPresentations.Definitions.Oxygen, icon fx_shared_items.Textures.OxygenCannister_Particle - Startup.upk)
-# The "Credits" presentation is shared by every currency: the definition's FormOfCurrency tells them
-# apart (seen in game, tools/probes/probe_eridium.py: GD_Currency.A_Item.EridiumStick = CURRENCY_Eridium).
-# Other currencies (not seen yet: Seraph crystals, Torgue tokens...) stay "other".
-CURRENCY_KINDS = {"CURRENCY_Credits": "cash", "CURRENCY_Eridium": "eridium"}
-# Per item definition (static game data, set when the item spawns - never changes): kind. Never
-# cleared; keyed by definition, not by pickup (a destroyed pickup's address can be reused).
-_pickup_kinds: dict[int, str] = {}
-
-
-def pickup_kind(inv: Any) -> str:
-    """ "ammo" / "cash" / "eridium" / "health" / "oxygen" for a usable item (a non-gear pickup), "mission" for a
-    mission item (WillowMissionItem: ECHO logs, Princess Fluffybutt... - tools/probes/probe_pickups.txt), ""
-    for anything else. Weapons / gear aren't looked at; each definition is resolved once."""
-    if inv is None:
-        return ""
-    if inv.Class.Name == "WillowMissionItem":
-        return "mission"
-    if inv.Class.Name != "WillowUsableItem":
-        return ""
-    item_def = try_(lambda: inv.DefinitionData.ItemDefinition)
-    if item_def is None:
-        return ""
-    key = item_def._get_address()
-    if (kind := _pickup_kinds.get(key)) is None:
-        name = try_(lambda: str(item_def.Presentation.Name), "")
-        kind = "ammo" if name.startswith("WeaponAmmo_") else PRESENTATION_KINDS.get(name, "")
-        if kind == "cash":
-            currency = getattr(try_(lambda: item_def.FormOfCurrency), "name", "CURRENCY_Credits")
-            kind = CURRENCY_KINDS.get(currency, "")
-        _pickup_kinds[key] = kind
-    return kind
-
-
-# The game's rarity per RarityLevel (tools/probes/probe_rarity3.txt): GlobalsDefinition.GetRarityColorForLevel
-# (the colour it draws) and GetRarityLevelColorsIndexforLevel (its colour entry: levels sharing one
-# are one tier - e.g. 5 and 7-10 are all legendary). The table itself (RarityLevelColors) reads empty.
-RARITY_LEVELS = (*range(0, 16), *range(500, 521))
+# The game's rarity per RarityLevel: its colour entry and colour (games.GAME.items.rarity_table: each game's own way)
 _rarity: dict[str, list[Any]] = {}
 
 
@@ -252,16 +274,12 @@ def rarity_table() -> dict[str, list[Any]]:
         return _rarity
     import unrealsdk  # noqa: PLC0415 - game only
 
+    from . import games  # noqa: PLC0415
+
     globals_def = try_(lambda: unrealsdk.find_object("GlobalsDefinition", "GD_Globals.General.Globals"))
     if globals_def is None:
         return {}
-    for level in RARITY_LEVELS:
-        index = try_(lambda lv=level: int(globals_def.GetRarityLevelColorsIndexforLevel(lv)), -1)
-        color = try_(lambda lv=level: globals_def.GetRarityColorForLevel(lv))
-        rgb = try_(lambda: (int(color.R), int(color.G), int(color.B)))
-        if index < 0 or rgb is None or rgb == (0, 0, 0):  # not a colour entry (-1) / an empty one
-            continue
-        _rarity[str(level)] = [index, "#{:02x}{:02x}{:02x}".format(*rgb)]
+    _rarity.update(try_(lambda: games.GAME.items.rarity_table(globals_def), {}) or {})
     return _rarity
 
 

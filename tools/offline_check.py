@@ -185,6 +185,41 @@ const lootLayers = [[1, "WillowWeapon"], [5, "WillowShield"], [500, "WillowArtif
 setRarityTable({ "5": [5, "#ffb400"], "9": [7, "#ffb400"], "501": [13, "#ff9ab8"], "503": [15, "#9132c8"] });
 const gameRarity = [5, 9, 501, 503].map((q) => rarity(q)).concat([lootLayer({ q: 9, c: "WillowWeapon" })]);
 setRarityTable(null);
+// The game (game.js: the level message's "game" and "features" - games.py): each game's own tiers and layers; a level
+// message with the same game and features (in any order) isn't a change (the layers / colours not rebuilt)
+const { setGame } = await load("js/game.js");
+const { layerInGame } = await load("js/model.js");
+const gameIds = ["loot.pearl", "loot.glitch", "loot.etech", "oxygen", "pickup.oxygen", "jumppad", "area", "fog", "enemy",
+  "pickup.eridium", "vaultsymbol", "buff", "slots", "pickup.mission"];
+const gameShown = () => gameIds.filter((id) => layerInGame(LAYERS.find((l) => l.id === id)));
+const gameNone = gameShown(); // (before the level message: no game's own layers)
+const gameSwitch = [setGame("tps", ["discovery", "oxygen", "jumppads"]), setGame("tps", ["jumppads", "oxygen", "discovery"])];
+setRarityTable({ "501": [13, "#ff9ab8"], "6": [6, "#ca00a8"] });
+const gameTps = { shown: gameShown(), glitch: rarity(501)[0], etech: lootLayer({ q: 6, c: "WillowWeapon" }) };
+setGame("bl1", []);
+const gameBl1 = gameShown();
+// BL1's big chest: its own definition says it (no tier in its pools' names: Chest Weapons Pistols / Long Guns, Chest Ammo)
+const { chestTier: gameChestTier } = await load("js/model.js");
+gameBl1.push(gameChestTier({ d: "InteractiveObj_TreasureChest", loot: ["Pool_Chest_Weapons_Pistols", "Pool_Chest_Ammo"] }),
+  gameChestTier({ d: "InteractiveObj_StrongBox" }));
+// its rarity entry 0 (-1..1, white like entry 1): common (the wiki: common 0-4) - BL2's 0 is its beige "misc"
+setRarityTable({ "0": [0, "#ffffff"], "3": [1, "#ffffff"] });
+gameBl1.push(rarity(0)[0], rarity(3)[0]);
+// its gear: also its one item class for shields, grenade mods, com decks (not its usable items: ammo, health)
+const { isGear: gameIsGear, cardIconKey } = await load("js/model.js");
+gameBl1.push(gameIsGear("WillowEquipAbleItem"), gameIsGear("WillowUsableItem"));
+// card icon keys: "none" (the game's frame for no logo) and odd ones not fetched
+gameBl1.push([cardIconKey("jakobs"), cardIconKey("none"), cardIconKey("None"), cardIconKey("a/b"), cardIconKey(undefined)]);
+// its New-U stations: their class (game.js stationClasses) - no station word in their names ("Outpost Definition ?")
+const { objectCategory: gameCategory } = await load("js/model.js");
+const gameOutpost = { d: "OutpostDefinition", n: "OutpostDefinition", raw: 1, c: "EmergencyTeleportOutpost" };
+gameBl1.push(gameCategory(gameOutpost));
+setGame("bl2", ["discovery"]);
+gameBl1.push(gameCategory(gameOutpost)); // (BL2's: not a class of its - not a station by it)
+const gameBl2 = { shown: gameShown(), seraph: rarity(501)[0], etech: lootLayer({ q: 6, c: "WillowWeapon" }) };
+setGame("", []);
+setRarityTable(null);
+const gameOut = { gameNone, gameSwitch, gameTps, gameBl1, gameBl2 };
 const unknownSettings = LAYERS.flatMap((l) => l.settings.filter((k) => !LAYER_SETTINGS[k]).map((k) => l.id + "." + k));
 // Missions: state (available = every mission it needs done), the tree, objective states
 const { missionTree, objectiveStates, missionCounts, missionAreas } = await load("js/missions.js");
@@ -306,6 +341,7 @@ const vaultCat = objectCategory({ d: "IO_VaultRoy", n: "Vault Roy", c: "WillowIn
   + "," + objectCategory({ d: "IO_AirDome_Generator_On", n: "Air Dome Generator", c: "WillowInteractiveObject", dg: 1 })
   + "," + objectCategory({ d: "IO_OxygenCracks", n: "Oxygen Source", c: "WillowInteractiveObject", o2: 1 })
   + "," + objectCategory({ d: "IO_Geysers_Vertical", n: "Geysers Vertical", raw: 1, c: "OzPlayerJumpPad" })
+  + "," + objectCategory({ d: "DrZed", n: "DrZed", raw: 1, c: "WillowInteractiveNPC" }) // (BL1's NPCs: objects)
   + "," + objectCategory({ d: "InteractiveObj_DahlEpic_LastRequests", c: "WillowInteractiveObject", lootable: 1, slots: 15,
     loot: ["Pool_EpicChest_Weapons_LongGuns", "Pool_Chest_Ammo"] }) // (no loot list: its pools say a big chest)
   + "," + objectCategory({ d: "InteractiveObject_SpeedMoxxtail", n: "Speed Moxxtail", c: "WillowInteractiveObject", buff: 1 })
@@ -369,7 +405,7 @@ Object.assign(S, { detail: null, pickups: [], groundItems: new Map() });
 const missionsOut = { deltaOut, lootDetailRenders, rowsOut, shotCostOut, bonusOut, statsOut, lookOut, vaultCat, healthShown, variantWords, stepOrder, hitPicks, items, fallback, where, tooHigh, finish, difficulty, best, search, infoHtml, areas, gameText, story: flat(tree.story), other: flat(tree.other), counts: missionCounts(log),
   objectives: objectiveStates(log[1]).map((s) => s.state) };
 console.log(JSON.stringify({ sha: crypto.createHash("sha256").update(rgba).digest("hex"), err, back, right, raw, modules, missions: missionsOut,
-  migrated, checked: { enemy: checked.layers.enemy, view: checked.view, openLayers: checked.ui.openLayers, drawer: checked.ui.drawer, badDrawer }, i18nKeys, unknownSettings, lootLayers, gameRarity, freeRects }));
+  migrated, checked: { enemy: checked.layers.enemy, view: checked.view, openLayers: checked.ui.openLayers, drawer: checked.ui.drawer, badDrawer }, i18nKeys, unknownSettings, lootLayers, gameRarity, gameOut, freeRects }));
 """
 
 
@@ -404,6 +440,12 @@ def _dxt5_rgba(w: int, h: int, data: bytes) -> bytes:
     return bytes(px)
 
 
+def bl1_map_alpha(img) -> float:  # noqa: ANN001
+    """The share of a rendered BGRA map image that's (mostly) opaque."""
+    alpha = img.data[3::4]
+    return sum(1 for a in alpha if a > 128) / len(alpha)
+
+
 def check_helios_tracker() -> None:  # noqa: PLR0915
     import enum  # noqa: PLC0415
     import hashlib  # noqa: PLC0415
@@ -420,8 +462,12 @@ def check_helios_tracker() -> None:  # noqa: PLR0915
     import helios_tracker as m  # noqa: PLC0415
     from helios_tracker import collector as col  # noqa: PLC0415
     from helios_tracker.server import Hub, TrackerServer  # noqa: PLC0415
-    from helios_tracker.tacmap import load_tactical_map  # noqa: PLC0415
-    from helios_tracker.util import clear_fields, field, pickup_kind  # noqa: PLC0415
+    from helios_tracker.games.bl2.files.tacmap import load_tactical_map  # noqa: PLC0415
+    from helios_tracker import games as kind_games  # noqa: PLC0415
+    from helios_tracker.util import clear_fields, field  # noqa: PLC0415
+
+    def pickup_kind(inv: object) -> str:  # (the game's: BL2's here)
+        return kind_games.GAME.items.pickup_kind(inv)
     from helios_tracker.util import reader as field_reader  # noqa: PLC0415 - ("reader": a SkillReader below)
 
     # Every @hook of the mod is in build_mod's hooks list (an explicit list: one left out never runs -
@@ -431,23 +477,25 @@ def check_helios_tracker() -> None:  # noqa: PLR0915
     assert defined == listed, ("hooks defined but not in build_mod(hooks=...)", sorted(defined - listed), sorted(listed - defined))
     # "assets": what the server can serve from the game's files - the page asks for card icons only once "cards" is 1
     # (the files indexed + every kind's keys known: before, a 404 a map marker gave up on)
-    from helios_tracker import gamecards as assets_cards  # noqa: PLC0415
-    assets_saved = (dict(assets_cards._keys), assets_cards._index)
+    from helios_tracker import assets as game_assets  # noqa: PLC0415
+    from helios_tracker.games.bl2.files import gamecards as assets_cards  # noqa: PLC0415
+    assets_saved = (dict(game_assets._keys), assets_cards._index)
     assets_cards._index = None
     for assets_kind in assets_cards.KINDS:
-        assets_cards.set_keys(assets_kind, set())
+        game_assets.set_keys(assets_kind, set())
     assert json.loads(m._hub.latest("assets"))["cards"] == 0, m._hub.latest("assets")
     assets_cards.set_index({})
     for assets_kind in assets_cards.KINDS:
-        assets_cards.set_keys(assets_kind, {"key"})
+        game_assets.set_keys(assets_kind, {"key"})
     assert json.loads(m._hub.latest("assets"))["cards"] == 1, ("indexed, keys known: sent", m._hub.latest("assets"))
-    from helios_tracker import gameicons as assets_icons  # noqa: PLC0415
+    from helios_tracker.games.bl2.files import gameicons as assets_icons  # noqa: PLC0415
     assets_textures = assets_icons._textures
     assets_icons.set_textures({})
     m._publish_assets()
     assert json.loads(m._hub.latest("assets"))["textures"] == 1, ("the textures indexed: sent", m._hub.latest("assets"))
     assets_icons._textures = assets_textures
-    assets_cards._keys.update(assets_saved[0])
+    game_assets._keys.clear()
+    game_assets._keys.update(assets_saved[0])
     assets_cards._index = assets_saved[1]
 
     # field(): the property looked up once per class, then read with _get_field (tools/probes/probe_perf.txt)
@@ -523,7 +571,7 @@ def check_helios_tracker() -> None:  # noqa: PLR0915
                                      ItemName="Data Log", MissionDirective=echo_mission, AssociatedMissionObjective=None)))
     assert col.item_name(echo) == "Data Log", col.item_name(echo)
     echo.Class = types.SimpleNamespace(Name="WillowMissionItem")
-    assert col.pickup_kind(echo) == "mission", "a mission item: the Mission items layer"
+    assert pickup_kind(echo) == "mission", "a mission item: the Mission items layer"
     assert col.pickup_mission(echo) == {"i": "gd_z1_nohardfeelings.M_NoHardFeelings", "n": "No Hard Feelings", "k": "gives"}
     part = types.SimpleNamespace(ProgressMessage="Collect parts", Outer=echo_mission)
     echo.DefinitionData.ItemDefinition.MissionDirective, echo.DefinitionData.ItemDefinition.AssociatedMissionObjective = None, part
@@ -570,7 +618,7 @@ def check_helios_tracker() -> None:  # noqa: PLR0915
         print("  game files not found (project.json's game): skipping the map / server checks")
         return
     # Map images straight from the game's packages
-    from helios_tracker.tacmap import load_fog  # noqa: PLC0415
+    from helios_tracker.games.bl2.files.tacmap import load_fog  # noqa: PLC0415
     for level_name, size in {"Sanctuary_P": (468, 512), "SouthernShelf_P": (876, 1024)}.items():
         t = time.perf_counter()
         (img,) = load_tactical_map(GAME_COOKED / f"{level_name}.upk", f"UI_TacticalMap_{level_name[:-2]}.{level_name}")
@@ -594,7 +642,8 @@ def check_helios_tracker() -> None:  # noqa: PLR0915
     # subinterpreter, its cache (a temp dir here), then a second session's: from the cache, nothing scanned
     import tempfile  # noqa: PLC0415
 
-    from helios_tracker import gamefonts, gamescan, gamework  # noqa: PLC0415
+    from helios_tracker import assets as scan_assets, gamework  # noqa: PLC0415
+    from helios_tracker.games.bl2.files import gamescan  # noqa: PLC0415
     scan_tmp = tempfile.TemporaryDirectory()
     gamescan.CACHE = Path(scan_tmp.name) / "scan.json"
     gamework.ASSETS = Path(scan_tmp.name) / "assets"
@@ -603,15 +652,15 @@ def check_helios_tracker() -> None:  # noqa: PLR0915
     t_scan = time.perf_counter() - t
     assert gamescan.ready() and gamescan.CACHE.is_file()
     assert gamework.mode() == "subinterpreter", ("the scan beside the game's Python, not in it", gamework.mode())
-    scanned = (dict(gamefonts.FONTS.catalogue), gamescan.packages(GAME_COOKED))
+    scanned = (dict(scan_assets.FONTS.catalogue), gamescan.packages(GAME_COOKED))
     gamescan._done.clear()
     t = time.perf_counter()
     gamescan.run(GAME_COOKED)
     t_cached = time.perf_counter() - t
-    assert gamefonts.FONTS.catalogue == scanned[0] and t_cached < 1.0, ("the cache gives the same index, fast", t_cached)
+    assert scan_assets.FONTS.catalogue == scanned[0] and t_cached < 1.0, ("the cache gives the same index, fast", t_cached)
     print(f"  game files scan: {len(scanned[1])} packages in {t_scan:.2f} s ({gamework.mode()}), from its cache {t_cached:.2f} s")
     t = time.perf_counter()
-    font_lib = gamefonts.FONTS  # (the engine config's packages: no movie named)
+    font_lib = scan_assets.FONTS  # (the engine config's packages: no movie named)
     names = {s: entry[0] for s, entry in font_lib.catalogue.items()}
     assert {"willowbody": "WillowBody", "compacta-bd-bt": "Compacta Bd BT", "chintzy-cpu-brk": "Chintzy CPU BRK"}.items() <= names.items(), names
     assert font_lib.catalogue["willowbody"][1] == 293, ("the fullest WillowBody: the font library's", font_lib.catalogue["willowbody"])
@@ -629,7 +678,7 @@ def check_helios_tracker() -> None:  # noqa: PLR0915
         pass
     print(f"  game fonts: {', '.join(f'{n} ({len(b) // 1024} KB)' for n, b in game_fonts.values())} ({time.perf_counter() - t:.2f} s)")
     # The skill icons (gameicons.py): the class packages' textures, as PNGs - Axton's, a DLC class's (Gaige)
-    from helios_tracker import gameicons  # noqa: PLC0415
+    from helios_tracker.games.bl2.files import gameicons  # noqa: PLC0415
     t = time.perf_counter()  # (its index: the scan's)
     able = gameicons.icon_png("SharedSkillIcons_Soldier.SkillIcon-Able")
     assert able and able[:8] == b"\x89PNG\r\n\x1a\n" and struct.unpack(">II", able[16:24]) == (64, 64), "Able's icon"
@@ -644,17 +693,19 @@ def check_helios_tracker() -> None:  # noqa: PLR0915
     print(f"  skill icons: {len(icons)} indexed, Able {len(able)} bytes ({time.perf_counter() - t:.2f} s)")
     # A skill's icon path (skills.skill_icon): its SkillIcon movie's - or the Pre-Sequel's SkillIconTextureName in that
     # movie's package (its DLC classes' skills share one movie: Aurelia's "SkillIcon-Aurelia", 37 skills)
-    from helios_tracker.skills import skill_icon  # noqa: PLC0415
+    from helios_tracker import games as icon_games  # noqa: PLC0415
+    tps_icon, bl2_icon = icon_games.make_profile("TPS").skills.icon, icon_games.make_profile("BL2").skills.icon
+
     def icon_movie(path: str) -> types.SimpleNamespace:
         return types.SimpleNamespace(_path_name=lambda: path)
-    aurelia_icon = skill_icon(types.SimpleNamespace(SkillIcon=icon_movie("SharedSkillIcons_Cro_Aurelia.SkillIcon-Aurelia"),
+    aurelia_icon = tps_icon(types.SimpleNamespace(SkillIcon=icon_movie("SharedSkillIcons_Cro_Aurelia.SkillIcon-Aurelia"),
                                                     SkillIconTextureName="SkillIcon-Avalanche"))
     assert aurelia_icon == "SharedSkillIcons_Cro_Aurelia.SkillIcon-Avalanche", aurelia_icon
-    assert skill_icon(types.SimpleNamespace(SkillIcon=icon_movie("SharedSkillIcons_Soldier.SkillIcon-Able"))) == \
+    assert bl2_icon(types.SimpleNamespace(SkillIcon=icon_movie("SharedSkillIcons_Soldier.SkillIcon-Able"))) == \
         "SharedSkillIcons_Soldier.SkillIcon-Able", "BL2: no SkillIconTextureName, the movie's path"
-    assert skill_icon(types.SimpleNamespace(SkillIcon=icon_movie("SharedSkillIcons_Soldier.SkillIcon-Able"),
+    assert tps_icon(types.SimpleNamespace(SkillIcon=icon_movie("SharedSkillIcons_Soldier.SkillIcon-Able"),
                                             SkillIconTextureName="None")) == "SharedSkillIcons_Soldier.SkillIcon-Able"
-    assert skill_icon(types.SimpleNamespace(SkillIcon=None, SkillIconTextureName="SkillIcon-Avalanche")) == "", "no movie: none"
+    assert tps_icon(types.SimpleNamespace(SkillIcon=None, SkillIconTextureName="SkillIcon-Avalanche")) == "", "no movie: none"
     gameicons._pngs.clear()
     t = time.perf_counter()
     assert gameicons.icon_png("SharedSkillIcons_Soldier.SkillIcon-Able") == able and time.perf_counter() - t < 0.2, \
@@ -669,14 +720,15 @@ def check_helios_tracker() -> None:  # noqa: PLR0915
     assert gameicons.texture_by_path("fx_shared_items.Nope") is None and gameicons.texture_by_path("../server.py") is None
     print(f"  pickup icons: {len(gameicons._textures)} textures indexed, cash / eridium (.tfc) ({time.perf_counter() - t:.2f} s)")
     # The item card icons (gamecards.py): the engine config's packages, the sprites labelled with the game's keys
-    from helios_tracker import gamecards  # noqa: PLC0415
-    card_packages = [p.name for p in gamecards.engine_packages(GAME_COOKED)]
+    from helios_tracker.games.bl2.files import gamecards  # noqa: PLC0415
+    from helios_tracker.formats.engine import engine_packages  # noqa: PLC0415
+    card_packages = [p.name for p in engine_packages(GAME_COOKED)]
     assert "WillowGame.upk" in card_packages and card_packages[-1] == "Startup.upk", card_packages
     t = time.perf_counter()
     assert gamecards.card_png("manufacturer", "maliwan") is None, "no keys yet: none (the collector gives them)"
-    gamecards.set_keys("manufacturer", {"jakobs", "anshin", "atlas", "dahl", "gearbox", "hyperion", "maliwan", "tediore", "torgue", "vladof"})
-    gamecards.set_keys("type", {"pistol", "shotgun", "smg", "ar", "sniper", "rocket"})  # (the six weapon types' frames)
-    gamecards.set_keys("element", {"None", "Incendiary", "Shock", "Corrosive", "Explosive", "Amp"})  # (the damage types')
+    scan_assets.set_keys("manufacturer", {"jakobs", "anshin", "atlas", "dahl", "gearbox", "hyperion", "maliwan", "tediore", "torgue", "vladof"})
+    scan_assets.set_keys("type", {"pistol", "shotgun", "smg", "ar", "sniper", "rocket"})  # (the six weapon types' frames)
+    scan_assets.set_keys("element", {"None", "Incendiary", "Shock", "Corrosive", "Explosive", "Amp"})  # (the damage types')
     maliwan, pistol = gamecards.card_png("manufacturer", "maliwan"), gamecards.card_png("type", "pistol")
     card_layers = {k: [(a.group, a.depth, a.size) for a in gamecards._choose(*k)]
                    for k in (("manufacturer", "maliwan"), ("type", "pistol"), ("element", "shock"), ("type", "shotgun"))}
@@ -699,28 +751,162 @@ def check_helios_tracker() -> None:  # noqa: PLR0915
     gamework.stop()
     scan_tmp.cleanup()
     # A cutscene video's length from its Bink header (a DLC's: Captain Scarlett's intro, 65.0 s)
-    real_cooked_dir = col.cooked_dir
-    col.cooked_dir = lambda: GAME_COOKED
-    if (GAME_COOKED.parent.parent / "DLC" / "Orchid").is_dir():
-        assert col.movie_length("Orchid_Intro") == 65.0, col.movie_length("Orchid_Intro")
+    real_game_dir = col.game_dir
+    col.game_dir = lambda: GAME_COOKED.parent.parent
+    if any((GAME_COOKED.parent.parent / "DLC" / "Orchid").glob("*/Movies/Orchid_Intro.bik")):  # (the file: the DLC's folder
+        assert col.movie_length("Orchid_Intro") == 65.0, col.movie_length("Orchid_Intro")  # can be there without it)
     # (the game names some with their extension: the Marcus intro came as 'TC_Marcus.bik' - its length was lost)
     if (GAME_COOKED.parent / "Movies" / "TC_Marcus.bik").is_file():
         assert col.movie_length("TC_Marcus.bik") == col.movie_length("TC_Marcus") == 19.3, col.movie_length("TC_Marcus.bik")
     assert col.movie_length("NoSuchMovie") is None
-    col.cooked_dir = real_cooked_dir
-    # A DLC map: its package is under DLC/<code name>/{Lic,Compat}/Content (the collector's package_path)
-    real_cooked = col.cooked_dir
-    col.cooked_dir = lambda: GAME_COOKED
+    # BL1 (project.json's bl1, the original game): its Movies found from the game folder - no CookedPCConsole there
+    if (bl1_game := project.path("bl1")) is not None and (bl1_game / "WillowGame" / "Movies" / "VoG_Transition_Movie.bik").is_file():
+        col.game_dir = lambda: bl1_game
+        assert col.movie_length("VoG_Transition_Movie") == 70.2, col.movie_length("VoG_Transition_Movie")
+    col.game_dir = real_game_dir
+    # Vector shapes -> images (swfshape.py, BL1's map): a 10 x 10 square from (5, 5) in a 20 x 20 image - inside opaque,
+    # outside clear, a border at half a pixel half covered
+    from helios_tracker.formats import swfshape  # noqa: PLC0415
+    square_cover = swfshape._coverage([(5, 5, 5, 15), (15, 5, 15, 15)], 20, 20)
+    assert square_cover[10 * 20 + 10] == 255 and square_cover[2 * 20 + 2] == 0 and square_cover[10 * 20 + 4] == 0, "a square's inside / outside"
+    half_cover = swfshape._coverage([(5.5, 5, 5.5, 15), (15, 5, 15, 15)], 20, 20)
+    assert half_cover[10 * 20 + 5] == 128 and half_cover[10 * 20 + 6] == 255, ("half a pixel: half its alpha", half_cover[10 * 20 + 5])
+    square_shape = swfshape.Shape((5.0, 15.0, 5.0, 15.0), [(0, (41, 77, 93, 255))], [],
+                                  [(0, 1, 0, [(5.0, 5.0), (15.0, 5.0), (15.0, 15.0), (5.0, 15.0), (5.0, 5.0)])])
+    sq_w, sq_h, sq_bgra, sq_bounds = swfshape.render([((1.0, 0.0, 0.0, 1.0, 0.0, 0.0), square_shape)], 2.0)
+    assert (sq_w, sq_h, sq_bounds) == (20, 20, (5.0, 15.0, 5.0, 15.0)) and sq_bgra[(10 * 20 + 10) * 4:(10 * 20 + 10) * 4 + 4] == bytes((93, 77, 41, 255)), \
+        ("a filled square, BGRA, 2 px per movie px", sq_w, sq_h, sq_bounds)
+    # a line across it from a later style list (BL1's maps keep their lines there): over the fill, the fill beside it
+    square_shape.lines.append((1, 1.0, (130, 173, 202, 255)))
+    square_shape.edges.append((0, 0, 1, [(5.0, 10.0), (15.0, 10.0)]))
+    sq_w, sq_h, sq_bgra, _ = swfshape.render([((1.0, 0.0, 0.0, 1.0, 0.0, 0.0), square_shape)], 2.0)
+    assert sq_bgra[(10 * 20 + 10) * 4:(10 * 20 + 10) * 4 + 4] == bytes((202, 173, 130, 255)), "the line over the fill"
+    assert sq_bgra[(4 * 20 + 10) * 4:(4 * 20 + 10) * 4 + 4] == bytes((93, 77, 41, 255)), "the fill beside the line"
+    # strokes overlap (a quad per piece, a join per point): their union - no even-odd hole where two cross
+    cross_cover = swfshape._coverage(swfshape._stroke([(2.0, 10.0), (18.0, 10.0)], 2.0) + swfshape._stroke([(10.0, 2.0), (10.0, 18.0)], 2.0),
+                                     20, 20, nonzero=True)
+    assert cross_cover[10 * 20 + 10] == 255 and cross_cover[2 * 20 + 2] == 0, "two crossing strokes: their crossing covered"
+    # Borderlands 1's files (project.json's bl1, the original game): its packages (version 584: upk_bl1), a level's
+    # map anchor, its map rendered from the menu movie's vector frame (bl1map.py)
+    bl1_cooked = (project.path("bl1") / "WillowGame" / "CookedPC") if project.path("bl1") else None
+    if bl1_cooked is not None and bl1_cooked.is_dir():
+        from helios_tracker.formats import upk  # noqa: PLC0415
+        from helios_tracker.games.bl1.files import bl1map  # noqa: PLC0415
+        from helios_tracker.games.bl1.files.upk_bl1 import Bl1Package  # noqa: PLC0415
+        bl1_tex = Bl1Package(bl1_cooked / "Packages" / "Environments" / "Env_TacticalMaps.upk")
+        bl1_arena_tex = upk._texture(bl1_tex, bl1_tex.find("Arid.arid-arena", "Texture2D"))
+        assert bl1_arena_tex[:3] == ("PF_DXT1", 1024, 1024) and len(bl1_arena_tex[3]) == 1024 * 1024 // 2, bl1_arena_tex[:3]
+        bl1_tex.close()
+        bl1_level = Bl1Package(bl1_cooked / "Maps" / "Arid" / "W_Arid_Farmstead.umap")  # (raw-stored chunks)
+        assert len(bl1_level.exports) == 7722, len(bl1_level.exports)
+        bl1_level.close()
+        bl1_arena = Bl1Package(bl1_cooked / "Maps" / "Arid" / "Arid_Arena_Coliseum_P.umap")
+        bl1_anchor = next(i for i in range(len(bl1_arena.exports)) if bl1_arena.class_name(i) == "LevelLandmarkAnchor")
+        bl1_anchor_props, _ = bl1_arena.actor_properties(bl1_arena.export_data(bl1_anchor))
+        assert bl1_arena.ref_path(struct.unpack("<i", bl1_anchor_props["Texture"][1])[0]) == "Env_TacticalMaps.Arid.arid-arena"
+        assert bl1_anchor_props["MapFrame"][1][4:-1] == b"arid_arena" and struct.unpack("<f", bl1_anchor_props["DrawScale"][1])[0] == 13.0
+        bl1_arena.close()
+        (bl1_arena_img,) = bl1map.load_map(bl1_cooked, "arid_arena")
+        assert (bl1_arena_img.format, bl1_arena_img.width, bl1_arena_img.height) == ("PF_A8R8G8B8", 463, 906), (bl1_arena_img.width, bl1_arena_img.height)
+        assert bl1_map_alpha(bl1_arena_img) > 0.3, "the arena's walkable area filled"
+        (bl1_bunker_img,) = bl1map.load_map(bl1_cooked, "arid_bunker")  # (gradient fills)
+        assert bl1_bunker_img.width == 1504, bl1_bunker_img.width
+        assert bl1map.load_map(bl1_cooked, "no_such_frame") == []
+        # a DLC area's map: its anchor's DLCMap, a movie of its own (the Underdome lobby's: dlc2_maps.dlcmap_lobby)
+        if (bl1_cooked / "DLC" / "DLC2").is_dir():
+            (bl1_lobby_img,) = bl1map.load_map(bl1_cooked, "dlcmap1", "dlc2_maps.dlcmap_lobby")
+            assert bl1_lobby_img.width > 100 and bl1_map_alpha(bl1_lobby_img) > 0.1, (bl1_lobby_img.width, bl1_lobby_img.height)
+            assert bl1map.load_map(bl1_cooked, "dlcmap1", "nope_maps.dlcmap_nope") == []
+        # the skill menu's branch names (Bl1Skills._read_branch_names): the "skills" clip's character frame's texts
+        bl1_hunter = bl1map.clip_texts(bl1_cooked, "skills", "mordecai")
+        assert bl1_hunter["tree1.text"] == "$<StringAliasMap:skills_hunter_branch1>" and bl1_hunter["tree3.text"].endswith("hunter_branch3>"), bl1_hunter
+        assert bl1map.clip_texts(bl1_cooked, "skills", "roland")["tree2.text"].endswith("soldier_branch2>"), "no 'roland' label: the first frame"
+        assert bl1map.clip_texts(bl1_cooked, "nope", "mordecai") == {}
+        # its skill icons (Bl1Skills._read_skill_icons): the cell's clip in the character's frame, its "on" frame drawn
+        # (the drawing only: what its "on" and "off" frames both show - not their state's tile, notched at the
+        # bottom right: transparent corners then)
+        bl1_icon_w, bl1_icon_h, bl1_icon_px = bl1map.clip_icon(bl1_cooked, "skills", "mordecai", "icon17", "on", "off")
+        assert max(bl1_icon_w, bl1_icon_h) == bl1map.ICON_SIZE and any(bl1_icon_px[3::4]), (bl1_icon_w, bl1_icon_h)
+        assert bl1_icon_px[3] == 0, "the top left corner: no tile"
+        assert bl1map.clip_icon(bl1_cooked, "skills", "mordecai", "icon99", "on", "off") is None
+        assert bl1map.clip_icon(bl1_cooked, "skills", "mordecai", "icon17", "nope", "off") is None
+        from helios_tracker import gamework as bl1_work  # noqa: PLC0415
+        bl1_icon_png = bl1_work.run_job(json.dumps({"fn": bl1_work.fn(bl1map.menu_icon_job), "cooked": str(bl1_cooked),
+                                                    "parts": ["skills", "lilith", "icon24", "on", "off"]}))
+        assert bl1_icon_png[:8] == b"\x89PNG\r\n\x1a\n", bl1_icon_png[:16]
+        assert bl1map.MENU_ICON.fullmatch("menu.skills.mordecai.icon17.on.off") and not bl1map.MENU_ICON.fullmatch("menu.a.b")
+        # its fonts: its font library's DefineFont3 (bl1fonts.py, swffont.py) - WillowBody, WillowHead, Brush Script Std
+        from helios_tracker.games.bl1.files import bl1fonts  # noqa: PLC0415
+        bl1_font_list = bl1fonts.catalogue(bl1_cooked)
+        assert {"willowbody", "willowhead"} <= set(bl1_font_list) and bl1_font_list["willowbody"][5] == bl1_work.fn(bl1fonts.font_job), bl1_font_list
+        bl1_body = bl1fonts.font(*bl1_font_list["willowbody"][2:5])
+        bl1_glyph_a = next(g for g in bl1_body.glyphs if g.code == ord("A"))
+        assert bl1_body.em == 1024 and len(bl1_body.glyphs) > 200 and len(bl1_glyph_a.contours) == 2 and bl1_glyph_a.advance > 0, (
+            bl1_body.em, len(bl1_body.glyphs), bl1_glyph_a)
+        bl1_body_ttf = bl1_work.run_job(json.dumps({"fn": bl1_font_list["willowbody"][5], "path": str(bl1_font_list["willowbody"][2]),
+                                                    "idx": bl1_font_list["willowbody"][3], "n": bl1_font_list["willowbody"][4]}))
+        assert bl1_body_ttf[:4] == b"\x00\x01\x00\x00" and b"glyf" in bl1_body_ttf[:400], bl1_body_ttf[:16]
+        # its item card icons (games.Borderlands1.card_icon_png): the card movie's sprite holding a kind's keys - the
+        # manufacturers' logos; the type's: the menus' item icon clip ("inicon": weapon types and items' ZippyFrame)
+        bl1_brand_keys = ["anshin", "atlas", "corazza", "dahl", "eridan", "gearbox", "hyperion", "jakobs", "maliwan",
+                          "pangolin", "s_and_s", "tediore", "torgue", "vladof"]
+        bl1_logo_w, bl1_logo_h, bl1_logo_px = bl1map.card_icon(bl1_cooked, bl1_brand_keys, "jakobs")
+        assert bl1_logo_w == bl1map.ICON_SIZE and bl1_logo_h < bl1_logo_w and any(bl1_logo_px[3::4]), (bl1_logo_w, bl1_logo_h)
+        assert bl1map.item_icon(bl1_cooked, "sniper") and bl1map.item_icon(bl1_cooked, "shield") and bl1map.item_icon(bl1_cooked, "comm")
+        assert bl1map.item_icon(bl1_cooked, "nope") is None
+        # (its kind's square - placed with the first frame, "repeater", kept by the next ones - not drawn: only the
+        # item's own drawing - the user)
+        bl1_icons_movie = bl1map._menu_movie(bl1_cooked)
+        bl1_icon_clip = next(c for tags in bl1_icons_movie.sprites.values() for code, body in tags if code == 26
+                             for c, _m, n in [bl1map._place2(body)] if n and bl1map.ITEM_ICON.fullmatch(n))
+        assert len(bl1_icons_movie.display_list(bl1_icon_clip, "sniper", carried=True)) == 2, "the square behind it too"
+        assert len(bl1_icons_movie.display_list(bl1_icon_clip, "sniper")) == 1, "(its frame only places the rifle)"
+        bl1_pistol_w, bl1_pistol_h, bl1_pistol_px = bl1map.item_icon(bl1_cooked, "repeater")
+        assert bl1_pistol_px[3] == 0 and bl1_pistol_h < bl1_pistol_w, "the pistol without its square"
+        assert bl1map.item_icon(bl1_cooked, "health"), "its cross: also what the empty frame after it shows"
+        # its element icons: the card's "chemical" clip at the item's frame number (1: explosive, no level)
+        assert bl1map.card_frame_icon(bl1_cooked, bl1map.ELEMENT_CLIP, 1) and bl1map.card_frame_icon(bl1_cooked, bl1map.ELEMENT_CLIP, 13)
+        assert bl1map.card_frame_icon(bl1_cooked, bl1map.ELEMENT_CLIP, 0) is None and bl1map.card_frame_icon(bl1_cooked, "nope", 1) is None
+        assert bl1map.card_frame_icon(bl1_cooked, bl1map.ELEMENT_CLIP, "fire1") and bl1map.card_frame_icon(bl1_cooked, bl1map.ELEMENT_CLIP, "fire9") is None
+        assert bl1map.card_frame_icon(bl1_cooked, bl1map.ELEMENT_CLIP, "fire3")[:2] == bl1map.card_frame_icon(bl1_cooked, bl1map.ELEMENT_CLIP, "fire0")[:2], (
+            "a level's frame: its element's mark alone (moved a little: the number beside it), its number left out")
+        assert bl1map.card_frame_icon(bl1_cooked, bl1map.ELEMENT_CLIP, "fire1")[:2] == bl1map.card_frame_icon(bl1_cooked, bl1map.ELEMENT_CLIP, "fire0")[:2], (
+            "the first level too (its frame moves the mark: still the mark alone)")
+        bl1_element_png = bl1_work.run_job(json.dumps({"fn": bl1_work.fn(bl1map.element_icon_job), "cooked": str(bl1_cooked), "clip": "chemical", "frame": 6}))
+        assert bl1_element_png[:8] == b"\x89PNG\r\n\x1a\n", bl1_element_png[:16]
+        bl1_item_png = bl1_work.run_job(json.dumps({"fn": bl1_work.fn(bl1map.item_icon_job), "cooked": str(bl1_cooked), "label": "repeater"}))
+        assert bl1_item_png[:8] == b"\x89PNG\r\n\x1a\n", bl1_item_png[:16]
+        assert bl1map.card_icon(bl1_cooked, bl1_brand_keys, "corazza") is None, "no logo of its own in the movie"
+        assert bl1map.card_icon(bl1_cooked, ["nope"], "jakobs") is None
+        # a pickup's icon (its PickupFlagIcon, as BL2's - probe_bl1_pickup_icons): its package found by name under CookedPC
+        from helios_tracker.games.bl1.files import bl1textures  # noqa: PLC0415
+        bl1_credits = bl1textures.texture_png(bl1_cooked, "FX_Items.Textures.Credits")
+        assert bl1_credits and bl1_credits[:8] == b"\x89PNG\r\n\x1a\n" and struct.unpack(">II", bl1_credits[16:24]) == (128, 128), bl1_credits[:24]
+        assert bl1textures.texture_png(bl1_cooked, "FX_Items.Textures.Nope") is None and bl1textures.texture_png(bl1_cooked, "Nope_Pkg.X") is None
+        assert bl1textures.texture_png(bl1_cooked, "../x") is None
+        bl1_work.stop()  # (its job started the worker: stopped, as the scan's)
+        bl1_logo_png = bl1_work.run_job(json.dumps({"fn": bl1_work.fn(bl1map.card_icon_job), "cooked": str(bl1_cooked), "keys": bl1_brand_keys,
+                                                    "label": "s_and_s"}))
+        assert bl1_logo_png[:8] == b"\x89PNG\r\n\x1a\n", bl1_logo_png[:16]
+        print(f"  BL1: packages (584), the arena's map anchor, its map rendered {bl1_arena_img.width} x {bl1_arena_img.height}")
+    # A DLC map: its package is under DLC/<code name>/{Lic,Compat}/Content (gamedir.package_path)
+    from helios_tracker import gamedir  # noqa: PLC0415
+    real_cooked = gamedir.cooked_dir
+    gamedir.cooked_dir = lambda: GAME_COOKED
     try:
-        dlc = col.package_path("Sage_Underground_P.upk")
-        assert dlc is not None and "DLC" in dlc.parts, dlc
-        assert col.package_path("Sanctuary_P.upk") == GAME_COOKED / "Sanctuary_P.upk" and col.package_path("Nope_P.upk") is None
-        t = time.perf_counter()
-        (img,) = load_tactical_map(dlc, "Sage_UI_TacticalMap_Undergrnd.Undergrnd_P")
-        assert (img.format, img.width, img.height) == ("PF_DXT5", 1024, 644), img
-        print(f"  Sage_Underground_P (DLC): {img.name} {img.width}x{img.height} ({time.perf_counter() - t:.2f} s)")
+        assert gamedir.package_path("Sanctuary_P.upk") == GAME_COOKED / "Sanctuary_P.upk" and gamedir.package_path("Nope_P.upk") is None
+        # (the DLC's map: only if the install has it - its Lic/Content can be gone with the folder still there, 2026-10-04)
+        if any((GAME_COOKED.parent.parent / "DLC" / "Sage").glob("*/Content/Sage_Underground_P.upk")):
+            dlc = gamedir.package_path("Sage_Underground_P.upk")
+            assert dlc is not None and "DLC" in dlc.parts, dlc
+            t = time.perf_counter()
+            (img,) = load_tactical_map(dlc, "Sage_UI_TacticalMap_Undergrnd.Undergrnd_P")
+            assert (img.format, img.width, img.height) == ("PF_DXT5", 1024, 644), img
+            print(f"  Sage_Underground_P (DLC): {img.name} {img.width}x{img.height} ({time.perf_counter() - t:.2f} s)")
+        else:
+            print("  Sage_Underground_P (DLC): not in this install - skipped")
     finally:
-        col.cooked_dir = real_cooked
+        gamedir.cooked_dir = real_cooked
     # A map drawn from a part of its texture (a GFx DefineSubImage, its image's id 0): the Pre-Sequel's ComFacility_P
     tps_cooked = project.path("tps")
     tps_facility = tps_cooked / "WillowGame" / "CookedPCConsole" / "ComFacility_P.upk" if tps_cooked else None
@@ -769,8 +955,17 @@ def check_helios_tracker() -> None:  # noqa: PLR0915
     def dome_io(extent: float, attached: bool) -> types.SimpleNamespace:
         return types.SimpleNamespace(CollisionComponent=types.SimpleNamespace(
             Bounds=types.SimpleNamespace(BoxExtent=types.SimpleNamespace(X=extent)), bAttached=attached))
-    assert col.Collector._dome(dome_io(1687.2, True)) == [1687, 1] and col.Collector._dome(dome_io(976.0, False)) == [976, 0]
-    assert col.Collector._dome(types.SimpleNamespace(CollisionComponent=None)) is None, "no sphere: no dome"
+    from helios_tracker import games as dome_games  # noqa: PLC0415
+    dome_tps, dome_bl2 = dome_games.make_profile("TPS").objects, dome_games.make_profile("BL2").objects
+    assert dome_tps.dome(dome_io(1687.2, True)) == [1687, 1] and dome_tps.dome(dome_io(976.0, False)) == [976, 0]
+    assert dome_tps.dome(types.SimpleNamespace(CollisionComponent=None)) is None, "no sphere: no dome"
+    # the Pre-Sequel's oxygen system's objects: its objects part's (BL2 has none - its objects not even tested by name)
+    dome_def = lambda name: types.SimpleNamespace(Name=name)  # noqa: E731
+    assert dome_tps.extra_fields(dome_io(1500.0, False), dome_def("IO_AirDome_Bubble_On")) == {"dome": [1500, 0]}
+    assert dome_tps.extra_fields(dome_io(1500.0, False), dome_def("IO_AirDome_Generator_On")) == {"dg": 1}
+    assert dome_tps.extra_fields(None, dome_def("IO_OxygenCracks_Large")) == {"o2": 1}
+    assert dome_tps.extra_fields(None, dome_def("IO_FireBarrel")) == {}
+    assert dome_bl2.extra_fields(dome_io(1500.0, False), dome_def("IO_AirDome_Bubble_On")) == {} and dome_bl2.dome(dome_io(1.0, True)) is None
     vacuum_state = enum.IntEnum("EVacuumState", ["VS_InAir", "VS_InVacuum"], start=0)
     assert col.Collector._in_vacuum(types.SimpleNamespace(VacuumComponent=types.SimpleNamespace(State=vacuum_state.VS_InVacuum)))
     assert not col.Collector._in_vacuum(types.SimpleNamespace(VacuumComponent=types.SimpleNamespace(State=vacuum_state.VS_InAir)))
@@ -888,7 +1083,7 @@ def check_helios_tracker() -> None:  # noqa: PLR0915
     def pawn(addr: int, name: str, x: float, y: float, nxt: object = None, enemy: bool = False) -> object:
         return ns(
             _get_address=lambda: addr, Name=name, Class=ns(Name="WillowAIPawn", _get_address=lambda: 0xC100), bDeleteMe=False,
-            bIsDead=False,
+            bIsDead=False, bHidden=False,
             Location=ns(X=x, Y=y, Z=3690.0), Rotation=ns(Yaw=16384), GetMaxHealth=lambda: 100.0,
             GetHealth=lambda: 40.0, IsEnemy=lambda other: enemy, GetExpLevel=lambda: 12,
             GetShieldStrength=lambda: 25.0, GetMaxShieldStrength=lambda: 50.0 if enemy else 0.0,
@@ -900,7 +1095,10 @@ def check_helios_tracker() -> None:  # noqa: PLR0915
             NextPawn=nxt, PlayerReplicationInfo=None,
         )
 
-    seat = pawn(0x210, "seat", 10000.0, 3000.0)  # a vehicle's turret seat: not shown
+    # hidden (bHidden): not in the game's world - BL1's bus stop Claptrap, parked for a later scene: not shown
+    hidden_npc = pawn(0x220, "claptrap", 9000.0, 3000.0)
+    hidden_npc.bHidden = True
+    seat = pawn(0x210, "seat", 10000.0, 3000.0, nxt=hidden_npc)  # a vehicle's turret seat: not shown
     seat.Class = ns(Name="WillowWeaponPawn", SuperField=None, _get_address=lambda: 0xC200)  # (seats: by class address)
     enemy = pawn(0x200, "bullymong", 10000.0, 3000.0, nxt=seat, enemy=True)
     me = pawn(0x100, "me", 10635.4, 5702.0, nxt=enemy)
@@ -970,7 +1168,7 @@ def check_helios_tracker() -> None:  # noqa: PLR0915
     )
     col.ENGINE = ns(GetCurrentWorldInfo=lambda: wi)
     col.get_pc = lambda **k: ns(MyWillowPawn=me, Rotation=ns(Yaw=0))
-    col.cooked_dir = lambda: GAME_COOKED
+    gamedir.cooked_dir = lambda: GAME_COOKED
     barrel = ns(  # an interactive object whose display name comes from its balance definition
         Name="WillowInteractiveObject_3", Outer=ns(Class=ns(Name="Level")), bDeleteMe=False, bHidden=False,
         Location=ns(X=9000.0, Y=1000.0, Z=3690.0), InteractiveObjectDefinition=ns(Name="IO_FireBarrel"),
@@ -1041,8 +1239,16 @@ def check_helios_tracker() -> None:  # noqa: PLR0915
     assert "state" not in hub._channels, "collected with no page connected"
     hub.clients = 1  # a page is open
     c.tick(1001.0)
-    c.tick(1001.1)  # one heavy task per tick: pickups, then objects, then players
-    c.tick(1001.2)
+    c.tick(1001.1)  # one heavy task per tick: pickups, then objects, the level's lookups (tracker, areas), then players
+    for lookup_at in (1001.2, 1001.3, 1001.4):
+        c.tick(lookup_at)
+    # the players' cards: a few ms a pass (inspector.ITEMS_SECONDS) - the passes go on until they're all built (its
+    # first one published as it is: the pane at once)
+    from helios_tracker.inspector import players_complete as collector_players_complete  # noqa: PLC0415
+    for _players_pass in range(30):  # (the pass itself, again: the ticks' clock left as the checks below expect it)
+        if collector_players_complete():
+            break
+        c._publish_players()
     level: dict = {}
     for _ in range(100):
         level = json.loads(hub.latest("level"))
@@ -1050,6 +1256,285 @@ def check_helios_tracker() -> None:  # noqa: PLR0915
             break
         time.sleep(0.05)
     assert level["status"] == "ready" and level["upp"] == 128.0 and level["center"] == [-3072.0, -10240.0], level
+    # the game and its features, for the page (games.py -> game.js)
+    assert level["game"] == "bl2" and level["features"] == ["discovery"], (level.get("game"), level.get("features"))
+    # The games' profiles (games.py): one per game, by mods_base's name; each other game only what differs from BL2
+    from helios_tracker import games as game_profiles  # noqa: PLC0415
+    profile_bl2, profile_tps, profile_bl1 = (game_profiles.make_profile(n) for n in ("BL2", "TPS", "BL1"))
+    assert type(game_profiles.GAME) is type(profile_bl2), "the fake mods_base's game: BL2"
+    assert profile_tps.features == profile_bl2.features | {"oxygen", "jumppads"} and profile_tps.packages == "CookedPCConsole"
+    assert profile_bl1.features == set() and profile_bl1.packages == "CookedPC" and profile_bl1.gibbed_prefix == ""
+    assert (profile_bl2.exe_depth, profile_bl1.exe_depth) == (2, 1), "Binaries/Win32/Borderlands2.exe, Binaries/Borderlands.exe"
+    # BL1's world is "Loader" in every area: the area is its first LevelStreamingPersistent (tools/probes/probe_bl1.txt);
+    # none (the main menu): the world's own package
+    profile_wi = ns(GetStreamingPersistentMapName=lambda: "Sanctuary_P", _path_name=lambda: "Loader.TheWorld:PersistentLevel.WorldInfo_1",
+                    StreamingLevels=[ns(Class=ns(Name="LevelStreamingPersistent"), PackageName="arid_p"),
+                                     ns(Class=ns(Name="LevelStreamingKismet"), PackageName="arid_env")])
+    assert profile_bl2.world.map_name(profile_wi) == "Sanctuary_P" and profile_bl1.world.map_name(profile_wi) == "arid_p"
+    profile_menu = ns(_path_name=lambda: "menumap.TheWorld:PersistentLevel.WorldInfo_0", StreamingLevels=[])
+    assert profile_bl1.world.map_name(profile_menu) == "menumap" and profile_bl1.world.level_key(profile_menu, "menumap") == ("menumap",)
+    # BL1's pause: the escape menu's Pauser, or a status menu's bStatusMenuOnly (inventory, map, skills); its equipped
+    # items' kind from their definition's slot (one class for them all)
+    import enum  # noqa: PLC0415
+    assert profile_bl1.world.paused(ns(Pauser=None, bStatusMenuOnly=True)) and not profile_bl1.world.paused(ns(Pauser=None, bStatusMenuOnly=False))
+    assert profile_bl2.world.paused(ns(Pauser=object())) and not profile_bl2.world.paused(ns(Pauser=None, bStatusMenuOnly=True))
+    bl1_slot = enum.IntEnum("EEquipmentLoc", ["EQUIPLOC_Shield", "EQUIPLOC_MOD", "EQUIPLOC_Deck"], start=0)
+    bl1_shield = ns(Class=ns(Name="WillowEquipAbleItem", SuperField=None),
+                    DefinitionData=ns(ItemDefinition=ns(EquipmentLocation=bl1_slot.EQUIPLOC_Shield)))
+    assert profile_bl1.items.kind(bl1_shield) == "shield" and profile_bl2.items.kind(bl1_shield) == "item"
+    assert profile_bl1.items.kind(ns(Class=ns(Name="WillowWeapon", SuperField=None))) == "weapon", "the class first"
+    # BL1's object behaviours: its behaviour sets' event arrays and reactions (its barrels' Behavior_Explode is there)
+    bl1_explode = ns(Class=ns(Name="Behavior_Explode"))
+    bl1_barrel = ns(DefaultBehaviorSet=ns(OnSpawn=[], OnBehaviorSetEnabled=[], OnBehaviorSetDisabled=[], OnTouch=[], OnUnTouch=[],
+                                         OnUsedBy=[], OnTakeDamage=[None], OnKilled=[], TimerEvents=[], CounterEvents=[],
+                                         CustomEvents=[ns(Behaviors=[bl1_explode])]),
+                    ExtraBehaviorSets=[])
+    assert profile_bl1.objects.behaviors(bl1_barrel) == [bl1_explode]
+    # BL1's vending machines: their own class (no WillowVendingMachineBase), no shop titles in its menu
+    from helios_tracker import shops as profile_shops  # noqa: PLC0415
+    bl1_machine = ns(Class=ns(Name="WillowVendingMachine", SuperField=ns(Name="WillowInteractiveObject", SuperField=None)))
+    assert not profile_shops.is_machine(bl1_machine), "BL2's profile: not its machine class"
+    real_profile = game_profiles.GAME
+    game_profiles.GAME = profile_bl1
+    try:
+        assert profile_shops.is_machine(bl1_machine), "BL1's profile: its machines' own class"
+    finally:
+        game_profiles.GAME = real_profile
+    assert profile_bl1.vending_titles is None and profile_bl2.vending_titles == "VendingMachineExGFxMovie"
+    # the updater's one-shot reload: a function each game calls every frame (BL1's viewport client has no Tick)
+    assert (profile_bl2.tick_function, profile_bl1.tick_function) == ("WillowGame.WillowGameViewportClient:Tick", "Engine.GameViewportClient:Tick")
+    # the price: BL2's call (item, controller, quantity), BL1's (item, quantity) - no controller
+    priced = ns(GetSellingPriceForInventory=lambda *a: 1000 + len(a))
+    assert (profile_bl2.shops.selling_price(priced, "item", "pc"), profile_bl1.shops.selling_price(priced, "item", "pc")) == (1003, 1002)
+    # its prices' currency: BL2's machine says (FormOfCurrency), BL1's has none - dollars
+    assert profile_bl1.shops.currency(ns()) == "CURRENCY_Credits"
+    assert profile_bl2.ui_stat_kinds == {"shield"} and profile_bl1.ui_stat_kinds == {"shield", "grenade", "classmod"}
+    # card stat decimals: BL2's presentation says (FloatPrecision), BL1's has none - one (its SG330's accuracy 6.7)
+    assert (profile_bl2.items.presented_decimals(ns(FloatPrecision=2)), profile_bl1.items.presented_decimals(ns())) == (2, 1)
+    # the shops' timer: BL2's host count (a client: the replicated one), BL1's replicated one (what its menu shows)
+    timer_host, timer_gri = ns(SecondsUntilShopsReset=922.85), ns(SecondsUntilShopsReset=925)
+    assert profile_bl2.shops.timer_source(ns(Game=timer_host, GRI=timer_gri)) is timer_host
+    assert profile_bl2.shops.timer_source(ns(Game=None, GRI=timer_gri)) is timer_gri
+    assert profile_bl1.shops.timer_source(ns(Game=timer_host, GRI=timer_gri)) is timer_gri
+    # BL1's card lines (tools/probes/probe_bl1_cards.txt, an SG330): the modifier, remapped / its sign flipped / x 100 /
+    # rounded as its presentation says - the game's "4.0x", "+43%", "+1"; BL2's: the page's own (None)
+    line_rounding = enum.IntEnum("EAttributePresentationRoundingMode", ["ATTRROUNDING_Float", "ATTRROUNDING_IntRound", "ATTRROUNDING_IntCeil",
+                                                                         "ATTRROUNDING_IntFloor"], start=0)
+
+    def bl1_pres(**flags: object) -> types.SimpleNamespace:
+        return ns(**{"bValueRemappingEnabled": False, "bDisplayAsInverse": False, "bDisplayAsPercentage": False,
+                     "RoundingMode": line_rounding.ATTRROUNDING_Float, **flags})
+    zoom_pres = bl1_pres(bValueRemappingEnabled=True, bDisplayAsInverse=True, RemappingData=ns(
+        InputValueMn=ns(BaseValueConstant=-100.0, BaseValueAttribute=None, InitializationDefinition=None, BaseValueScaleConstant=1.0),
+        InputValueMx=ns(BaseValueConstant=0.0, BaseValueAttribute=None, InitializationDefinition=None, BaseValueScaleConstant=1.0),
+        OutputValueMn=ns(BaseValueConstant=-10.0, BaseValueAttribute=None, InitializationDefinition=None, BaseValueScaleConstant=1.0),
+        OutputValueMx=ns(BaseValueConstant=0.0, BaseValueAttribute=None, InitializationDefinition=None, BaseValueScaleConstant=1.0)))
+    card_shown = [profile_bl1.items.card_line_value(ns(ModifierValue=-40.0), zoom_pres, ns()),
+                  profile_bl1.items.card_line_value(ns(ModifierValue=-0.4318), bl1_pres(bDisplayAsInverse=True, bDisplayAsPercentage=True), ns()),
+                  profile_bl1.items.card_line_value(ns(ModifierValue=1.0), bl1_pres(RoundingMode=line_rounding.ATTRROUNDING_IntFloor), ns()),
+                  profile_bl1.items.card_line_value(ns(ModifierValue=0.0673), bl1_pres(bDisplayAsPercentage=True, RoundingMode=line_rounding.ATTRROUNDING_IntCeil), ns())]
+    assert card_shown == [(4.0, 1), (43.0, 0), (1.0, 0), (7.0, 0)], card_shown
+    assert profile_bl2.items.card_line_value(ns(ModifierValue=1.0), bl1_pres(), ns()) is None
+    # weapon card damage rounding: BL1's presentation rounds up (85.2 -> 86), BL2's a whole number, rounded
+    assert profile_bl1.damage_presentation.endswith("AttrPresent_WeaponDamage") and profile_bl2.damage_presentation is None
+    damage_rounding = enum.IntEnum("EAttributePresentationRoundingMode", ["ATTRROUNDING_Float", "ATTRROUNDING_IntCeil"], start=0)
+    assert sys.modules["helios_tracker.inspector"]._presented(ns(RoundingMode=damage_rounding.ATTRROUNDING_IntCeil), 85.2) == (86, 0)
+    # a game text's HTML entities decoded (BL1's manufacturer "S&amp;S Munitions": the page escaped it again)
+    assert sys.modules["helios_tracker.inspector"]._localized(ns(Grades=[ns(DisplayName="S&amp;S Munitions")]), 0) == "S&S Munitions"
+    # BL1's rarity table: its RarityLevelColors entries' level ranges (no index function) - 12 rare blue, 18 epic purple
+    bl1_rarity = profile_bl1.items.rarity_table(ns(RarityLevelColors=[
+        ns(MinLevel=-1, MaxLevel=1, Color=ns(R=255, G=255, B=255)), ns(MinLevel=2, MaxLevel=4, Color=ns(R=255, G=255, B=255)),
+        ns(MinLevel=5, MaxLevel=10, Color=ns(R=61, G=210, B=11)), ns(MinLevel=11, MaxLevel=15, Color=ns(R=47, G=120, B=255)),
+        ns(MinLevel=16, MaxLevel=49, Color=ns(R=145, G=50, B=200))]))
+    assert bl1_rarity["12"] == [3, "#2f78ff"] and bl1_rarity["18"] == [4, "#9132c8"] and bl1_rarity["0"][0] == 0 and "-1" not in bl1_rarity, bl1_rarity
+    assert profile_bl2.shops.currency(ns(FormOfCurrency=enum.IntEnum("ECurrencyType", ["CURRENCY_Credits", "CURRENCY_Eridium"], start=0).CURRENCY_Eridium)) == "CURRENCY_Eridium"
+    # BL1's skills (tools/probes/probe_bl1_skills.txt): its action skill locked at Grade 0 (PlayerSkills[ActionSkillPlayerSkillIndex]);
+    # its tree from SkillTreeBranches' tiers - indices into PlayerSkills (-1: an empty cell), the points a tier asks from
+    # the class's PlayerSkillSet, the First branch (the action skill alone) the root
+    branch_enum = enum.IntEnum("ESkillBranch", ["SKILLBRANCH_None", "SKILLBRANCH_First", "SKILLBRANCH_Left"], start=0)
+    bloodwing = ns(_get_address=lambda: 0x5B1, Name="A_LaunchBloodwing", SkillName="Bloodwing", MaxGrade=1, SkillDescription="")
+    focus = ns(_get_address=lambda: 0x5B2, Name="Focus", SkillName="Focus", MaxGrade=5, SkillDescription="Increases accuracy")
+    bl1_skills = [ns(Definition=ns(_get_address=lambda: 0x5B0, Name="Fire", SkillName="Fire", MaxGrade=12, SkillDescription=""), Grade=0),
+                  ns(Definition=bloodwing, Grade=0), ns(Definition=focus, Grade=2)]
+    bl1_ctrl = ns(_get_address=lambda: 0x5C0, PlayerSkills=bl1_skills, ActionSkillPlayerSkillIndex=1, SkillTreeBranches=[
+        ns(BranchIndex=branch_enum.SKILLBRANCH_First, PointsSpentInBranch=0, Tiers=[ns(TierIndex=0, PlayerSkillIndexList=[-1, 1])]),
+        ns(BranchIndex=branch_enum.SKILLBRANCH_Left, PointsSpentInBranch=2, Tiers=[ns(TierIndex=0, PlayerSkillIndexList=[2, -1])])],
+        PlayerClass=ns(PlayerSkillSet=ns(FirstBranch=ns(Tiers=[ns(PointsToUnlockNextTier=1)]),
+                                         LeftBranch=ns(Tiers=[ns(PointsToUnlockNextTier=5)]))))
+    assert profile_bl1.skills.action_locked(bl1_ctrl), "Bloodwing at Grade 0: locked"
+    # BL1's item cards show the level the item needs (probe_bl1_levels: ExpLevel 6, its card 4), BL2's its level
+    bl1_gun = ns(GetControllerPlayerExpLevelRequiredToUse=lambda c: 4)
+    assert profile_bl1.items.zippy_frame(ns(ZippyFrame="shield")) == "shield", "BL1's card type frame: a property"
+    # BL1's mission items: usable items whose definition says bMissionItem (no WillowMissionItem class) - "Power Coupling"
+    bl1_coupling = ns(Class=ns(Name="WillowUsableItem"), DefinitionData=ns(ItemDefinition=ns(
+        _get_address=lambda: 0x7C1, bMissionItem=True, Presentation=ns(Name="MissionObject"))))
+    assert profile_bl1.items.pickup_kind(bl1_coupling) == "mission", profile_bl1.items.pickup_kind(bl1_coupling)
+    assert profile_bl2.items.pickup_kind(bl1_coupling) == "", "BL2's: its presentation (no bMissionItem rule)"
+    # its card element: an item's frame number (FlashTechFrame - probe_bl1_elements: an Explosive MIRV's 1.0), 0 none
+    assert profile_bl1.items.element_frame(ns(GetTechIconFrame=lambda: 1.0), "grenade") == "1"
+    assert profile_bl1.items.element_frame(ns(GetTechIconFrame=lambda: 0.0), "shield") == ""
+    # a weapon's: its damage type's element and its tech level (probe_bl1_elements: The Clipper, "fire1" - its card's x1)
+    bl1_dmg_enum = enum.IntEnum("EDamageType", ["DAMAGE_TYPE_Unknown", "DAMAGE_TYPE_Incindiary", "DAMAGE_TYPE_Shock"], start=0)
+    bl1_clipper = ns(DefinitionData="data", StaticCalculateWeaponTechLevelForUI=lambda d: (1, d),
+                     StaticGetWeaponDamageType=lambda d: (ns(DamageType=bl1_dmg_enum.DAMAGE_TYPE_Incindiary), d))
+    assert profile_bl1.items.element_frame(bl1_clipper, "weapon") == "fire1"
+    bl1_plain_gun = ns(**{**vars(bl1_clipper), "StaticGetWeaponDamageType": lambda d: (ns(DamageType=bl1_dmg_enum.DAMAGE_TYPE_Unknown), d)})
+    assert profile_bl1.items.element_frame(bl1_plain_gun, "weapon") == ""
+    # its level: a stat of its own (the icon: the mark alone) - none without an element, BL2's never
+    assert profile_bl1.items.element_level(bl1_clipper, "weapon") == 1 and profile_bl1.items.element_level(bl1_plain_gun, "weapon") == 0
+    assert profile_bl1.items.element_level(ns(GetTechIconFrame=lambda: 3.0, CalculateItemTechLevel=lambda: 2), "grenade") == 2
+    assert profile_bl1.items.element_level(ns(GetTechIconFrame=lambda: 0.0, CalculateItemTechLevel=lambda: 2), "shield") == 0
+    assert profile_bl2.items.element_level(bl1_clipper, "weapon") == 0
+    # a barrel's element (its explosion's damage type): its element's mark ("exp0") - not learned from the weapons
+    assert profile_bl1.items.damage_type_frame("DAMAGE_TYPE_Explosive") == "exp0" and profile_bl1.items.damage_type_frame("DAMAGE_TYPE_Unknown") == ""
+    # the markers' actors, each game's way (no feature flags): BL2's for a co-op client only, BL1's always - and its exits
+    assert (profile_bl2.missions.level_lookups(False), profile_bl2.missions.level_lookups(True), profile_bl1.missions.level_lookups(False)) == (
+        {}, {"waypoints": "WillowWaypoint"}, {"waypoints": "WillowWaypoint", "exits": "PersistentTransitionLandmark"})
+    assert profile_bl2.missions.markers(None, None, None) is None, "BL2: the tracker's waypoint components"
+    # the game's images, each game's routes (the server knows none): not one of them -> None; BL1 has no skill icon textures
+    assert profile_bl2.assets.serve("/nope.png") is None and profile_bl1.assets.serve("/nope.png") is None
+    assert profile_bl1.assets.serve("/icon/SharedSkillIcons_Soldier.SkillIcon-Able.png") is None and profile_bl1.assets.textures_ready()
+    assert profile_bl2.missions.current_objectives([1], 3) == [1] and profile_bl1.missions.current_objectives([1], 3) == [0, 1, 2]
+    assert not {"tacmap", "scan", "fontlibrary", "missionsteps", "waypointmarkers", "learnedelements"} & (
+        profile_bl2.features | profile_tps.features | profile_bl1.features), "features: systems a game has - only"
+    # its containers looted: no longer usable (probe_bl1_looted: bCanBeUsed a flag, no animation state)
+    assert profile_bl1.objects.is_looted(ns(bCanBeUsed=False), False) and not profile_bl1.objects.is_looted(ns(bCanBeUsed=True), False)
+    # its quest givers: their missions on the object; one offered = eligible (the game's word) and not picked up yet
+    # its local player in a vehicle: no MyWillowPawn - the driver of the pawn it controls (the vehicle, or its seat)
+    bl1_me = ns(Name="WillowPlayerPawn_0")
+    assert profile_bl1.pawns.local(ns(MyWillowPawn=None, Pawn=ns(Driver=bl1_me))) is bl1_me
+    assert profile_bl1.pawns.local(ns(MyWillowPawn=bl1_me, Pawn=ns(Driver=None))) is bl1_me
+    assert profile_bl2.pawns.local(ns(MyWillowPawn=bl1_me)) is bl1_me
+    # its map exits: a map changer's destination from the level's script - its event's output links to the map change
+    # action's DefaultMap (W_Arid_P: Default_MapChanger -> ... -> WillowSeqAct_PrepareMapChangeFromDefinition)
+    bl1_changer = ns(_get_address=lambda: 0xC1)
+    bl1_change = ns(_get_address=lambda: 0xC4, Class=ns(Name="WillowSeqAct_PrepareMapChangeFromDefinition"), DefaultMap="Dry_P", OutputLinks=[])
+    bl1_gate = ns(_get_address=lambda: 0xC3, Class=ns(Name="SeqAct_Gate"), OutputLinks=[ns(Links=[ns(LinkedOp=bl1_change)])])
+    bl1_used = ns(_get_address=lambda: 0xC2, Name="SeqEvent_Used_0", Originator=bl1_changer, Class=ns(Name="SeqEvent_Used"),
+                  OutputLinks=[ns(Links=[ns(LinkedOp=bl1_gate)])])
+    bl1_sdk = sys.modules["unrealsdk"]
+    bl1_real_find_all, bl1_real_map_name = getattr(bl1_sdk, "find_all", None), profile_bl1.world.map_name
+    bl1_sdk.find_all = lambda cls, exact=True: [bl1_used, ns(Name="Default__SequenceEvent", Originator=None)]
+    profile_bl1.world.map_name = lambda wi_obj: "Arid_P"
+    try:
+        assert profile_bl1.objects._destination(bl1_changer) == "Dry_P"
+        assert profile_bl1.objects._destination(ns(_get_address=lambda: 0xC9)) == "", "not a changer: none"
+        # a level change (util.level_changed: the profile's reset registered with it) - its events indexed again, not
+        # kept by the area's name (stale after a save-quit-continue in the same area)
+        from helios_tracker.util import level_changed as reset_level, on_level_change as on_reset  # noqa: PLC0415
+        reset_hits: list = []
+        on_reset(lambda: reset_hits.append(1))
+        real_profile = game_profiles.GAME
+        game_profiles.GAME = profile_bl1
+        try:
+            reset_level()
+        finally:
+            game_profiles.GAME = real_profile
+        assert reset_hits == [1] and not profile_bl1.objects._events_indexed and not profile_bl1.objects._destination_map, "reset with the level"
+        assert profile_bl1.objects._destination(bl1_changer) == "Dry_P", "indexed again"
+    finally:
+        bl1_sdk.find_all, profile_bl1.world.map_name = bl1_real_find_all, bl1_real_map_name
+    assert profile_bl2.objects.exit(bl1_changer) == ("", "")
+    # its vehicles' names: their own fields (no VehicleDef, no GetCustomizableName - the record had failed)
+    assert profile_bl1.pawns.vehicle_name(ns(DisplayName="", VehicleNameString="Runner")) == "Runner"
+    assert profile_bl2.pawns.vehicle_name(ns(VehicleDef=ns(DisplayName="Runner"))) == "Runner"
+    assert profile_bl1.objects.directives(ns(MissionDirectives=["d"])) == ["d"] and profile_bl2.objects.directives(ns(Directives=ns(MissionDirectives=["d"]))) == ["d"]
+    bl1_eligibility = enum.IntEnum("EMissionEligibility", ["ME_Eligible", "ME_Ineligible_Level", "ME_Ineligible_Dependencies", "ME_Ineligible_Other"], start=0)
+    bl1_tk = ns(Name="tk", _get_address=lambda: 0x7001)  # (missions: game objects - the eligibility cached by address)
+    bl1_other = ns(Name="other", _get_address=lambda: 0x7002)
+    bl1_eligibility_calls = []
+    bl1_board_pc = ns(GetMissionEligibility=lambda m: bl1_eligibility_calls.append(m.Name) or (
+        bl1_eligibility.ME_Eligible if m.Name == "tk" else bl1_eligibility.ME_Ineligible_Other))
+    assert profile_bl1.missions.offered(bl1_board_pc, bl1_tk, "", False), "eligible, not taken: its !"
+    assert not profile_bl1.missions.offered(bl1_board_pc, bl1_tk, "", True), "eligible but picked up already"
+    assert not profile_bl1.missions.offered(bl1_board_pc, bl1_other, "", False)
+    assert profile_bl1.missions.offered(bl1_board_pc, bl1_tk, "", False) and bl1_eligibility_calls == ["tk", "other"], (
+        "eligibility read once per mission while the log stays the same (a call per giver mission per second)", bl1_eligibility_calls)
+    assert profile_bl2.missions.offered(None, "m", "begin", False) and not profile_bl2.missions.offered(None, "m", "", False)
+    # a profile method's failure logged (once per method and exception type), then raised as before: its callers keep
+    # their defaults, but a method wrong for a game no longer fails silently (profiles.md point 1)
+    profile_util = sys.modules["helios_tracker.util"]
+    profile_real_log, profile_entries = profile_util.log_error, []
+    profile_util.log_error = lambda where, ex: profile_entries.append((where, type(ex).__name__))
+    try:
+        profile_logged = game_profiles.make_profile("BL2")
+        for profile_bad in (None, ns(), ns(GetStreamingPersistentMapName=None)):  # (two AttributeErrors, a TypeError)
+            try:
+                profile_logged.world.map_name(profile_bad)
+            except Exception:  # noqa: BLE001, S110
+                pass
+    finally:
+        profile_util.log_error = profile_real_log
+    assert profile_entries == [("games.World.map_name", "AttributeError"), ("games.World.map_name", "TypeError")], (
+        "logged once per exception type", profile_entries)
+    assert profile_logged.world.map_name(ns(GetStreamingPersistentMapName=lambda: "Ice_P")) == "Ice_P", "and works as before"
+    # its class name: the globals' PlayerCharacters[] by the class's CharacterName (no identifier definitions: "Mordecai ?")
+    bl1_globals = ns(PlayerCharacters=[ns(CharacterClassName="Soldier", DefaultCharacterName="Roland"),
+                                       ns(CharacterClassName="Hunter", DefaultCharacterName="Mordecai")])
+    bl1_real_find_object = sys.modules["unrealsdk"].find_object
+    sys.modules["unrealsdk"].find_object = lambda cls, path: bl1_globals if cls == "GlobalsDefinition" else None
+    try:
+        assert profile_bl1.pawns.class_name(ns(PlayerClass=ns(CharacterName=1)), None) == {"cls": "Hunter", "char": "Mordecai"}
+    finally:
+        sys.modules["unrealsdk"].find_object = bl1_real_find_object
+    # its missions not picked up: the log's entries, then every other mission loaded, not started - offered: eligible
+    # a mission's area: its turn-in waypoint's level (else its target's), named as the map's title is
+    real_level_name = sys.modules["helios_tracker.collector"].level_name
+    sys.modules["helios_tracker.collector"].level_name = lambda m: {"Arid_P": "Arid Badlands"}.get(m, "")
+    try:
+        assert profile_bl1.missions.home(ns(TurnInWaypointDefinition=ns(PersistentLevelName="Arid_P"), TargetWaypointDefinition=None)) == {
+            "a": "Arid Badlands", "map": "Arid_P"}
+        assert profile_bl1.missions.home(ns(TurnInWaypointDefinition=ns(PersistentLevelName="None"),
+                                           TargetWaypointDefinition=ns(PersistentLevelName="Arid_P")))["a"] == "Arid Badlands"
+        assert profile_bl1.missions.home(ns(TurnInWaypointDefinition=None, TargetWaypointDefinition=ns(PersistentLevelName="Nowhere_P"))) is None
+    finally:
+        sys.modules["helios_tracker.collector"].level_name = real_level_name
+    bl1_offered = game_profiles.bl1.missions._NotPickedUp(bl1_tk, bl1_board_pc, profile_bl1.missions._eligible_for)
+    assert profile_bl1.missions.status(bl1_offered) == "NotStarted" and profile_bl1.missions.progress(bl1_offered) == ()
+    assert bl1_offered.bHeardKickoff and not game_profiles.bl1.missions._NotPickedUp(bl1_other, bl1_board_pc, profile_bl1.missions._eligible_for).bHeardKickoff
+    assert profile_bl2.items.element_frame(ns(ElementalFrame="shock"), "weapon") == "shock" and profile_bl2.items.element_frame(ns(ElementalFrame="None"), "weapon") == ""
+    assert profile_bl2.items.zippy_frame(ns(GetZippyFrame=lambda: "comm")) == "comm"
+    assert profile_bl1.items.card_level(bl1_gun, 6) == 4 and profile_bl2.items.card_level(bl1_gun, 6) == 6
+    bl1_player = {"local": True}
+    profile_bl1.skills._player_skills(bl1_ctrl, bl1_player, {})
+    bl1_root, bl1_left = bl1_player["skills"]
+    assert bl1_player["skillPoints"] == 2 and bl1_root.get("root") and [c and c["n"] for c in bl1_root["tiers"][0]["cells"]] == [None, "Bloodwing"], bl1_player
+    assert bl1_left["pts"] == 2 and bl1_left["tiers"] == [{"need": 5, "cells": [bl1_left["skills"][0], None]}] and bl1_left["skills"][0]["g"] == 2, bl1_left
+    assert bl1_left["raw"] == 1, "no game name for its branches: its own, marked"
+    bl1_named = {"local": True}
+    profile_bl1.skills._player_skills(bl1_ctrl, bl1_named, {}, {"SKILLBRANCH_Left": "SNIPER"})
+    assert bl1_named["skills"][1]["n"] == "SNIPER" and "raw" not in bl1_named["skills"][1], bl1_named["skills"][1]
+    bl1_iconed = {"local": True}
+    profile_bl1.skills._player_skills(
+        bl1_ctrl, bl1_iconed, {}, {}, {("SKILLBRANCH_Left", 0, 0): "menu.skills.mordecai.icon4.on"})
+    assert bl1_iconed["skills"][1]["tiers"][0]["cells"][0]["ic"] == "menu.skills.mordecai.icon4.on", bl1_iconed["skills"][1]
+    assert "ic" not in bl1_iconed["skills"][0]["tiers"][0]["cells"][1], "no icon for that cell: none"
+    # BL1's pawn names: its balance's grade's (GradeIndex), none without a balance - then its own AIPawnName as the guess
+    bl1_skag = ns(BalanceDefinitionState=ns(GradeIndex=1, BalanceDefinition=ns(Grades=[
+        ns(GradeModifiers=ns(DisplayName="Skag Pup")), ns(GradeModifiers=ns(DisplayName="Adult Skag"))])), AIPawnName="None")
+    bl1_claptrap = ns(BalanceDefinitionState=ns(GradeIndex=0, BalanceDefinition=None), AIPawnName="ClapTrap")
+    assert (profile_bl1.pawns.name(bl1_skag), profile_bl1.pawns.raw_name(bl1_skag)) == ("Adult Skag", "")
+    assert (profile_bl1.pawns.name(bl1_claptrap), profile_bl1.pawns.raw_name(bl1_claptrap)) == ("", "ClapTrap")
+    # BL1's level names: its level list's entries, as properties (gd_globals.General.LevelList, offline)
+    profile_levels = ns(LevelList=[ns(PersistentMap="arid_p", LevelName="Arid Badlands"), ns(PersistentMap="Arid_SkagGully_P", LevelName="Skag Gully")])
+    assert profile_bl1.world.level_name_in(profile_levels, "Arid_P") == "Arid Badlands" and profile_bl1.world.level_name_in(profile_levels, "Nope_P") == ""
+    assert profile_bl2.world.level_name_in(ns(GetFriendlyLevelNameFromMapName=lambda m: {"Ice_P": "Three Horns - Divide"}.get(m, "")), "Ice_P") == "Three Horns - Divide"
+    # BL1's map placement (bl1map.placement: from its anchor and its shape's size alone) against the game's own: Arid's
+    # map objects, world -> TransformedLocation (0-1) x ClipSize (tools/probes/probe_bl1_map.txt) - within 1.5 movie px
+    from helios_tracker.games.bl1.files import bl1map as placement_map  # noqa: PLC0415
+    arid_anchor = placement_map.Anchor("Arid", -28388.717, -10011.951, 32, 58.2, 233.131, 1024, 512)
+    arid_center, arid_upp = placement_map.placement(arid_anchor, (779.5, 352.2))
+    for (wx, wy), (mu, mv) in (((-11696.0, 32992.0), (0.860, 0.241)), ((-45536.0, -2512.0), (0.563, 0.871)),
+                               ((-4980.142, -68936.484), (0.006, 0.122)), ((-12118.424, 32065.379), (0.852, 0.249)),
+                               ((-46811.902, -29426.098), (0.338, 0.896))):
+        arid_mx, arid_my = (wy - arid_center[1]) / arid_upp, -(wx - arid_center[0]) / arid_upp
+        assert abs(arid_mx - mu * 779.5) < 1.5 and abs(arid_my - mv * 352.2) < 1.5, ((wx, wy), (arid_mx, arid_my), (mu * 779.5, mv * 352.2))
+    assert profile_bl2.world.movie_no_skip(ns(bForceNoSkip=1)) is True and profile_bl1.world.movie_no_skip(ns()) is False
+    try:
+        game_profiles.make_profile("BL3")
+        raise AssertionError("an unknown game: no profile")
+    except RuntimeError:
+        pass
     assert (level["zmin"], level["zmax"]) == (-4096, 12288), level
     fog = level.get("fog")
     assert fog and fog["url"] == f"/image/{level['id']}/1" and fog["pieces"][0][0] == "sanctuary_pwda_1", fog  # (the fake level: Sanctuary)
@@ -1072,6 +1557,7 @@ def check_helios_tracker() -> None:  # noqa: PLR0915
     assert state["pawns"][0][:4] == ["100", 10635, 5702, 3690], ("[id, x, y, z]", state["pawns"][0])
     assert json.dumps(state["pawns"]).count("100.0") == 0, ("health: no .0", state["pawns"])
     kinds = {p["n"]: p["k"] for p in state_pawns}
+    assert "Claptrap" not in kinds, ("a hidden pawn: not shown", kinds)
     assert all(("r" in p) == (p["k"] in ("me", "player")) for p in state_pawns), ("a heading: the players' only", state_pawns)
     assert not any(p.get("raw") for p in state_pawns), state_pawns  # both have game names
     assert all(p.get("l") == 12 for p in state_pawns), state_pawns
@@ -1105,12 +1591,12 @@ def check_helios_tracker() -> None:  # noqa: PLR0915
     # Keep (no Gibbed editor), nor for a serial not full, nor without one (the fake shield)
     law_code = "BL2(hwAAAADNoQCHRwJABoFAQsOIhRENIwHG/////9Iw/v9Pw4hAgg3j)"
     assert gun["gib"] == law_code, gun.get("gib")
-    game_fake = sys.modules["mods_base"].Game
-    game_fake.current = ns(name="TPS")
+    from helios_tracker import games  # noqa: PLC0415
+    games.GAME = games.make_profile("TPS")
     assert stats_insp.gibbed_code(weapon) == "BLOZ" + law_code.removeprefix("BL2"), stats_insp.gibbed_code(weapon)
-    game_fake.current = ns(name="AoDK")
+    games.GAME = games.make_profile("AoDK")
     assert stats_insp.gibbed_code(weapon) == "", "no Gibbed editor for Assault on Dragon Keep"
-    game_fake.current = ns(name="BL2")
+    games.GAME = games.make_profile("BL2")
     skin_serial = ns(State=serial_state.SNS_Full, Buffer=tuple(bytes.fromhex(  # a BanditTech skin's: 16 bytes left
         "07a3123038ffff0021014208e0ff04c2" + "ff" * 24)))
     assert stats_insp.gibbed_code(ns(CreateSerialNumber=lambda: skin_serial)) == "BL2(BwAAAADUWgAhAUII4P8Ewg==)"
@@ -1125,6 +1611,20 @@ def check_helios_tracker() -> None:  # noqa: PLR0915
                                                         _path_name=lambda: "GD_Co_AirDome.InteractiveObjects.IO_OxygenCracks")})
     oxygen_rec = col.Collector._object_record(oxygen_io)
     assert oxygen_rec["n"] == "Oxygen Source" and "raw" not in oxygen_rec, oxygen_rec
+    # a map exit (a LevelTravelStation): where it leads, the game's words - its header only says "Map Exit" (the user)
+    exit_io = ns(**{**vars(oxygen_io), "_get_address": lambda: 0x5F1, "LevelTravelMapDisplayName": "Exit to %s",
+                    "TravelDefinition": ns(DestinationStationDefinition=ns(DisplayName="Frostburn Canyon")),
+                    "InteractiveObjectDefinition": ns(Name="LevelTravelMachine", StatusMenuMapInfoBoxHeader="Map Exit",
+                                                      _path_name=lambda: "GD_GameSystemMachines.InteractiveObjects.LevelTravelMachine")})
+    # out of sight: hidden, or every mesh of it hidden in game (BL1's T.K.'s Food once picked up - its actor not hidden)
+    seen_mesh = lambda hidden: ns(Class=ns(Name="StaticMeshComponent"), HiddenGame=hidden)  # noqa: E731
+    seen_cyl = ns(Class=ns(Name="CylinderComponent"), HiddenGame=True)
+    assert col.Collector._out_of_sight(ns(bHidden=False, Components=[seen_cyl, seen_mesh(True)])), "its mesh hidden"
+    assert not col.Collector._out_of_sight(ns(bHidden=False, Components=[seen_cyl, seen_mesh(False)])), "its mesh shown"
+    assert not col.Collector._out_of_sight(ns(bHidden=False, Components=[seen_cyl])), "no mesh: as its actor"
+    assert col.Collector._out_of_sight(ns(bHidden=True, Components=[]))
+    exit_rec = col.Collector._object_record(exit_io)
+    assert exit_rec["n"] == "Exit to Frostburn Canyon" and "raw" not in exit_rec, exit_rec
     # a boss: the boss bar's pawn (GRI.BossPawn while bHasBossBar - Deadlift: its AI class has no bBoss), kept for the level
     boss_gri = ns(bHasBossBar=False, BossPawn=ns(_get_address=lambda: 0xB055))
     c._note_boss(ns(GRI=boss_gri))
@@ -1478,6 +1978,12 @@ def check_helios_tracker() -> None:  # noqa: PLR0915
     vend_hover = ns(InteractiveObjectDefinition=ns(StatusMenuMapInfoBoxHeader="Bullets Etc."))
     assert c._shops._name(vend_hover, "items") == "Bullets Etc.", "the map hover's name"
     assert c._shops._name(ns(InteractiveObjectDefinition=ns(StatusMenuMapInfoBoxHeader="")), "weapons") == "Marcus Munitions"
+    # no name of the game's (BL1's machines: no map header, no shop titles): its definition's, as the map object's
+    vend_mod.unrealsdk.find_class = lambda name: ns(ClassDefaultObject=ns(ItemsShopTitle=""))
+    vend_nameless = ns(Class=ns(Name="WillowVendingMachine"), InteractiveObjectDefinition=ns(
+        Name="InteractiveObj_VendingMachine_GrenadesAndAmmo", StatusMenuMapInfoBoxHeader=""))
+    assert c._shops._named(vend_nameless, "other") == {"n": "VendingMachine GrenadesAndAmmo", "raw": 1}, c._shops._named(vend_nameless, "other")
+    vend_mod.unrealsdk.find_class = lambda name: ns(ClassDefaultObject=ns(WeaponsShopTitle="Marcus Munitions"))
     assert [(it["n"], it["v"]) for it in vend_rec["items"]] == [("Unkempt Harold", 669)], vend_rec["items"]  # (the machine's price)
     assert vend_rec["basics"] == [{"n": "SMG Ammo", "k": "ammo", "v": 10}], vend_rec.get("basics")
     assert (vend_rec["feat"]["n"], vend_rec["feat"]["v"], vend_rec["feat"]["k"]) == ("Adaptive Shield", 766, "shield"), vend_rec["feat"]
@@ -1578,6 +2084,39 @@ def check_helios_tracker() -> None:  # noqa: PLR0915
     odds_live = {r["n"]: r for r in lootodds.POOLS["GD_Itempools.WeaponPools.Pool_Weapons_Pistols"]["e"]}
     assert abs(odds_live["Pool_Weapons_Pistols_01_Common"]["p"] - 62.5 / 72.51 * 100) < 0.01, odds_live
     assert lootodds.refresh(ns(Game=None)), "a client (no game info): back to the base values"
+    # a container type's odds in steps (lootodds.odds_job: the collector runs it a few ms per tick - a bandit chest's tree was
+    # 70 ms at once): the same odds as at once, its pools added to POOLS only when it's done (a page never gets half a
+    # tree), cached per type (cached_odds); the live values changed meanwhile: None (worked out again)
+    odds_balance = ns(_get_address=lambda: 0x9b00, DefaultLoot=[odds_cfg(odds_data(0, 1.5, odds_w["Common"]), odds_pistols, 2),
+                                                               odds_cfg(odds_data(0, 0.5, odds_w["Common"]), odds_long)],
+                      DefaultIncludedLootLists=[])
+    odds_io = ns(Loot=[])
+    assert lootodds.cached_odds(odds_balance) is None and not lootodds.own_loot(odds_io, odds_balance)
+    odds_steps, odds_seen_pools = lootodds.odds_job(odds_io, odds_balance), []
+    while True:
+        try:
+            next(odds_steps)
+            odds_seen_pools.append(len(lootodds.POOLS))
+        except StopIteration as odds_done:
+            odds_stepped = odds_done.value
+            break
+    assert len(odds_seen_pools) > 1 and set(odds_seen_pools) == {0}, ("in steps, POOLS untouched until done", odds_seen_pools)
+    assert "GD_Itempools.WeaponPools.Pool_Weapons_Pistols" in lootodds.POOLS and lootodds.cached_odds(odds_balance) == odds_stepped
+    assert lootodds.container_odds(odds_io, odds_balance) == odds_stepped, "at once: the same (cached)"
+    assert lootodds.own_loot(ns(Loot=[odds_cfg(odds_data(1), odds_long)]), None), "an object's own Loot: at once, never queued"
+    odds_fresh = odds_pool("Pool_Odds_Stale_Test", [  # (a tree not in POOLS yet: the job has steps to take)
+        ns(ItmPoolDefinition=odds_pool("Pool_Odds_Stale_Test_A", []), InvBalanceDefinition=None, Probability=odds_data(1)),
+        ns(ItmPoolDefinition=odds_pool("Pool_Odds_Stale_Test_B", []), InvBalanceDefinition=None, Probability=odds_data(1))])
+    odds_stale = lootodds.odds_job(odds_io, ns(_get_address=lambda: 0x9b01, DefaultLoot=[odds_cfg(odds_data(1), odds_fresh)],
+                                               DefaultIncludedLootLists=[]))
+    next(odds_stale)
+    lootodds.refresh(odds_world)  # (the host's modifier: a live value change, mid-job)
+    try:
+        while True:
+            next(odds_stale)
+    except StopIteration as odds_stale_done:
+        assert odds_stale_done.value is None and lootodds.cached_odds(ns(_get_address=lambda: 0x9b01)) is None, "stale: dropped"
+    assert lootodds.refresh(ns(Game=None))
     # a weight's condition, from the resource (D_Resources.*): health / oxygen by name, ammo by its group, another its name
     # (the Pre-Sequel's oxygen canisters read "if low on ammo" when "ammo" was the default)
     odds_conditions = [lootodds.condition_of(ns(Name=n, Outer=ns(Name=g))) for n, g in
@@ -1657,13 +2196,13 @@ def check_helios_tracker() -> None:  # noqa: PLR0915
                Location=ns(X=float(a), Y=2.0, Z=3.0), AreaRadius=radius)
         return lambda: w
 
-    c._waypoints = [waypoint_actor(0x6c0, kill, [step_set], 500),  # its step: shown (3 / 5)
-                    waypoint_actor(0x6c1, secure, []),  # done (1 / 1), not in the step anyway
-                    waypoint_actor(0x6c2, kill, [other_set]),  # another step's
-                    waypoint_actor(0x6c3, extra, [])]  # no restrictions, in the current step: shown
+    c._actors = {"waypoints": [waypoint_actor(0x6c0, kill, [step_set], 500),  # its step: shown (3 / 5)
+                               waypoint_actor(0x6c1, secure, []),  # done (1 / 1), not in the step anyway
+                               waypoint_actor(0x6c2, kill, [other_set]),  # another step's
+                               waypoint_actor(0x6c3, extra, [])]}  # no restrictions, in the current step: shown
     client_marks = c._client_markers(tracker, mission._get_address())
     log_entries[1].ActiveObjectiveSet = saved_step
-    c._waypoints = []
+    c._actors = {}
     assert [(m["i"], m["rad"], m["tracked"], m["objective"]["n"]) for m in client_marks] == [
         ("6c0", 500, True, "Tuer des bandits"), ("6c3", 0, True, "Bonus")], client_marks
     # Quest givers from the NPCs (tools/probes/probe_directors.txt; a client has no directive waypoints, the host's
@@ -1692,10 +2231,10 @@ def check_helios_tracker() -> None:  # noqa: PLR0915
     # an object's list (the bounty board: WillowInteractiveObject.Directives, tools/probes/probe_bounty.txt) - the same
     board = ns(Location=ns(X=900.0, Y=0.0, Z=0.0))
     board_directive = ns(MissionDefinition=side, bBeginsMission=True, bEndsMission=False)
-    c._note_giver(0x6e0, board, ns(MissionDirectives=[board_directive]))
+    c._note_giver(0x6e0, board, [board_directive])
     c._givers[0x6e0] = (lambda: board, c._givers[0x6e0][1])  # (the fake isn't weak-referenceable: its pointer by hand)
     board_marks = c._npc_givers(None, set())
-    c._note_giver(0x6e0, board, None)  # no list (any other object): not a giver
+    c._note_giver(0x6e0, board, [])  # no list (any other object): not a giver
     assert [(m["i"], m["mission"]["n"], m["x"]) for m in board_marks] == [("g6e0", "Side job", 900)] and not c._givers, board_marks
     assert (tracked["ml"], tracked.get("mlk")) == (3, 1), "picked up: its level, locked"
     assert (by_id["GD_Z1_Side.M_Side"]["ml"], by_id["GD_Z1_Side.M_Side"].get("mlk")) == (3, None), "not picked up: the level it would lock at"
@@ -1711,6 +2250,8 @@ def check_helios_tracker() -> None:  # noqa: PLR0915
         steps += 1
         assert chunked.in_cycle and not chunked.payload(1)["missions"], "applied before the cycle completed"
     assert steps == len(log_entries) - 1 and [m["st"] for m in chunked.payload(1)["missions"]] == [m["st"] for m in log["missions"]], steps
+    # the definitions cached by their mission (read once): a pass doesn't read them again
+    assert all(sliced._defs.get(e.MissionDef._get_address()) is not None for e in log_entries), "a definition not cached by its mission"
     # rewards per player level (tools/probes/probe_rewards.txt: MissionDefinition.GetExperienceReward(pc, bAlt))
     from helios_tracker import missions as mission_log  # noqa: PLC0415
 
@@ -1729,6 +2270,75 @@ def check_helios_tracker() -> None:  # noqa: PLR0915
     log_obj.full(tracker, [controller(1, 30)])
     dlcs = {m["i"]: m.get("dlc") for m in log_obj.defs_payload()["missions"]}
     assert dlcs["GD_Episode02.M_Ep2_Henchman"] == "GD_Orchid.DLC" and dlcs["GD_Z1_Side.M_Side"] is None, dlcs
+    # BL1's mission log (tools/probes/probe_bl1_missions.txt): the player's own list (MissionPlaythroughData), objectives as
+    # structs {ProgressMessage, ObjectiveCount}, progress Objectives[].CurrentAmount, MS_Redeemed = done, no steps (all
+    # its objectives current), its story number PlotMissionNumber - MissionLog unchanged, the profile's reads
+    from helios_tracker import games as mission_games  # noqa: PLC0415
+    bl1_status = enum.IntEnum("EMissionStatus", ["MS_NotStarted", "MS_Active", "MS_ReadyToTurnIn", "MS_Complete", "MS_Redeemed"], start=0)
+
+    def bl1_mission(addr: int, name: str, number: int, objectives: list) -> types.SimpleNamespace:
+        return ns(_get_address=lambda: addr, _path_name=lambda: f"Z0_Missions.Missions.{name}", Name=name, MissionName=name.removeprefix("M_"),
+                  PlotMissionNumber=number, bPlotCritical=True, Dependencies=[], MissionDescription="", MissionSummary="", MissionGiver="T.K. Baha",
+                  GameStage=3, Objectives=[ns(ProgressMessage=text, ObjectiveCount=count, StatId="None") for text, count in objectives])
+    bl1_meet = bl1_mission(0xB100, "M_MeetAl", 6, [])
+    bl1_food = bl1_mission(0xB101, "M_ExterminateSkag", 7, [("Stolen Food:", 4)])
+    bl1_two = bl1_mission(0xB102, "M_TwoThings", 8, [("Kill Nine-Toes", 1), ("Bandits killed:", 10)])
+    bl1_entries = [ns(MissionDef=bl1_meet, Status=bl1_status.MS_Redeemed, Objectives=[]),
+                   ns(MissionDef=bl1_food, Status=bl1_status.MS_ReadyToTurnIn, Objectives=[ns(StatId="None", CurrentAmount=4)]),
+                   ns(MissionDef=bl1_two, Status=bl1_status.MS_Active, Objectives=[ns(StatId="None", CurrentAmount=0), ns(StatId="None", CurrentAmount=3)])]
+    real_game = mission_games.GAME
+    mission_games.GAME = mission_games.make_profile("BL1")
+    mission_games.GAME.missions.entries = lambda tracker_obj: bl1_entries  # (the player's list: mods_base's controller, not faked here)
+    try:
+        bl1_log = mission_log.MissionLog()
+        bl1_log.full(ns(ActiveMission=bl1_food), [])
+        bl1_defs = {m["i"].rpartition(".")[2]: m for m in bl1_log.defs_payload()["missions"]}
+        bl1_live = {m["i"].rpartition(".")[2]: m for m in bl1_log.payload(1)["missions"]}
+    finally:
+        mission_games.GAME = real_game
+    assert [bl1_live[k]["st"] for k in ("M_MeetAl", "M_ExterminateSkag", "M_TwoThings")] == ["Complete", "ReadyToTurnIn", "Active"], bl1_live
+    assert bl1_live["M_ExterminateSkag"]["p"] == [4] and bl1_defs["M_ExterminateSkag"]["obj"][0]["c"] == 4, (bl1_live, bl1_defs)
+    assert bl1_live["M_TwoThings"]["cur"] == [0, 1] and bl1_live["M_TwoThings"]["p"] == [0, 3], ("no steps: every objective current", bl1_live)
+    assert bl1_defs["M_TwoThings"]["num"] == 8 and bl1_defs["M_TwoThings"]["obj"][1]["n"] == "Bandits killed:", bl1_defs
+    # BL1's objective markers (its missions part's markers): the level's waypoint actors of an active mission's target
+    # definition (its first objective not done), of a ready one's turn-in definition ("end"); the others not
+    def bl1_waypoint(addr: int, definition: object, x: float) -> types.SimpleNamespace:
+        return ns(_get_address=lambda: addr, WaypointDefinition=definition, Location=ns(X=x, Y=0.0, Z=0.0), bHidden=True)
+    wp_pearls, wp_al, wp_vendor = (ns(_get_address=lambda a=a: a) for a in (0xD1, 0xD2, 0xD3))
+    bl1_food.TargetWaypointDefinition, bl1_food.TurnInWaypointDefinition = wp_pearls, wp_al
+    bl1_two.TargetWaypointDefinition, bl1_two.TurnInWaypointDefinition = wp_vendor, wp_al
+    bl1_meet.TargetWaypointDefinition = bl1_meet.TurnInWaypointDefinition = None
+    bl1_waypoints = [bl1_waypoint(0xE1, wp_pearls, 1.0), bl1_waypoint(0xE2, wp_al, 2.0), bl1_waypoint(0xE3, wp_vendor, 3.0),
+                     bl1_waypoint(0xE4, ns(_get_address=lambda: 0xD9), 4.0)]
+    mission_games.GAME = mission_games.make_profile("BL1")
+    mission_games.GAME.missions.entries = lambda tracker_obj: bl1_entries
+    mission_games.GAME.world.map_name = lambda wi_obj: "arid_p"
+
+    def bl1_waypoints_of(points: list, exits: list) -> dict:  # (the level's actors the collector looked up: by name)
+        return {"waypoints": [lambda w=w: w for w in points], "exits": exits}
+
+    try:
+        bl1_markers = mission_games.GAME.missions.markers(bl1_waypoints_of(bl1_waypoints, []), ns(), 0xB102)
+        # a mission whose target is in another area: marked on the exit leading there (its transition landmark's
+        # ToMapName - Nine-Toes: Take Him Down, WP_NineToes in Arid_SkagGully_P)
+        bl1_two.TargetWaypointDefinition = ns(_get_address=lambda: 0xD4, PersistentLevelName="Arid_SkagGully_P")
+        bl1_gully = ns(_get_address=lambda: 0xF1, ToMapName="Arid_SkagGully_P", Location=ns(X=-22012.0, Y=44803.0, Z=1370.0))
+        bl1_cave = ns(_get_address=lambda: 0xF2, ToMapName="Arid_Cave_P", Location=ns(X=-26730.0, Y=-11709.0, Z=-1122.0))
+        bl1_exit_markers = mission_games.GAME.missions.markers(bl1_waypoints_of(bl1_waypoints, [lambda: bl1_gully, lambda: bl1_cave]),
+                                                               ns(), 0xB102)
+        # a definition's waypoints: a numbered path - the next one only, its lowest number not completed (Bone Head's
+        # Theft's checkpoints: #1 done, #2 shown - the page had both); the same number twice: both (alternatives)
+        bl1_two.TargetWaypointDefinition = wp_vendor
+        bl1_path = [ns(**{**vars(bl1_waypoint(0xE5 + n, wp_vendor, x)), "WaypointNumber": number, "bCompleted": done})
+                    for n, (x, number, done) in enumerate([(5.0, 1, True), (6.0, 2, False), (7.0, 2, False), (8.0, 3, False)])]
+        bl1_path_markers = mission_games.GAME.missions.markers(bl1_waypoints_of(bl1_path, []), ns(), 0xB102)
+    finally:
+        mission_games.GAME = real_game
+    assert [(m["x"], m["k"]) for m in bl1_exit_markers if m["k"] == "objective"] == [(-22012, "objective")], bl1_exit_markers
+    assert [(m["x"], m["k"], m.get("end"), m["tracked"]) for m in bl1_markers] == [(2, "directive", 1, False), (3, "objective", None, True)], \
+        ("the ready one's turn-in, the active one's target - not the pearls' (done), not another definition's", bl1_markers)
+    assert bl1_markers[1]["objective"]["n"] == "Kill Nine-Toes" and bl1_markers[1]["mi"].endswith("M_TwoThings"), bl1_markers
+    assert sorted(m["x"] for m in bl1_path_markers) == [6, 7], ("the next waypoint (#2, both) - not #1 (done), not #3", bl1_path_markers)
     version = hub._channels["missionlog"][0]
     c.tick(1001.5)  # nothing changed: not published again
     assert hub._channels["missionlog"][0] == version, "mission log republished with no change"
@@ -2076,6 +2686,21 @@ def check_helios_tracker() -> None:  # noqa: PLR0915
     ], js["freeRects"]
     assert js["gameRarity"] == [["legendary", "#ffb400"], ["legendary", "#ffb400"], ["seraph", "#ff9ab8"],
                                 ["unknown", "#9132c8"], "loot.legendary"], js["gameRarity"]
+    game_out = js["gameOut"]
+    assert game_out["gameNone"] == ["enemy", "pickup.eridium", "vaultsymbol", "buff", "slots", "pickup.mission"], game_out["gameNone"]
+    assert game_out["gameSwitch"] == [True, False], ("the same features in another order: no change", game_out["gameSwitch"])
+    assert game_out["gameTps"] == {"shown": ["loot.glitch", "oxygen", "pickup.oxygen", "jumppad", "area", "fog", "enemy",
+                                             "pickup.eridium", "vaultsymbol", "buff", "slots", "pickup.mission"],
+                                   "glitch": "glitch", "etech": "loot.legendary"}, game_out["gameTps"]
+    # (BL1: no eridium, vault symbols, buffs, slot machines - game.js noLayers; its mission items: bMissionItem)
+    assert game_out["gameBl1"][:-2] == ["loot.pearl", "enemy", "pickup.mission", 2, 0, "common", "common", True, False,
+                                        ["jakobs", "", "", "", ""]], \
+        ("BL1: no discovery areas, its pearlescent (500) but no other BL2 / TPS tiers; its treasure chest big; rarity 0 common",
+         game_out["gameBl1"])
+    assert game_out["gameBl1"][-2] == "station" and game_out["gameBl1"][-1] != "station", ("BL1's New-U: a station by its class",
+                                                                                          game_out["gameBl1"][-2:])
+    assert game_out["gameBl2"] == {"shown": ["loot.pearl", "loot.etech", "area", "fog", "enemy", "pickup.eridium", "vaultsymbol", "buff", "slots", "pickup.mission"], "seraph": "seraph",
+                                   "etech": "loot.etech"}, game_out["gameBl2"]
     assert mig["layers"]["player"] == {"names": True, "nameSize": 100, "floors": "show", "size": 100}, mig["layers"]["player"]
     assert mig["view"]["zoom"] == 2.5 and mig["view"]["motion"] == 0, mig["view"]
     assert mig["ui"]["lang"] == "fr" and mig["ui"]["inspectorTab"] == "skills", mig["ui"]
@@ -2109,7 +2734,7 @@ def check_helios_tracker() -> None:  # noqa: PLR0915
     assert mis["stepOrder"] == ("Throw breaker:current,Power up jump pad:current,Use jump pad:done,Kill Deadlift:current,"
                                 "Pick up digistruct key:current"), ("the step's own order, in its slots", mis["stepOrder"])
     assert mis["healthShown"] == "107,107,100,100", ("health rounded down, as the game's HUD; the max the same", mis["healthShown"])
-    assert mis["vaultCat"] == "vaultsymbol,station,container,oxygen,oxygen,oxygen,jumppad,chest,buff,slots,chest", \
+    assert mis["vaultCat"] == "vaultsymbol,station,container,oxygen,oxygen,oxygen,jumppad,npc,chest,buff,slots,chest", \
         ("a vault symbol: its own layer; Catch-A-Ride: a station; anything with loot a container (the Pre-Sequel's"
          " Hyperion ammo crate: no container word in its name)", mis["vaultCat"])
     delta_want = json.loads(delta_hub.latest("objs"))
@@ -2143,9 +2768,74 @@ def check_helios_tracker() -> None:  # noqa: PLR0915
           f" world->map within {js['err']:.3f} px of the probe samples")
 
 
+def check_frames() -> None:
+    """Frame times (frames.py): a spike - over twice the usual frame and 10 ms past it - classed by what filled it: our
+    hooks (ours), the server's threads working through it (server: the GIL), the canary late (gil: Python held it
+    elsewhere), or none (game); a gap (a loading screen) isn't a frame; a hook inside another counts once."""
+    import time  # noqa: PLC0415
+
+    from helios_tracker.frames import Frames  # noqa: PLC0415
+
+    frame_clock = Frames(enabled=True)
+    frame_at = 100.0
+    for _ in range(60):  # a steady 60 fps: the usual frame
+        frame_clock.frame(frame_at)
+        frame_at += 1 / 60
+    assert abs(frame_clock.usual - 1000 / 60) < 0.1 and not frame_clock._spikes, "steady frames: no spike"
+
+    def stalled(ms: float, ours_ms: float = 0.0, server_ms: float = 0.0, late_ms: float = 0.0) -> str:
+        nonlocal frame_at
+        frame_clock.frame(frame_at)  # (the frame starts)
+        if ours_ms:
+            frame_clock._ours += ours_ms / 1000
+        if server_ms:
+            frame_clock.server_work("request", server_ms / 1000)
+        if late_ms:
+            frame_clock.late(late_ms / 1000)
+        frame_at += ms / 1000
+        frame_clock.frame(frame_at)  # (the next one: this one measured)
+        return frame_clock._spikes[-1]["kind"]
+
+    assert stalled(80, ours_ms=40) == "ours", "our hooks took most of it"
+    assert stalled(80, server_ms=30) == "server", "the server's threads worked through it (the GIL)"
+    assert stalled(80, late_ms=60) == "gil", "the canary late: Python held the GIL elsewhere"
+    assert stalled(120) == "game", "none: the GIL free - not Python"
+    spikes_before = len(frame_clock._spikes)
+    frame_clock.frame(frame_at)
+    frame_at += 0.020  # 20 ms: not twice the usual 16.7
+    frame_clock.frame(frame_at)
+    assert len(frame_clock._spikes) == spikes_before, "a slightly long frame isn't a spike"
+    frame_at += 5.0  # a loading screen: a gap, not a frame
+    frame_clock.frame(frame_at)
+    assert frame_clock._gaps == 1 and len(frame_clock._spikes) == spikes_before
+    with frame_clock.ours():
+        with frame_clock.ours():  # (a hook of ours inside another, through the game)
+            pass
+    assert frame_clock._depth == 0 and frame_clock._ours < 0.01, "nested hooks: the outer one counts"
+    frame_clock.task("scan objects", 40.0)
+    frame_clock.task("tiny", 0.1)
+    assert frame_clock._tasks == [("scan objects", 40.0)], "only the tasks worth naming"
+    frame_summary = frame_clock.summary()
+    assert ("4 spikes: ours 1 (1 > 50 ms, 0 > 100 ms" in frame_summary and "gil 1 (" in frame_summary
+            and "game 1 (1 > 50 ms, 1 > 100 ms" in frame_summary and "1 request" in frame_summary), frame_summary
+    frame_clock.start_canary()  # (a real thread: wakes, says how late, stops)
+    time.sleep(0.05)
+    frame_clock.stop_canary()
+    assert frame_clock._canary is None
+    frames_off = Frames(enabled=False)  # (a .sdkmod: paths.DIAGNOSTICS off) - nothing measured, no canary
+    frames_off.start_canary()
+    frames_off.frame(1.0)
+    with frames_off.ours():
+        frames_off.task("scan objects", 40.0)
+    frames_off.server_work("request", 0.1)
+    frames_off.frame(2.0)
+    assert frames_off._canary is None and not frames_off._spikes and not frames_off._tasks and not frames_off._server
+    print(f"  frame times: spikes classed ours / server / gil / game, gaps apart - \"{frame_summary[:90]}...\"")
+
+
 def check_script() -> None:
-    """The user script's lookup: autoexec.ps1 in the data folder (paths.DATA - sdk_mods/.helios_tracker/ beside a
-    .sdkmod, the mod's folder in a folder install), its log beside it; the old place beside the .sdkmod: not looked at."""
+    """The user script's lookup: autoexec.ps1 in the data folder (paths.DATA - sdk_mods/.helios_tracker/, whichever the
+    install), its log beside it; the old place beside the .sdkmod: not looked at."""
     import tempfile  # noqa: PLC0415
 
     from helios_tracker import paths  # noqa: PLC0415
@@ -2159,12 +2849,78 @@ def check_script() -> None:
         (script_data / "autoexec.ps1").write_text("")
         assert find_script(script_data) == (script_data / "autoexec.ps1", script_data / "autoexec.log")
     assert find_script.__defaults__ == (paths.DATA,), "the data folder by default"
-    print("  user script: autoexec.ps1 in the data folder (sdk_mods/.helios_tracker/, or the mod's folder), its log beside it")
+    # one data folder whichever the install: a folder install's too (not the package - the user: code only there)
+    assert paths.SDKMOD is None and paths.DATA == paths.PACKAGE.parent / ".helios_tracker", paths.DATA
+    print("  user script: autoexec.ps1 in the data folder (sdk_mods/.helios_tracker/, a folder install's too), its log beside it")
+
+
+def check_games_import() -> None:
+    """The games package imports without the SDK (a child Python, no fakes - the files worker imports the mod's modules
+    so, under another name): its profiles registered, none picked (pick(): the mod's boot), a profile's parts built."""
+    import subprocess  # noqa: PLC0415
+
+    child = (
+        "import sys, types\n"
+        "pkg = types.ModuleType('helios_work'); pkg.__path__ = [sys.argv[1]]; sys.modules['helios_work'] = pkg\n"
+        "import helios_work.games as g\n"
+        "p = g.make_profile('BL1')\n"
+        "print(sorted(g._PROFILES), g.GAME, sorted(p.parts), 'unrealsdk' in sys.modules or 'mods_base' in sys.modules)\n"
+    )
+    out = subprocess.run([sys.executable, "-c", child, str(ROOT / "helios_tracker")], capture_output=True, text=True, check=True)
+    assert out.stdout.strip() == ("['AoDK', 'BL1', 'BL2', 'TPS'] None ['assets', 'items', 'missions', 'objects', 'pawns', "
+                                  "'shops', 'skills', 'ui', 'world'] False"), (out.stdout, out.stderr[-500:])
+    print("  games: imported without the SDK (the files worker's way), the profiles registered, none picked before boot")
+
+
+def check_parts_contract() -> None:
+    """Every game's parts keep Borderlands 2's contract (profiles.md "The rules"): each a subclass of BL2's part, its
+    public methods BL2's with the same parameters, none of its own (a method only one game has: called through the base
+    type behind a test - the hole the features once were)."""
+    import inspect  # noqa: PLC0415
+
+    from helios_tracker import games as contract_games  # noqa: PLC0415
+
+    base = contract_games.make_profile("BL2")
+    checked = 0
+    for game in sorted(contract_games._PROFILES):
+        made = contract_games.make_profile(game)
+        assert set(made.parts) == set(base.parts), (game, sorted(made.parts))
+        for part_name, part in made.parts.items():
+            ref, own = type(base.parts[part_name]), type(part)
+            assert issubclass(own, ref), (game, part_name, own, ref)
+            public = {a for a in dir(own) if not a.startswith("_") and callable(getattr(own, a)) and a != "level_changed"}
+            ref_public = {a for a in dir(ref) if not a.startswith("_") and callable(getattr(ref, a)) and a != "level_changed"}
+            assert public == ref_public, (game, part_name, "public methods only one game has", sorted(public ^ ref_public))
+            for attr in public:
+                want = list(inspect.signature(getattr(ref, attr)).parameters)
+                got = list(inspect.signature(getattr(own, attr)).parameters)
+                assert got == want, (game, f"{part_name}.{attr}", got, want)
+                checked += 1
+    print(f"  parts: every game's {checked} public methods BL2's, the same parameters")
+
+
+def check_shared_names() -> None:
+    """The rule (profiles.md "the main code doesn't know other ways exist"): the shared code - the mod's modules, the
+    formats, the profiles' base, Borderlands 2's parts and files (every game's default) - never names a game with its
+    own code (a folder of its own: Borderlands 1) nor imports from it; that game's way, and the why of it, live in its
+    folder. games/__init__.py registers the games: the one place naming them. (A game sharing BL2's code - the
+    Pre-Sequel, Dragon Keep - may be named in it as context.) Probe files (probe_bl1_*.txt) are evidence: not a mention."""
+    import re  # noqa: PLC0415
+
+    pkg = ROOT / "helios_tracker"
+    shared = [*pkg.glob("*.py"), *(pkg / "formats").glob("*.py"), pkg / "games" / "base.py",
+              *(pkg / "games" / "bl2").rglob("*.py")]
+    mention = re.compile(r"\bbl1\b|borderlands 1\b|\bbl1(?:map|fonts|textures)\b|\bupk_bl1\b|games[./]bl1\b|\bfrom \.+bl1\b", re.I)
+    hits = [f"{f.relative_to(ROOT)}:{n}: {line.strip()[:120]}" for f in shared
+            for n, line in enumerate(f.read_text(encoding="utf-8").splitlines(), 1) if mention.search(line)]
+    assert not hits, "the shared code names another game's way (its folder's business):\n" + "\n".join(hits)
+    print(f"  shared code: {len(shared)} files name no game with its own code")
 
 
 def check_sdkmod() -> None:
     """paths.py run from inside a .sdkmod (a zip, imported in a child Python): it finds the zip, reads the page's
-    files out of it, and writes to sdk_mods/.helios_tracker/ - created, not a folder the loader would import."""
+    files out of it, and writes to sdk_mods/.helios_tracker/ - created, not a folder the loader would import; the debug
+    measurements off (paths.DIAGNOSTICS), unless a `diagnostics` file there says "on"."""
     import subprocess  # noqa: PLC0415
     import tempfile  # noqa: PLC0415
     import zipfile  # noqa: PLC0415
@@ -2181,15 +2937,20 @@ def check_sdkmod() -> None:
             "import sys; sys.path.insert(0, sys.argv[1])\n"
             "from helios_tracker import paths\n"
             "print(paths.SDKMOD); print(paths.DATA); print(len(paths.read('web/index.html') or b''));"
-            " print(paths.read('web/nothing.js'))\n"
+            " print(paths.read('web/nothing.js')); print(paths.DIAGNOSTICS)\n"
         )
         out = subprocess.run([sys.executable, "-c", child, str(sdkmod)], capture_output=True, text=True, check=True)
-        found, data, size, missing = out.stdout.split("\n")[:4]
+        found, data, size, missing, diagnostics = out.stdout.split("\n")[:5]
         assert Path(found) == sdkmod, out.stdout
         assert Path(data) == sdk_mods / ".helios_tracker" and Path(data).is_dir(), data
         assert int(size) == len((ROOT / "helios_tracker" / "web" / "index.html").read_bytes()), size
         assert missing == "None", missing
-    print("  .sdkmod: page files read out of the zip, logs / caches in sdk_mods/.helios_tracker/")
+        assert diagnostics == "False", "a .sdkmod: no debug measurements"
+        (Path(data) / "diagnostics").write_text("on\n")  # (a player's, for a bug report)
+        out = subprocess.run([sys.executable, "-c", child, str(sdkmod)], capture_output=True, text=True, check=True)
+        assert out.stdout.split("\n")[4] == "True", "the diagnostics file turns them on"
+    print("  .sdkmod: page files read out of the zip, logs / caches in sdk_mods/.helios_tracker/, no debug measurements"
+          " (unless its diagnostics file says on)")
 
 
 def check_updater() -> None:
@@ -2379,7 +3140,11 @@ def check_ingame_text() -> None:
 def main() -> None:
     _install_fakes()
     check_helios_tracker()
+    check_frames()
     check_script()
+    check_games_import()
+    check_shared_names()
+    check_parts_contract()
     check_sdkmod()
     check_updater()
     check_ingame_text()

@@ -182,3 +182,69 @@ by the frames like the rest (the Refresh rate setting), redrawn only when someth
   is in game isn't known; reachability drops it anyway).
 - The Worker's reachability and simplification, and the transfer format; the WebGL renderer (hand-written or a copy of
   a small library bundled with the page).
+
+## Containers before they spawn (population points)
+
+**The wish** (the user, 2026-10-04): show the containers the game will spawn when the player comes closer - big chests
+above all - before they exist, so they can be found from the map.
+
+**Why they don't show today**: they don't exist yet. Most containers (chests, coolers, cash boxes, ammo boxes, most
+Bullymong piles) aren't placed in the level: the population system's `PopulationOpportunityPoint`s spawn them when the
+player comes within `SpawnAndCullRadius` (8000 uu, 80 m) - notes.md "Containers spawned by distance"
+(tools/probes/probe_chest_spawn.txt, Three Horns: 137 points; a pile appears at its point's exact position when it
+spawns, the page shows it then). Dropped items and enemies show at any distance (the user): they exist once spawned, wherever.
+
+**What we'd want**
+
+- Every container point of the level, as a marker of its own kind: "will spawn here" - a distinct look (hollow / dimmed
+  of the container's own marker), in the container's layer (a big chest's point in the chests' layer, filtered like it),
+  named as the container it spawns (the game's name for it - its definition's, as a spawned one's: **game text only**,
+  nothing made up; unknown: the definition's name as a guess, "?").
+- Once it has spawned (`bHasSpawned`), the point's marker gives way to the real object (the same position: no
+  duplicate) - for good: spawned objects stay for the rest of the map (below, 3).
+- Its tooltip / panel: what it is, "spawns within 80 m" (its radius), and its loot odds if the type's are known
+  (lootodds: per balance - the same as a spawned one's, if the point says which balance).
+- Big chests first: if only some are worth it (the map would fill with cash boxes and coolers), the chests' points only
+  - or every container point, its layer off by default for the small ones. The user's call once it's on the page.
+
+**What has to be true first** (probes - read-only, no blind calls)
+
+1. **What a point spawns** - answered (tools/probes/probe_population_def.py, BL2 Three Horns, 2026-10-04: 137 points, 12
+   definitions): `PopulationOpportunityPoint.PopulationDef` (a PopulationDefinition) -> `ActorArchetypeList[]`, each a
+   `PopulationActor {SpawnFactory, Probability, MaxActiveAtOneTime}`; a container's factory is a
+   `PopulationFactoryInteractiveObject` whose `ObjectBalanceDefinition` (an InteractiveObjectBalanceDefinition:
+   `ObjectGrade_BanditChest`...) has the object's `DefaultInteractiveObject` (`InteractiveObj_BanditChest`), its loot lists
+   (`DefaultIncludedLootLists`: `EpicChestBanditLoot`) and `DefaultDisplayName` (empty there: the name as a spawned one's,
+   its definition's - the same rule). The balance is what lootodds keys a container type's odds by: a point's "Can
+   contain" without the container existing (`lootodds.odds_job` on the balance - no object needed but its own Loot).
+   Its `ObjectDefinition` mostly None (the vending machines' set).
+   Three Horns' definitions: BullymongPile (44 points), BanditCooler (36), CashBox (21), BanditAmmo (10), BanditGasTank
+   (7), Pop_BarrelMixture (6), WeaponChest_BanditPotty (4), EpicChest_Bandit (2 - the big red chests), WeaponChest_White
+   (2), three vending machines.
+2. **Whether a point always spawns** - answered for this level: every container definition has one entry, `Probability`
+   1.0 (a constant): always that container. Only `Pop_BarrelMixture` picks one of 5 barrels (incendiary 0.75, the others
+   1.0). Nothing seen that may spawn nothing (`bUseRandomSpawns` False everywhere) - other levels may differ: a point with
+   several entries shown as its choices, with their weights' shares.
+3. **Once spawned, it stays** (the user: objects never despawn within a map; and seen: piles still there 110-182 m away,
+   spawned as the player passed - probe_hidden_pile.txt, probe_chest_spawn.txt; every point seen not spawned was one
+   never approached). So a point's marker gives way to its object once, for the rest of the map - looted or not; no
+   cull to follow. (The point's sub-object has `bCleanupActorsWhenIrrelevant` True, `ActorIrrelvantDistance` 6000 -
+   not seen doing anything to containers.) The definitions' `RespawnStyle` - POPRESPAWN_Never (chests, coolers, cash
+   boxes, ammo boxes), OnlyOnLevelLoad (piles, gas tanks, barrels), OnTimeDelay (vending machines) - is about a new
+   one after this one's gone (a level load...), not seen.
+- **A point and its object**: the point keeps no reference to what it spawned (`SpawnList` empty, nothing else) - matched
+  by position (a pile appeared at its point's exact location: probe_chest_spawn.txt), the spawn hook telling when.
+4. **A co-op client**: whether the points exist there at all (the host spawns, replicates the containers) - likely the
+   host's only.
+5. **The other games**: Borderlands 1 - the same system (probe_population_def.py, 2026-10-04: 189 points, 22 definitions
+   in one area - the same classes and tree, one entry at Probability 1.0 per container, barrels 4 x 0.25): its big red
+   chest `TreasureChest` (+ `_Custom`, `_Custom_FirstSecret`), `StrongBox`, the "Awesome" variants (CashBox_Awesome,
+   StrongBox_Awesome, Crate_Military_Awesome...), lockers, dumpsters, mailboxes, toilets...; its radius smaller
+   (`SpawnAndCullRadius` 4000: 40 m - read per point, never assumed); its vending machines through another factory
+   (`PopulationFactoryVendingMachine`; the containers' `PopulationFactoryInteractiveObject` as BL2's); its scrap piles
+   POPRESPAWN_OnTimeDelay (BL2's piles: OnlyOnLevelLoad). The Pre-Sequel: BL2's (the user: the same core - not probed).
+
+**Cost** (the stalls are the priority - architecture.md): the points are placed in the level, never move - one
+`find_all` per level (the `_lookup` queue: one per tick), their definitions resolved once (cached per population
+definition); `bHasSpawned` read now and then (a few points per tick, round robin - property reads) or not at all: the
+object spawn hook already tells when one appears (its position matches the point's).

@@ -27,13 +27,13 @@ import unrealsdk
 from unrealsdk.unreal import WeakPointer
 
 from .inspector import _item
-from .util import addr, field, item_name, log_error, named, pickup_kind, try_
+from . import games
+from .util import addr, def_name, field, item_name, log_error, named, try_
 
 KINDS = {"SType_Weapons": "weapons", "SType_Items": "items", "SType_Health": "health", "SType_BlackMarket": "blackmarket"}
 TITLES = {"weapons": "WeaponsShopTitle", "items": "ItemsShopTitle", "health": "HealthShopTitle"}
 LEFT_OUT = ("blackmarket",)  # Crazy Earl: nothing to list (his stock is per player, made when opened)
 CURRENCIES = {"CURRENCY_Credits": "cash", "CURRENCY_Eridium": "eridium"}
-MACHINE_CLASS = "WillowVendingMachineBase"
 BUILD_SECONDS = 0.003  # per pass, building new item records (a level's first pass has ~70: one hitch otherwise)
 TIMER_DRIFT = 1.0  # s: the page's countdown this far from the game's - sent again
 ALWAYS_SOLD = ("ammo", "health")  # every machine always has them (ammo, health vials): a price list, not item cards
@@ -46,7 +46,7 @@ def _enum_name(value: Any) -> str:
 def is_machine(obj: Any) -> bool:
     cls = try_(lambda: obj.Class)
     while cls is not None:
-        if str(try_(lambda c=cls: c.Name, "")) == MACHINE_CLASS:
+        if str(try_(lambda c=cls: c.Name, "")) == games.GAME.vending_class:  # (each game's)
             return True
         cls = try_(lambda c=cls: c.SuperField)  # (never raises: the collector's object scan calls it on everything)
     return False
@@ -57,6 +57,7 @@ class ShopReader:
 
     def __init__(self) -> None:
         self._machines: dict[tuple[int, str], WeakPointer] = {}
+        self._machine_classes: dict[int, bool] = {}  # class address -> a vending machine's (the reader: one per level)
         # item records by (address, name): an item never changes while it's for sale (sold / restocked: a new object)
         self._items: dict[tuple[int, str], dict[str, Any]] = {}
         self._titles: dict[str, str] | None = None
@@ -65,7 +66,13 @@ class ShopReader:
         self.pending = False  # item records left to build: read again soon
 
     def note(self, io: Any) -> None:
-        if is_machine(io):
+        # (per class, once a level: is_machine walks the class chain - every object of every full scan, 3-14 ms)
+        cls_key = try_(lambda: io.Class._get_address())
+        if (machine := self._machine_classes.get(cls_key)) is None:
+            machine = is_machine(io)
+            if cls_key is not None:
+                self._machine_classes[cls_key] = machine
+        if machine:
             self._machines[(io._get_address(), str(io.Name))] = WeakPointer(io)
 
     def forget(self, key: tuple[int, str]) -> None:
@@ -75,11 +82,18 @@ class ShopReader:
         self._sent = None
 
     def _title(self, kind: str) -> str:
-        if self._titles is None:  # the vending menu's localized titles (static)
-            cls = try_(lambda: unrealsdk.find_class("VendingMachineExGFxMovie"))
+        if self._titles is None:  # the vending menu's localized titles (static; its profile's vending class, if it has them)
+            title_class = games.GAME.vending_titles
+            cls = try_(lambda: unrealsdk.find_class(title_class)) if title_class else None
             cdo = try_(lambda: cls.ClassDefaultObject) if cls is not None else None
             self._titles = {k: str(try_(lambda f=f: getattr(cdo, f), "") or "") for k, f in TITLES.items()} if cdo is not None else {}
         return self._titles.get(kind, "")
+
+    def _named(self, io: Any, kind: str) -> dict[str, Any]:
+        """A machine's name record (util.named): the game's (_name) - else its definition's own name, as the map object's
+        ("VendingMachine GrenadesAndAmmo": what it sells - a machine with no map header, no shop title: its name on
+        its texture only), not its class's (every machine "Vending Machine ?" - the user)."""
+        return named(self._name(io, kind), def_name(try_(lambda: io.InteractiveObjectDefinition)), str(io.Class.Name))
 
     def _name(self, io: Any, kind: str) -> str:
         """A machine's name: its map hover's (its definition's StatusMenuMapInfoBoxHeader), else its menu's title."""
@@ -93,7 +107,7 @@ class ShopReader:
             if time.perf_counter() > deadline:
                 return None
             item = _item(inv, False, pc)
-            price = try_(lambda: int(machine.GetSellingPriceForInventory(inv, pc, 1)))
+            price = try_(lambda: games.GAME.shops.selling_price(machine, inv, pc))  # (each game's call)
             if price is not None and price >= 0:
                 item["v"] = price
             self._items[key] = item
@@ -104,7 +118,7 @@ class ShopReader:
         key = (inv._get_address(), str(inv.Name))
         if key not in self._items:
             record = {**named(item_name(inv), str(inv.Name)), "k": kind}
-            price = try_(lambda: int(machine.GetSellingPriceForInventory(inv, pc, 1)))
+            price = try_(lambda: games.GAME.shops.selling_price(machine, inv, pc))  # (each game's call)
             if price is not None and price >= 0:
                 record["v"] = price
             self._items[key] = record
@@ -126,9 +140,9 @@ class ShopReader:
                 if kind in LEFT_OUT:
                     continue
                 loc = io.Location
-                machine: dict[str, Any] = {"i": addr(io), **named(self._name(io, kind), str(io.Class.Name)), "k": kind,
+                machine: dict[str, Any] = {"i": addr(io), **self._named(io, kind), "k": kind,
                                            "x": round(loc.X), "y": round(loc.Y), "z": round(loc.Z)}
-                currency = CURRENCIES.get(_enum_name(try_(lambda io=io: io.FormOfCurrency)), "other")
+                currency = CURRENCIES.get(try_(lambda io=io: games.GAME.shops.currency(io), "") or "", "other")  # (each game's)
                 if currency != "cash":
                     machine["cur"] = currency
                 items, basics = [], []
@@ -136,7 +150,7 @@ class ShopReader:
                     if inv is None:
                         continue
                     seen.add((inv._get_address(), str(inv.Name)))
-                    if (always := pickup_kind(inv)) in ALWAYS_SOLD:
+                    if (always := games.GAME.items.pickup_kind(inv)) in ALWAYS_SOLD:
                         basics.append(self._basic(inv, always, io, pc))
                         continue
                     if (record := self._record(inv, io, pc, deadline)) is None:
@@ -147,7 +161,7 @@ class ShopReader:
                 if basics:
                     machine["basics"] = basics
                 featured = try_(lambda io=io: io.FeaturedItem)
-                if featured is not None and pickup_kind(featured) not in ALWAYS_SOLD:
+                if featured is not None and games.GAME.items.pickup_kind(featured) not in ALWAYS_SOLD:
                     seen.add((featured._get_address(), str(featured.Name)))
                     if (record := self._record(featured, io, pc, deadline)) is None:
                         complete = False
@@ -165,13 +179,14 @@ class ShopReader:
             del self._items[key]
         machines.sort(key=lambda m: m["i"])
         stock = json.dumps({"level": level_id, "client": int(client), "machines": machines}, separators=(",", ":"))
-        # the timer: the host's own count, else the replicated one
-        game = try_(lambda: world_info.Game)
-        source = game if game is not None else try_(lambda: world_info.GRI)
+        # the timer: the game's count (games.GAME.shops.timer_source - BL2's host: its own, a client: the replicated one)
+        source = try_(lambda: games.GAME.shops.timer_source(world_info))
         left = try_(lambda: float(source.SecondsUntilShopsReset))
         rate = try_(lambda: float(source.ShopTimerRate), 1.0)
         # the game paused (WorldInfo.Pauser, as the state's "paused"): its timer stands still - the page's count too
         # (it went on, then jumped back at each resend: the user saw it)
+        # (Pauser only, not the world's paused: a game's status menus may stop the world while its shops' timer runs
+        # on - the user saw it count down in the inventory, not in the escape menu)
         paused = try_(lambda: field(world_info, "Pauser") is not None, False)
         sent = self._sent
         stock_out = stock if sent is None or stock != sent[0] else None

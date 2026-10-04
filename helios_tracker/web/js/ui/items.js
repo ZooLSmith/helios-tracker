@@ -1,7 +1,7 @@
 // Items in the inspector (gear, backpack): one expandable card each, grouped by kind.
 import { esc, nameHtml } from "../dom.js";
 import { money, num, numUpTo, t } from "../i18n.js";
-import { rarity } from "../model.js";
+import { cardIconKey, rarity } from "../model.js";
 import { S } from "../state.js";
 import { tipAttrs, tipSections } from "./hovertip.js";
 import { skillStatParts } from "./skills.js";
@@ -45,6 +45,7 @@ function statRow([key, base, now, extra]) {
     fuse: (x) => t("unit.seconds", { n: one(x) }),
     blastRadius: (x) => t("unit.meters", { n: one(x) }),
     elementChance: (x) => t("unit.percent", { n: numUpTo(x, 1) }), // (the card's: 16.8 %)
+    elementLevel: (x) => t("unit.times", { n: num(x) }), // (Borderlands 1's tech level: its card's "x2" on the element icon)
     accuracy: (x) => num(x, extra), // (its presentation's decimals: the card's 72.1)
   }[key] || ((x) => num(x));
   const changed = now != null && base && Math.abs(now - base) / Math.abs(base) >= 0.005;
@@ -96,8 +97,10 @@ function statTilesHtml(it) {
   // its element's damage, labelled with the game's name for it ("shock": its localization - capitalised here)
   const element = it.eln ? it.eln.charAt(0).toLocaleUpperCase() + it.eln.slice(1) : t("stat.elementDamage");
   if (it.edps) tiles.push([element, t("unit.perSecond", { n: num(it.edps, 1) }), "", "", "element"]);
-  const elementChance = (it.stats || []).findIndex(([key]) => key === "elementChance");
-  if (elementChance >= 0) tiles[elementChance][4] = "element";
+  for (const key of ["elementChance", "elementLevel"]) {
+    const at = (it.stats || []).findIndex(([k]) => k === key);
+    if (at >= 0) tiles[(it.ui || []).length + at][4] = "element";
+  }
   // the element's tiles (its chance, its damage) in the element's colour, like the game's card (the item's --etint:
   // its element line's colour, else the damage type's)
   return tiles.map(([k, v, sub, tip, role]) => `<div class="istat"${tip || ""}>` +
@@ -162,8 +165,10 @@ export function itemHtml(it, ownerLevel) {
   // (no equip slot: obvious; no maker when its logo's there, no type when its icon is - the footer's, their names
   // the icons' tooltips (and their text if an icon fails to load); its level right after its name, its price at the
   // right of that line)
-  const okKey = (key) => !!key && /^[A-Za-z0-9_]+$/.test(key);
-  const logo = okKey(it.mf), typeName = it.type || t("kind." + it.k, null, it.k);
+  const okKey = (key) => !!cardIconKey(key);
+  // (a maker key the page doesn't fetch - "none", the game's frame for no logo: its name in the logo's spot, as when a
+  // logo fails to load - cardIconKey)
+  const logo = !!it.mf, typeName = it.type || t("kind." + it.k, null, it.k);
   const meta = [okKey(it.wt) ? "" : typeName, logo ? "" : it.maker].filter(Boolean).join(" · ");
   const price = it.v ? `<span class="iprice">${esc(it.cur ? t("currency." + it.cur, { n: num(it.v) }) : money(it.v))}</span>` : "";
   // its level, after its name - red above its owner's (the game's rule: not equippable yet)
@@ -180,7 +185,7 @@ export function itemHtml(it, ownerLevel) {
     // (inspector.js bindItems)
     ...(it.gib ? [[t("item.gibbed"), it.gib, t("item.gibbedTip"), `<span class="igib"><code>${esc(it.gib)}</code>` +
       `<button type="button" class="icopy" data-copy="${esc(it.gib)}">${esc(t("item.copy"))}</button></span>`]] : [])]);
-  // its item card icons (the game's: gamecards.py), along the card's bottom like the game's (smaller while folded):
+  // its item card icons (the game's: its assets, /cardicon/), along the card's bottom like the game's (smaller while folded):
   // the manufacturer's logo, the element's, the type's - each dropped if the game has none (or the key's odd); the
   // logo missing: the maker's name instead
   const icon = (kind, key, text = "") => (okKey(key)
@@ -198,7 +203,9 @@ export function itemHtml(it, ownerLevel) {
   const kind = tinted(icon("element", it.el), "element", it.el) + tinted(icon("type", it.wt, typeName), "type", it.wt);
   // the manufacturer's logo: its white fill a little in the rarity's colour (--c; css: .iitint.brand)
   const brand = icon("manufacturer", it.mf, it.maker || "");
-  const icons = (brand ? `<span class="iitint brand" style="--src:url('/cardicon/manufacturer/${it.mf}.png')">${brand}</span>` : "") +
+  // (in the brand's wrapper - its tint, css .iitint.brand .ii-text - without a mask: nothing fetched)
+  const brandText = !brand && it.mf && it.maker ? `<span class="iitint brand"><span class="ii-text">${esc(it.maker)}</span></span>` : "";
+  const icons = (brand ? `<span class="iitint brand" style="--src:url('/cardicon/manufacturer/${it.mf}.png')">${brand}</span>` : brandText) +
     (kind ? `<span class="iikind">${kind}</span>` : "");
   // (effervescent - the game's RARITY_Rainbow: its name's colour cycling like the game's; css: .item.rainbow)
   return `<div class="item${S.expanded.has(it.i) ? " expanded" : ""}${tier === "effervescent" ? " rainbow" : ""}" data-id="${esc(it.i)}" ` +

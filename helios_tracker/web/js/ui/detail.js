@@ -3,7 +3,7 @@ import { $, esc, nameHtml } from "../dom.js";
 import { UU_PER_METER } from "../geo.js";
 import { num, t } from "../i18n.js";
 import { icon } from "../icons.js";
-import { isGear, nameText, rarity, shownHealth, shownMaxHealth } from "../model.js";
+import { cardIconKey, isGear, nameText, rarity, shownHealth, shownMaxHealth } from "../model.js";
 import { S, findDetail, isTrackedPlayer, itemById, onSale, pawnPos, trackedPawn } from "../state.js";
 import { saveDrawer } from "./drawer.js";
 import { bindItems, renderInspector } from "./inspector.js";
@@ -130,7 +130,7 @@ export function renderDetail(resetScroll) {
   if (it.m > 0) rows.push([t("detail.health"), `${num(shownHealth(it.h))} / ${num(shownMaxHealth(it.m))}`]);
   // an object that explodes (a barrel): its element - the item cards' icon, the game's name (collector.py: its explosion's)
   if (it.xp && (it.el || it.eln)) {
-    const elIcon = it.el && /^[A-Za-z0-9_]+$/.test(it.el) ? `<img class="dpelement" src="/cardicon/element/${it.el}.png" ` +
+    const elIcon = cardIconKey(it.el) ? `<img class="dpelement" src="/cardicon/element/${it.el}.png" ` +
       `crossorigin="anonymous" alt="" draggable="false" onerror="this.remove()"> ` : "";
     rows.push([t("detail.element"), it.eln || "", elIcon + esc(it.eln || "")]);
   }
