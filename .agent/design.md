@@ -182,3 +182,63 @@ by the frames like the rest (the Refresh rate setting), redrawn only when someth
   is in game isn't known; reachability drops it anyway).
 - The Worker's reachability and simplification, and the transfer format; the WebGL renderer (hand-written or a copy of
   a small library bundled with the page).
+
+## Containers before they spawn (population points)
+
+**The wish** (the user, 2026-10-04): show the containers the game will spawn when the player comes closer - big chests
+above all - before they exist, so they can be found from the map.
+
+**Why they don't show today**: they don't exist yet. Most containers (chests, coolers, cash boxes, ammo boxes, most
+Bullymong piles) aren't placed in the level: the population system's `PopulationOpportunityPoint`s spawn them when the
+player comes within `SpawnAndCullRadius` (8000 uu, 80 m) - notes.md "Containers spawned by distance"
+(tools/probes/probe_chest_spawn.txt, Three Horns: 137 points; a pile appears at its point's exact position when it
+spawns, the page shows it then). Dropped items and enemies show at any distance (the user): they exist once spawned, wherever.
+
+**What we'd want**
+
+- Every container point of the level, as a marker of its own kind: "will spawn here" - a distinct look (hollow / dimmed
+  of the container's own marker), in the container's layer (a big chest's point in the chests' layer, filtered like it),
+  named as the container it spawns (the game's name for it - its definition's, as a spawned one's: **game text only**,
+  nothing made up; unknown: the definition's name as a guess, "?").
+- Once it has spawned (`bHasSpawned`), the point's marker gives way to the real object (the same position: no
+  duplicate); culled again (the player 80 m away): the point back - but keeping what was learned while it existed
+  (looted: still looted - if the game remembers it, see below).
+- Its tooltip / panel: what it is, "spawns within 80 m" (its radius), and its loot odds if the type's are known
+  (lootodds: per balance - the same as a spawned one's, if the point says which balance).
+- Big chests first: if only some are worth it (the map would fill with cash boxes and coolers), the chests' points only
+  - or every container point, its layer off by default for the small ones. The user's call once it's on the page.
+
+**What has to be true first** (probes - read-only, no blind calls)
+
+1. **What a point spawns** - answered (tools/probes/probe_population_def.py, BL2 Three Horns, 2026-10-04: 137 points, 12
+   definitions): `PopulationOpportunityPoint.PopulationDef` (a PopulationDefinition) -> `ActorArchetypeList[]`, each a
+   `PopulationActor {SpawnFactory, Probability, MaxActiveAtOneTime}`; a container's factory is a
+   `PopulationFactoryInteractiveObject` whose `ObjectBalanceDefinition` (an InteractiveObjectBalanceDefinition:
+   `ObjectGrade_BanditChest`...) has the object's `DefaultInteractiveObject` (`InteractiveObj_BanditChest`), its loot lists
+   (`DefaultIncludedLootLists`: `EpicChestBanditLoot`) and `DefaultDisplayName` (empty there: the name as a spawned one's,
+   its definition's - the same rule). The balance is what lootodds keys a container type's odds by: a point's "Can
+   contain" without the container existing (`lootodds.odds_job` on the balance - no object needed but its own Loot).
+   Its `ObjectDefinition` mostly None (the vending machines' set).
+   Three Horns' definitions: BullymongPile (44 points), BanditCooler (36), CashBox (21), BanditAmmo (10), BanditGasTank
+   (7), Pop_BarrelMixture (6), WeaponChest_BanditPotty (4), EpicChest_Bandit (2 - the big red chests), WeaponChest_White
+   (2), three vending machines.
+2. **Whether a point always spawns** - answered for this level: every container definition has one entry, `Probability`
+   1.0 (a constant): always that container. Only `Pop_BarrelMixture` picks one of 5 barrels (incendiary 0.75, the others
+   1.0). Nothing seen that may spawn nothing (`bUseRandomSpawns` False everywhere) - other levels may differ: a point with
+   several entries shown as its choices, with their weights' shares.
+3. **A looted container culled and spawned again**: the definitions say whether it comes back -
+   `RespawnStyle` POPRESPAWN_Never (chests, coolers, cash boxes, ammo boxes), OnlyOnLevelLoad (piles, gas tanks,
+   barrels), OnTimeDelay (vending machines); the factory's `bUseSavedLocationWhenRestored` True hints a culled one is
+   saved and restored, not made anew. Still to see in game: loot one, walk > 80 m away, come back - looted still?
+   And on the point (a sub-object of it): `bCleanupActorsWhenIrrelevant` True, `ActorIrrelvantDistance` 6000 (60 m:
+   culled nearer than it spawns?) - not understood yet.
+- **A point and its object**: the point keeps no reference to what it spawned (`SpawnList` empty, nothing else) - matched
+  by position (a pile appeared at its point's exact location: probe_chest_spawn.txt), the spawn hook telling when.
+4. **A co-op client**: whether the points exist there at all (the host spawns, replicates the containers) - likely the
+   host's only.
+5. **The Pre-Sequel, Borderlands 1**: the same system? (TPS: BL2's engine, likely; BL1: its own population classes?)
+
+**Cost** (the stalls are the priority - architecture.md): the points are placed in the level, never move - one
+`find_all` per level (the `_lookup` queue: one per tick), their definitions resolved once (cached per population
+definition); `bHasSpawned` read now and then (a few points per tick, round robin - property reads) or not at all: the
+object spawn hook already tells when one appears (its position matches the point's).
