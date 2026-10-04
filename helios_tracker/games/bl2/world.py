@@ -32,6 +32,11 @@ class World(Part):
         change, on the game thread."""
         return _tactical(wi, map_name)
 
+    def area_name(self, area: Any) -> str:
+        """A discovery area's name as the game shows it (a WorldDiscoveryArea: "Wreck Of The Ice Sickle"; empty for one
+        that only clears the map's fog)."""
+        return str(area.WorldAreaDisplayName or "")
+
     def movie_no_skip(self, args: Any) -> bool:
         """ClientPlayBinkMovie's arguments: whether the video can't be skipped."""
         return bool(args.bForceNoSkip)

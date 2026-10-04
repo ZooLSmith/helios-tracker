@@ -174,3 +174,6 @@ notes.md "The Pre-Sequel's rarity table"; a mission's objective order - notes.md
   What they share: Behavior_CustomEvent Enabled_Used / Locked_Used / EnabledGlowing_Used / LockedGlowing_Used (the
   switch's state machine: enabled or locked, glowing or not). The engine's WillowInteractiveSwitch class: no placed
   instance in either game (its default object only).
+- **Area names** (the user, 2026-10-04: none on the map): the page got `"areas": []` - every area record failed, unlogged (`try_`). Its `WorldDiscoveryArea` has no `WorldAreaDisplayName`: `WorldAreaDisplayString`, a
+  `LocalizedStringDefinition` (`GD_WorldDiscoveryArea.Wreck_P.LS_WRECK_PWDA_1`), the name its `Text` ("AI Hub", "Suspension Bridge"); None on a fog-only area. Everything else as BL2's (CustomName, DetectionRadius,
+  bForFogOfWarOnly). Pity's Fall: 44 areas, 14 named (probe_areas.py). The way: `TpsWorld.area_name`.

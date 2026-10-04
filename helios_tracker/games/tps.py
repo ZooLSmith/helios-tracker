@@ -6,6 +6,7 @@ from . import JUMPPADS, OXYGEN, profile
 from .bl2 import Borderlands2
 from .bl2.objects import Objects
 from .bl2.skills import Skills
+from .bl2.world import World
 
 
 class TpsObjects(Objects):
@@ -42,6 +43,17 @@ class TpsObjects(Objects):
         return str(destination.StationDisplayName)
 
 
+class TpsWorld(World):
+    """The Pre-Sequel's world: BL2's, its discovery areas' names."""
+
+    def area_name(self, area: Any) -> str:
+        # its WorldDiscoveryArea has no WorldAreaDisplayName (every area record failed: the page got no area names):
+        # WorldAreaDisplayString, a LocalizedStringDefinition ("GD_WorldDiscoveryArea.Wreck_P.LS_WRECK_PWDA_1") - its
+        # Text the name ("AI Hub"); None on a fog-only area (tools/probes/probe_areas.txt, Pity's Fall, 2026-10-04)
+        text = area.WorldAreaDisplayString
+        return str(text.Text or "") if text is not None else ""
+
+
 class TpsSkills(Skills):
     """The Pre-Sequel's skills: BL2's but their icons."""
 
@@ -60,7 +72,7 @@ class TpsSkills(Skills):
 class PreSequel(Borderlands2):
     """Borderlands: The Pre-Sequel (.agent/presequel.md)."""
 
-    PARTS = {**Borderlands2.PARTS, "objects": TpsObjects, "skills": TpsSkills}
+    PARTS = {**Borderlands2.PARTS, "world": TpsWorld, "objects": TpsObjects, "skills": TpsSkills}
     key = "tps"
     gibbed_prefix = "BLOZ"
     features = Borderlands2.features | {OXYGEN, JUMPPADS}

@@ -903,11 +903,12 @@ class Collector:
         """A discovery area (tools/probes/probe_discovery.txt: WorldDiscoveryArea, a handful per level): its short
         name (the key pc.DiscoveredWorldAreas uses: CustomName if bUseCustomName, else
         DefaultWorldAreaShortName - 'SOUTHERNSHELF_PWDA_4'), the game's name for it (WorldAreaDisplayName,
-        'Wreck Of The Ice Sickle'; empty for bForFogOfWarOnly ones: they only clear the map's fog),
+        'Wreck Of The Ice Sickle' - the game's way: games.GAME.world.area_name; empty for bForFogOfWarOnly ones: they
+        only clear the map's fog),
         where and how big (DetectionRadius, uu)."""
         key = str(area.CustomName) if area.bUseCustomName else str(area.DefaultWorldAreaShortName)
         loc = area.Location
-        name = str(area.WorldAreaDisplayName or "").strip()
+        name = games.GAME.world.area_name(area).strip()
         return {"k": key.lower(), "x": round(loc.X), "y": round(loc.Y), "z": round(loc.Z), "r": round(area.DetectionRadius),
                 **({"n": name} if name and not area.bForFogOfWarOnly else {})}
 
