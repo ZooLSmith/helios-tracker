@@ -104,7 +104,7 @@ def main() -> None:
     if result.returncode != 0:
         fail(f"gh release create failed: {result.stderr.strip()}")
     print(f"published: {result.stdout.strip()}")
-    run("git", "tag", tag)  # (the private repo's marker: the commit released - pushed by you, like everything)
+    run("git", "tag", tag)  # (the commit released, marked locally too)
     print(f"tagged {commit} {tag} here (local)")
 
 

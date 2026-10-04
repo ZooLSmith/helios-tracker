@@ -129,7 +129,7 @@ bl2-helios-tracker/
 - Release format: `.sdkmod` = a renamed zip containing `helios_tracker/...`, without the dev files
   (`reload.py`, `.cache/`, logs). Agent / dev docs live at the root, never inside `helios_tracker/`.
 - Releasing (the user runs it - publishing, like pushing, is theirs): bump `helios_tracker/pyproject.toml`'s
-  version, commit, push `master` (both remotes), then `python tools/release.py` (checks, builds, verifies; says what
+  version, commit, push `master`, then `python tools/release.py` (checks, builds, verifies; says what
   it would publish) and
   `--publish [--notes "..."]`: a GitHub release of the public repo, tag `vX.Y.Z` = the version, the `.sdkmod`
   attached - what the mod's updater reads. Agents run it without `--publish` only. Each published release also
@@ -152,11 +152,11 @@ bl2-helios-tracker/
 ## Repositories
 
 - The code is open source (GPL-3.0, `LICENSE`), its whole history public.
-- `public` = `ZooLSmith/helios-tracker` (public): `master` = the code (the same history as `origin`'s), the site (the
-  `documentation` branch), the releases (`tools/release.py`: the `.sdkmod` attached).
-- `origin` = `ZooLSmith/helios-tracker-private` (private): the same `master`, and whatever isn't public yet (an
-  experimental branch). Locally `remote.public.push` sends `master` and `documentation` only, and `.git/hooks/pre-push`
-  refuses any other branch to the public repo (a fresh clone has neither: set them up again).
+- One remote, `public` = `ZooLSmith/helios-tracker` (public): `master` = the code, the site (the `documentation`
+  branch), the releases (`tools/release.py`: the `.sdkmod` attached). (The private `origin` - helios-tracker-private -
+  was dropped 2026-10-04, the user's call: everything it held was public or local.) Locally `remote.public.push` sends
+  `master` and `documentation` only, and `.git/hooks/pre-push` refuses any other branch or tag but `v*` (a fresh clone
+  has neither: set them up again) - an experimental branch (`experimental/map_3d`) stays local.
 
 ## Website (GitHub Pages)
 
