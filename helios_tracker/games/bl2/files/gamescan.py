@@ -9,7 +9,7 @@ wait on it every frame). So:
   one, here, politely (a 1 ms switch interval, a pause after each decompressed block);
 - one pass, each package opened once, everything collected from it;
 - its result cached (an index - names, export numbers, rectangles; no game art) in .cache/scan.json (paths.DATA:
-  the mod folder, gitignored, or sdk_mods/.helios_tracker/), per package, keyed by the file's size and date: from the second session on, nothing is
+  sdk_mods/.helios_tracker/), per package, keyed by the file's size and date: from the second session on, nothing is
   scanned; a changed package (a patch) is scanned again, alone. The game's side only reads that file.
 """
 

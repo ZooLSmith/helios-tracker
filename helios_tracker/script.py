@@ -1,7 +1,6 @@
 """
 The user's own PowerShell script (optional): run while the server runs. `autoexec.ps1` in the mod's data folder
-(paths.DATA: `sdk_mods/.helios_tracker/` beside a `.sdkmod` - nothing can go inside a zip -, the mod's own folder in
-a folder install: the dev setup's junction), its output in `autoexec.log` beside it.
+(paths.DATA: `sdk_mods/.helios_tracker/`, whichever the install), its output in `autoexec.log` beside it.
 
 For a tunnel (`tailscale funnel 8777`, `cloudflared tunnel run ...`) or anything else that should live with
 the map. It gets the server's port in `HELIOS_PORT`, runs hidden (no console window over the game). The

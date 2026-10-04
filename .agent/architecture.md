@@ -214,7 +214,11 @@ Direction:
   record in two hooks, outside the records' budget; BL1's `_mission_definitions` `find_all` again on every call while
   its result is empty.
 
-## 9. The mod folder: code and what it writes, mixed (the user, 2026-10-04)
+## 9. The mod folder: code and what it writes, mixed (the user, 2026-10-04) - the data part done
+
+*(done, 2026-10-04: DATA is `sdk_mods/.helios_tracker/` for both installs - the user: "we shouldn't have two methods
+based on if it's sdkmod or a folder". The files a folder install left in the package stay there, gitignored, until
+moved by hand.)*
 
 A folder install's DATA is the package itself (paths.py): its modules sit next to the logs (`helios_tracker_<game>.log`,
 `helios_crash_<game>.log`, the old unsuffixed ones), the user's `autoexec.ps1`, `.cache/`, a `diagnostics` file - "not a

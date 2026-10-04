@@ -2834,8 +2834,8 @@ def check_frames() -> None:
 
 
 def check_script() -> None:
-    """The user script's lookup: autoexec.ps1 in the data folder (paths.DATA - sdk_mods/.helios_tracker/ beside a
-    .sdkmod, the mod's folder in a folder install), its log beside it; the old place beside the .sdkmod: not looked at."""
+    """The user script's lookup: autoexec.ps1 in the data folder (paths.DATA - sdk_mods/.helios_tracker/, whichever the
+    install), its log beside it; the old place beside the .sdkmod: not looked at."""
     import tempfile  # noqa: PLC0415
 
     from helios_tracker import paths  # noqa: PLC0415
@@ -2849,7 +2849,9 @@ def check_script() -> None:
         (script_data / "autoexec.ps1").write_text("")
         assert find_script(script_data) == (script_data / "autoexec.ps1", script_data / "autoexec.log")
     assert find_script.__defaults__ == (paths.DATA,), "the data folder by default"
-    print("  user script: autoexec.ps1 in the data folder (sdk_mods/.helios_tracker/, or the mod's folder), its log beside it")
+    # one data folder whichever the install: a folder install's too (not the package - the user: code only there)
+    assert paths.SDKMOD is None and paths.DATA == paths.PACKAGE.parent / ".helios_tracker", paths.DATA
+    print("  user script: autoexec.ps1 in the data folder (sdk_mods/.helios_tracker/, a folder install's too), its log beside it")
 
 
 def check_games_import() -> None:

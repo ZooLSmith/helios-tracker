@@ -2,9 +2,10 @@
 written to a real folder. No SDK imports: the game files' worker (gamework.py, a subinterpreter) uses it too.
 
 - Read (the page's files): read(rel) - from the folder, or out of the zip (Path.read_bytes can't).
-- Written (logs, .cache/): DATA - the package folder itself (dev: the repo, gitignored), or, from a .sdkmod,
-  sdk_mods/.helios_tracker/ (the loader skips dot names: any other folder there it imports as a mod). Also the
-  place for a downloaded update, before it replaces the .sdkmod.
+- Written (logs, .cache/, the user's script, a downloaded update before it replaces the .sdkmod): DATA -
+  sdk_mods/.helios_tracker/ beside the package, whichever the install (a .sdkmod or a folder: the package holds code
+  only - the user: its folder had the logs and the script among the modules). The loader skips dot names: any other
+  folder there it would import as a mod.
 - DIAGNOSTICS: the debug measurements on (frames.py's frame report and its canary, the slow-task report's
   breakdowns) - a folder install (dev) yes, a .sdkmod (what players run) no; a `diagnostics` file in DATA says
   otherwise ("on" / "off": a player's for a bug report, a dev's to measure without them). Read at load.
@@ -28,12 +29,11 @@ def _sdkmod(package: Path) -> Path | None:
 
 SDKMOD = _sdkmod(PACKAGE)
 SDK_MODS = SDKMOD.parent if SDKMOD else PACKAGE.parent
-DATA = SDK_MODS / f".{PACKAGE.name}" if SDKMOD else PACKAGE
-if SDKMOD:
-    try:
-        DATA.mkdir(parents=True, exist_ok=True)
-    except OSError:
-        pass
+DATA = SDK_MODS / f".{PACKAGE.name}"
+try:
+    DATA.mkdir(parents=True, exist_ok=True)
+except OSError:
+    pass
 
 
 def _diagnostics() -> bool:

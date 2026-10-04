@@ -4,7 +4,9 @@ __pycache__/
 # Probe outputs
 tools/probes/*.txt
 
-# Mod logs
+# The mod's data folder, run from the repo (offline_check: paths.DATA beside the package)
+/.helios_tracker/
+# Mod logs (a folder install's, before the data folder moved out of the package)
 helios_tracker/helios_tracker*.log
 helios_tracker/helios_crash*.log
 helios_tracker/autoexec.log

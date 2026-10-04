@@ -372,8 +372,7 @@ bottom-left message).
   solo, as a co-op host and client (what each has: notes "Player inspection, co-op client / host").
 - The collector does nothing but follow the level while no page is connected (`Hub.clients`).
 - `script.py`: an optional PowerShell script runs while the server runs (e.g. a tunnel for sharing the map on
-  stream): `autoexec.ps1` in the data folder (`paths.DATA`: `sdk_mods/.helios_tracker/` beside a `.sdkmod` - the
-  players' place -, the mod's own folder in a folder install - the dev junction; gitignored). It gets
+  stream): `autoexec.ps1` in the data folder (`paths.DATA`: `sdk_mods/.helios_tracker/`, whichever the install). It gets
   `HELIOS_PORT`, runs hidden, and its output goes to `autoexec.log` beside it. It sits in a kill-on-close job object: server stop, port / LAN
   restart, mod disable, or the game exiting ends it along with its children.
 - `updater.py`: updates from the public repo's latest GitHub release (tag `vX.Y.Z`, `helios_tracker.sdkmod`
@@ -412,7 +411,7 @@ bottom-left message).
   items built) and the counts (pawns, pickups, new descriptions, vitals read by function calls); `scan objects` with
   its parts (odds, find, shops, sight, the rest of the loop, tracker, waypoints, exits, areas, publish).
 - **Debug measurements: `paths.DIAGNOSTICS`** - on in a folder install (dev), off in a `.sdkmod`; a `diagnostics` file
-  in the data folder (`sdk_mods/.helios_tracker/`, or the package folder: gitignored) overrides it ("on" / "off"), read
+  in the data folder (`sdk_mods/.helios_tracker/`) overrides it ("on" / "off"), read
   at load. It switches frames.py (the frame report, its canary) and the slow-task report's breakdowns (`state.pawns.*`,
   `state.pickups.*`, `scan objects.*`, `object records.*`, `players.*`); the plain slow-task report stays on.
 - `frames.py` (debug: `paths.DIAGNOSTICS`): frame times - what the game feels, beside our tasks' times. Each frame timed between PostRender
@@ -478,10 +477,10 @@ bottom-left message).
 ## Files on disk
 
 `paths.py` decides (no SDK imports: the worker uses it too). Read: the package's own files (`paths.read("web/...")`:
-from the folder, or out of the `.sdkmod` - `Path.read_bytes` can't). Written: `paths.DATA` = the package folder in
-a folder install (dev: the junction, so the repo's `helios_tracker/`, gitignored), `sdk_mods/.helios_tracker/` from a
-`.sdkmod` (the loader skips dot names; any other folder in `sdk_mods` it imports as a mod) - also the place for a
-downloaded update. Everything written is built on the player's machine from their game: never shipped, never committed.
+from the folder, or out of the `.sdkmod` - `Path.read_bytes` can't). Written: `paths.DATA` =
+`sdk_mods/.helios_tracker/` beside the package, whichever the install - a `.sdkmod` or a folder (the dev junction): the
+package holds code only (the loader skips dot names; any other folder in `sdk_mods` it imports as a mod) - also the
+place for a downloaded update. (Run from the repo - offline_check -: the repo's `.helios_tracker/`, gitignored.) Everything written is built on the player's machine from their game: never shipped, never committed.
 
 | File (under `DATA`) | Written by | What | Kept until |
 |---|---|---|---|
