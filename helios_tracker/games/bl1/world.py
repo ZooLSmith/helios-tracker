@@ -47,7 +47,8 @@ def _landmark(wi: Any, map_name: str) -> Any:
     level change only."""
     import unrealsdk  # noqa: PLC0415
 
-    from ... import bl1map, gamedir, levelmap  # noqa: PLC0415
+    from ... import gamedir, levelmap  # noqa: PLC0415
+    from .files import bl1map  # noqa: PLC0415
     from ...util import log, try_  # noqa: PLC0415
 
     prefix = map_name.lower() + "."

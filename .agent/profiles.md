@@ -555,10 +555,14 @@ Each step leaves the mod working and `offline_check` passing:
    profile; the parts' base classes in base.py - a module named profile would shadow the registration decorator.)*
    **The package, same behaviour**: `games.py` -> `games/`, methods moved to parts, call sites and `offline_check`
    (~77 lines, ~60 flat method calls to make part calls) updated. No logic changes: a pure move, so its diff can be read as one.
-5. *(1/2 done, 2026-10-04: BL1's game-thread code in its parts - its markers (Bl1Missions.markers, from the level's
+5. *(done, 2026-10-04: BL1's game-thread code in its parts - its markers (Bl1Missions.markers, from the level's
    actors the collector looks up by the classes level_lookups names), its skill tree (Bl1Skills._player_skills), its
-   landmark map (Bl1World.map_source); BL2's tactical map in its World; levelmap: the shared types, no SDK. Left: the
-   decoders.)* **BL1's code gathered** into `games/bl1/`, **the decoders split** (the inventory's "File decoding": formats,
+   landmark map (Bl1World.map_source); BL2's tactical map in its World; levelmap: the shared types (MapImage, MapFog
+   too), no SDK. The decoders: formats/ (upk, swf, swfshape, swffont, fonts, image, engine), games/bl2/files/
+   (tacmap, gamescan, gamecards, gameicons, gamefonts: its font libraries), games/bl1/files/ (bl1map, bl1fonts,
+   upk_bl1); assets.py: the fonts' catalogue and the card keys (shared state); the worker: jobs naming a *_job
+   (gamework.fn), its subpackages stubbed (checked from a .sdkmod); the server: GAME.assets.serve(path). Module names
+   kept (gamescan...): the docs still find them.)* **BL1's code gathered** into `games/bl1/`, **the decoders split** (the inventory's "File decoding": formats,
    each game's `files/`, the worker's stub packages and `fn` jobs, `assets.serve`); the inspector's skill reading,
    `levelmap.landmark`, the file readers; the probes' paths.
 6. **The leftover checks** (point 5 and the inventory's hidden differences table), the new `offline_check` tests

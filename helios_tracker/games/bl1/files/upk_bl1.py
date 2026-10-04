@@ -1,12 +1,12 @@
 """
-Borderlands 1's packages (the original game: file version 584, licensee 57 - WillowGame/CookedPC): upk.Package with
+Borderlands 1's packages (the original game: file version 584, licensee 57 - WillowGame/CookedPC): formats.upk.Package with
 what differs from BL2's format (832), nothing else. Read offline from the game's files (.agent/bl1.md "Game files").
 Pure Python, no SDK.
 """
 
 import struct
 
-from .upk import TAG, Package
+from ....formats.upk import TAG, Package
 
 
 class Bl1Package(Package):

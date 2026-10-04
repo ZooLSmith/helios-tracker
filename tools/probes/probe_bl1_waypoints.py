@@ -1,5 +1,5 @@
 # Dev probe (in game), instant, read-only: Borderlands 1's objective markers - the page marks every WillowWaypoint of a
-# mission's waypoint definition (collector._waypoint_markers), the game one ("Digistruct Module:" twice - the user).
+# mission's waypoint definition (games/bl1/missions.py markers), the game one ("Digistruct Module:" twice - the user).
 # WillowWaypoint (WillowGame.u, offline): bCompleted, WaypointNumber, TouchDistance, WaypointDefinition - a numbered
 # path? For each mission picked up: its target / turn-in waypoint definitions; the level's WillowWaypoints of each -
 # their number, bCompleted, TouchDistance, location, distance, bHidden, Tag. Writes probe_bl1_waypoints.txt (appends).

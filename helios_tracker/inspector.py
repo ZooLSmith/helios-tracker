@@ -30,7 +30,7 @@ import unrealsdk
 from unrealsdk.unreal import WeakPointer
 from mods_base import get_pc
 
-from . import amounts, gamecards, games, paths
+from . import amounts, assets, games, paths
 
 from .skills import skill_icon
 from .util import PerObject, addr, call_str, def_name, field, item_name, log, log_error, named, player_info, try_
@@ -912,7 +912,7 @@ def _card_keys() -> None:
         kind, cls, prop = CARD_KEY_FINDS[step]
         keys = {str(try_(lambda d=d: getattr(d, prop), "") or "") for d in try_(lambda c=cls: list(unrealsdk.find_all(c, exact=False)), []) or []
                 if not d.Name.startswith("Default__")}
-        gamecards.set_keys(kind, keys - {"", "None"})
+        assets.set_keys(kind, keys - {"", "None"})
         return
     # the elements': the damage types' DamageType enum, its names without DAMAGE_TYPE_ (Shock, Amp: slag...) - the
     # element list's frames ("shock", "amp"; a weapon's ElementalFrame picks one) - the enum's type from the class's
@@ -920,7 +920,7 @@ def _card_keys() -> None:
     default = try_(lambda: unrealsdk.find_class("WillowDamageTypeDefinition").ClassDefaultObject)
     enum = type(try_(lambda: default.DamageType)) if default is not None else None
     members = getattr(enum, "__members__", None) or {}
-    gamecards.set_keys("element", {name.removeprefix("DAMAGE_TYPE_") for name in members} - {"", "MAX"})
+    assets.set_keys("element", {name.removeprefix("DAMAGE_TYPE_") for name in members} - {"", "MAX"})
 
 
 def _skill_bonuses(pawn: Any) -> dict[str, int]:

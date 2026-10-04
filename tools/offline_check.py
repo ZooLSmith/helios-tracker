@@ -462,7 +462,7 @@ def check_helios_tracker() -> None:  # noqa: PLR0915
     import helios_tracker as m  # noqa: PLC0415
     from helios_tracker import collector as col  # noqa: PLC0415
     from helios_tracker.server import Hub, TrackerServer  # noqa: PLC0415
-    from helios_tracker.tacmap import load_tactical_map  # noqa: PLC0415
+    from helios_tracker.games.bl2.files.tacmap import load_tactical_map  # noqa: PLC0415
     from helios_tracker.util import clear_fields, field, pickup_kind  # noqa: PLC0415
     from helios_tracker.util import reader as field_reader  # noqa: PLC0415 - ("reader": a SkillReader below)
 
@@ -473,23 +473,25 @@ def check_helios_tracker() -> None:  # noqa: PLR0915
     assert defined == listed, ("hooks defined but not in build_mod(hooks=...)", sorted(defined - listed), sorted(listed - defined))
     # "assets": what the server can serve from the game's files - the page asks for card icons only once "cards" is 1
     # (the files indexed + every kind's keys known: before, a 404 a map marker gave up on)
-    from helios_tracker import gamecards as assets_cards  # noqa: PLC0415
-    assets_saved = (dict(assets_cards._keys), assets_cards._index)
+    from helios_tracker import assets as game_assets  # noqa: PLC0415
+    from helios_tracker.games.bl2.files import gamecards as assets_cards  # noqa: PLC0415
+    assets_saved = (dict(game_assets._keys), assets_cards._index)
     assets_cards._index = None
     for assets_kind in assets_cards.KINDS:
-        assets_cards.set_keys(assets_kind, set())
+        game_assets.set_keys(assets_kind, set())
     assert json.loads(m._hub.latest("assets"))["cards"] == 0, m._hub.latest("assets")
     assets_cards.set_index({})
     for assets_kind in assets_cards.KINDS:
-        assets_cards.set_keys(assets_kind, {"key"})
+        game_assets.set_keys(assets_kind, {"key"})
     assert json.loads(m._hub.latest("assets"))["cards"] == 1, ("indexed, keys known: sent", m._hub.latest("assets"))
-    from helios_tracker import gameicons as assets_icons  # noqa: PLC0415
+    from helios_tracker.games.bl2.files import gameicons as assets_icons  # noqa: PLC0415
     assets_textures = assets_icons._textures
     assets_icons.set_textures({})
     m._publish_assets()
     assert json.loads(m._hub.latest("assets"))["textures"] == 1, ("the textures indexed: sent", m._hub.latest("assets"))
     assets_icons._textures = assets_textures
-    assets_cards._keys.update(assets_saved[0])
+    game_assets._keys.clear()
+    game_assets._keys.update(assets_saved[0])
     assets_cards._index = assets_saved[1]
 
     # field(): the property looked up once per class, then read with _get_field (tools/probes/probe_perf.txt)
@@ -612,7 +614,7 @@ def check_helios_tracker() -> None:  # noqa: PLR0915
         print("  game files not found (project.json's game): skipping the map / server checks")
         return
     # Map images straight from the game's packages
-    from helios_tracker.tacmap import load_fog  # noqa: PLC0415
+    from helios_tracker.games.bl2.files.tacmap import load_fog  # noqa: PLC0415
     for level_name, size in {"Sanctuary_P": (468, 512), "SouthernShelf_P": (876, 1024)}.items():
         t = time.perf_counter()
         (img,) = load_tactical_map(GAME_COOKED / f"{level_name}.upk", f"UI_TacticalMap_{level_name[:-2]}.{level_name}")
@@ -636,7 +638,8 @@ def check_helios_tracker() -> None:  # noqa: PLR0915
     # subinterpreter, its cache (a temp dir here), then a second session's: from the cache, nothing scanned
     import tempfile  # noqa: PLC0415
 
-    from helios_tracker import gamefonts, gamescan, gamework  # noqa: PLC0415
+    from helios_tracker import assets as scan_assets, gamework  # noqa: PLC0415
+    from helios_tracker.games.bl2.files import gamescan  # noqa: PLC0415
     scan_tmp = tempfile.TemporaryDirectory()
     gamescan.CACHE = Path(scan_tmp.name) / "scan.json"
     gamework.ASSETS = Path(scan_tmp.name) / "assets"
@@ -645,15 +648,15 @@ def check_helios_tracker() -> None:  # noqa: PLR0915
     t_scan = time.perf_counter() - t
     assert gamescan.ready() and gamescan.CACHE.is_file()
     assert gamework.mode() == "subinterpreter", ("the scan beside the game's Python, not in it", gamework.mode())
-    scanned = (dict(gamefonts.FONTS.catalogue), gamescan.packages(GAME_COOKED))
+    scanned = (dict(scan_assets.FONTS.catalogue), gamescan.packages(GAME_COOKED))
     gamescan._done.clear()
     t = time.perf_counter()
     gamescan.run(GAME_COOKED)
     t_cached = time.perf_counter() - t
-    assert gamefonts.FONTS.catalogue == scanned[0] and t_cached < 1.0, ("the cache gives the same index, fast", t_cached)
+    assert scan_assets.FONTS.catalogue == scanned[0] and t_cached < 1.0, ("the cache gives the same index, fast", t_cached)
     print(f"  game files scan: {len(scanned[1])} packages in {t_scan:.2f} s ({gamework.mode()}), from its cache {t_cached:.2f} s")
     t = time.perf_counter()
-    font_lib = gamefonts.FONTS  # (the engine config's packages: no movie named)
+    font_lib = scan_assets.FONTS  # (the engine config's packages: no movie named)
     names = {s: entry[0] for s, entry in font_lib.catalogue.items()}
     assert {"willowbody": "WillowBody", "compacta-bd-bt": "Compacta Bd BT", "chintzy-cpu-brk": "Chintzy CPU BRK"}.items() <= names.items(), names
     assert font_lib.catalogue["willowbody"][1] == 293, ("the fullest WillowBody: the font library's", font_lib.catalogue["willowbody"])
@@ -671,7 +674,7 @@ def check_helios_tracker() -> None:  # noqa: PLR0915
         pass
     print(f"  game fonts: {', '.join(f'{n} ({len(b) // 1024} KB)' for n, b in game_fonts.values())} ({time.perf_counter() - t:.2f} s)")
     # The skill icons (gameicons.py): the class packages' textures, as PNGs - Axton's, a DLC class's (Gaige)
-    from helios_tracker import gameicons  # noqa: PLC0415
+    from helios_tracker.games.bl2.files import gameicons  # noqa: PLC0415
     t = time.perf_counter()  # (its index: the scan's)
     able = gameicons.icon_png("SharedSkillIcons_Soldier.SkillIcon-Able")
     assert able and able[:8] == b"\x89PNG\r\n\x1a\n" and struct.unpack(">II", able[16:24]) == (64, 64), "Able's icon"
@@ -711,14 +714,15 @@ def check_helios_tracker() -> None:  # noqa: PLR0915
     assert gameicons.texture_by_path("fx_shared_items.Nope") is None and gameicons.texture_by_path("../server.py") is None
     print(f"  pickup icons: {len(gameicons._textures)} textures indexed, cash / eridium (.tfc) ({time.perf_counter() - t:.2f} s)")
     # The item card icons (gamecards.py): the engine config's packages, the sprites labelled with the game's keys
-    from helios_tracker import gamecards  # noqa: PLC0415
-    card_packages = [p.name for p in gamecards.engine_packages(GAME_COOKED)]
+    from helios_tracker.games.bl2.files import gamecards  # noqa: PLC0415
+    from helios_tracker.formats.engine import engine_packages  # noqa: PLC0415
+    card_packages = [p.name for p in engine_packages(GAME_COOKED)]
     assert "WillowGame.upk" in card_packages and card_packages[-1] == "Startup.upk", card_packages
     t = time.perf_counter()
     assert gamecards.card_png("manufacturer", "maliwan") is None, "no keys yet: none (the collector gives them)"
-    gamecards.set_keys("manufacturer", {"jakobs", "anshin", "atlas", "dahl", "gearbox", "hyperion", "maliwan", "tediore", "torgue", "vladof"})
-    gamecards.set_keys("type", {"pistol", "shotgun", "smg", "ar", "sniper", "rocket"})  # (the six weapon types' frames)
-    gamecards.set_keys("element", {"None", "Incendiary", "Shock", "Corrosive", "Explosive", "Amp"})  # (the damage types')
+    scan_assets.set_keys("manufacturer", {"jakobs", "anshin", "atlas", "dahl", "gearbox", "hyperion", "maliwan", "tediore", "torgue", "vladof"})
+    scan_assets.set_keys("type", {"pistol", "shotgun", "smg", "ar", "sniper", "rocket"})  # (the six weapon types' frames)
+    scan_assets.set_keys("element", {"None", "Incendiary", "Shock", "Corrosive", "Explosive", "Amp"})  # (the damage types')
     maliwan, pistol = gamecards.card_png("manufacturer", "maliwan"), gamecards.card_png("type", "pistol")
     card_layers = {k: [(a.group, a.depth, a.size) for a in gamecards._choose(*k)]
                    for k in (("manufacturer", "maliwan"), ("type", "pistol"), ("element", "shock"), ("type", "shotgun"))}
@@ -756,7 +760,7 @@ def check_helios_tracker() -> None:  # noqa: PLR0915
     col.game_dir = real_game_dir
     # Vector shapes -> images (swfshape.py, BL1's map): a 10 x 10 square from (5, 5) in a 20 x 20 image - inside opaque,
     # outside clear, a border at half a pixel half covered
-    from helios_tracker import swfshape  # noqa: PLC0415
+    from helios_tracker.formats import swfshape  # noqa: PLC0415
     square_cover = swfshape._coverage([(5, 5, 5, 15), (15, 5, 15, 15)], 20, 20)
     assert square_cover[10 * 20 + 10] == 255 and square_cover[2 * 20 + 2] == 0 and square_cover[10 * 20 + 4] == 0, "a square's inside / outside"
     half_cover = swfshape._coverage([(5.5, 5, 5.5, 15), (15, 5, 15, 15)], 20, 20)
@@ -780,8 +784,9 @@ def check_helios_tracker() -> None:  # noqa: PLR0915
     # map anchor, its map rendered from the menu movie's vector frame (bl1map.py)
     bl1_cooked = (project.path("bl1") / "WillowGame" / "CookedPC") if project.path("bl1") else None
     if bl1_cooked is not None and bl1_cooked.is_dir():
-        from helios_tracker import bl1map, upk  # noqa: PLC0415
-        from helios_tracker.upk_bl1 import Bl1Package  # noqa: PLC0415
+        from helios_tracker.formats import upk  # noqa: PLC0415
+        from helios_tracker.games.bl1.files import bl1map  # noqa: PLC0415
+        from helios_tracker.games.bl1.files.upk_bl1 import Bl1Package  # noqa: PLC0415
         bl1_tex = Bl1Package(bl1_cooked / "Packages" / "Environments" / "Env_TacticalMaps.upk")
         bl1_arena_tex = upk._texture(bl1_tex, bl1_tex.find("Arid.arid-arena", "Texture2D"))
         assert bl1_arena_tex[:3] == ("PF_DXT1", 1024, 1024) and len(bl1_arena_tex[3]) == 1024 * 1024 // 2, bl1_arena_tex[:3]
@@ -820,20 +825,20 @@ def check_helios_tracker() -> None:  # noqa: PLR0915
         assert bl1map.clip_icon(bl1_cooked, "skills", "mordecai", "icon99", "on", "off") is None
         assert bl1map.clip_icon(bl1_cooked, "skills", "mordecai", "icon17", "nope", "off") is None
         from helios_tracker import gamework as bl1_work  # noqa: PLC0415
-        bl1_icon_png = bl1_work.run_job(json.dumps({"do": "menuicon", "cooked": str(bl1_cooked),
+        bl1_icon_png = bl1_work.run_job(json.dumps({"fn": bl1_work.fn(bl1map.menu_icon_job), "cooked": str(bl1_cooked),
                                                     "parts": ["skills", "lilith", "icon24", "on", "off"]}))
         assert bl1_icon_png[:8] == b"\x89PNG\r\n\x1a\n", bl1_icon_png[:16]
         assert bl1map.MENU_ICON.fullmatch("menu.skills.mordecai.icon17.on.off") and not bl1map.MENU_ICON.fullmatch("menu.a.b")
         # its fonts: its font library's DefineFont3 (bl1fonts.py, swffont.py) - WillowBody, WillowHead, Brush Script Std
-        from helios_tracker import bl1fonts  # noqa: PLC0415
+        from helios_tracker.games.bl1.files import bl1fonts  # noqa: PLC0415
         bl1_font_list = bl1fonts.catalogue(bl1_cooked)
-        assert {"willowbody", "willowhead"} <= set(bl1_font_list) and bl1_font_list["willowbody"][5] == "swffont", bl1_font_list
+        assert {"willowbody", "willowhead"} <= set(bl1_font_list) and bl1_font_list["willowbody"][5] == bl1_work.fn(bl1fonts.font_job), bl1_font_list
         bl1_body = bl1fonts.font(*bl1_font_list["willowbody"][2:5])
         bl1_glyph_a = next(g for g in bl1_body.glyphs if g.code == ord("A"))
         assert bl1_body.em == 1024 and len(bl1_body.glyphs) > 200 and len(bl1_glyph_a.contours) == 2 and bl1_glyph_a.advance > 0, (
             bl1_body.em, len(bl1_body.glyphs), bl1_glyph_a)
-        bl1_body_ttf = bl1_work.run_job(json.dumps({"do": "swffont", "package": str(bl1_font_list["willowbody"][2]),
-                                                    "export": bl1_font_list["willowbody"][3], "n": bl1_font_list["willowbody"][4]}))
+        bl1_body_ttf = bl1_work.run_job(json.dumps({"fn": bl1_font_list["willowbody"][5], "path": str(bl1_font_list["willowbody"][2]),
+                                                    "idx": bl1_font_list["willowbody"][3], "n": bl1_font_list["willowbody"][4]}))
         assert bl1_body_ttf[:4] == b"\x00\x01\x00\x00" and b"glyf" in bl1_body_ttf[:400], bl1_body_ttf[:16]
         # its item card icons (games.Borderlands1.card_icon_png): the card movie's sprite holding a kind's keys - the
         # manufacturers' logos; the type's: the menus' item icon clip ("inicon": weapon types and items' ZippyFrame)
@@ -861,13 +866,13 @@ def check_helios_tracker() -> None:  # noqa: PLR0915
             "a level's frame: its element's mark alone (moved a little: the number beside it), its number left out")
         assert bl1map.card_frame_icon(bl1_cooked, bl1map.ELEMENT_CLIP, "fire1")[:2] == bl1map.card_frame_icon(bl1_cooked, bl1map.ELEMENT_CLIP, "fire0")[:2], (
             "the first level too (its frame moves the mark: still the mark alone)")
-        bl1_element_png = bl1_work.run_job(json.dumps({"do": "cardframe", "cooked": str(bl1_cooked), "clip": "chemical", "frame": 6}))
+        bl1_element_png = bl1_work.run_job(json.dumps({"fn": bl1_work.fn(bl1map.element_icon_job), "cooked": str(bl1_cooked), "clip": "chemical", "frame": 6}))
         assert bl1_element_png[:8] == b"\x89PNG\r\n\x1a\n", bl1_element_png[:16]
-        bl1_item_png = bl1_work.run_job(json.dumps({"do": "itemicon", "cooked": str(bl1_cooked), "label": "repeater"}))
+        bl1_item_png = bl1_work.run_job(json.dumps({"fn": bl1_work.fn(bl1map.item_icon_job), "cooked": str(bl1_cooked), "label": "repeater"}))
         assert bl1_item_png[:8] == b"\x89PNG\r\n\x1a\n", bl1_item_png[:16]
         assert bl1map.card_icon(bl1_cooked, bl1_brand_keys, "corazza") is None, "no logo of its own in the movie"
         assert bl1map.card_icon(bl1_cooked, ["nope"], "jakobs") is None
-        bl1_logo_png = bl1_work.run_job(json.dumps({"do": "cardicon", "cooked": str(bl1_cooked), "keys": bl1_brand_keys,
+        bl1_logo_png = bl1_work.run_job(json.dumps({"fn": bl1_work.fn(bl1map.card_icon_job), "cooked": str(bl1_cooked), "keys": bl1_brand_keys,
                                                     "label": "s_and_s"}))
         assert bl1_logo_png[:8] == b"\x89PNG\r\n\x1a\n", bl1_logo_png[:16]
         print(f"  BL1: packages (584), the arena's map anchor, its map rendered {bl1_arena_img.width} x {bl1_arena_img.height}")
@@ -1362,6 +1367,9 @@ def check_helios_tracker() -> None:  # noqa: PLR0915
     assert (profile_bl2.missions.level_lookups(False), profile_bl2.missions.level_lookups(True), profile_bl1.missions.level_lookups(False)) == (
         {}, {"waypoints": "WillowWaypoint"}, {"waypoints": "WillowWaypoint", "exits": "PersistentTransitionLandmark"})
     assert profile_bl2.missions.markers(None, None, None) is None, "BL2: the tracker's waypoint components"
+    # the game's images, each game's routes (the server knows none): not one of them -> None; BL1 has no skill icon textures
+    assert profile_bl2.assets.serve("/nope.png") is None and profile_bl1.assets.serve("/nope.png") is None
+    assert profile_bl1.assets.serve("/icon/SharedSkillIcons_Soldier.SkillIcon-Able.png") is None and not profile_bl1.assets.textures_ready()
     assert profile_bl2.missions.current_objectives([1], 3) == [1] and profile_bl1.missions.current_objectives([1], 3) == [0, 1, 2]
     assert not {"tacmap", "scan", "fontlibrary", "missionsteps", "waypointmarkers", "learnedelements"} & (
         profile_bl2.features | profile_tps.features | profile_bl1.features), "features: systems a game has - only"
@@ -1489,7 +1497,7 @@ def check_helios_tracker() -> None:  # noqa: PLR0915
     assert profile_bl2.world.level_name_in(ns(GetFriendlyLevelNameFromMapName=lambda m: {"Ice_P": "Three Horns - Divide"}.get(m, "")), "Ice_P") == "Three Horns - Divide"
     # BL1's map placement (bl1map.placement: from its anchor and its shape's size alone) against the game's own: Arid's
     # map objects, world -> TransformedLocation (0-1) x ClipSize (tools/probes/probe_bl1_map.txt) - within 1.5 movie px
-    from helios_tracker import bl1map as placement_map  # noqa: PLC0415
+    from helios_tracker.games.bl1.files import bl1map as placement_map  # noqa: PLC0415
     arid_anchor = placement_map.Anchor("Arid", -28388.717, -10011.951, 32, 58.2, 233.131, 1024, 512)
     arid_center, arid_upp = placement_map.placement(arid_anchor, (779.5, 352.2))
     for (wx, wy), (mu, mv) in (((-11696.0, 32992.0), (0.860, 0.241)), ((-45536.0, -2512.0), (0.563, 0.871)),

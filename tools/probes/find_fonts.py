@@ -14,7 +14,7 @@ import project  # noqa: E402
 
 # upk.py / swf.py alone (the package's __init__ needs the SDK)
 def _alone(name):  # noqa: ANN001, ANN202
-    spec = importlib.util.spec_from_file_location(name, Path(__file__).resolve().parents[2] / "helios_tracker" / f"{name}.py")
+    spec = importlib.util.spec_from_file_location(name, Path(__file__).resolve().parents[2] / "helios_tracker" / "formats" / f"{name}.py")
     module = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(module)
     return module

@@ -9,15 +9,15 @@ A level's persistent package (e.g. Sanctuary_P.upk) holds:
 World -> movie px uses the WillowTacticalMapVolume (see collector.py); this module only returns
 the images and where each sits in movie px.
 
-The packages themselves: upk.py; the movies' tags: swf.py.
+The packages themselves: formats/upk.py; the movies' tags: formats/swf.py; the images' types: levelmap.py.
 """
 
 import struct
-from dataclasses import dataclass
 from pathlib import Path
 
-from .swf import _affine, _Bits, _cstr, _matrix, _movie_raw, _movie_tags, _place2, _shape_bitmap, _tags
-from .upk import Package, _texture
+from ....formats.swf import _affine, _Bits, _cstr, _matrix, _movie_raw, _movie_tags, _place2, _shape_bitmap, _tags
+from ....formats.upk import Package, _texture
+from ....levelmap import MapFog, MapImage
 
 # region Scaleform movie
 
@@ -125,23 +125,6 @@ def parse_fog_blob(raw: bytes) -> tuple[str, tuple[float, float, float, float]] 
 
 # endregion
 # region Images
-
-
-@dataclass
-class MapImage:
-    name: str
-    format: str  # EPixelFormat, e.g. "PF_DXT5" - decoded by the web page
-    width: int
-    height: int
-    data: bytes  # top mip, as stored
-    bounds: tuple[float, float, float, float]  # x0, x1, y0, y1 in movie px
-    crop: tuple[int, int, int, int] | None = None  # the part drawn in bounds (x, y, w, h px: a sub-image), None all
-
-
-@dataclass
-class MapFog:
-    blob: MapImage  # the fog piece (bounds: its shape's, around 0)
-    pieces: list[tuple[str, tuple[float, ...]]]  # (area short name, matrix placing the blob: _affine)
 
 
 SHARED_TACMAPS = "SharedWillowTacMaps.SharedWillowTacMaps"

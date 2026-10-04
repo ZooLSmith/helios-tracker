@@ -159,7 +159,8 @@ class Bl1Skills(Skills):
         "<Strings:WillowGame.SkillTreeMovie.SkillsHunterBranch1String>", localized: SNIPER."""
         import unrealsdk  # noqa: PLC0415
 
-        from ... import bl1map, gamedir  # noqa: PLC0415
+        from ... import gamedir  # noqa: PLC0415
+        from .files import bl1map  # noqa: PLC0415
 
         cache_key = int(ctrl.PlayerClass.CharacterName)
         if (names := self._branch_names.get(cache_key)) is not None:

@@ -25,7 +25,7 @@ from unrealsdk.hooks import Type, add_hook, remove_hook
 from unrealsdk.unreal import BoundFunction, UObject, WrappedStruct
 
 from .collector import Collector, game_language
-from . import gamecards, gamefonts, gameicons, games, gamework, i18n, updater
+from . import assets, games, gamework, i18n, updater
 from .frames import FRAMES
 from .script import start_script
 from .server import Hub, TrackerServer
@@ -368,8 +368,8 @@ _collector = Collector(_hub)  # not `collector`: that would shadow the submodule
 
 def _publish_assets() -> None:
     """The game assets the server can serve now ("assets": the page asks for item card icons only once they're there -
-    before, a 404). Any thread (gamecards.listener: the files' scan, the first players' read)."""
-    payload = '{"cards":%d,"textures":%d}' % (games.GAME.assets.card_icons_ready(), gameicons.textures_ready())
+    before, a 404). Any thread (assets.listener: the game's files read, the first players' read)."""
+    payload = '{"cards":%d,"textures":%d}' % (games.GAME.assets.card_icons_ready(), games.GAME.assets.textures_ready())
     if payload != _assets_sent[0]:  # (only when it changed: the three kinds' keys come one by one)
         _assets_sent[0] = payload
         _hub.publish("assets", payload)
@@ -378,7 +378,7 @@ def _publish_assets() -> None:
 _assets_sent = [""]
 
 
-gamecards.listener = _publish_assets
+assets.listener = _publish_assets
 _publish_assets()
 
 
@@ -454,7 +454,7 @@ def _start_locked(new_port: int | None, new_lan: bool | None) -> None:
         where += f" (LAN: http://{ip}:{port_value}/)"
     log(f"live map at {where}")
     setattr(sys, _STALE_SCRIPT, start_script(port_value))
-    _hub.fonts = gamefonts.FONTS  # (its catalogue from the game files: as the game's profile reads them)
+    _hub.fonts = assets.FONTS  # (its catalogue from the game files: as the game's profile reads them)
     _start_assets(True)  # (a game whose files are read at once - BL1's font library: a few headers)
 
 

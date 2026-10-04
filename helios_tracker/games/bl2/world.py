@@ -47,7 +47,7 @@ def _tactical_key(wi: Any) -> str | None:
 
 def _tactical(wi: Any, map_name: str) -> Any:
     """The level's map: its map info's TacticalMapVolume (the placement) and TacticalMapMovie (its images and fog of war,
-    out of the level's package: tacmap.py)."""
+    out of the level's package: files/tacmap.py)."""
     from ... import gamedir, levelmap  # noqa: PLC0415
     from ...util import log, try_  # noqa: PLC0415
 
@@ -84,7 +84,7 @@ def _tactical(wi: Any, map_name: str) -> Any:
 
 def _tactical_files(package: Any, movie: str) -> Any:
     from ... import levelmap  # noqa: PLC0415
-    from ...tacmap import load_fog, load_tactical_map  # noqa: PLC0415
+    from .files.tacmap import load_fog, load_tactical_map  # noqa: PLC0415
     from ...util import log_error  # noqa: PLC0415
 
     images = load_tactical_map(package, movie)

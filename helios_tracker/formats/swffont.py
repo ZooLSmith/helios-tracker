@@ -1,7 +1,6 @@
 """
-Standard SWF fonts - DefineFont3 (tag 75) - as gamefonts' GameFont, for its TrueType writer (gamefonts.to_ttf). Files
-only: no SDK, no UObjects. Borderlands 1's font library has them (bl1fonts.py); BL2's are Scaleform's compacted fonts
-(gamefonts.py).
+Standard SWF fonts - DefineFont3 (tag 75) - as fonts.py's GameFont, for its TrueType writer (fonts.to_ttf). Files
+only: no SDK, no UObjects. (Scaleform's compacted fonts: fonts.py.)
 
 DefineFont3 (the SWF spec), its body:
     FontID u16, flags u8 (0x80 HasLayout, 0x08 WideOffsets, 0x04 WideCodes, 0x02 Italic, 0x01 Bold), language u8,
@@ -19,7 +18,7 @@ Its coordinates: an EM square of 1024 x 20 (twips) - divided by 20 here (TrueTyp
 
 import struct
 
-from .gamefonts import GameFont, Glyph
+from .fonts import GameFont, Glyph
 from .swf import _Bits
 
 SCALE = 20  # (DefineFont3's units: 1/20 of its 1024 EM)

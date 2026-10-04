@@ -1,5 +1,5 @@
 """
-Borderlands 1's map, as an image like BL2's (tacmap.py): BL1 draws its map screen as vector shapes, one frame per area
+Borderlands 1's map, as an image like BL2's (games/bl2/files/tacmap.py): BL1 draws its map screen as vector shapes, one frame per area
 in the menu movie (menus_ingame_redux.upk FlashMovies.status_menu: its map sprite's frames are labeled with the levels'
 LevelLandmarkAnchor.MapFrame - "arid_arena", "newhaven"...). The frame's shapes are rendered here (swfshape.py) into
 one image, placed in the map sprite's px - the page draws it like any map image. Files only, no SDK: the map thread.
@@ -14,9 +14,10 @@ import threading
 from dataclasses import dataclass
 from pathlib import Path
 
-from .swf import _movie_raw, _movie_tags, _cstr, _place2, _tags
-from .swfshape import SHAPE_CODES, Affine, Shape, parse_shape, render
-from .tacmap import MapImage
+from ....formats.image import bgra_png
+from ....formats.swf import _movie_raw, _movie_tags, _cstr, _place2, _tags
+from ....formats.swfshape import SHAPE_CODES, Affine, Shape, parse_shape, render
+from ....levelmap import MapImage
 from .upk_bl1 import Bl1Package
 
 MENU_PACKAGE = Path("Packages") / "Interface" / "menus_ingame_redux.upk"  # under WillowGame/CookedPC
@@ -337,11 +338,11 @@ def card_icon(cooked: Path, keys: list[str], label: str) -> tuple[int, int, byte
 
 def card_icon_png(cooked: Path, keys: set[str], label: str) -> bytes | None:
     """card_icon as a PNG, or None - rendered by gamework (cached on disk). The server's threads: no SDK."""
-    from . import gamework  # noqa: PLC0415
+    from .... import gamework  # noqa: PLC0415
 
     if not keys or not re.fullmatch(r"[A-Za-z0-9_]+", label or ""):
         return None
-    return gamework.asset({"do": "cardicon", "cooked": str(cooked), "keys": sorted(keys), "label": label.lower()},
+    return gamework.asset({"fn": gamework.fn(card_icon_job), "cooked": str(cooked), "keys": sorted(keys), "label": label.lower()},
                           [cooked / CARD_PACKAGE])
 
 
@@ -389,33 +390,52 @@ def card_frame_icon(cooked: Path, clip: str, frame: int | str) -> tuple[int, int
 def element_icon_png(cooked: Path, frame: str) -> bytes | None:
     """The card's element icon at a frame - an item's number ("1": explosive, no level), a weapon's label ("fire1") -
     as a PNG, or None - rendered by gamework (cached on disk). The server's threads: no SDK."""
-    from . import gamework  # noqa: PLC0415
+    from .... import gamework  # noqa: PLC0415
 
     if not re.fullmatch(r"[A-Za-z0-9_]+", frame or ""):
         return None
-    return gamework.asset({"do": "cardframe", "cooked": str(cooked), "clip": ELEMENT_CLIP,
+    return gamework.asset({"fn": gamework.fn(element_icon_job), "cooked": str(cooked), "clip": ELEMENT_CLIP,
                            "frame": int(frame) if frame.isdigit() else frame}, [cooked / CARD_PACKAGE])
 
 
 def item_icon_png(cooked: Path, label: str) -> bytes | None:
     """item_icon as a PNG, or None - rendered by gamework (cached on disk). The server's threads: no SDK."""
-    from . import gamework  # noqa: PLC0415
+    from .... import gamework  # noqa: PLC0415
 
     if not re.fullmatch(r"[A-Za-z0-9_]+", label or ""):
         return None
-    return gamework.asset({"do": "itemicon", "cooked": str(cooked), "label": label.lower()}, [cooked / MENU_PACKAGE])
+    return gamework.asset({"fn": gamework.fn(item_icon_job), "cooked": str(cooked), "label": label.lower()}, [cooked / MENU_PACKAGE])
 
 
-def menu_icon_png(path: str) -> bytes | None:
+def menu_icon_png(cooked: Path, path: str) -> bytes | None:
     """A menu icon (its MENU_ICON path) as a PNG, or None - rendered by gamework (its subinterpreter; cached on disk).
     The server's threads: no SDK."""
-    from . import gamedir, gamework  # noqa: PLC0415
+    from .... import gamework  # noqa: PLC0415
 
     m = MENU_ICON.fullmatch(path)
-    cooked = gamedir.cooked_dir()
-    if m is None or cooked is None:
+    if m is None:
         return None
-    return gamework.asset({"do": "menuicon", "cooked": str(cooked), "parts": list(m.groups())}, [cooked / MENU_PACKAGE])
+    return gamework.asset({"fn": gamework.fn(menu_icon_job), "cooked": str(cooked), "parts": list(m.groups())},
+                          [cooked / MENU_PACKAGE])
+
+
+# The worker's jobs (gamework.fn): the drawings above, as PNGs
+
+
+def card_icon_job(cooked: str, keys: list[str], label: str) -> bytes:
+    return bgra_png(card_icon(Path(cooked), keys, label))
+
+
+def element_icon_job(cooked: str, clip: str, frame: int | str) -> bytes:
+    return bgra_png(card_frame_icon(Path(cooked), clip, frame))
+
+
+def item_icon_job(cooked: str, label: str) -> bytes:
+    return bgra_png(item_icon(Path(cooked), label))
+
+
+def menu_icon_job(cooked: str, parts: list[str]) -> bytes:
+    return bgra_png(clip_icon(Path(cooked), *parts))
 
 
 @dataclass(frozen=True)

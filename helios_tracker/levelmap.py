@@ -9,7 +9,22 @@ from collections.abc import Callable
 from dataclasses import dataclass, field
 from typing import Any
 
-from .tacmap import MapFog, MapImage
+
+@dataclass
+class MapImage:
+    name: str
+    format: str  # EPixelFormat, e.g. "PF_DXT5" - decoded by the web page
+    width: int
+    height: int
+    data: bytes  # top mip, as stored
+    bounds: tuple[float, float, float, float]  # x0, x1, y0, y1 in movie px
+    crop: tuple[int, int, int, int] | None = None  # the part drawn in bounds (x, y, w, h px: a sub-image), None all
+
+
+@dataclass
+class MapFog:
+    blob: MapImage  # the fog piece (bounds: its shape's, around 0)
+    pieces: list[tuple[str, tuple[float, ...]]]  # (area short name, matrix placing the blob: _affine)
 
 
 @dataclass
@@ -47,4 +62,3 @@ class _Cache:
 
 
 cache = _Cache()  # (the map sources': by their own key)
-

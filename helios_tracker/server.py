@@ -28,9 +28,8 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from typing import Any
 
-from . import bl1map, games, paths
+from . import games, paths
 from .frames import FRAMES
-from .gameicons import icon_png, texture_by_path
 
 # The page's files: paths.read("web/...") (a folder, or inside the .sdkmod).
 # Files served from web/: lowercase names, folders allowed, no dots but the extension (no "..")
@@ -38,11 +37,7 @@ STATIC = re.compile(r"/(?:[a-z0-9_-]+/)*[a-z0-9_-]+\.(js|css|png|svg|woff2)")
 TYPES = {"js": "text/javascript; charset=utf-8", "css": "text/css; charset=utf-8", "png": "image/png",
          "svg": "image/svg+xml", "woff2": "font/woff2"}
 FONT = re.compile(r"/font/([a-z0-9-]+)\.ttf")
-ICON = re.compile(r"/icon/((?:UI_[A-Za-z0-9]+_)?SharedSkillIcons_[A-Za-z0-9_]+\.[A-Za-z0-9_-]+)\.png", re.I)
-MENU_ICON = re.compile(r"/icon/(menu(?:\.[A-Za-z0-9_]+){5})\.png")  # a menu movie's icon (bl1map.MENU_ICON: BL1's skills)
-CARD_ICON = re.compile(r"/cardicon/(manufacturer|type|element)/([A-Za-z0-9_]+)\.png")
-TEXTURE = re.compile(r"/texture/([A-Za-z0-9_]+(?:\.[A-Za-z0-9_-]+)+)\.png")  # an always-loaded texture by path (gameicons)
-SCAN_WAIT = 30.0  # s a font / icon request waits for the game files' index (gamescan) before giving up
+SCAN_WAIT = 30.0  # s a font / icon request waits for the game's files to be read (games.GAME.assets.wait_for)
 # Pages from these origins may read everything here (CORS): the project's site - its /live/ page opens the map through
 # a tunnel from a stable address, so the page's settings (localStorage: per origin) survive the tunnel's changing
 # ones - and pages on this PC (localhost, 127.0.0.1, any port: a local preview of the site)
@@ -265,13 +260,7 @@ class _Handler(BaseHTTPRequestHandler):
                 self._image(path)
             elif (m := FONT.fullmatch(path)) and (data := (self.server.hub.fonts or {}).get(m[1])) is not None:
                 self._send(HTTPStatus.OK, "font/ttf", data)
-            elif (m := MENU_ICON.fullmatch(path)) and (data := bl1map.menu_icon_png(m[1])) is not None:
-                self._send(HTTPStatus.OK, "image/png", data)
-            elif (m := ICON.fullmatch(path)) and (data := icon_png(m[1])) is not None:
-                self._send(HTTPStatus.OK, "image/png", data)
-            elif (m := CARD_ICON.fullmatch(path)) and (data := games.GAME.assets.card_icon_png(m[1], m[2])) is not None:
-                self._send(HTTPStatus.OK, "image/png", data)
-            elif (m := TEXTURE.fullmatch(path)) and (data := texture_by_path(m[1])) is not None:
+            elif (data := games.GAME.assets.serve(path)) is not None:  # (the game's own images: icons...)
                 self._send(HTTPStatus.OK, "image/png", data)
             else:
                 self._send(HTTPStatus.NOT_FOUND, "text/plain", b"not found")
