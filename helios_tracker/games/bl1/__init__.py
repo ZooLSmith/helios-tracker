@@ -1,5 +1,5 @@
-"""Borderlands 1, the original 2009 game (the Enhanced edition's SDK didn't run: not registered) - .agent/bl1.md.
-Borderlands 2's profile, its own parts where its way differs (this folder)."""
+"""Borderlands 1 - the original 2009 game, and its Game of the Year Enhanced edition - .agent/bl1.md. Borderlands 2's
+profile, its own parts where its way differs (this folder)."""
 
 from .. import DISCOVERY, profile
 from ..bl2 import Borderlands2
@@ -16,7 +16,7 @@ from .world import Bl1World
 
 @profile("BL1")
 class Borderlands1(Borderlands2):
-    """Borderlands 1, the original 2009 game (the Enhanced edition's SDK didn't run: not registered) - .agent/bl1.md."""
+    """Borderlands 1, the original 2009 game - .agent/bl1.md."""
 
     PARTS = {"world": Bl1World, "missions": Bl1Missions, "items": Bl1Items, "objects": Bl1Objects, "pawns": Bl1Pawns,
              "shops": Bl1Shops, "skills": Bl1Skills, "assets": Bl1Assets, "ui": Bl1Ui}
@@ -40,3 +40,12 @@ class Borderlands1(Borderlands2):
     damage_presentation = "gd_AttributePresentation.Weapons.AttrPresent_WeaponDamage"
     # no WorldDiscoveryArea class (the log: "Couldn't find class")
     features = Borderlands2.features - {DISCOVERY}
+
+
+@profile("BL1E")
+class Borderlands1Enhanced(Borderlands1):
+    """Borderlands 1's Game of the Year Enhanced edition (64-bit): the original's profile - its files read the same
+    (offline, 2026-10-04: the maps, fonts, menu / card / item icons, pickup textures - its packages' version 594:
+    upk_bl1), its executable a folder deeper. In game (2026-10-04): the same as the original, its assets higher res."""
+
+    exe_depth = 2  # Binaries/Win64/BorderlandsGOTY.exe

@@ -181,13 +181,17 @@ class Package:
     def close(self) -> None:
         self.f.close()
 
+    def _reads(self, version: int) -> bool:
+        """Whether this reader reads a package of this file version (its summary's): its VERSION."""
+        return version == self.VERSION
+
     def _index_chunks(self) -> None:
         f = self.f
         f.seek(0, 2)
         end = f.tell()
         f.seek(0)
         tag, ver = struct.unpack("<II", f.read(8))
-        if tag == TAG and ver & 0xFFFF == self.VERSION:  # plain summary + chunk table
+        if tag == TAG and self._reads(ver & 0xFFFF):  # plain summary + chunk table
             chunks = self._summary_chunks()
             if not chunks:  # uncompressed package
                 self.blocks.append((0, end, 0, -1))
@@ -264,8 +268,9 @@ class Package:
     def _read_summary(self) -> None:
         head = self.read(0, 4096)
         tag, ver, _lic = struct.unpack_from("<IHH", head, 0)
-        if tag != TAG or ver != self.VERSION:
+        if tag != TAG or not self._reads(ver):
             raise ValueError(f"unexpected package tag/version {tag:#x}/{ver}")
+        self.file_version = ver
         o = 12
         n = struct.unpack_from("<i", head, o)[0]
         o += 4 + (n if n >= 0 else -2 * n)  # folder name

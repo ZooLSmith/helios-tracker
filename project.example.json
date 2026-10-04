@@ -8,9 +8,13 @@
     "path": "C:/Program Files (x86)/Steam/steamapps/common/BorderlandsPreSequel",
     "about": "Optional. The Pre-Sequel install, to link the mod there too: python tools/link_mod.py tps."
   },
+  "bl1e": {
+    "path": "C:/Program Files (x86)/Steam/steamapps/common/BorderlandsGOTYEnhanced",
+    "about": "Optional. Borderlands 1's Game of the Year Enhanced edition: offline_check reads its files with BL1's decoders."
+  },
   "bl1": {
     "path": "C:/Program Files (x86)/Steam/steamapps/common/Borderlands",
-    "about": "Optional. Borderlands 1 (the original 2009 game, not Enhanced: the Python SDK runs there), to link the mod there too: python tools/link_mod.py bl1."
+    "about": "Optional. Borderlands 1 (the original 2009 game), to link the mod there too: python tools/link_mod.py bl1."
   },
   "references": {
     "gibbed": {

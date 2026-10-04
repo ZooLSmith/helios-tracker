@@ -6,8 +6,14 @@ says when it was seen.
 
 ## Setup
 
-- The Game of the Year **Enhanced** edition (64-bit, `Binaries/Win64`) was tried first: the user couldn't get the SDK
-  running there (2026-10-03). Not registered in `games/` (mods_base's `BL1E`): the mod refuses to load there.
+- The Game of the Year **Enhanced** edition (64-bit, `Binaries/Win64/BorderlandsGOTY.exe` - mods_base's `BL1E`) was
+  tried first: the user couldn't get the SDK running there (2026-10-03: the SDK's issue). Supported since 2026-10-04 -
+  BL1's profile (`Borderlands1Enhanced`: its executable a folder deeper): checked offline first, BL1's decoders on its
+  files (offline_check with project.json's `bl1e`) - the same layout (`WillowGame/CookedPC`, `Maps/`), the same maps
+  (Arid's frame 463 x 906 as the original's), fonts, menu / card / item icons; its packages' version 594 (licensee 58)
+  read by BL1's reader - one difference: an enum property's tag names its enum, as BL2's (its HD textures: the
+  pickup icons 2048 x 2048, ~7 s to decode once, cached). In game (the user got the SDK running, 2026-10-04): it
+  works exactly as the original, with higher-res assets.
 - The mod declares BL1: `helios_tracker/pyproject.toml` `supported_games` (without it: "incompatible", enabling
   locked). Its profile: `games/bl1/` (`Borderlands1`: BL2's parts, its own where its way differs - `profiles.md`).
 - Dev link: `project.json`'s optional `bl1` entry (the install), then `python tools/link_mod.py bl1`. Loading it
@@ -33,7 +39,8 @@ says when it was seen.
 
 ## Game files
 
-- `WillowGame/CookedPC` (BL2: `CookedPCConsole`), the same package tag, **file version 584** (BL2: 832; Enhanced: 594).
+- `WillowGame/CookedPC` (BL2: `CookedPCConsole`), the same package tag, **file version 584** (BL2: 832; Enhanced: 594,
+  read too - Setup).
   Levels are `.umap` files (`Maps/<area>/..._P.umap`), not `.upk`. Read by `upk_bl1.py` (`Bl1Package`); the
   profile's `packages` still None until the map is wired in (no fonts / icons scan on BL1).
 - **Packages (offline, 2026-10-03)**: the summary as BL2's minus the import / export GUID fields (no

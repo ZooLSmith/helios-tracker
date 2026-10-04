@@ -1,8 +1,8 @@
 <p align="center"><img src=".github/header.png" alt="Helios Tracker"></p>
 
 The map of the level you're in, live in your browser: players, enemies, loot and missions, as you play
-**Borderlands 2** or **The Pre-Sequel**. On a second screen, a phone, in OBS, in the Steam overlay, or shared with
-friends. A mod for the [Python SDK](https://bl-sdk.github.io/).
+**Borderlands 2** or **The Pre-Sequel** - and, experimental, **Borderlands 1**. On a second screen, a phone, in OBS,
+in the Steam overlay, or shared with friends. A mod for the [Python SDK](https://bl-sdk.github.io/).
 
 <p align="center">
   <a href="https://github.com/bl-sdk/willow2-mod-manager/releases"><img src=".github/button_sdk.png" alt="Python SDK" width="237"></a>
@@ -29,7 +29,7 @@ fog of war, tilting and turning the map, five color themes, the page in nine lan
 ## Install
 
 1. Install the [Python SDK](https://github.com/bl-sdk/willow2-mod-manager/releases) (version 3, with the Mods menu
-   in game).
+   in game) - for Borderlands 1, its [own build](https://github.com/bl-sdk/willow1-mod-manager/releases).
 2. Download `helios_tracker.sdkmod` from the [latest release](https://github.com/ZooLSmith/helios-tracker/releases/latest).
 3. Put it in the game's `sdk_mods` folder (Steam: right-click the game, Manage, Browse local files).
 4. Start the game, open **Mods**, enable **Helios Tracker**.

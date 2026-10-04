@@ -889,6 +889,18 @@ def check_helios_tracker() -> None:  # noqa: PLR0915
                                                     "label": "s_and_s"}))
         assert bl1_logo_png[:8] == b"\x89PNG\r\n\x1a\n", bl1_logo_png[:16]
         print(f"  BL1: packages (584), the arena's map anchor, its map rendered {bl1_arena_img.width} x {bl1_arena_img.height}")
+    # Borderlands 1 Enhanced's files (project.json's bl1e): BL1's decoders as they are - its packages' version 594 read by
+    # BL1's reader (an enum property's tag naming its enum: its HD textures), its menu movie's maps, its pickup icons
+    bl1e_root = project.path("bl1e")
+    if bl1e_root and (bl1e_cooked := bl1e_root / "WillowGame" / "CookedPC").is_dir():
+        from helios_tracker.games.bl1.files import bl1map as bl1e_map, bl1textures as bl1e_textures  # noqa: PLC0415
+        (bl1e_arena,) = bl1e_map.load_map(bl1e_cooked, "arid_arena")
+        assert (bl1e_arena.width, bl1e_arena.height) == (463, 906), "its maps: the original's"
+        bl1e_credits = bl1e_textures.texture_job(str(bl1e_cooked / "Packages" / "effects" / "FX_Items.upk"), "Textures.Credits")
+        assert struct.unpack(">II", bl1e_credits[16:24]) == (2048, 2048), "its HD pickup icon (594's enum names read)"
+        print(f"  BL1 Enhanced: packages (594), its map rendered {bl1e_arena.width} x {bl1e_arena.height}, its HD pickup icons")
+    else:
+        print("  BL1 Enhanced: not configured (project.json bl1e) - skipped")
     # A DLC map: its package is under DLC/<code name>/{Lic,Compat}/Content (gamedir.package_path)
     from helios_tracker import gamedir  # noqa: PLC0415
     real_cooked = gamedir.cooked_dir
@@ -2867,7 +2879,7 @@ def check_games_import() -> None:
         "print(sorted(g._PROFILES), g.GAME, sorted(p.parts), 'unrealsdk' in sys.modules or 'mods_base' in sys.modules)\n"
     )
     out = subprocess.run([sys.executable, "-c", child, str(ROOT / "helios_tracker")], capture_output=True, text=True, check=True)
-    assert out.stdout.strip() == ("['AoDK', 'BL1', 'BL2', 'TPS'] None ['assets', 'items', 'missions', 'objects', 'pawns', "
+    assert out.stdout.strip() == ("['AoDK', 'BL1', 'BL1E', 'BL2', 'TPS'] None ['assets', 'items', 'missions', 'objects', 'pawns', "
                                   "'shops', 'skills', 'ui', 'world'] False"), (out.stdout, out.stderr[-500:])
     print("  games: imported without the SDK (the files worker's way), the profiles registered, none picked before boot")
 
