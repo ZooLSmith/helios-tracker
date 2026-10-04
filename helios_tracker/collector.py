@@ -503,7 +503,7 @@ class Collector:
         if not game_name:
             level["raw"] = 1  # a made-up name (the page marks it)
         # its map: where it sits, how its images load - the game's own way (games.py map_source, levelmap.py)
-        source = games.GAME.map_source(wi, name) if games.TACMAP in games.GAME.features else None
+        source = games.GAME.map_source(wi, name)  # (None: no map for this level)
         if source is None:
             level["status"] = "none"
         else:

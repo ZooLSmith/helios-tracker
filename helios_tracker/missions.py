@@ -236,8 +236,7 @@ def _live(entry: Any, index: dict[int, int], prev: Live | None, doable: bool,
                 done = i < len(progress) and progress[i] >= try_(lambda o=obj: int(o.ObjectiveCount), 1)
                 if obj_station is None and not done:
                     obj_station = try_(lambda o=obj: o.StationOverride)
-    if games.MISSION_STEPS not in games.GAME.features:
-        current = list(range(len(index)))  # (no steps - BL1: all its objectives at once)
+    current = games.GAME.current_objectives(current, len(index))  # (each game's: its steps, or all at once)
     go = None
     if status == "Active":
         if (override := obj_station or step_station) is not None and (info := station(override)) is not None:

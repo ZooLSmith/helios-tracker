@@ -278,6 +278,25 @@ class Profile:
 
         return map_name, levelmap.tactical_key(wi)
 
+    def learn_element(self, enum: str, frame: str) -> None:
+        """A weapon's damage type seen next to its card's element frame (inspector.learn_frame: BL2's barrels' element
+        icons come from the weapons seen - the damage types' frames aren't in its data)."""
+        from .inspector import learn_frame  # noqa: PLC0415
+
+        learn_frame(enum, frame)
+
+    def damage_type_frame(self, enum: str) -> str:
+        """A damage type's element icon frame ("" for none) - an object's (a barrel's explosion): the one learned from
+        the weapons seen, else its enum's name (inspector.learned_frame)."""
+        from .inspector import learned_frame  # noqa: PLC0415
+
+        return learned_frame(enum)
+
+    def current_objectives(self, current: list[int], count: int) -> list[int]:
+        """A mission's current objectives (their indexes) from its current step's (MissionLog: ActiveObjectiveSet +
+        SubObjectiveSets): BL2's objectives come in steps - those."""
+        return current
+
     def map_source(self, wi: Any, map_name: str) -> Any:
         """The level's map (levelmap.MapSource: its placement, how its images load), None without one - at a level
         change, on the game thread."""
@@ -618,6 +637,12 @@ class Borderlands1(Profile):
         from . import bl1fonts  # noqa: PLC0415
 
         return bl1fonts.catalogue(cooked)
+
+    def learn_element(self, enum: str, frame: str) -> None:
+        pass  # (its damage types' frames are known - damage_type_frame: nothing to learn from the weapons)
+
+    def current_objectives(self, current: list[int], count: int) -> list[int]:
+        return list(range(count))  # (no steps: all its objectives at once)
 
     def damage_type_frame(self, enum: str) -> str:
         # A damage type's element icon (a barrel's explosion - collector.py): its element's frames' first, the mark

@@ -407,9 +407,8 @@ def _item(inv: Any, equipped: bool, ctrl: Any = None) -> dict[str, Any]:
         # (the hit markers' colour, never on a card: the fallback)
         damage_type = next(iter(try_(lambda: list(inv.InstantHitDamageTypeDefinitions), []) or []), None)
         colour = try_(lambda: damage_type.HUDDamageColor) if damage_type is not None else None
-        if damage_type is not None and games.LEARNED_ELEMENTS in games.GAME.features and (
-                enum := _enum_name(try_(lambda: damage_type.DamageType, ""))):
-            learn_frame(enum, item["el"])  # (its card frame, the game's: for the barrels' element icons)
+        if damage_type is not None and (enum := _enum_name(try_(lambda: damage_type.DamageType, ""))):
+            games.GAME.learn_element(enum, item["el"])  # (its card frame next to its damage type: each game's - games.py)
         if damage_type is not None and (name := _element_name(damage_type, ctrl or get_pc())):
             item["eln"] = name  # the game's name for it ("shock": its localization)
         if colour is not None:
@@ -692,11 +691,15 @@ def learn_frame(enum: str, frame: str) -> None:
 
 
 def element_frame(enum: str) -> str:
-    """A damage type's card frame: learned, else the enum's name in lower case ("" for none). The one place a damage
-    type becomes its icon's frame (element_of, the collector's update of an object's "el"): another source - another
-    enum, a mapping found in the game's data - replaces this function's body, nothing else."""
-    if games.LEARNED_ELEMENTS not in games.GAME.features:
-        return games.GAME.damage_type_frame(enum)  # (Borderlands 1's: its card clip's frames - games.py)
+    """A damage type's card frame ("" for none): each game's way (games.py damage_type_frame). The one place a damage
+    type becomes its icon's frame (element_of, the collector's update of an object's "el")."""
+    return games.GAME.damage_type_frame(enum)
+
+
+def learned_frame(enum: str) -> str:
+    """BL2's damage type frame: learned from the weapons seen (learn_frame), else the enum's name in lower case ("" for
+    none) - games.py damage_type_frame. Another source (another enum, a mapping found in the game's data) replaces
+    this function's body, nothing else."""
     frame = _element_frames.get(enum) or _ENUM_FRAMES.get(enum) or enum.removeprefix("DAMAGE_TYPE_").lower()
     return "" if frame in ("", "none", "normal", "unknown") else frame
 _explosions: dict[int, dict[str, Any]] = {}  # object definition address -> its explosion's element ({} none), static
