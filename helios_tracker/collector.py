@@ -1800,7 +1800,7 @@ class Collector:
         elsewhere: list[tuple[str, Any, str, Any]] = []  # (the area it's in, mission, kind, entry): marked on its exit
         started = time.perf_counter()
         here = str(try_(lambda: games.GAME.map_name(ENGINE.GetCurrentWorldInfo()), "") or "").lower()
-        for entry in try_(lambda: list(games.GAME.mission_entries(tracker)), []) or []:
+        for entry in try_(lambda: list(games.GAME.picked_mission_entries(tracker)), []) or []:
             mission = try_(lambda e=entry: e.MissionDef)
             status = try_(lambda e=entry: games.GAME.mission_status(e), "")
             if mission is None or status not in ("Active", "ReadyToTurnIn"):
@@ -1944,6 +1944,13 @@ class Collector:
             parts[name] = now - mark
             mark = now
 
+        # The mission log's fast pass first (the tracked / active missions' objectives): the markers and the givers'
+        # "!" / "?" below then use this second's statuses, not the last one's (a mission turned in: its "?" lingered)
+        if not self._log.fast(tracker):
+            self._next_log = 0.0  # the list changed (a mission started...): a full pass next tick
+        part("fast")
+        self._publish_log()
+        part("log")
         active = try_(lambda: tracker.ActiveMission)
         active_addr = active._get_address() if active is not None else None
         markers, giver_npcs = [], set()
@@ -2003,12 +2010,6 @@ class Collector:
             self._missions_json = missions_json
             self.hub.publish("missions", missions_json)
         part("json")
-        # The mission log's fast pass: the tracked / active missions' objectives, every second
-        if not self._log.fast(tracker):
-            self._next_log = 0.0  # the list changed (a mission started...): a full pass next tick
-        part("fast")
-        self._publish_log()
-        part("log")
         if DIAGNOSTICS and (time.perf_counter() - started) * 1000 > SLOW_MS:  # slow: which part - debug only
             for name, part_s in parts.items():
                 if part_s * 1000 > 1.0:

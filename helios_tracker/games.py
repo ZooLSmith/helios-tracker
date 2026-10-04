@@ -89,6 +89,11 @@ class Profile:
         tracker's MissionList - every mission of the game, not started ones too."""
         return tracker.MissionList
 
+    def picked_mission_entries(self, tracker: Any) -> Any:
+        """The mission entries that can be active (picked up) - what the markers look through each second (the caller
+        keeps the Active / ReadyToTurnIn ones): BL2's log is every mission, as mission_entries."""
+        return self.mission_entries(tracker)
+
     def mission_objectives(self, mdef: Any) -> list[tuple[int, Any]]:
         """A mission definition's objectives, in order: (its key - what objective_index maps to its index - , the
         objective: ProgressMessage, ObjectiveCount, bObjectiveIsOptional). ObjectiveDefs, keyed by address."""
@@ -427,6 +432,11 @@ class Borderlands1(Profile):
             self._not_picked = [_NotPickedUp(d, pc, self._eligible_for) for d in self._mission_definitions()
                                 if d._get_address() not in picked]
         return log + self._not_picked
+
+    def picked_mission_entries(self, tracker: Any) -> Any:
+        # its log only: the stand-ins for the missions not picked up (~218) can't be active - the markers went through
+        # them all every second (2-3 ms)
+        return [e for e in self.mission_entries(tracker) if not isinstance(e, _NotPickedUp)]
 
     def _eligible_for(self, pc: Any, mission: Any) -> bool:
         """The controller's GetMissionEligibility(mission) is ME_Eligible - once per mission while the key holds."""
