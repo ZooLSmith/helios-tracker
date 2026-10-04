@@ -1992,8 +1992,11 @@ def check_helios_tracker() -> None:  # noqa: PLR0915
     c._publish_shops(2000.0)
     assert c._shops.pending and hub._channels["shops"][0] == vend_empty and c._next_shops == 2000.0 + col.SHOPS_RETRY, (
         "a half-built stock sent")
-    vend_mod.BUILD_SECONDS = vend_budget
+    # still no time: the next pass builds its first record all the same - each pass gets somewhere (reading the
+    # machines themselves can take a pass's time: Pity's Fall's never built one, the stock never sent)
     c._publish_shops(2000.1)
+    vend_mod.BUILD_SECONDS = vend_budget
+    assert not c._shops.pending, "no time, two passes: both records built, one each"
     (vend_rec,) = json.loads(hub.latest("shops"))["machines"]
     assert (vend_rec["n"], vend_rec["k"], "raw" in vend_rec, "cur" in vend_rec) == ("Marcus Munitions", "weapons", False, False), vend_rec
     # a machine's name: its map hover's first - its definition's StatusMenuMapInfoBoxHeader (the Pre-Sequel's ammo machine:

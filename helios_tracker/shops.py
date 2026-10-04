@@ -34,7 +34,8 @@ KINDS = {"SType_Weapons": "weapons", "SType_Items": "items", "SType_Health": "he
 TITLES = {"weapons": "WeaponsShopTitle", "items": "ItemsShopTitle", "health": "HealthShopTitle"}
 LEFT_OUT = ("blackmarket",)  # Crazy Earl: nothing to list (his stock is per player, made when opened)
 CURRENCIES = {"CURRENCY_Credits": "cash", "CURRENCY_Eridium": "eridium"}
-BUILD_SECONDS = 0.003  # per pass, building new item records (a level's first pass has ~70: one hitch otherwise)
+BUILD_SECONDS = 0.003  # per pass, building new item records - counted from the first one built (a level's first pass has
+# ~70: one hitch otherwise)
 TIMER_DRIFT = 1.0  # s: the page's countdown this far from the game's - sent again
 ALWAYS_SOLD = ("ammo", "health")  # every machine always has them (ammo, health vials): a price list, not item cards
 
@@ -64,7 +65,7 @@ class ShopReader:
         # (stock json, seconds left, rate, when: the collector's clock, the game paused)
         self._sent: tuple[str, float, float, float, bool] | None = None
         self.pending = False  # item records left to build: read again soon
-        self._built = 0  # item records built this pass (read: at least one per pass, whatever the time)
+        self._deadline: float | None = None  # this pass's end of building records (None: none built yet - _record)
 
     def note(self, io: Any) -> None:
         # (per class, once a level: is_machine walks the class chain - every object of every full scan, 3-14 ms)
@@ -100,16 +101,18 @@ class ShopReader:
         """A machine's name: its map hover's (its definition's StatusMenuMapInfoBoxHeader), else its menu's title."""
         return try_(lambda: str(io.InteractiveObjectDefinition.StatusMenuMapInfoBoxHeader), "") or self._title(kind)
 
-    def _record(self, inv: Any, machine: Any, pc: Any, deadline: float) -> dict[str, Any] | None:
+    def _record(self, inv: Any, machine: Any, pc: Any) -> dict[str, Any] | None:
         """An item's record (inspector.py's, as in a backpack) with the machine's price as its value ("v"), or None
-        if it isn't built yet and this pass has no time left - one built per pass at least: reading the machines
-        themselves may take the pass's time already (the Pre-Sequel's Pity's Fall: every pass ran out before its first
-        item - none was ever built, the page never got the stock)."""
+        if it isn't built yet and this pass's building time is spent. That time (BUILD_SECONDS) starts at the pass's
+        first build, not the pass's start: reading the machines themselves may take as long (the Pre-Sequel's Pity's
+        Fall: every pass ran out before its first item - none was ever built, the page never got the stock; then one
+        per pass, ~10 s of retries) - each pass builds what fits, one at least."""
         key = (inv._get_address(), str(inv.Name))
         if key not in self._items:
-            if self._built and time.perf_counter() > deadline:
+            if self._deadline is None:
+                self._deadline = time.perf_counter() + BUILD_SECONDS
+            elif time.perf_counter() > self._deadline:
                 return None
-            self._built += 1
             item = _item(inv, False, pc)
             price = try_(lambda: games.GAME.shops.selling_price(machine, inv, pc))  # (each game's call)
             if price is not None and price >= 0:
@@ -132,8 +135,7 @@ class ShopReader:
         """(the machines' JSON when their stock changed, the timer's JSON when it drifted from the page's count) -
         None for what's unchanged, or not complete yet (records left to build: `pending`, the next pass). `now`: the
         collector's clock (s)."""
-        deadline = time.perf_counter() + BUILD_SECONDS
-        self._built = 0
+        self._deadline = None  # (its building time: from its first build - _record)
         machines, seen, complete = [], set(), True
         for key, ptr in list(self._machines.items()):
             io = ptr()
@@ -158,7 +160,7 @@ class ShopReader:
                     if (always := games.GAME.items.pickup_kind(inv)) in ALWAYS_SOLD:
                         basics.append(self._basic(inv, always, io, pc))
                         continue
-                    if (record := self._record(inv, io, pc, deadline)) is None:
+                    if (record := self._record(inv, io, pc)) is None:
                         complete = False
                         break
                     items.append(record)
@@ -168,7 +170,7 @@ class ShopReader:
                 featured = try_(lambda io=io: io.FeaturedItem)
                 if featured is not None and games.GAME.items.pickup_kind(featured) not in ALWAYS_SOLD:
                     seen.add((featured._get_address(), str(featured.Name)))
-                    if (record := self._record(featured, io, pc, deadline)) is None:
+                    if (record := self._record(featured, io, pc)) is None:
                         complete = False
                     else:
                         machine["feat"] = record
