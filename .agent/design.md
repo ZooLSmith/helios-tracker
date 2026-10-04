@@ -236,7 +236,13 @@ spawns, the page shows it then). Dropped items and enemies show at any distance 
   by position (a pile appeared at its point's exact location: probe_chest_spawn.txt), the spawn hook telling when.
 4. **A co-op client**: whether the points exist there at all (the host spawns, replicates the containers) - likely the
    host's only.
-5. **The Pre-Sequel, Borderlands 1**: the same system? (TPS: BL2's engine, likely; BL1: its own population classes?)
+5. **The other games**: Borderlands 1 - the same system (probe_population_def.py, 2026-10-04: 189 points, 22 definitions
+   in one area - the same classes and tree, one entry at Probability 1.0 per container, barrels 4 x 0.25): its big red
+   chest `TreasureChest` (+ `_Custom`, `_Custom_FirstSecret`), `StrongBox`, the "Awesome" variants (CashBox_Awesome,
+   StrongBox_Awesome, Crate_Military_Awesome...), lockers, dumpsters, mailboxes, toilets...; its radius smaller
+   (`SpawnAndCullRadius` 4000: 40 m - read per point, never assumed); its vending machines through another factory
+   (`PopulationFactoryVendingMachine`; the containers' `PopulationFactoryInteractiveObject` as BL2's); its scrap piles
+   POPRESPAWN_OnTimeDelay (BL2's piles: OnlyOnLevelLoad). The Pre-Sequel: not checked (BL2's engine - likely BL2's).
 
 **Cost** (the stalls are the priority - architecture.md): the points are placed in the level, never move - one
 `find_all` per level (the `_lookup` queue: one per tick), their definitions resolved once (cached per population
