@@ -196,6 +196,15 @@ Direction:
 - `_out_of_sight` (~50-100 us per object, every scan) - cheaper reads, only for definitions that can hide, a hook on
   the visibility change if one exists (`profiles.md`, "Game-thread costs").
 
+## Known, accepted for now (2026-10-04)
+
+- **A freeze when the mod loads into a level**: the first level check (`level`) ~870 ms, once - BL2, twice measured
+  (`helios_tracker_bl2.log`). The user: acceptable for now. Its parts not broken down yet (the level message: language,
+  level name, rarity table, the map's source...).
+- **The first players pass of a level / page** (~115 ms in BL2: the skill tree's first read 92 ms - the cards are
+  spread, the tree isn't) and **the 120 s object scan** (~36 ms: `_out_of_sight` 18) - one-offs, measured
+  2026-10-04 after the stall work; steady play: 0-3 spikes of ours per 30 s.
+
 ## Order
 
 The stalls lead (the user):
