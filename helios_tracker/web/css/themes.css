@@ -2,6 +2,48 @@
    theme is base.css itself. A theme sets the inputs (--bg, --tint, --text, --accent; --muted): every surface, edge and
    text shade is mixed from them in base.css; it may set any other token too. */
 
+/* ECHO-1: Borderlands 1's ECHO (its base game's menus - the Enhanced edition's are a brighter blue, too close to
+   ECHO-2): a slate teal, grayer than ECHO-2's navy, its frame a soft sky blue; the headings sky blue text on the
+   panels, a chosen option a solid yellow bar with dark text - the game's selected menu row. Pale blue-gray text. */
+:root[data-theme="echo1"] {
+  --bg: #0f181c;
+  --tint: #2f5566; /* (the menus' face #253c46, lighter: the ladder's top) */
+  --muted: #4a6470; /* (the dim text: a teal gray) */
+  --text: #bcd2e4; /* (the menus' text #b4cce0) */
+  --accent: #ffcc00; /* the selected row's yellow */
+  --panel-edge: #669ecd; /* the frame and title bars */
+  --panel-base: #1c2f38; /* the panels: the menus' slate face (#253c46), a little darker - lighter than the map's gaps */
+  --heading: #51aad6; /* (BACKPACK, WEAPONS, AMMO) */
+  --sel: var(--accent);
+  --on-sel: #0f181c;
+  --title-top: #ffcc00; /* the title: the selected row's yellow, flat like the game's menus (the H too, a pale yellow eye) */
+  --title-bottom: #ffcc00;
+  --logo-palette: --helios-echo1;
+  --map-filter: hue-rotate(-10deg) saturate(.6); /* the map: the blue grayer, towards the slate */
+}
+@font-palette-values --helios-echo1 { font-family: "Helios H"; override-colors: 0 #0f181c, 1 #fff0a0, 2 #ffcc00, 3 #ffcc00; }
+
+/* ECHO-1A (amber): Borderlands 1's other menus (fast travel, registration, the help dialogs): ECHO-1's layout in amber -
+   a dark brown face, an orange frame and title, amber headings, a warm cream text, the chosen option a light yellow
+   bar. Not Hyperion: an orange on brown, where Hyperion is a mustard on olive black. */
+:root[data-theme="echo1amber"] {
+  --bg: #120d08;
+  --tint: #5a4426; /* (the menus' brown face #43331c, lighter: the ladder's top) */
+  --panel-base: #261c13; /* the panels: between the help dialog's near-black (#221d1a) and the menus' brown */
+  --muted: #5e5040; /* (the dim text: a warm gray) */
+  --text: #edd8a9; /* (the menus' names) */
+  --accent: #ff9d0b; /* the frame's orange */
+  --panel-edge: #c27e20; /* the frame and title bars */
+  --heading: #e0952c; /* (LOCATIONS, CHANGE NAME: #c38226, brighter on the darker panels) */
+  --sel: #ffdb4f; /* the selected row's light yellow */
+  --on-sel: #1a120a;
+  --title-top: #ff9d0b; /* the title: the frame's orange, flat (the H too, a pale yellow eye) */
+  --title-bottom: #ff9d0b;
+  --logo-palette: --helios-echo1amber;
+  --map-filter: hue-rotate(-170deg) saturate(.8) brightness(.85); /* the map: the blue to an amber brown */
+}
+@font-palette-values --helios-echo1amber { font-family: "Helios H"; override-colors: 0 #120d08, 1 #ffe9a0, 2 #ff9d0b, 3 #ff9d0b; }
+
 /* Hyperion: the corporation's colours (its logo, wallpapers): mustard yellow, cream, black. Dark panels (the
    game's rarity colours - white, orange... - must read on them), cream text, a dark mustard for the surfaces
    and the logo's brighter one for the edges. */

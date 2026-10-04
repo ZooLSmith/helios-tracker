@@ -33,7 +33,7 @@
 @supports font-tech(color-COLRv1) { .title .h { background: none; color: var(--title-bottom); } }
 #collapse { background: none; border: 0; color: var(--dim); cursor: pointer; font-size: 14px; padding: 0 2px; }
 #level { font-size: 17px; font-weight: 600; margin: 6px 0 2px; }
-h3 { font-size: 11px; letter-spacing: .1em; color: var(--dim); margin: 12px 0 4px; font-weight: 600; } /* like the drawer's .group */
+h3 { font-size: 11px; letter-spacing: .1em; color: var(--heading); margin: 12px 0 4px; font-weight: 600; } /* like the drawer's .group */
 label.row { display: flex; align-items: center; gap: 8px; padding: 2px 0; cursor: pointer; }
 label.row input { margin: 0; accent-color: var(--accent); }
 label.row.off { opacity: .45; cursor: default; } /* a setting that does nothing right now (Rotate without Follow) */
@@ -44,7 +44,7 @@ label.row.off { opacity: .45; cursor: default; } /* a setting that does nothing 
 .lgroup { margin-top: 8px; }
 /* a category: a plain heading (like the panel's h3) that folds its layers */
 .lghead { display: flex; align-items: center; gap: 6px; margin: 4px 0 2px; cursor: pointer; }
-.lgname { font-size: 11px; letter-spacing: .1em; color: var(--dim); font-weight: 600; }
+.lgname { font-size: 11px; letter-spacing: .1em; color: var(--heading); font-weight: 600; }
 .lgfold { color: var(--dim); font-size: 10px; }
 .lghead:hover .lgname, .lghead:hover .lgfold { color: var(--text); }
 .lgroup.closed .lgbody { display: none; }
@@ -72,7 +72,7 @@ label.cset { cursor: pointer; } /* a title + checkbox row (Smooth): the title to
 .seg button { background: var(--control); color: var(--dim); border: 0; font: inherit; font-size: 11px; padding: 2px 4px; cursor: pointer; }
 .seg button + button { border-left: 1px solid var(--panel-edge); }
 .seg button:hover { color: var(--text); }
-.seg button.on { background: color-mix(in srgb, var(--accent) 28%, var(--control)); color: var(--text); }
+.seg button.on { background: var(--sel); color: var(--on-sel); }
 select, button.act { width: 100%; background: var(--control); color: var(--text); border: 1px solid var(--panel-edge);
   border-radius: 4px; padding: 4px 6px; font: inherit; }
 button.act { cursor: pointer; margin-top: 6px; }

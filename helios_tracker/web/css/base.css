@@ -52,6 +52,9 @@
   --on-fill: #fff; /* on a coloured fill (bars, chips) */
   --name: color-mix(in srgb, var(--text) 36%, #fff); /* players' names and markers */
   --dim: color-mix(in srgb, var(--text) 48%, var(--muted));
+  --heading: var(--dim); /* a section's heading: the panel's h3, a category, the drawer's groups, a tooltip's head */
+  --sel: color-mix(in srgb, var(--accent) 28%, var(--control)); /* a chosen option (a segmented button's) */
+  --on-sel: var(--text);
   --live: #5fd35f;
   --warn: #ffb03b;
   --bad: #ff5b4f;
@@ -236,7 +239,7 @@ canvas.dragging { cursor: grabbing; }
 /* sections (tipSections): a divider between them; stats in the text's colour, a small heading, the description
    smaller */
 #htip .tsec + .tsec { margin-top: 6px; padding-top: 6px; border-top: 1px solid var(--panel-edge); }
-#htip .thead { display: block; font-size: 10.5px; letter-spacing: .1em; text-transform: uppercase; color: var(--dim); margin-bottom: 2px; }
+#htip .thead { display: block; font-size: 10.5px; letter-spacing: .1em; text-transform: uppercase; color: var(--heading); margin-bottom: 2px; }
 /* an emphasised value (a stat's number): bold - the browser's, allowed for these short numbers (WillowBody has
    one weight) - the rest of its line dimmer */
 #htip .tsec.stats .tl { color: var(--dim); }

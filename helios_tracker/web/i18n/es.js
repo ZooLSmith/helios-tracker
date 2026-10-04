@@ -130,6 +130,8 @@ export default {
   "h.language": "IDIOMA",
   "view.theme": "Tema",
   "theme.default": "ECHO-2",
+  "theme.echo1": "ECHO-1",
+  "theme.echo1amber": "ECHO-1A",
   "theme.hyperion": "Hyperion",
   "theme.vladof": "Vladof",
   "theme.dahl": "Dahl",

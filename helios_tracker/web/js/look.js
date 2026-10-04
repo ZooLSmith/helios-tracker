@@ -19,7 +19,7 @@ export function look() {
 }
 
 // The themes (css/themes.css: base.css's tokens, other values); "default" = base.css's own
-export const THEMES = ["default", "hyperion", "vladof", "dahl", "eridian"];
+export const THEMES = ["echo1", "echo1amber", "default", "hyperion", "vladof", "dahl", "eridian"];
 export const themeName = (v) => (THEMES.includes(v) ? v : "default");
 
 /** The page in a theme: <html data-theme> (none for the default). Then the canvas' colours are read again. */
