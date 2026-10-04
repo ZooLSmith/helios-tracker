@@ -738,8 +738,8 @@ def check_helios_tracker() -> None:  # noqa: PLR0915
     # A cutscene video's length from its Bink header (a DLC's: Captain Scarlett's intro, 65.0 s)
     real_game_dir = col.game_dir
     col.game_dir = lambda: GAME_COOKED.parent.parent
-    if (GAME_COOKED.parent.parent / "DLC" / "Orchid").is_dir():
-        assert col.movie_length("Orchid_Intro") == 65.0, col.movie_length("Orchid_Intro")
+    if any((GAME_COOKED.parent.parent / "DLC" / "Orchid").glob("*/Movies/Orchid_Intro.bik")):  # (the file: the DLC's folder
+        assert col.movie_length("Orchid_Intro") == 65.0, col.movie_length("Orchid_Intro")  # can be there without it)
     # (the game names some with their extension: the Marcus intro came as 'TC_Marcus.bik' - its length was lost)
     if (GAME_COOKED.parent / "Movies" / "TC_Marcus.bik").is_file():
         assert col.movie_length("TC_Marcus.bik") == col.movie_length("TC_Marcus") == 19.3, col.movie_length("TC_Marcus.bik")
@@ -871,13 +871,17 @@ def check_helios_tracker() -> None:  # noqa: PLR0915
     real_cooked = gamedir.cooked_dir
     gamedir.cooked_dir = lambda: GAME_COOKED
     try:
-        dlc = gamedir.package_path("Sage_Underground_P.upk")
-        assert dlc is not None and "DLC" in dlc.parts, dlc
         assert gamedir.package_path("Sanctuary_P.upk") == GAME_COOKED / "Sanctuary_P.upk" and gamedir.package_path("Nope_P.upk") is None
-        t = time.perf_counter()
-        (img,) = load_tactical_map(dlc, "Sage_UI_TacticalMap_Undergrnd.Undergrnd_P")
-        assert (img.format, img.width, img.height) == ("PF_DXT5", 1024, 644), img
-        print(f"  Sage_Underground_P (DLC): {img.name} {img.width}x{img.height} ({time.perf_counter() - t:.2f} s)")
+        # (the DLC's map: only if the install has it - its Lic/Content can be gone with the folder still there, 2026-10-04)
+        if any((GAME_COOKED.parent.parent / "DLC" / "Sage").glob("*/Content/Sage_Underground_P.upk")):
+            dlc = gamedir.package_path("Sage_Underground_P.upk")
+            assert dlc is not None and "DLC" in dlc.parts, dlc
+            t = time.perf_counter()
+            (img,) = load_tactical_map(dlc, "Sage_UI_TacticalMap_Undergrnd.Undergrnd_P")
+            assert (img.format, img.width, img.height) == ("PF_DXT5", 1024, 644), img
+            print(f"  Sage_Underground_P (DLC): {img.name} {img.width}x{img.height} ({time.perf_counter() - t:.2f} s)")
+        else:
+            print("  Sage_Underground_P (DLC): not in this install - skipped")
     finally:
         gamedir.cooked_dir = real_cooked
     # A map drawn from a part of its texture (a GFx DefineSubImage, its image's id 0): the Pre-Sequel's ComFacility_P
@@ -1374,10 +1378,16 @@ def check_helios_tracker() -> None:  # noqa: PLR0915
     assert profile_bl2.vehicle_name(ns(VehicleDef=ns(DisplayName="Runner"))) == "Runner"
     assert profile_bl1.object_directives(ns(MissionDirectives=["d"])) == ["d"] and profile_bl2.object_directives(ns(Directives=ns(MissionDirectives=["d"]))) == ["d"]
     bl1_eligibility = enum.IntEnum("EMissionEligibility", ["ME_Eligible", "ME_Ineligible_Level", "ME_Ineligible_Dependencies", "ME_Ineligible_Other"], start=0)
-    bl1_board_pc = ns(GetMissionEligibility=lambda m: bl1_eligibility.ME_Eligible if m == "tk" else bl1_eligibility.ME_Ineligible_Other)
-    assert profile_bl1.mission_offered(bl1_board_pc, "tk", "", False), "eligible, not taken: its !"
-    assert not profile_bl1.mission_offered(bl1_board_pc, "tk", "", True), "eligible but picked up already"
-    assert not profile_bl1.mission_offered(bl1_board_pc, "other", "", False)
+    bl1_tk = ns(Name="tk", _get_address=lambda: 0x7001)  # (missions: game objects - the eligibility cached by address)
+    bl1_other = ns(Name="other", _get_address=lambda: 0x7002)
+    bl1_eligibility_calls = []
+    bl1_board_pc = ns(GetMissionEligibility=lambda m: bl1_eligibility_calls.append(m.Name) or (
+        bl1_eligibility.ME_Eligible if m.Name == "tk" else bl1_eligibility.ME_Ineligible_Other))
+    assert profile_bl1.mission_offered(bl1_board_pc, bl1_tk, "", False), "eligible, not taken: its !"
+    assert not profile_bl1.mission_offered(bl1_board_pc, bl1_tk, "", True), "eligible but picked up already"
+    assert not profile_bl1.mission_offered(bl1_board_pc, bl1_other, "", False)
+    assert profile_bl1.mission_offered(bl1_board_pc, bl1_tk, "", False) and bl1_eligibility_calls == ["tk", "other"], (
+        "eligibility read once per mission while the log stays the same (a call per giver mission per second)", bl1_eligibility_calls)
     assert profile_bl2.mission_offered(None, "m", "begin", False) and not profile_bl2.mission_offered(None, "m", "", False)
     # its missions not picked up: the log's entries, then every other mission loaded, not started - offered: eligible
     # a mission's area: its turn-in waypoint's level (else its target's), named as the map's title is
@@ -1391,9 +1401,9 @@ def check_helios_tracker() -> None:  # noqa: PLR0915
         assert profile_bl1.mission_home(ns(TurnInWaypointDefinition=None, TargetWaypointDefinition=ns(PersistentLevelName="Nowhere_P"))) is None
     finally:
         sys.modules["helios_tracker.collector"].level_name = real_level_name
-    bl1_offered = game_profiles._NotPickedUp("tk", bl1_board_pc)
+    bl1_offered = game_profiles._NotPickedUp(bl1_tk, bl1_board_pc, profile_bl1._eligible_for)
     assert profile_bl1.mission_status(bl1_offered) == "NotStarted" and profile_bl1.mission_progress(bl1_offered) == ()
-    assert bl1_offered.bHeardKickoff and not game_profiles._NotPickedUp("other", bl1_board_pc).bHeardKickoff
+    assert bl1_offered.bHeardKickoff and not game_profiles._NotPickedUp(bl1_other, bl1_board_pc, profile_bl1._eligible_for).bHeardKickoff
     assert profile_bl2.element_frame(ns(ElementalFrame="shock"), "weapon") == "shock" and profile_bl2.element_frame(ns(ElementalFrame="None"), "weapon") == ""
     assert profile_bl2.zippy_frame(ns(GetZippyFrame=lambda: "comm")) == "comm"
     assert profile_bl1.item_card_level(bl1_gun, 6) == 4 and profile_bl2.item_card_level(bl1_gun, 6) == 6

@@ -33,7 +33,7 @@ from mods_base import get_pc
 from . import amounts, gamecards, games, paths
 
 from .skills import skill_icon
-from .util import addr, call_str, def_name, field, item_name, log, log_error, named, player_info, try_
+from .util import PerObject, addr, call_str, def_name, field, item_name, log, log_error, named, player_info, try_
 
 MAX_CHAIN = 32  # guard for the linked inventory chains
 ITEM_KINDS = {  # class (or a superclass) -> kind shown by the page
@@ -85,8 +85,11 @@ _items_pass = {"deadline": float("inf"), "built": 0, "left": False}  # (outside 
 # the last players pass's parts (s): the player's own fields (class, xp...), card keys, inventory, skills - for the
 # slow-task report's breakdown (collector, paths.DIAGNOSTICS)
 players_parts: dict[str, float] = {}
-# Skill trees by controller address: re-read only when the points spent change
-_skills_cache: dict[int, tuple[Any, dict[str, Any]]] = {}
+# Skill trees by controller (checked alive: util.PerObject): re-read only when the points spent change
+_skills_cache = PerObject()
+# An item's element level (Borderlands 1's: games.py element_level - function calls, static per item): every players
+# pass read it again for each equipped item (2026-10-04: players.inventory 3-5 ms a pass)
+_element_levels = PerObject()
 _grids: dict[tuple[str, int], list[dict[str, Any]]] = {}  # branch grids (static per class)
 _level_start: dict[int, int] = {}  # level -> total XP where it starts (a fixed game table)
 _xp_logged = [False]  # why the local player's XP is missing: logged once
@@ -121,11 +124,16 @@ def card_keys(inv: Any, kind: str | None = None) -> dict[str, str]:
             out["wt"] = wt
     if kind != "weapon":
         definition = try_(lambda: data.ItemDefinition) if data is not None else None
-        zkey = (str(try_(lambda: inv.Class.Name, "")), definition._get_address() if definition is not None else addr(inv))
-        if zkey not in _zippy:
-            _zippy[zkey] = str(try_(lambda: games.GAME.zippy_frame(inv), "") or "")
-        if _zippy[zkey].lower() not in ("", "none"):
-            out["wt"] = _zippy[zkey].lower()
+        # (cached per definition; without one, read each time - an item's own address would outlive it as a key)
+        zkey = (str(try_(lambda: inv.Class.Name, "")), definition._get_address()) if definition is not None else None
+        if zkey is None or zkey not in _zippy:
+            frame = str(try_(lambda: games.GAME.zippy_frame(inv), "") or "")
+            if zkey is not None:
+                _zippy[zkey] = frame
+        else:
+            frame = _zippy[zkey]
+        if frame.lower() not in ("", "none"):
+            out["wt"] = frame.lower()
     if element := try_(lambda: games.GAME.element_frame(inv, kind), "") or "":  # (each game's: games.py)
         out["el"] = element
     return out
@@ -196,7 +204,10 @@ def _stats(inv: Any, kind: str) -> list[list[Any]]:
             out.append(["reload", round(reload0, 2), round(reload, 2)])
         if (chance := _element_chance(inv)) is not None:
             out.append(["elementChance", *chance])
-    if level := try_(lambda: games.GAME.element_level(inv, kind), 0):  # (Borderlands 1's: games.py)
+    if (level := try_(lambda: _element_levels.get(inv))) is None:  # (static per item: read once - Borderlands 1's, games.py)
+        level = try_(lambda: games.GAME.element_level(inv, kind), 0) or 0
+        try_(lambda: _element_levels.put(inv, level))  # (an object it can't key - the offline check's fakes: read each time)
+    if level:
         out.append(["elementLevel", level, level])
     elif kind == "grenade":
         dmg0, dmg = pair("GrenadeDamage")
@@ -928,11 +939,10 @@ def _skills(ctrl: Any, player: dict[str, Any], bonuses: dict[str, list[list[Any]
         return
     # The whole tree is ~50 skills x several reads: only re-read when the points spent change
     points = try_(lambda: int(tree.GetSkillPointsSpentInTree()), None)
-    ctrl_key = ctrl._get_address()  # (not `key`: the loops below used to overwrite it - the cache never hit)
     bonuses = bonuses or {}
     # (a class mod swapped: the bonuses change, not the points)
     cache_key = (points, tuple(sorted((k, tuple(map(tuple, v))) for k, v in bonuses.items())))
-    cached = _skills_cache.get(ctrl_key)
+    cached = _skills_cache.get(ctrl)
     if cached is not None and cached[0] == cache_key and points is not None:
         player.update(cached[1])
         return
@@ -1013,7 +1023,7 @@ def _skills(ctrl: Any, player: dict[str, Any], bonuses: dict[str, list[list[Any]
     if loose:
         trees.insert(0, {"n": "", "pts": 0, "skills": loose})  # the page names it
     result = {"skills": trees, "skillPoints": points}
-    _skills_cache[ctrl_key] = (cache_key, result)
+    _skills_cache.put(ctrl, (cache_key, result))
     player.update(result)
 
 
@@ -1038,10 +1048,9 @@ def _skills_from_player_skills(ctrl: Any, player: dict[str, Any], bonuses: dict[
         return
     points = sum(try_(lambda b=b: int(b.PointsSpentInBranch), 0) or 0 for b in branch_states)
     bonuses = bonuses or {}
-    ctrl_key = ctrl._get_address()
     branch_names, icons = branch_names or {}, icons or {}
     cache_key = (points, tuple(sorted((k, tuple(map(tuple, v))) for k, v in bonuses.items())), tuple(sorted(branch_names.items())))
-    cached = _skills_cache.get(ctrl_key)
+    cached = _skills_cache.get(ctrl)
     if cached is not None and cached[0] == cache_key:
         player.update(cached[1])
         return
@@ -1089,7 +1098,7 @@ def _skills_from_player_skills(ctrl: Any, player: dict[str, Any], bonuses: dict[
             tree["root"] = True  # (the action skill's: not a tree of its own)
         trees.append(tree)
     result = {"skills": trees, "skillPoints": points}
-    _skills_cache[ctrl_key] = (cache_key, result)
+    _skills_cache.put(ctrl, (cache_key, result))
     player.update(result)
 
 
@@ -1145,19 +1154,18 @@ def _xp(ctrl: Any, pri: Any, level: int) -> dict[str, Any]:
     return {"xp": [total - start, next_at - start]}
 
 
-_class_names: dict[int, dict[str, Any]] = {}  # controller / player info address -> _class_name()
+_class_names = PerObject()  # controller / player info -> _class_name() (checked alive: util.PerObject)
 
 
 def _class_name(ctrl: Any, pri: Any) -> dict[str, Any]:
     """_class_name_uncached(), once per player (a player's class never changes)."""
     owner = ctrl if ctrl is not None else pri
-    key = try_(lambda: owner._get_address())
-    if key is None:
+    if owner is None:
         return _class_name_uncached(ctrl, pri)
-    if (cached := _class_names.get(key)) is None:
+    if (cached := _class_names.get(owner)) is None:
         cached = _class_name_uncached(ctrl, pri)
         if cached.get("cls") and not cached.get("clsRaw"):  # only the game's name (not yet loaded: again next time)
-            _class_names[key] = cached
+            _class_names.put(owner, cached)
     return cached
 
 

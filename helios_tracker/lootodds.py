@@ -201,7 +201,7 @@ def _item_text(item: Any) -> str:
 
 
 def pool_key(pool: Any) -> str:
-    return str(try_(pool._path_name, "") or pool.Name)
+    return str(try_(lambda: pool._path_name(), "") or pool.Name)  # (a lambda: pool._path_name itself can be missing)
 
 
 def _run(steps: Any) -> Any:

@@ -355,6 +355,14 @@ class Borderlands1(Profile):
 
     def __init__(self) -> None:
         self._branch_names: dict[int, dict[str, str]] = {}  # CharacterName -> its branches' names (branch_names)
+        self._skill_icons: dict[int, dict[tuple[str, int, int], str]] = {}  # CharacterName -> its cells' icons (skill_icons)
+        # The missions not picked up (mission_entries): rebuilt only when what they depend on changes - the playthrough,
+        # the missions picked up and their statuses, the player's level (_mission_key); every call rebuilt them (~218,
+        # 2026-10-04: missions 8-11 ms nearly every second). Their eligibility (a function call) read once per mission
+        # while the key holds - the log's not started ones and the givers' "!" (mission_offered) alike.
+        self._mission_key: tuple = ()
+        self._not_picked: list[Any] = []
+        self._eligible: dict[int, bool] = {}  # mission definition address -> GetMissionEligibility is ME_Eligible
         self._skill_clips: dict[int, tuple[str, str]] = {}  # CharacterName -> (the skill clip, its frame) (_skill_clip)
         self._missions: list[Any] = []  # every MissionDefinition loaded (_mission_definitions)
         self._destination_area: str = ""  # the area its map changes were read in (_destinations)
@@ -409,8 +417,22 @@ class Borderlands1(Profile):
         pc = get_pc()
         playthrough = int(ENGINE.GetCurrentWorldInfo().GRI.HostCurrentPlaythrough)
         log = list(pc.MissionPlaythroughData[playthrough].MissionList)
-        picked = {e.MissionDef._get_address() for e in log if e.MissionDef is not None}
-        return log + [_NotPickedUp(d, pc) for d in self._mission_definitions() if d._get_address() not in picked]
+        status = [(e.MissionDef._get_address(), int(e.Status)) for e in log if e.MissionDef is not None]
+        key = (playthrough, tuple(status), int(pc.PlayerReplicationInfo.ExpLevel))
+        if key != self._mission_key:  # (what eligibility depends on changed: dependencies done, minimum level)
+            self._mission_key = key
+            self._eligible = {}
+            picked = {address for address, _ in status}
+            self._not_picked = [_NotPickedUp(d, pc, self._eligible_for) for d in self._mission_definitions()
+                                if d._get_address() not in picked]
+        return log + self._not_picked
+
+    def _eligible_for(self, pc: Any, mission: Any) -> bool:
+        """The controller's GetMissionEligibility(mission) is ME_Eligible - once per mission while the key holds."""
+        key = mission._get_address()
+        if (eligible := self._eligible.get(key)) is None:
+            eligible = self._eligible[key] = getattr(pc.GetMissionEligibility(mission), "name", "") == "ME_Eligible"
+        return eligible
 
     def _mission_definitions(self) -> list[Any]:
         """Every MissionDefinition loaded - a find_all (it walks every object): once, kept (static game data)."""
@@ -520,7 +542,8 @@ class Borderlands1(Profile):
         # GetMissionEligibility(mission) (script: its minimum level, dependencies, status) ME_Eligible, and not in the
         # log (a mission picked up is eligible too: the board's Bandit Presence, taken, ME_Eligible) - probe_bl1_givers:
         # the board's T.K. Has More Work, ME_Eligible, its AnnouncedMissions - the game's "!" (the user)
-        return not logged and getattr(pc.GetMissionEligibility(mission), "name", "") == "ME_Eligible"
+        # (once per mission while the log stays the same: _eligible_for - it was a call per giver mission per second)
+        return not logged and self._eligible_for(pc, mission)
 
     def zippy_frame(self, inv: Any) -> str:
         # No GetZippyFrame: a property, WillowInventory.ZippyFrame (a name - Engine.u, offline)
@@ -625,7 +648,14 @@ class Borderlands1(Profile):
         # inspector._skills_from_player_skills; its branches' names: the skill menu's (branch_names)
         from .inspector import _skills_from_player_skills  # noqa: PLC0415
 
-        _skills_from_player_skills(ctrl, player, bonuses, self.branch_names(ctrl), self.skill_icons(ctrl))
+        _skills_from_player_skills(ctrl, player, bonuses, self.branch_names(ctrl), self._cached_skill_icons(ctrl))
+
+    def _cached_skill_icons(self, ctrl: Any) -> dict[tuple[str, int, int], str]:
+        """skill_icons, once per character (static: its class's layout - every players pass walked it: 3-4 ms)."""
+        key = int(ctrl.PlayerClass.CharacterName)
+        if (icons := self._skill_icons.get(key)) is None:
+            icons = self._skill_icons[key] = self.skill_icons(ctrl)
+        return icons
 
     def _skill_clip(self, ctrl: Any) -> tuple[str, str]:
         """The skill menu's clip and the player's frame of it: ("skills", "mordecai") - SkillTreeGFxDefinition
@@ -809,13 +839,14 @@ class _NotPickedUp:
     Status = "MS_NotStarted"
     Objectives = ()
 
-    def __init__(self, mission: Any, pc: Any) -> None:
+    def __init__(self, mission: Any, pc: Any, eligible: Any) -> None:
         self.MissionDef = mission
         self._pc = pc
+        self._eligible = eligible  # (the profile's: once per mission while the log stays the same)
 
     @property
     def bHeardKickoff(self) -> bool:  # noqa: N802 - (the log entry's field it stands in for)
-        return getattr(self._pc.GetMissionEligibility(self.MissionDef), "name", "") == "ME_Eligible"
+        return self._eligible(self._pc, self.MissionDef)
 
 
 def make_profile(name: str) -> Profile:

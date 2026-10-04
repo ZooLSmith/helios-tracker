@@ -38,7 +38,7 @@ from typing import Any
 from unrealsdk.unreal import WeakPointer
 
 from . import games
-from .util import def_name, field, log, try_
+from .util import PerObject, def_name, field, log, try_
 
 SKILLS_EVERY = 0.2  # s between reads of the skill manager (every player's running skills)
 MAX_EVERY = 5.0  # s between reads of a player's full cooldown lengths (function calls)
@@ -47,7 +47,7 @@ MAX_EVERY = 5.0  # s between reads of a player's full cooldown lengths (function
 _defs: dict[int, tuple[str, str, str]] = {}
 # Controller address -> (its tree's skill definition addresses, SkillIcon path -> tree skill name,
 # the action skill's name): a skill tree's definitions never change (static per class)
-_trees: dict[int, tuple[set[int], dict[str, str], str]] = {}
+_trees = PerObject()  # controller -> (tree skill definitions, names by icon, action skill name) - checked alive
 _unnamed: set[int] = set()  # nameless timed skills' definitions already logged
 
 
@@ -66,8 +66,7 @@ def skill_icon(skill_def: Any) -> str:
 def _tree_names(pc: Any) -> tuple[set[int], dict[str, str], str]:
     """The player's tree skills: their definitions, their names by icon, and the action skill's name
     (the tree's SKILL_TYPE_Action skill) - read once per controller (an empty tree: again next time)."""
-    key = pc._get_address()
-    if (cached := _trees.get(key)) is None:
+    if (cached := _trees.get(pc)) is None:
         defs: set[int] = set()
         by_icon: dict[str, str] = {}
         action = ""
@@ -84,7 +83,7 @@ def _tree_names(pc: Any) -> tuple[set[int], dict[str, str], str]:
                 by_icon.setdefault(icon, name)
         cached = (defs, by_icon, action)
         if defs:
-            _trees[key] = cached
+            _trees.put(pc, cached)
     return cached
 
 

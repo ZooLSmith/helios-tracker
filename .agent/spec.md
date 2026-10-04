@@ -433,6 +433,12 @@ bottom-left message).
   added to `POOLS` when done; the record goes out at once, its odds when they're known - an object's own Loot at once);
   `NEW_PAWN_INFOS_PER_TICK` new pawns described per tick (ours first); the card icons' keys one `find_all` per players
   pass (the elements' from the damage type class's default object - no find_all).
+- Caches keyed by a controller / player info (the skill trees - `inspector._skills_cache`, `skills._trees` -, the class
+  names) are `util.PerObject`s: each entry kept with a WeakPointer, never returned once its object is gone (a new
+  character's controller at a freed address got the old one's tree). An item's element level: read once per item.
+  Borderlands 1: its missions not picked up rebuilt only when the log, its statuses or the player's level change, their
+  eligibility read once per mission meanwhile (`games.Borderlands1._eligible_for` - the givers' "!" too); its skill
+  icons once per character.
 - A players pass builds gear cards for at most `inspector.ITEMS_SECONDS` (at least one): the rest at the next pass,
   `PLAYERS_RETRY` later - a half-built pass isn't published (`players_complete`). A whole backpack at once was 80-560 ms.
 - An object record over `RECORD_SLOW_MS` reports its parts in the slow-task report (`object records.names` / `exit` /

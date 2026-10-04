@@ -162,6 +162,26 @@ def reader(obj: Any) -> Any:
     return read
 
 
+class PerObject:
+    """Values by a game object (its address), each kept with a WeakPointer to it: an entry whose object is gone -
+    destroyed, even with another object at its address since - is never returned (inspector._ItemCache's way). For the
+    caches keyed by a controller / player info: a new character's controller at a freed one's address got the old one's
+    skill tree (the audit, 2026-10-03 - profiles.md "Caches")."""
+
+    def __init__(self) -> None:
+        self._entries: dict[int, tuple[Any, Any]] = {}
+
+    def get(self, obj: Any) -> Any:
+        entry = self._entries.get(obj._get_address())
+        return entry[1] if entry is not None and entry[0]() is not None else None
+
+    def put(self, obj: Any, value: Any) -> Any:
+        from unrealsdk.unreal import WeakPointer  # noqa: PLC0415 - (util: no SDK at module level - release.py)
+
+        self._entries[obj._get_address()] = (WeakPointer(obj), value)
+        return value
+
+
 def field(obj: Any, name: str) -> Any:
     """obj.<name>, ~10x cheaper for the per-update reads: a property read by name costs 15-24 us (the
     name looked up through the class chain), the property looked up once then `_get_field` 1-2 us
