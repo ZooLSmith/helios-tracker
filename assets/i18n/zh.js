@@ -28,7 +28,6 @@ export default {
   "index.lead": "你所在關卡的地圖，即時顯示在瀏覽器中：玩家、敵人、戰利品和任務，邊玩 <a class=\"game bl1\" href=\"https://store.steampowered.com/app/729040/\">Borderlands</a>、<a class=\"game\" href=\"https://store.steampowered.com/app/49520/\">Borderlands 2</a> 或 <a class=\"game\" href=\"https://store.steampowered.com/app/261640/\"><span class=\"the\">The</span> Pre-Sequel</a> 邊看。",
   "index.lead2": "可在第二螢幕、手機、OBS 中使用，或分享給朋友。它只讀取遊戲。",
   "index.install": "安裝",
-  "index.source": "GitHub 上的原始碼",
 
   "index.previews": "螢幕截圖",
   "index.preview.skills": "玩家的技能樹，以及滑鼠停在爆炸桶上時顯示的生命值",

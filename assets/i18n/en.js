@@ -29,7 +29,6 @@ export default {
   "index.lead": "The map of the level you're in, live in your browser: players, enemies, loot and missions, as you play <a class=\"game bl1\" href=\"https://store.steampowered.com/app/729040/\">Borderlands</a>, <a class=\"game\" href=\"https://store.steampowered.com/app/49520/\">Borderlands 2</a> or <a class=\"game\" href=\"https://store.steampowered.com/app/261640/\"><span class=\"the\">The</span> Pre-Sequel</a>.",
   "index.lead2": "On a second screen, a phone, in OBS, or shared with friends. It only reads the game.",
   "index.install": "Install it",
-  "index.source": "Source on GitHub",
 
   "index.previews": "Screenshots",
   "index.preview.skills": "A player's skill tree, and an explosive barrel's health on hover",

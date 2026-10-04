@@ -28,7 +28,6 @@ export default {
   "index.lead": "<a class=\"game bl1\" href=\"https://store.steampowered.com/app/729040/\">Borderlands</a>、<a class=\"game\" href=\"https://store.steampowered.com/app/49520/\">Borderlands 2</a> や <a class=\"game\" href=\"https://store.steampowered.com/app/261640/\"><span class=\"the\">The</span> Pre-Sequel</a> をプレイしながら、今いるレベルのマップをブラウザーでリアルタイムに：プレイヤー、敵、戦利品、ミッション。",
   "index.lead2": "セカンドモニター、スマートフォン、OBS で、あるいは友達と共有して。ゲームを読み取るだけです。",
   "index.install": "インストールする",
-  "index.source": "GitHub のソースコード",
 
   "index.previews": "スクリーンショット",
   "index.preview.skills": "プレイヤーのスキルツリーと、カーソルを合わせた爆発樽のライフ",

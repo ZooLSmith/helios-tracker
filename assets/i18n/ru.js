@@ -28,7 +28,6 @@ export default {
   "index.lead": "Карта уровня, где вы находитесь, в реальном времени в браузере: игроки, враги, добыча и задания, пока вы играете в <a class=\"game bl1\" href=\"https://store.steampowered.com/app/729040/\">Borderlands</a>, <a class=\"game\" href=\"https://store.steampowered.com/app/49520/\">Borderlands 2</a> или <a class=\"game\" href=\"https://store.steampowered.com/app/261640/\"><span class=\"the\">The</span> Pre-Sequel</a>.",
   "index.lead2": "На втором экране, телефоне, в OBS или вместе с друзьями. Мод только читает игру.",
   "index.install": "Установить",
-  "index.source": "Исходный код на GitHub",
 
   "index.previews": "Скриншоты",
   "index.preview.skills": "Дерево навыков игрока и здоровье взрывной бочки при наведении",

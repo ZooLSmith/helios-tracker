@@ -28,7 +28,6 @@ export default {
   "index.lead": "La carte du niveau où vous êtes, en direct dans votre navigateur : les joueurs, les ennemis, le butin et les missions, pendant que vous jouez à <a class=\"game bl1\" href=\"https://store.steampowered.com/app/729040/\">Borderlands</a>, <a class=\"game\" href=\"https://store.steampowered.com/app/49520/\">Borderlands 2</a> ou <a class=\"game\" href=\"https://store.steampowered.com/app/261640/\"><span class=\"the\">The</span> Pre-Sequel</a>.",
   "index.lead2": "À ouvrir sur un second écran, un téléphone ou dans OBS, ou à partager avec vos amis. Le mod se contente de lire le jeu.",
   "index.install": "Installer",
-  "index.source": "Le code sur GitHub",
 
   "index.previews": "Captures d'écran",
   "index.preview.skills": "L'arbre de compétences d'un joueur, et la santé d'un baril explosif au survol",

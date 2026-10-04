@@ -28,7 +28,6 @@ export default {
   "index.lead": "<a class=\"game bl1\" href=\"https://store.steampowered.com/app/729040/\">Borderlands</a>, <a class=\"game\" href=\"https://store.steampowered.com/app/49520/\">Borderlands 2</a>나 <a class=\"game\" href=\"https://store.steampowered.com/app/261640/\"><span class=\"the\">The</span> Pre-Sequel</a>을 플레이하는 동안, 지금 있는 레벨의 지도를 브라우저에서 실시간으로: 플레이어, 적, 전리품, 미션.",
   "index.lead2": "보조 모니터, 휴대폰, OBS에서, 또는 친구와 공유해서. 게임을 읽기만 합니다.",
   "index.install": "설치하기",
-  "index.source": "GitHub 소스",
 
   "index.previews": "스크린샷",
   "index.preview.skills": "플레이어의 스킬 트리, 그리고 마우스를 올린 폭발 배럴의 체력",

@@ -350,6 +350,8 @@ kbd { padding: .05em .4em; background: var(--control); border: 1px solid var(--p
   display: inline-block; padding: .6rem 1.15rem; font-weight: 700; text-decoration: none; border-radius: 3px;
   color: var(--text-bright); background: var(--control) var(--sheen); border: 1px solid var(--panel-edge);
 }
+.button:has(.icon) { display: inline-flex; align-items: center; gap: .5rem; }
+.button .icon { flex: none; width: 1.1em; height: 1.1em; }
 .button:hover { background-color: var(--hover); color: var(--text-bright); }
 /* the other buttons: the top bar's scanlines, going up (still with prefers-reduced-motion) */
 .button:not(.primary)::before {
