@@ -343,7 +343,7 @@ class Collector:
         # BL1's markers read only the active missions' waypoints each second, not every one (70: 4-5 ms a second)
         self._waypoints_by_def: dict[int, list[WeakPointer]] = {}
         # BL1's area exits (PersistentTransitionLandmark {FromMapName, ToMapName}): where a mission in another area is
-        # marked (games.WAYPOINT_MARKERS: _waypoint_markers), found at each objects scan
+        # marked (games.py mission_markers: _waypoint_markers), found at each objects scan
         self._exits: list[WeakPointer] = []
         self._client = False  # a co-op client (set at each objects scan): containers opened by their state alone
         # NPCs giving / taking back missions (their MissionDirectives: tools/probes/probe_directors.txt), by
@@ -832,12 +832,12 @@ class Collector:
         # the level's other actors: one find_all per tick after this one (all in the first scan's tick: 95 ms)
         wi = ENGINE.GetCurrentWorldInfo()
         self._client = getattr(try_(lambda: wi.NetMode), "name", "") == "NM_Client"
+        actors = games.GAME.level_lookups(self._client)  # (the markers' actors, each game's: games.py)
         self._lookups = [name for name, wanted in (
             ("tracker", self._tracker is None or self._tracker() is None),  # (one per game: only again if gone)
-            # a co-op client has no mission waypoint components: its markers come from the waypoint actors - as BL1's
-            # always (games.WAYPOINT_MARKERS)
-            ("waypoints", self._client or games.WAYPOINT_MARKERS in games.GAME.features),
-            ("exits", games.WAYPOINT_MARKERS in games.GAME.features),
+            # the mission markers' actors, each game's (games.py level_lookups: a co-op client's waypoints, BL1's always)
+            ("waypoints", "waypoints" in actors),
+            ("exits", "exits" in actors),
             ("areas", not self._areas_found and games.DISCOVERY in games.GAME.features),  # (placed, never moved: once)
         ) if wanted]
         self._publish_objects()
@@ -1786,7 +1786,7 @@ class Collector:
         return markers
 
     def _waypoint_markers(self, tracker: Any, active_addr: int | None) -> list[dict[str, Any]]:
-        """BL1's objective markers (games.WAYPOINT_MARKERS): the level's WillowWaypoint actors of each picked-up mission's
+        """BL1's objective markers (games.py mission_markers): the level's WillowWaypoint actors of each picked-up mission's
         waypoint definition (WillowWaypoint.WaypointDefinition) - its TargetWaypointDefinition while it's Active (an
         "objective": its first objective not done), its TurnInWaypointDefinition once it's ReadyToTurnIn (where to hand it
         in: a "directive", "end") - tools/probes/probe_bl1_missions.txt: Buy Grenades, active -> WP_WeaponVendor, its one
@@ -1955,9 +1955,10 @@ class Collector:
         active_addr = active._get_address() if active is not None else None
         markers, giver_npcs = [], set()
         states = None  # the log's missions to pick up / hand in (giver_states): read once, for the game's directives
-        by_actors = games.WAYPOINT_MARKERS in games.GAME.features  # (BL1: the level's waypoint actors - no components)
+        # each game's markers (games.py mission_markers - BL1's: its waypoint actors), else the tracker's components
+        by_actors = (game_markers := games.GAME.mission_markers(self, tracker, active_addr)) is not None
         if by_actors:
-            markers = self._waypoint_markers(tracker, active_addr)
+            markers = game_markers
         for entry in [] if by_actors else try_(lambda: list(tracker.MissionWaypoints), []):
             mission = try_(lambda e=entry: e.Mission)
             for comp in try_(lambda e=entry: list(e.Waypoints), []):

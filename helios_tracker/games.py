@@ -18,21 +18,11 @@ import re
 import time
 from typing import Any
 
-# The features (systems some games have, others don't); the page reads the same names (game.js)
-TACMAP = "tacmap"  # the map screen's images, read from the game's packages (tacmap.py)
+# The features: systems some games have, others don't - only those (the page reads the same names: game.js). Another way
+# of doing a job is a method, never a feature (profiles.md: "if the else does something, it's a method").
 DISCOVERY = "discovery"  # the level's discovery areas and the map's fog of war (WorldDiscoveryArea, DiscoveredWorldAreas)
 OXYGEN = "oxygen"  # the Oz meter: oxygen pools, air domes, oxygen sources
 JUMPPADS = "jumppads"  # jump pads and geysers (OzPlayerJumpPad)
-SCAN = "scan"  # the game files' index: fonts, item card / skill icons (gamescan.py: BL2's package layout)
-MISSION_STEPS = "missionsteps"  # a mission's objectives come in steps (objective sets: ActiveObjectiveSet) - else all at once
-# its objectives marked by the level's waypoint actors (WillowWaypoint: a mission's target / turn-in waypoint definition's
-# - collector._waypoint_markers), not by the tracker's waypoint components (MissionWaypoints)
-WAYPOINT_MARKERS = "waypointmarkers"
-# a damage type's element icon learned from the weapons seen (inspector.learn_frame: their card frame next to their
-# damage type) - else the profile's damage_type_frame
-LEARNED_ELEMENTS = "learnedelements"
-# its UI fonts from a font library movie of its own, without the files scan (Profile.font_catalogue - BL1's)
-FONT_LIBRARY = "fontlibrary"
 
 _PROFILES: dict[str, type["Profile"]] = {}
 
@@ -67,7 +57,7 @@ class Profile:
     # the attribute presentation a weapon card's damage is shown with (its rounding: inspector._presented) - None: a
     # whole number, rounded (BL2's cards, checked)
     damage_presentation: str | None = None
-    features: frozenset[str] = frozenset({TACMAP, DISCOVERY, SCAN, MISSION_STEPS, LEARNED_ELEMENTS})
+    features: frozenset[str] = frozenset({DISCOVERY})
 
     def map_name(self, wi: Any) -> str:
         """The persistent level's map name ("Sanctuary_P"), from the world info."""
@@ -332,6 +322,17 @@ class Profile:
         SubObjectiveSets): BL2's objectives come in steps - those."""
         return current
 
+    def level_lookups(self, client: bool) -> list[str]:
+        """The level's actors to look up after an objects scan for the mission markers (collector._lookup):
+        "waypoints" (WillowWaypoint actors), "exits" (PersistentTransitionLandmark). BL2: its markers come from the
+        tracker's waypoint components - but a co-op client has none: the waypoint actors then (_client_markers)."""
+        return ["waypoints"] if client else []
+
+    def mission_markers(self, collector: Any, tracker: Any, active_addr: int | None) -> list[dict[str, Any]] | None:
+        """The mission markers when they don't come from the tracker's waypoint components (the collector reads those:
+        BL2's - None here)."""
+        return None
+
     def map_source(self, wi: Any, map_name: str) -> Any:
         """The level's map (levelmap.MapSource: its placement, how its images load), None without one - at a level
         change, on the game thread."""
@@ -420,9 +421,8 @@ class Borderlands1(Profile):
     # its card's damage: AttrPresent_WeaponDamage, ATTRROUNDING_IntCeil (gd_AttributePresentation, offline) - the GGN9's
     # 86 in game, 85 rounded (the user)
     damage_presentation = "gd_AttributePresentation.Weapons.AttrPresent_WeaponDamage"
-    # no WorldDiscoveryArea class (the log: "Couldn't find class"); its packages not indexed (gamescan reads BL2's)
-    # (its element icons: its card clip's frames, its damage types' known - damage_type_frame: nothing to learn)
-    features = (Profile.features - {DISCOVERY, SCAN, MISSION_STEPS, LEARNED_ELEMENTS}) | {WAYPOINT_MARKERS, FONT_LIBRARY}
+    # no WorldDiscoveryArea class (the log: "Couldn't find class")
+    features = Profile.features - {DISCOVERY}
 
     def __init__(self) -> None:
         self._branch_names: dict[int, dict[str, str]] = {}  # CharacterName -> its branches' names (branch_names)
@@ -697,6 +697,14 @@ class Borderlands1(Profile):
 
     def current_objectives(self, current: list[int], count: int) -> list[int]:
         return list(range(count))  # (no steps: all its objectives at once)
+
+    def level_lookups(self, client: bool) -> list[str]:
+        return ["waypoints", "exits"]  # (no waypoint components: its markers from the waypoint actors, and its exits)
+
+    def mission_markers(self, collector: Any, tracker: Any, active_addr: int | None) -> list[dict[str, Any]] | None:
+        # the level's waypoint actors of its picked-up missions' waypoint definitions, the exits to other areas
+        # (collector._waypoint_markers - to its own module with the rest of BL1's code: profiles.md step 5)
+        return collector._waypoint_markers(tracker, active_addr)
 
     def damage_type_frame(self, enum: str) -> str:
         # A damage type's element icon (a barrel's explosion - collector.py): its element's frames' first, the mark

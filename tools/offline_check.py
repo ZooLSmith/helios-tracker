@@ -193,7 +193,7 @@ const gameIds = ["loot.pearl", "loot.glitch", "loot.etech", "oxygen", "pickup.ox
   "pickup.eridium", "vaultsymbol", "buff", "slots", "pickup.mission"];
 const gameShown = () => gameIds.filter((id) => layerInGame(LAYERS.find((l) => l.id === id)));
 const gameNone = gameShown(); // (before the level message: no game's own layers)
-const gameSwitch = [setGame("tps", ["discovery", "oxygen", "jumppads", "tacmap"]), setGame("tps", ["tacmap", "jumppads", "oxygen", "discovery"])];
+const gameSwitch = [setGame("tps", ["discovery", "oxygen", "jumppads"]), setGame("tps", ["jumppads", "oxygen", "discovery"])];
 setRarityTable({ "501": [13, "#ff9ab8"], "6": [6, "#ca00a8"] });
 const gameTps = { shown: gameShown(), glitch: rarity(501)[0], etech: lootLayer({ q: 6, c: "WillowWeapon" }) };
 setGame("bl1", []);
@@ -214,7 +214,7 @@ gameBl1.push([cardIconKey("jakobs"), cardIconKey("none"), cardIconKey("None"), c
 const { objectCategory: gameCategory } = await load("js/model.js");
 const gameOutpost = { d: "OutpostDefinition", n: "OutpostDefinition", raw: 1, c: "EmergencyTeleportOutpost" };
 gameBl1.push(gameCategory(gameOutpost));
-setGame("bl2", ["discovery", "tacmap"]);
+setGame("bl2", ["discovery"]);
 gameBl1.push(gameCategory(gameOutpost)); // (BL2's: not a class of its - not a station by it)
 const gameBl2 = { shown: gameShown(), seraph: rarity(501)[0], etech: lootLayer({ q: 6, c: "WillowWeapon" }) };
 setGame("", []);
@@ -1230,13 +1230,13 @@ def check_helios_tracker() -> None:  # noqa: PLR0915
         time.sleep(0.05)
     assert level["status"] == "ready" and level["upp"] == 128.0 and level["center"] == [-3072.0, -10240.0], level
     # the game and its features, for the page (games.py -> game.js)
-    assert level["game"] == "bl2" and level["features"] == ["discovery", "learnedelements", "missionsteps", "scan", "tacmap"], (level.get("game"), level.get("features"))
+    assert level["game"] == "bl2" and level["features"] == ["discovery"], (level.get("game"), level.get("features"))
     # The games' profiles (games.py): one per game, by mods_base's name; each other game only what differs from BL2
     from helios_tracker import games as game_profiles  # noqa: PLC0415
     profile_bl2, profile_tps, profile_bl1 = (game_profiles.make_profile(n) for n in ("BL2", "TPS", "BL1"))
     assert type(game_profiles.GAME) is type(profile_bl2), "the fake mods_base's game: BL2"
     assert profile_tps.features == profile_bl2.features | {"oxygen", "jumppads"} and profile_tps.packages == "CookedPCConsole"
-    assert profile_bl1.features == {"tacmap", "waypointmarkers", "fontlibrary"} and profile_bl1.packages == "CookedPC" and profile_bl1.gibbed_prefix == ""
+    assert profile_bl1.features == set() and profile_bl1.packages == "CookedPC" and profile_bl1.gibbed_prefix == ""
     assert (profile_bl2.exe_depth, profile_bl1.exe_depth) == (2, 1), "Binaries/Win32/Borderlands2.exe, Binaries/Borderlands.exe"
     # BL1's world is "Loader" in every area: the area is its first LevelStreamingPersistent (tools/probes/probe_bl1.txt);
     # none (the main menu): the world's own package
@@ -1358,8 +1358,13 @@ def check_helios_tracker() -> None:  # noqa: PLR0915
     assert profile_bl2.element_level(bl1_clipper, "weapon") == 0
     # a barrel's element (its explosion's damage type): its element's mark ("exp0") - not learned from the weapons
     assert profile_bl1.damage_type_frame("DAMAGE_TYPE_Explosive") == "exp0" and profile_bl1.damage_type_frame("DAMAGE_TYPE_Unknown") == ""
-    assert game_profiles.LEARNED_ELEMENTS in profile_bl2.features and game_profiles.LEARNED_ELEMENTS not in profile_bl1.features
-    assert game_profiles.FONT_LIBRARY in profile_bl1.features and game_profiles.FONT_LIBRARY not in profile_bl2.features
+    # the markers' actors, each game's way (no feature flags): BL2's for a co-op client only, BL1's always - and its exits
+    assert (profile_bl2.level_lookups(False), profile_bl2.level_lookups(True), profile_bl1.level_lookups(False)) == (
+        [], ["waypoints"], ["waypoints", "exits"])
+    assert profile_bl2.mission_markers(None, None, None) is None, "BL2: the tracker's waypoint components"
+    assert profile_bl2.current_objectives([1], 3) == [1] and profile_bl1.current_objectives([1], 3) == [0, 1, 2]
+    assert not {"tacmap", "scan", "fontlibrary", "missionsteps", "waypointmarkers", "learnedelements"} & (
+        profile_bl2.features | profile_tps.features | profile_bl1.features), "features: systems a game has - only"
     # its containers looted: no longer usable (probe_bl1_looted: bCanBeUsed a flag, no animation state)
     assert profile_bl1.is_looted(ns(bCanBeUsed=False), False) and not profile_bl1.is_looted(ns(bCanBeUsed=True), False)
     # its quest givers: their missions on the object; one offered = eligible (the game's word) and not picked up yet

@@ -545,7 +545,9 @@ Each step leaves the mod working and `offline_check` passing:
    level_changed (BL1's exits) registered. Left: the reset at load time - a hook to find, a probe; the unsure caches -
    the WeakPointer probe.)* **The level reset** ("Level changes"): `on_level_change`, `clear_fields` and BL1's exits registered (point 4);
    reset from a load hook (or the hooks checking the level); the unsure caches settled by the WeakPointer probe.
-3. **Features into methods** (the table): the six "how" flags out, their call sites one line each. Doable in today's
+3. *(done, 2026-10-04: learn_element / damage_type_frame, current_objectives, assets_job / wait_for_assets,
+   level_lookups / mission_markers; the six flags gone - features: discovery, oxygen, jump pads. The docs naming the
+   old flags - spec.md, bl1.md - follow in step 7.)* **Features into methods** (the table): the six "how" flags out, their call sites one line each. Doable in today's
    `games.py` before the package - the clearest win for the least churn.
 4. **The package, same behaviour**: `games.py` -> `games/`, methods moved to parts, call sites and `offline_check`
    (~77 lines, ~60 flat method calls to make part calls) updated. No logic changes: a pure move, so its diff can be read as one.
