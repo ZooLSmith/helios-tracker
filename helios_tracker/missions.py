@@ -79,8 +79,10 @@ def _definition(mdef: Any) -> tuple[dict[str, Any], dict[int, int]]:
     if (cached := _defs.get(key)) is not None:
         return cached
     objectives, index = [], {}
-    for i, (key, obj) in enumerate(try_(lambda: games.GAME.missions.objectives(mdef), []) or []):  # (each game's: games.py)
-        index[key] = i
+    # (obj_key, not key: the cache's - reusing it filed every definition under its last objective's key, never found
+    # again: every pass read every mission's texts, ~0.9 ms each - tools/probes/probe_bl1_log_cost.txt)
+    for i, (obj_key, obj) in enumerate(try_(lambda: games.GAME.missions.objectives(mdef), []) or []):  # (each game's: games.py)
+        index[obj_key] = i
         objectives.append({
             **named(_text(obj, "ProgressMessage"), try_(lambda o=obj: def_name(o), "") or ""),  # (BL1's: structs, no name)
             "c": try_(lambda o=obj: int(o.ObjectiveCount), 1) or 1,
@@ -264,6 +266,7 @@ class MissionLog:
         self._tracked = ""
         self._map_regions: dict[str, list[Any]] = {}  # map name (lower case) -> its missions' regions
         self.dirty = False  # the live part changed since the last payload()
+        self.step_parts: dict[str, float] = {}  # the last step's time per part (s) and its entries read: the debug report
         self.defs_dirty = True  # the list (definitions) changed since the last defs_payload()
 
     def full(self, tracker: Any, pcs: list[Any] | None = None) -> None:
@@ -282,7 +285,10 @@ class MissionLog:
         player controllers). The list is fetched from the tracker at each step (nothing held across
         frames but the definitions, static game data); an entry changed under us is caught by the
         next cycle (and the fast pass checks the order)."""
+        started = time.perf_counter()
         entries = try_(lambda: games.GAME.missions.entries(tracker))
+        fetched = time.perf_counter()
+        self.step_parts = {"entries": fetched - started}
         if entries is None:
             self._cycle = None
             return True
@@ -318,6 +324,8 @@ class MissionLog:
             c["live"].append(state)
             if state[0] not in ("NotStarted", "Complete"):
                 c["watch"].append(len(c["records"]) - 1)
+        read = time.perf_counter()
+        self.step_parts.update(read=read - fetched, n=end - c["k"])
         c["k"] = end
         if end < count:
             return False
@@ -331,6 +339,7 @@ class MissionLog:
         self._mdefs = mdefs
         self._track(tracker)
         self._update_rewards(pcs() or [])
+        self.step_parts["apply"] = time.perf_counter() - read
         return True
 
     def _update_rewards(self, pcs: list[Any]) -> None:

@@ -2007,9 +2007,16 @@ class Collector:
     def _full_log(self) -> None:
         """One step of the full pass; published when the cycle completes."""
         tracker = self._tracker() if self._tracker is not None else None
+        started = time.perf_counter()
         if tracker is not None and self._log.step(tracker, self._player_controllers):
             self._publish_log()
             self._update_area_level()
+        if DIAGNOSTICS and (time.perf_counter() - started) * 1000 > SLOW_MS:  # slow: which part - debug only
+            parts = dict(self._log.step_parts)
+            self._timings.size("mission log entries per step", int(parts.pop("n", 0)))
+            for name, part_s in parts.items():
+                if part_s * 1000 > 1.0:
+                    self._timings.add("mission log." + name, part_s * 1000)
 
     def _update_area_level(self) -> None:
         """The level of the area the player is in, as the game has it: the game stage of the regions

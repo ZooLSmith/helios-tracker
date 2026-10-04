@@ -11,7 +11,7 @@ class Missions(Part):
 
     def entries(self, tracker: Any) -> Any:
         """The playthrough's missions, each {MissionDef, Status, its progress...} (missions.py MissionLog): the
-        tracker's MissionList - every mission of the game, not started ones too."""
+        tracker's MissionList - every mission of the game, not started ones too. None: not there yet (loading)."""
         return tracker.MissionList
 
     def picked_entries(self, tracker: Any) -> Any:

@@ -2218,6 +2218,8 @@ def check_helios_tracker() -> None:  # noqa: PLR0915
         steps += 1
         assert chunked.in_cycle and not chunked.payload(1)["missions"], "applied before the cycle completed"
     assert steps == len(log_entries) - 1 and [m["st"] for m in chunked.payload(1)["missions"]] == [m["st"] for m in log["missions"]], steps
+    # the definitions cached by their mission (read once): a pass doesn't read them again
+    assert all(sliced._defs.get(e.MissionDef._get_address()) is not None for e in log_entries), "a definition not cached by its mission"
     # rewards per player level (tools/probes/probe_rewards.txt: MissionDefinition.GetExperienceReward(pc, bAlt))
     from helios_tracker import missions as mission_log  # noqa: PLC0415
 

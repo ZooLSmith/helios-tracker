@@ -52,6 +52,8 @@ class Bl1Missions(Missions):
 
         pc = get_pc()
         playthrough = int(ENGINE.GetCurrentWorldInfo().GRI.HostCurrentPlaythrough)
+        if playthrough >= len(pc.MissionPlaythroughData):  # empty for a moment as a save loads (the log, 2026-10-04)
+            return None
         log = list(pc.MissionPlaythroughData[playthrough].MissionList)
         status = [(e.MissionDef._get_address(), int(e.Status)) for e in log if e.MissionDef is not None]
         key = (playthrough, tuple(status), int(pc.PlayerReplicationInfo.ExpLevel))
@@ -66,7 +68,7 @@ class Bl1Missions(Missions):
     def picked_entries(self, tracker: Any) -> Any:
         # its log only: the stand-ins for the missions not picked up (~218) can't be active - the markers went through
         # them all every second (2-3 ms)
-        return [e for e in self.entries(tracker) if not isinstance(e, _NotPickedUp)]
+        return [e for e in self.entries(tracker) or () if not isinstance(e, _NotPickedUp)]
 
     def _eligible_for(self, pc: Any, mission: Any) -> bool:
         """The controller's GetMissionEligibility(mission) is ME_Eligible - once per mission while the key holds."""
