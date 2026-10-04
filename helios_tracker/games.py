@@ -289,6 +289,9 @@ class Profile:
         """ClientPlayBinkMovie's arguments: whether the video can't be skipped."""
         return bool(args.bForceNoSkip)
 
+    def level_changed(self) -> None:
+        """A new level (util.level_changed - registered below): what the profile keeps per level, forgotten. BL2's: none."""
+
     def pickup_at_rest(self, get: Any) -> bool:
         """Whether a pickup has stopped moving (`get`: its util.reader): WillowPickup.bPickupAtRest - False while it
         tumbles or slides, True ~0.25-1 s after it fully stopped (tools/probes/probe_pickup_rest.txt: two drops, one
@@ -379,7 +382,7 @@ class Borderlands1(Profile):
         self._eligible: dict[int, bool] = {}  # mission definition address -> GetMissionEligibility is ME_Eligible
         self._skill_clips: dict[int, tuple[str, str]] = {}  # CharacterName -> (the skill clip, its frame) (_skill_clip)
         self._missions: list[Any] = []  # every MissionDefinition loaded (_mission_definitions)
-        self._destination_area: str = ""  # the area its level script's events were indexed in (_events_by_origin)
+        self._events_indexed = False  # the level's script events indexed (_events_by_origin) - forgotten per level
         self._events_by_origin: dict[int, list[Any]] = {}  # object address -> WeakPointers to the events it triggers
         self._destination_map: dict[int, str] = {}  # object address -> the map it changes to ("": none), worked out
 
@@ -507,8 +510,9 @@ class Borderlands1(Profile):
         # The events indexed once per area (_events_by_origin), followed for the objects asked about only (the whole
         # script followed at once: 151 ms in one record - 2026-10-04).
         key = io._get_address()
-        changed = self._area_changed()  # (first: a new area's events indexed, its answers forgotten)
-        if not changed and (found := self._destination_map.get(key)) is not None:
+        if not self._events_indexed:
+            self._index_events()
+        elif (found := self._destination_map.get(key)) is not None:
             return found
         found = ""
         for ptr in self._events_by_origin.get(key, []):
@@ -517,25 +521,25 @@ class Borderlands1(Profile):
         self._destination_map[key] = found
         return found
 
-    def _area_changed(self) -> bool:
-        """The area (its map name: the world is "Loader" in every area) changed since the events were indexed: indexed
-        again - every event's Originator (a find_all and a property read each), its object's address -> the event."""
-        import unrealsdk  # noqa: PLC0415
-        from mods_base import ENGINE  # noqa: PLC0415
+    def level_changed(self) -> None:
+        # (the level's script events and the exits worked out from them: a level's - by the area's name they once
+        # outlived a save-quit-continue in the same area, the old addresses kept)
+        self._events_indexed, self._events_by_origin, self._destination_map = False, {}, {}
 
-        from .util import field  # noqa: PLC0415
+    def _index_events(self) -> None:
+        """The level's script events by who triggers them: every event's Originator (a find_all and a property read
+        each), its object's address -> the event - once per level (level_changed)."""
+        import unrealsdk  # noqa: PLC0415
         from unrealsdk.unreal import WeakPointer  # noqa: PLC0415
 
-        area = self.map_name(ENGINE.GetCurrentWorldInfo())
-        if self._destination_area == area:
-            return False
+        from .util import field  # noqa: PLC0415
+
         index: dict[int, list[Any]] = {}
         for event in unrealsdk.find_all("SequenceEvent", exact=False):
             if event.Name.startswith("Default__") or (origin := field(event, "Originator")) is None:
                 continue
             index.setdefault(origin._get_address(), []).append(WeakPointer(event))
-        self._destination_area, self._events_by_origin, self._destination_map = area, index, {}
-        return True
+        self._events_indexed, self._events_by_origin, self._destination_map = True, index, {}
 
     def _map_change_from(self, event: Any) -> str:
         """The DefaultMap an event's output links reach (a few steps: gates, delays between), "" if none."""
@@ -936,3 +940,12 @@ def _current() -> Profile:
 
 
 GAME: Profile = _current()  # the game running (read as games.GAME, at the time: a test swaps it)
+
+
+def _level_changed() -> None:
+    GAME.level_changed()  # (the profile in use when the level changes: read at the time)
+
+
+from .util import on_level_change  # noqa: E402 - (util: no SDK, no games import at module level)
+
+on_level_change(_level_changed)

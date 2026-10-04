@@ -1382,6 +1382,19 @@ def check_helios_tracker() -> None:  # noqa: PLR0915
     try:
         assert profile_bl1.object_destination(bl1_changer) == "Dry_P"
         assert profile_bl1.object_destination(ns(_get_address=lambda: 0xC9)) == "", "not a changer: none"
+        # a level change (util.level_changed: the profile's reset registered with it) - its events indexed again, not
+        # kept by the area's name (stale after a save-quit-continue in the same area)
+        from helios_tracker.util import level_changed as reset_level, on_level_change as on_reset  # noqa: PLC0415
+        reset_hits: list = []
+        on_reset(lambda: reset_hits.append(1))
+        real_profile = game_profiles.GAME
+        game_profiles.GAME = profile_bl1
+        try:
+            reset_level()
+        finally:
+            game_profiles.GAME = real_profile
+        assert reset_hits == [1] and not profile_bl1._events_indexed and not profile_bl1._destination_map, "reset with the level"
+        assert profile_bl1.object_destination(bl1_changer) == "Dry_P", "indexed again"
     finally:
         bl1_sdk.find_all, profile_bl1.map_name = bl1_real_find_all, bl1_real_map_name
     assert profile_bl2.object_destination(bl1_changer) == ""

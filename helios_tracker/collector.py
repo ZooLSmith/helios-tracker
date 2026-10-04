@@ -33,8 +33,8 @@ from .skills import SkillReader
 from .frames import FRAMES
 from .paths import DIAGNOSTICS
 from .server import Hub
-from .util import (addr, call_str, clear_fields, def_name, exp_level, field, item_name, log, log_error, named,
-                   pickup_kind, player_info, rarity_table, reader, try_)
+from .util import (addr, call_str, def_name, exp_level, field, item_name, level_changed, log, log_error, named,
+                   on_level_change, pickup_kind, player_info, rarity_table, reader, try_)
 
 LEVEL_CHECK_EVERY = 1.0  # s
 SCAN_EVERY = 120.0  # s between full pickup scans: a safety net, new ones come from the spawn hook
@@ -81,6 +81,7 @@ _record_parts: dict[str, float] = {}
 # An object definition's GetTargetName (a function call - 27 ms in Borderlands 1): once per definition and level (its
 # objects get the same text from the game); cleared with the level (_clear_contents)
 _target_names: dict[int, str] = {}
+on_level_change(_target_names.clear)  # (by definition address: a level's)
 
 
 class _Timings:
@@ -312,8 +313,7 @@ class Collector:
         self._clear_contents()
 
     def _clear_contents(self) -> None:
-        clear_fields()  # a new level: packages may have been unloaded (the property cache re-fills at once)
-        _target_names.clear()  # (by definition address: a level's)
+        level_changed()  # (every cache kept per level: the properties looked up, the target names, the profile's...)
         self._seats: dict[int, bool] = {}  # class address -> a vehicle seat's (_is_seat; addresses: per level, as above)
         self._areas = []
         self._areas_found = False  # (the discovery areas: found once a level - _scan_objects)

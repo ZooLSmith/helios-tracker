@@ -111,9 +111,33 @@ def _str_result(r: Any) -> str:
 _fields: dict[int, dict[str, Any]] = {}  # class address -> property name -> property
 
 
+# A level change: what's kept per level forgets it (the collector calls level_changed - _clear_contents). Each such cache
+# registers its reset where it's defined (on_level_change): nothing works out by itself that the level changed (BL1's
+# exits once did, by the area's name - stale after a save-quit-continue in the same area: profiles.md "Level changes").
+_level_resets: list[Any] = []
+
+
+def on_level_change(reset: Any) -> Any:
+    """Registers a reset (a function, no arguments) to call at each level change; returns it."""
+    _level_resets.append(reset)
+    return reset
+
+
+def level_changed() -> None:
+    """A new level: every registered reset (one failing doesn't stop the others - logged)."""
+    for reset in list(_level_resets):
+        try:
+            reset()
+        except Exception as ex:  # noqa: BLE001
+            log_error("level reset", ex)
+
+
 def clear_fields() -> None:
     """Forgets the looked-up properties (a level change: packages may have been unloaded)."""
     _fields.clear()
+
+
+on_level_change(clear_fields)
 
 
 def _prop(cls: Any, props: dict[str, Any], name: str) -> Any:
