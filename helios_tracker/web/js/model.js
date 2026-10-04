@@ -13,6 +13,7 @@ export const LAYER_SETTINGS = {
   trackedOnly: { type: "bool", def: false }, // objectives: only the tracked mission's
   amounts: { type: "bool", def: true }, // cash, eridium / moonstones: how much one gives - under its name, or alone
   amountSize: { type: "range", min: 50, max: 200, step: 10, def: 100 }, // their text's size, % (like nameSize)
+  later: { type: "bool", def: false, tip: "set.laterTip" }, // mission items: the ones for later too (gray-blue, crossed out)
 };
 const COMMON = ["names", "nameSize", "size", "floors", "range"]; // (the panel's order: other floors just before max distance)
 
@@ -74,7 +75,8 @@ export const LAYERS = [
     // buffs you use (interactive objects, not pickups: the Pre-Sequel's Moxxtails, BL2's shrines - a skill for a while)
     ...(k === "other" ? [{ id: "buff", group: "loot", parent: "pickups", on: true, tip: "layer.buffTip", settings: COMMON }] : []),
     { id: "pickup." + k, group: "loot", parent: "pickups", legacy: "loot", on: true,
-      settings: k === "cash" || k === "eridium" ? ["names", "nameSize", "amounts", "amountSize", ...COMMON.slice(2)] : COMMON,
+      settings: k === "cash" || k === "eridium" ? ["names", "nameSize", "amounts", "amountSize", ...COMMON.slice(2)]
+        : k === "mission" ? ["names", "nameSize", "later", ...COMMON.slice(2)] : COMMON,
       ...(k === "other" ? { tip: "layer.pickup.otherTip" } : {}), ...(k === "oxygen" ? { needs: "oxygen" } : {}) }]),
   { id: "containers", group: "loot", folder: true, settings: [] },
   { id: "chest", group: "loot", parent: "containers", on: true, settings: COMMON },

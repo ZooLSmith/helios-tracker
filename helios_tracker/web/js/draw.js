@@ -6,9 +6,9 @@ import { UU_PER_METER, mapTurn, worldToMap, yawToAngle } from "./geo.js";
 import { FLOOR_UU, LAYERS, LAYER_COLOR, chestTier, isGear, isGoldenChest, lootLayer, nameText, rainbowAt, rarity } from "./model.js";
 import { num } from "./i18n.js";
 import { look, withAlpha } from "./look.js";
-import { missionItemWanted } from "./missions.js";
+import { missionItemLater, missionItemWanted } from "./missions.js";
 import { settings } from "./settings.js";
-import { COLORS, areaName, arrow, bang, bossDiamond, question, brackets, burst, chest, coin, diamond, dot, amountLabel, lastMark, hollowDiamond, jumpMark, slotMark, vaultMark, label, leader, menuBadge, oxygenMark, respawnRing, ring, setMarkerScale, square, triangle, typeIcon,
+import { COLORS, areaName, arrow, bang, bossDiamond, question, brackets, burst, chest, coin, crossOut, diamond, dot, amountLabel, lastMark, hollowDiamond, jumpMark, slotMark, vaultMark, label, leader, menuBadge, oxygenMark, respawnRing, ring, setMarkerScale, square, triangle, typeIcon,
   vitalBars } from "./shapes.js";
 import { S, findDetail, findPlayer, frame, pawnPos, trackedPawn } from "./state.js";
 const objectIds = new Set(); // (this frame's objects: a pickup on sale on one of them isn't drawn - the object is)
@@ -366,7 +366,13 @@ export function draw() {
   for (const o of S.objects) objectIds.add(o.i);
   for (const p of S.pickups) {
     if (p.on && objectIds.has(p.on)) continue; // on sale on an object (a Moxxtail's drink): the object shows it, its price
-    if (p.ms && !missionItemWanted(p.ms, byId)) continue; // a mission item placed ahead (its step not reached / done)
+    // a mission item placed ahead (its step not reached / done): hidden - one for later shown, gray-blue and crossed out,
+    // with Mission items' Upcoming on
+    let later = false;
+    if (p.ms && !missionItemWanted(p.ms, byId)) {
+      if (!L["pickup.mission"]?.later || !missionItemLater(p.ms, byId)) continue;
+      later = true;
+    }
     if (offMap(p.z)) continue;
     const layer = lootLayer(p), st = style(layer, p);
     if (!st) continue;
@@ -377,20 +383,22 @@ export function draw() {
     // effervescent: the game's rainbow, its hue from the clock (moves as frames are drawn, at the Refresh rate)
     const color = tierName === "effervescent" ? rainbowAt(now) : tierColor;
     fadeTo(st.alpha);
-    stem(p.x, p.y, sx, sy, isGear(p.c) ? color : LAYER_COLOR[layer]);
+    const kindColor = later ? COLORS.later : LAYER_COLOR[layer]; // (not gear: its kind's colour)
+    stem(p.x, p.y, sx, sy, isGear(p.c) ? color : kindColor);
     // gear: its item card's type icon (a rifle, a shield...) in its rarity's colour - the triangle until it's loaded / none
     if (isGear(p.c)) { if (!typeIcon(sx, sy, p.wt, color, (tier >= 5 ? 13 : 11) * st.k)) triangle(sx, sy, (tier >= 5 ? 6.5 : 5) * st.k, color); }
     // a mission item, cyan: one that starts a mission (its "ms" k "gives": an ECHO log starting one) the Missions
     // layer's "!" on its disc, one part of a mission under way ("for") a diamond
     // (their own icons - the game's PickupFlagIcon - were tried here: unreadable at map size, too detailed; the user's
     // call - they're in the tooltip / panel instead)
-    else if (layer === "pickup.mission" && p.ms?.k === "gives") bang(sx, sy, LAYER_COLOR[layer], st.k);
-    else if (layer === "pickup.mission") diamond(sx, sy, 6 * st.k, LAYER_COLOR[layer]);
+    else if (layer === "pickup.mission" && p.ms?.k === "gives") bang(sx, sy, kindColor, st.k);
+    else if (layer === "pickup.mission") diamond(sx, sy, 6 * st.k, kindColor);
     else if (layer === "pickup.cash") coin(sx, sy, LAYER_COLOR[layer], st.k); // money: a "$" disc
     else if (layer === "pickup.eridium" && gameData().eridiumGlyph) coin(sx, sy, LAYER_COLOR[layer], st.k, gameData().eridiumGlyph); // moonstones: an "m" disc (game.js)
     else dot(sx, sy, 3.5 * st.k, LAYER_COLOR[layer]); // not gear (ammo, cash...): its kind's colour, no rarity
+    if (later) crossOut(sx, sy, kindColor, st.k);
     const markR = lastMark(); // (label() clears it: the amount's line uses it too)
-    if (st.names) label(sx, sy, nameText(p), isGear(p.c) ? color : LAYER_COLOR[layer], p.raw, st.ns); // (past its marker: shapes.js drew)
+    if (st.names) label(sx, sy, nameText(p), isGear(p.c) ? color : kindColor, p.raw, st.ns); // (past its marker: shapes.js drew)
     // cash, eridium / moonstones: how much (the collector's "am") - under the name, or alone in its place
     if (st.amounts && p.am && (layer === "pickup.cash" || layer === "pickup.eridium")) {
       amountLabel(sx, sy, num(p.am), LAYER_COLOR[layer], st.as, markR, st.names ? st.ns : 0); // (the number alone: its disc has the "$" / "m")

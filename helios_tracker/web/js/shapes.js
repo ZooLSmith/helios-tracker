@@ -9,7 +9,7 @@ import { ctx } from "./view.js";
 export const COLORS = {};
 const TOKENS = { bg: "bg", grid: "grid", shield: "shield", health: "health", dead: "dead", menu: "menu", objective: "objective",
   tracked: "map-tracked", playerEdge: "map-player-edge", outline: "map-outline", outlineSoft: "map-outline-soft",
-  ink: "map-ink", boss: "map-boss", golden: "map-golden", turnin: "map-turnin", halo: "map-halo", barBack: "map-bar-back" };
+  ink: "map-ink", boss: "map-boss", later: "map-mission-later", golden: "map-golden", turnin: "map-turnin", halo: "map-halo", barBack: "map-bar-back" };
 export function initColors() {
   for (const [k, token] of Object.entries(TOKENS)) COLORS[k] = tokenColor("--" + token);
   COLORS.mapFilter = tokenRaw("--map-filter") || "none"; // (the theme's map tint: draw.js mapCanvas)
@@ -305,6 +305,18 @@ export function amountLabel(x, y, text, color, k = 1, r = lastW, nameK = 0) {
 }
 /** The last marker drawn's half-width (px): for a second line by it (amountLabel), before label() clears it. */
 export function lastMark() { return lastW; }
+
+/** A marker crossed out (a mission item for later): a slash over the last one drawn, a little past its edge - its
+ *  colour on a dark edge, to read on the marker and the map. */
+export function crossOut(x, y, color, k = 1) {
+  const r = Math.max(lastW, lastH) * 1.25;
+  ctx.save();
+  ctx.lineCap = "round";
+  ctx.beginPath(); ctx.moveTo(x + r, y - r); ctx.lineTo(x - r, y + r);
+  ctx.lineWidth = 3.4 * k; ctx.strokeStyle = COLORS.outline; ctx.stroke();
+  ctx.lineWidth = 1.6 * k; ctx.strokeStyle = color; ctx.stroke();
+  ctx.restore();
+}
 
 export function areaName(x, y, text, color, k = 1) { // an area's name, centred on it (the map screen's style)
   ctx.font = `600 ${13 * k}px 'Segoe UI', system-ui, sans-serif`;

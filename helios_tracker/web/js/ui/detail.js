@@ -11,6 +11,7 @@ import { itemHtml, pickupAmount, pickupIconHtml, priceText, rarityName } from ".
 import { renderPlayers } from "./players.js";
 import { oddsHtml } from "./odds.js";
 import { machineStockHtml } from "./shops.js";
+import { missionItemNotYet, missionsById } from "../missions.js";
 
 /** Opens an object's / marker's panel. From the vending machines' list: a back button to it (`back`: that machine
  *  first on return - shops.js). */
@@ -158,6 +159,13 @@ export function renderDetail(resetScroll) {
   if (it.ms) { // a mission item: the mission it gives / is for - a link to it in the mission log
     rows.push([t(it.ms.k === "gives" ? "detail.givesMission" : "detail.forMission"), null,
       `<a class="mlink" data-open-mission="${esc(it.ms.i)}">${esc(it.ms.n)}</a>` + (it.ms.o ? ` · ${esc(it.ms.o)}` : "")]);
+    // one for later (Mission items: Upcoming): why it can't be used yet - the missions it waits on, links to them
+    const notYet = missionItemNotYet(it.ms, missionsById(S.log));
+    if (notYet) {
+      const byId = missionsById(S.log);
+      const needs = (notYet.needs || []).map((i) => `<a class="mlink" data-open-mission="${esc(i)}">${esc(byId.get(i)?.n || i)}</a>`);
+      rows.push([t("detail.notYet"), null, esc(t("detail.notYet." + notYet.why)) + (needs.length ? " " + needs.join(", ") : "")]);
+    }
   }
   // a vending machine: its stock, a link to it in the Shops list (shops.js)
   const shop = kind === "vendor" && S.shops ? S.shops.machines.find((m) => m.i === it.i) : null;

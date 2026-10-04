@@ -162,6 +162,7 @@
   --layer-explosive: #e0703a; /* what explodes (barrels): an orange - each drawn in its element's colour (the game's) */
   --layer-oxygen: #4e6a86; /* the Pre-Sequel's oxygen sources (air domes, fissures): a dark blue-grey (the user's) */
   --layer-pickup-oxygen: #4e6a86; /* the Pre-Sequel's oxygen canisters: the oxygen sources' blue-grey (the user's; their loot beam's #0096c8 before) */
+  --map-mission-later: #7d8fa3; /* a mission item for later (Mission items: Upcoming): a gray-blue, crossed out */
   --layer-pickup-mission: #3fd8ff; /* mission items: a cyan "!" (the user: cyan in game - this one picked, not sampled) */
   --layer-pickup-other: #9aa7ad;
   --layer-buff: #ff7fc8; /* buffs you use (Moxxtails, shrines): a pink (Moxxi's) */

@@ -35,16 +35,51 @@ export function whereTo(m, state) {
 /** Whether a mission item on the ground matters now (its "ms": the mission it gives / is for - the
  *  game places them ahead, e.g. pizzas for a step not reached yet, not pickable). One an objective
  *  asks for ("for"): while its mission is picked up, that objective (oi) in the current step and not
- *  done. One giving a mission ("gives", an ECHO log): while that mission isn't started or done. No
- *  link, or the mission not in the log (yet): shown. */
+ *  done. One giving a mission ("gives", an ECHO log): while that mission can be picked up - not started, not
+ *  locked (a mission it needs not done: the game doesn't let the item be used yet - the Pre-Sequel's Data Device,
+ *  The Secret Chamber's, lies in Pity's Fall before its main mission is done). No link, or the mission not in the
+ *  log (yet): shown. */
 export function missionItemWanted(ms, missionsById) {
   const m = ms && missionsById ? missionsById.get(ms.i) : null;
   if (!m) return true;
-  if (ms.k === "gives") return m.st === "NotStarted";
+  if (ms.k === "gives") return ["available", "unknown"].includes(missionState(m, missionsById));
   if (!pickedUp(m)) return false;
   if (ms.oi == null) return true; // (its objective not known: the mission being on is enough)
   const s = objectiveStates(m)[ms.oi];
   return !!s && s.state === "current";
+}
+
+/** Why a mission item can't be used yet - one for later (Mission items: Upcoming, gray-blue and crossed out; the
+ *  tooltip and the detail panel say why): { why: "locked", needs: [the ids of the missions it waits on] } (it gives a
+ *  mission that's locked: the ones it needs not done, the one whose objective it waits on), { why: "notPicked" } (an
+ *  objective asks for it, its mission isn't picked up), { why: "step" } (that objective isn't reached yet). null: it
+ *  can be (or it's done: nothing left to do with it - its mission or objective done). */
+export function missionItemNotYet(ms, missionsById) {
+  const m = ms && missionsById ? missionsById.get(ms.i) : null;
+  if (!m) return null;
+  if (ms.k === "gives") {
+    if (missionState(m, missionsById) !== "locked") return null;
+    const needs = (m.deps || []).filter((d) => missionsById.get(d)?.st !== "Complete");
+    if (m.wait?.m && !needs.includes(m.wait.m)) needs.push(m.wait.m);
+    return { why: "locked", needs };
+  }
+  if (m.st === "NotStarted") return { why: "notPicked" };
+  if (!pickedUp(m) || ms.oi == null) return null;
+  const s = objectiveStates(m)[ms.oi];
+  return s && s.state === "pending" ? { why: "step" } : null;
+}
+
+/** Whether a mission item not wanted now is one for later (missionItemNotYet: a reason why). */
+export function missionItemLater(ms, missionsById) {
+  return !!missionItemNotYet(ms, missionsById);
+}
+
+/** The mission log's missions by id (the collector's "missionlog"), built once per log. */
+const byIdCache = new WeakMap();
+export function missionsById(log) {
+  if (!log) return new Map();
+  if (!byIdCache.has(log)) byIdCache.set(log, new Map((log.missions || []).map((m) => [m.i, m])));
+  return byIdCache.get(log);
 }
 
 /** Whether a place (whereTo / a station) is the level the player is in (map names compared). */

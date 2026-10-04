@@ -307,9 +307,20 @@ const { missionItemWanted } = await load("js/missions.js");
 // mission items placed ahead: shown only while their objective is to do (for) / their mission not started (gives)
 const itemLog = new Map([
   ["act", { i: "act", st: "Active", obj: [{ c: 1 }, { c: 4 }, { c: 1 }], p: [1, 2, 0], cur: [1] }],
-  ["new", { i: "new", st: "NotStarted" }], ["old", { i: "old", st: "Complete" }]]);
+  ["new", { i: "new", st: "NotStarted" }], ["old", { i: "old", st: "Complete" }],
+  ["lockedGiven", { i: "lockedGiven", st: "NotStarted", deps: ["act"] }]]);
 const items = [{ k: "for", i: "act", oi: 1 }, { k: "for", i: "act", oi: 2 }, { k: "for", i: "act", oi: 0 }, { k: "for", i: "new", oi: 0 },
-  { k: "gives", i: "new" }, { k: "gives", i: "old" }, { k: "for", i: "nowhere", oi: 0 }].map((ms) => missionItemWanted(ms, itemLog));
+  { k: "gives", i: "new" }, { k: "gives", i: "old" }, { k: "for", i: "nowhere", oi: 0 },
+  { k: "gives", i: "lockedGiven" }].map((ms) => missionItemWanted(ms, itemLog));
+// the ones for later (Mission items: Upcoming): a pending objective's, a mission not picked up yet's, a locked mission's
+const { missionItemLater } = await load("js/missions.js");
+const { missionItemNotYet } = await load("js/missions.js");
+// why (the tooltip, the panel): the locked one's missions it needs (not done), the others' reasons
+const notYetWhy = [{ k: "gives", i: "lockedGiven" }, { k: "for", i: "new", oi: 0 }, { k: "for", i: "act", oi: 2 }, { k: "gives", i: "new" }]
+  .map((ms) => missionItemNotYet(ms, itemLog));
+const itemsLater = [{ k: "for", i: "act", oi: 1 }, { k: "for", i: "act", oi: 2 }, { k: "for", i: "act", oi: 0 }, { k: "for", i: "new", oi: 0 },
+  { k: "gives", i: "new" }, { k: "gives", i: "old" }, { k: "for", i: "nowhere", oi: 0 },
+  { k: "gives", i: "lockedGiven" }].map((ms) => missionItemLater(ms, itemLog));
 const { look, withAlpha } = await load("js/look.js");
 const { settings: lookSettings } = await load("js/settings.js");
 const lookDefault = look();
@@ -402,7 +413,7 @@ refreshLootDetail(countLootRender); // nothing changed: not again
 S.groundItems = new Map([["lootCard", { i: "lootCard" }]]);
 refreshLootDetail(countLootRender); // its card came: again
 Object.assign(S, { detail: null, pickups: [], groundItems: new Map() });
-const missionsOut = { deltaOut, lootDetailRenders, rowsOut, shotCostOut, bonusOut, statsOut, lookOut, vaultCat, healthShown, variantWords, stepOrder, hitPicks, items, fallback, where, tooHigh, finish, difficulty, best, search, infoHtml, areas, gameText, story: flat(tree.story), other: flat(tree.other), counts: missionCounts(log),
+const missionsOut = { deltaOut, lootDetailRenders, rowsOut, shotCostOut, bonusOut, statsOut, lookOut, vaultCat, healthShown, variantWords, stepOrder, hitPicks, items, itemsLater, notYetWhy, fallback, where, tooHigh, finish, difficulty, best, search, infoHtml, areas, gameText, story: flat(tree.story), other: flat(tree.other), counts: missionCounts(log),
   objectives: objectiveStates(log[1]).map((s) => s.state) };
 console.log(JSON.stringify({ sha: crypto.createHash("sha256").update(rgba).digest("hex"), err, back, right, raw, modules, missions: missionsOut,
   migrated, checked: { enemy: checked.layers.enemy, view: checked.view, openLayers: checked.ui.openLayers, drawer: checked.ui.drawer, badDrawer }, i18nKeys, unknownSettings, lootLayers, gameRarity, gameOut, freeRects }));
@@ -2733,7 +2744,9 @@ def check_helios_tracker() -> None:  # noqa: PLR0915
     assert mis["difficulty"] == ["impossible", "tough", "normal", "normal", "trivial", None, None], mis["difficulty"]
     assert mis["finish"] == "f4:7,f1:5,f2:1", mis["finish"]
     # its objective current (to do) / later step / done / mission not started; gives: not started / done; unknown mission
-    assert mis["items"] == [True, False, False, False, True, False, True], mis["items"]
+    assert mis["items"] == [True, False, False, False, True, False, True, False], mis["items"]  # (a locked mission's item: not wanted)
+    assert mis["itemsLater"] == [False, True, False, True, False, False, False, True], mis["itemsLater"]  # (later: pending, not picked up, locked)
+    assert mis["notYetWhy"] == [{"why": "locked", "needs": ["act"]}, {"why": "notPicked"}, {"why": "step"}, None], mis["notYetWhy"]
     assert mis["statsOut"] == ["Gun Damage: +6\u202f%", "Reload Speed: +8\u202f%", "Shield Recharge Delay: -12\u202f%",
                                "Regenerates 0.4\u202f% of your Max Health / sec.", "Turret Duration: +2 seconds",
                                "Cooldown: 42 seconds"], ("a skill's stats, the game's way", mis["statsOut"])

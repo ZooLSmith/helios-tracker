@@ -7,6 +7,7 @@ import { cardIconKey, isGear, poolKinds, rainbowAt, rarity, shownHealth, shownMa
 import { settings } from "./settings.js";
 import { S, itemById, onSale, trackedPawn } from "./state.js";
 import { pickupAmount, pickupIconHtml, priceText, rarityName } from "./ui/items.js";
+import { missionItemNotYet, missionsById } from "./missions.js";
 import { H, W, panelRects, toMap } from "./view.js";
 
 // The last frame's context: the tooltip also follows the pointer between frames (refreshTooltip: at full speed,
@@ -82,6 +83,12 @@ function renderTooltip(mePos, f) {
     : esc(t("tip." + best.kind, null, best.kind));
   lines.push(`<span class="tl">${kindHtml}</span>`);
   if (it.ms) lines.push(`<span class="tl">${esc(t(it.ms.k === "gives" ? "tip.givesMission" : "tip.forMission", { n: it.ms.n }))}</span>`);
+  // one for later (Mission items: Upcoming): why it can't be used yet
+  const notYet = it.ms ? missionItemNotYet(it.ms, missionsById(S.log)) : null;
+  if (notYet) {
+    const byId = missionsById(S.log), needs = (notYet.needs || []).map((i) => t("tip.quote", { n: byId.get(i)?.n || i })).join(", "); // (quoted: a name inside the sentence)
+    lines.push(`<span class="tl">${esc(t("tip.notYet." + notYet.why, { n: needs }))}</span>`);
+  }
   if (it.rs) lines.push(`<span class="tl">${esc(t("tip.respawning"))}</span>`);
   else if (it.dd) lines.push(`<span class="tl">${esc(t("vital.dead"))}</span>`);
   else if (it.dn) lines.push(`<span class="tl">${esc(t("vital.ffyl"))}</span>`);

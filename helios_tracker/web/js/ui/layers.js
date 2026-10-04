@@ -76,7 +76,7 @@ function settingHtml(l, key) {
       `<span class="cval">${esc(t("unit.percent", { n: size }))}</span></div>`;
   }
   if (s.type === "bool") {
-    return `<label class="row cset"><input type="checkbox" ${attrs}${v ? " checked" : ""}><span>${name}</span></label>`;
+    return `<label class="row cset"${s.tip ? ` title="${esc(t(s.tip))}"` : ""}><input type="checkbox" ${attrs}${v ? " checked" : ""}><span>${name}</span></label>`;
   }
   if (s.type === "range") {
     return `<div class="cset"><span class="clabel">${name}</span><input type="range" ${attrs} min="${s.min}" max="${s.max}" step="${s.step}" value="${v}">` +
