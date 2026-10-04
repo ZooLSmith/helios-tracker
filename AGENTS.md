@@ -144,9 +144,9 @@ bl2-helios-tracker/
   files then show as rewritten in the diff (it happened to 8 files once). Scripts edit bytes (`read_bytes` /
   `write_bytes`) or open with `newline=""`; check `git diff --stat` for a file suddenly "all changed" before committing. Git Bash's `sed -i` does it the other way: a CRLF file
   written back LF (it happened to two files once).
-- Solo repo: commit straight to `master`, no branches - and only when asked. Exceptions: the website; `bl1`, the
-  Borderlands 1 support (the user's call: experimental - the game profiles, its package reader and vector map; origin
-  only, `.agent/bl1.md`).
+- Solo repo: commit straight to `master`, no branches - and only when asked. Exceptions: the website; a large
+  restructure the user asks to branch (Borderlands 1 support and the game profiles were: `bl1`, then `profiles` -
+  merged into `master` 2026-10-04, public with it).
 - **Never push** (any remote, any branch): the user pushes.
 
 ## Repositories
