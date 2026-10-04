@@ -160,11 +160,14 @@ Direction:
 
 ## 4. Modules too big, responsibilities mixed
 
-- `collector.py` (1816 lines): the game thread's scheduler, level changes, scans, every record kind (pawns, pickups,
-  objects, players, missions markers, shops glue, domes), the hub's payloads. `inspector.py` (1193): item cards,
-  players, skills, element names, explosions, plants, buffs. Each a grab bag: any change reads half the file.
-  Direction: the scheduler apart from the records; one module per record kind (pawns, pickups, objects, markers),
-  the collector calling them.
+- `collector.py` (~1970 lines): the game thread's scheduler, level changes, scans, every record kind (pawns, pickups,
+  objects, players, missions markers, shops glue), the hub's payloads. `inspector.py` (~1190): item cards, players,
+  skills, element names, explosions, plants, buffs. Each a grab bag: any change reads half the file. Direction (the
+  user, 2026-10-04: "a folder for the collector and more, likely later"): each becomes a **package**, as `games/` and
+  `formats/` did - `collector/` (the scheduler and the level in its `__init__`, a module per record kind: pawns,
+  pickups, objects, markers, players; the hub's payloads), `inspector/` (item cards, players, skills, objects'
+  explosions / plants / buffs) - the scheduler calling the record modules, none reaching into another's privates
+  (section 5). Later: the largest churn, the least risk to put off (Order 6).
 - *(done, 2026-10-04: `formats/`, `games/<game>/files/`, `assets.py`, `levelmap` the shared map types without the
   SDK - `profiles.md` "The game's files")* Mixed file modules (`gamefonts`, `gamecards`, `gameicons`, `tacmap`,
   `levelmap`). Left: `gamecards._movie_tags` repeats `formats/swf._movie_tags` (not quite: it yields nothing for a
@@ -226,8 +229,9 @@ big fan" (the user). To do now the profiles' moves are done:
 - what the mod writes in a folder of its own, the .sdkmod's way (`sdk_mods/.helios_tracker/`: already apart) - e.g.
   DATA = `<package>/.data/` or the same `sdk_mods/.helios_tracker/` for both installs (the dev's logs then outside the
   repo: the tools reading them follow paths.DATA); the old files moved once (or left: gitignored);
-- maybe the package's ~20 top modules grouped too (collecting, the page's server, the mod's shell: settings, updater,
-  script) - the same kind of split as games/ and formats/; its own decision.
+- the package's ~20 top modules grouped too, with section 4's packages: collecting (`collector/`, `inspector/`,
+  `missions`, `shops`, `skills`, `lootodds`, `amounts`), the page's server (`server`, `frames`?), the mod's shell
+  (settings, `updater`, `script`, `paths`) - the same kind of split as games/ and formats/; its own decision, later.
 
 ## Known, accepted for now (2026-10-04)
 
