@@ -242,7 +242,7 @@ spawns, the page shows it then). Dropped items and enemies show at any distance 
    StrongBox_Awesome, Crate_Military_Awesome...), lockers, dumpsters, mailboxes, toilets...; its radius smaller
    (`SpawnAndCullRadius` 4000: 40 m - read per point, never assumed); its vending machines through another factory
    (`PopulationFactoryVendingMachine`; the containers' `PopulationFactoryInteractiveObject` as BL2's); its scrap piles
-   POPRESPAWN_OnTimeDelay (BL2's piles: OnlyOnLevelLoad). The Pre-Sequel: not checked (BL2's engine - likely BL2's).
+   POPRESPAWN_OnTimeDelay (BL2's piles: OnlyOnLevelLoad). The Pre-Sequel: BL2's (the user: the same core - not probed).
 
 **Cost** (the stalls are the priority - architecture.md): the points are placed in the level, never move - one
 `find_all` per level (the `_lookup` queue: one per tick), their definitions resolved once (cached per population
