@@ -1,7 +1,7 @@
 """Borderlands 1 - the original 2009 game, and its Game of the Year Enhanced edition - .agent/bl1.md. Borderlands 2's
 profile, its own parts where its way differs (this folder)."""
 
-from .. import DISCOVERY, profile
+from .. import CHALLENGES, DISCOVERY, profile
 from ..bl2 import Borderlands2
 from .assets import Bl1Assets
 from .items import Bl1Items
@@ -39,7 +39,7 @@ class Borderlands1(Borderlands2):
     # 86 in game, 85 rounded (the user)
     damage_presentation = "gd_AttributePresentation.Weapons.AttrPresent_WeaponDamage"
     # no WorldDiscoveryArea class (the log: "Couldn't find class")
-    features = Borderlands2.features - {DISCOVERY}
+    features = Borderlands2.features - {DISCOVERY, CHALLENGES}
 
 
 @profile("BL1E")

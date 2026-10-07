@@ -177,6 +177,7 @@ export function renderDetail(resetScroll) {
   const sale = kind !== "loot" ? onSale(it) : undefined;
   if (sale && priceText(sale.cost)) rows.push([t("detail.price"), priceText(sale.cost)]);
   if (it.lootable) rows.push([t("detail.status"), t(it.looted ? "detail.looted" : "detail.unlooted")]);
+  if (it.lc && it.found != null) rows.push([t("detail.discovered"), t(it.found ? "detail.yes" : "detail.no")]); // (a Vault symbol: as the tooltip)
   if (it.slots) rows.push([t("detail.slots"), num(it.slots)]);
   // the technical rows (its loot lists, class, definition): folded away at the bottom ("Details", like an item's - the
   // user's call: debug more than information), as the game names them - exact, not prettified (WillowInteractiveObject,

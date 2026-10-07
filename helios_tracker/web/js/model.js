@@ -14,6 +14,7 @@ export const LAYER_SETTINGS = {
   amounts: { type: "bool", def: true }, // cash, eridium / moonstones: how much one gives - under its name, or alone
   amountSize: { type: "range", min: 50, max: 200, step: 10, def: 100 }, // their text's size, % (like nameSize)
   later: { type: "bool", def: false, tip: "set.laterTip" }, // mission items: the ones for later too (gray-blue, crossed out)
+  found: { type: "choice", options: ["mark", "hide", "show"], def: "mark", tip: "set.foundTip" }, // Vault symbols you discovered: dimmed and crossed out / hidden / as the others
 };
 const COMMON = ["names", "nameSize", "size", "floors", "range"]; // (the panel's order: other floors just before max distance)
 
@@ -100,9 +101,10 @@ export const LAYERS = [
   // what gives oxygen (the Pre-Sequel's): air domes (their breathable area - on: filled; off, their generator's button
   // not pushed: dashed), their generators, oxygen fissures
   { id: "oxygen", group: "places", on: true, needs: "oxygen", settings: COMMON },
-  // the Cult of the Vault symbols (IO_VaultRoy: clicked to discover, a challenge - tools/probes/probe_directors.txt;
-  // discovered ones not told apart yet)
-  { id: "vaultsymbol", group: "places", on: true, settings: COMMON },
+  // the Cult of the Vault symbols (IO_VaultRoy: clicked to discover, a challenge - tools/probes/probe_directors.txt):
+  // the ones the player running the mod discovered (the collector's "found" - their own save's, a client's too once the
+  // object's challenge is known) marked, hidden or not told apart
+  { id: "vaultsymbol", group: "places", on: true, settings: ["names", "nameSize", "found", ...COMMON.slice(2)] },
   { id: "other", group: "places", on: false, settings: COMMON },
   // Map: the level's areas (the game's discovery areas, tools/probes/probe_discovery.txt): their names, the ones not
   // discovered yet dimmed; the fog of war: the game's fog pieces over the areas not discovered (its count)

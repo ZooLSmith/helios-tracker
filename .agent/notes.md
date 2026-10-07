@@ -809,8 +809,29 @@ Southern Shelf's `_P` alone: 404 `StaticMesh`, 4131 `StaticMeshComponent`, 11 `T
   the object's record (`_note_giver`).
 - **Vault symbols** (`IO_VaultRoy`, `InteractionIconOverride` = `Icon_DefaultDiscover`: the Cult of
   the Vault challenge, clicked to discover): two dumped in full, identical but for DrawScale (1 / 0.5)
-  - nothing on the object says discovered (likely the player's challenge progress). Own map layer
-  ("Vault symbols", a pink ring + dot, on by default), discovered ones not told apart (user's call).
+  - nothing on the object says discovered. Own map layer ("Vault symbols", on by default). **Discovered**
+  (tools/probes/probe_vault_discovered.txt, Sanctuary, 2026-10-07): it's the player's, on their controller -
+  `GetHasUnlockedLevelChallengeObject(symbol)` (True for the one found, False for the 4 others;
+  `GetNumLevelObjectsFound(challenge)` = 1), the masks `LevelChallengeUnlocks` (a save field, [55300] there) /
+  `OneOffLevelChallengeCompletion`. The symbol is an IILevelChallengeObject: `NumberInChallengeGroup` (1-5),
+  `AssociatedChallenge` (`GD_Challenges.LevelChallenges.Sanctuary_VaultRoy`). Networked one way: the host runs the
+  discovery (`Behavior_DiscoverLevelChallengeObject`, `bForAllPlayers` False) and sends the player their mask
+  (`ClientSetLevelChallengeUnlockMask`); each player's own from their save. **A co-op client**
+  (probe_vault_client.txt, probe_vault_save.txt, NM_Client): its symbols are network copies (in `Loader.TheWorld`,
+  other names), `AssociatedChallenge` None, `GetAssociatedChallenge()` None, `NumberInChallengeGroup` 1 on all, the call
+  False on all; its controller's `LevelChallengeUnlocks` has its masks (`[55300]` once one was found - empty before: that
+  save had none). The mask: an entry per challenge, `LevelChallengeObjectGroupIdx << 11 | bits` (bit number - 1;
+  Sanctuary_VaultRoy's group 27: 27 << 11 | 0b100 = 55300, symbol 3). The numbers and challenges are placed data in the
+  map's packages (check_challenge_numbers.py: Sanctuary_P.upk's five, the host's numbers, the same positions as the
+  client's; the first's NumberInChallengeGroup not written - its default 1; a ByteProperty; the ECHO recorders too, in
+  Sanctuary_Dynamic.upk): a client reads them (files/challenges.py, ~0.4-1.4 s once per map in the worker, cached on
+  disk) and matches its objects by position. Seen working in game as a client (2026-10-07). Whether the host's copy of
+  a client's controller holds that client's masks: not looked at. The collector: "lc" (a definition with a
+  Behavior_DiscoverLevelChallengeObject - telescopes and treasure chests have one too) and "found" 1 / 0 (none:
+  unknown), re-read every LOOTED_EVERY until found, dropped once never knowable (no challenge on the host, nothing
+  placed near on a client - the chests) (games.GAME.objects.discovered; feature `challenges`, not BL1's). The page: the
+  layer's Discovered setting (mark: dimmed + crossed out / hide / show), the tooltip and Details say it whatever the
+  setting.
 - **Mission markers on a co-op client** (tools/probes/probe_client_markers.py / probe_minimap_icons.py /
   probe_client_waypoints.py, 2026-09-23): the client's MissionTracker has the full MissionList and
   ActiveMission but an empty `MissionWaypoints`, and no waypoint components exist at all (the host

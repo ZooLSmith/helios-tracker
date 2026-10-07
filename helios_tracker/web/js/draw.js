@@ -295,13 +295,17 @@ export function draw() {
   }
   for (const o of bySize.flat()) {
     if (offMap(o.z) || o.kd) continue; // (killed: an exploded barrel's wreck - collector.py _killed)
+    // a Vault symbol the player discovered (collector.py "found"): the layer's Discovered setting - hidden (not counted
+    // either: the ones left), marked (dimmed and crossed out) or shown as the others
+    const found = o.cat === "vaultsymbol" && o.found ? L.vaultsymbol.found : "show";
+    if (found === "hide") continue;
     const st = style(o.cat, o);
     if (!st) continue;
     const [sx, sy] = place(o.x, o.y, o.z);
     if (!visible(sx, sy)) continue;
     if (o.dome) { hits.push({ sx, sy, r: 6 * st.k, kind: o.cat, item: o }); continue; } // (a dome: its area, drawn above)
     // (looted: dimmed; an elemental plant shot empty - health 0 - dimmed too, until it has recharged)
-    fadeTo(st.alpha * (o.cat === "looted" ? 0.55 : o.plant && o.m > 0 && o.h <= 0 ? 0.45 : 1));
+    fadeTo(st.alpha * (o.cat === "looted" || found === "mark" ? 0.55 : o.plant && o.m > 0 && o.h <= 0 ? 0.45 : 1));
     // its colour: its layer's - an explosive its element's, the golden chest gold (a big chest, opened with a key)
     const oColor = o.cat === "explosive" && o.ecol ? o.ecol : o.cat === "chest" && isGoldenChest(o) ? COLORS.golden : LAYER_COLOR[o.cat];
     stem(o.x, o.y, sx, sy, oColor);
@@ -313,7 +317,10 @@ export function draw() {
     else if (o.cat === "npc") ring(sx, sy, size, LAYER_COLOR[o.cat], st.k); // (BL1's object NPCs: the NPC pawns' ring)
     else if (o.cat === "buff") dot(sx, sy, size, LAYER_COLOR[o.cat]); // (a buff: a disc - the pickups' dot, bigger)
     else if (o.cat === "explosive") burst(sx, sy, oColor, st.k); // (a burst in its element's colour: the game's)
-    else if (o.cat === "vaultsymbol") vaultMark(sx, sy, LAYER_COLOR[o.cat], st.k); // (a ring and a dot)
+    else if (o.cat === "vaultsymbol") { // (the Vault's logo; discovered: crossed out - the mission items for later's mark)
+      vaultMark(sx, sy, LAYER_COLOR[o.cat], st.k);
+      if (found === "mark") crossOut(sx, sy, LAYER_COLOR[o.cat], st.k);
+    }
     else if (o.cat === "slots") slotMark(sx, sy, LAYER_COLOR[o.cat], st.k); // (a tall box, its reels' window)
     else if (tier) chest(sx, sy, size, oColor); // (a big chest, a weapon chest - looted ones too, dimmed)
     else square(sx, sy, size, LAYER_COLOR[o.cat]);

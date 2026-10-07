@@ -193,7 +193,7 @@ const gameIds = ["loot.pearl", "loot.glitch", "loot.etech", "oxygen", "pickup.ox
   "pickup.eridium", "vaultsymbol", "buff", "slots", "pickup.mission"];
 const gameShown = () => gameIds.filter((id) => layerInGame(LAYERS.find((l) => l.id === id)));
 const gameNone = gameShown(); // (before the level message: no game's own layers)
-const gameSwitch = [setGame("tps", ["discovery", "oxygen", "jumppads"]), setGame("tps", ["jumppads", "oxygen", "discovery"])];
+const gameSwitch = [setGame("tps", ["challenges", "discovery", "oxygen", "jumppads"]), setGame("tps", ["jumppads", "oxygen", "discovery", "challenges"])];
 setRarityTable({ "501": [13, "#ff9ab8"], "6": [6, "#ca00a8"] });
 const gameTps = { shown: gameShown(), glitch: rarity(501)[0], etech: lootLayer({ q: 6, c: "WillowWeapon" }) };
 setGame("bl1", []);
@@ -214,7 +214,7 @@ gameBl1.push([cardIconKey("jakobs"), cardIconKey("none"), cardIconKey("None"), c
 const { objectCategory: gameCategory } = await load("js/model.js");
 const gameOutpost = { d: "OutpostDefinition", n: "OutpostDefinition", raw: 1, c: "EmergencyTeleportOutpost" };
 gameBl1.push(gameCategory(gameOutpost));
-setGame("bl2", ["discovery"]);
+setGame("bl2", ["challenges", "discovery"]);
 gameBl1.push(gameCategory(gameOutpost)); // (BL2's: not a class of its - not a station by it)
 const gameBl2 = { shown: gameShown(), seraph: rarity(501)[0], etech: lootLayer({ q: 6, c: "WillowWeapon" }) };
 setGame("", []);
@@ -930,6 +930,17 @@ def check_helios_tracker() -> None:  # noqa: PLR0915
             print("  Sage_Underground_P (DLC): not in this install - skipped")
     finally:
         gamedir.cooked_dir = real_cooked
+    # The level challenge objects placed in a map's package (a co-op client's have no challenge / number - matched by
+    # position: games.GAME.objects.discovered): Sanctuary's five Vault symbols, their numbers the host's
+    # (tools/probes/probe_vault_discovered.txt, check_challenge_numbers.txt) - the first one's not written (its default, 1)
+    from helios_tracker.games.bl2.files import challenges as placed_files  # noqa: PLC0415
+    t = time.perf_counter()
+    sanctuary_placed = json.loads(placed_files.placed_job([str(GAME_COOKED / "Sanctuary_P.upk")]))
+    sanctuary_symbols = sorted((n, x, y, z) for x, y, z, n, chal in sanctuary_placed
+                               if chal == "GD_Challenges.LevelChallenges.Sanctuary_VaultRoy")
+    assert sanctuary_symbols == [(1, 6756, -3675, 2789), (2, 6537, -1675, 4338), (3, 11742, 5866, 3714), (4, 7874, 5470, 4276),
+                                 (5, 3055, 3684, 3678)], sanctuary_placed
+    print(f"  Sanctuary_P: {len(sanctuary_placed)} level challenge objects placed ({time.perf_counter() - t:.2f} s)")
     # A map drawn from a part of its texture (a GFx DefineSubImage, its image's id 0): the Pre-Sequel's ComFacility_P
     tps_cooked = project.path("tps")
     tps_facility = tps_cooked / "WillowGame" / "CookedPCConsole" / "ComFacility_P.upk" if tps_cooked else None
@@ -1296,7 +1307,7 @@ def check_helios_tracker() -> None:  # noqa: PLR0915
         time.sleep(0.05)
     assert level["status"] == "ready" and level["upp"] == 128.0 and level["center"] == [-3072.0, -10240.0], level
     # the game and its features, for the page (games.py -> game.js)
-    assert level["game"] == "bl2" and level["features"] == ["discovery"], (level.get("game"), level.get("features"))
+    assert level["game"] == "bl2" and level["features"] == ["challenges", "discovery"], (level.get("game"), level.get("features"))
     # The games' profiles (games.py): one per game, by mods_base's name; each other game only what differs from BL2
     from helios_tracker import games as game_profiles  # noqa: PLC0415
     profile_bl2, profile_tps, profile_bl1 = (game_profiles.make_profile(n) for n in ("BL2", "TPS", "BL1"))
@@ -1986,6 +1997,77 @@ def check_helios_tracker() -> None:  # noqa: PLR0915
     chest_rec = objs["Treasure Chest"]
     assert (chest_rec["loot"], chest_rec["slots"], chest_rec["lists"]) == (["Pool_GunsAndGear"], 4, ["EpicChestRedLoot"]), chest_rec
     assert "loot" not in objs["Incendiary Barrel"], objs["Incendiary Barrel"]
+    # a Vault symbol (a level challenge object: its definition's Behavior_DiscoverLevelChallengeObject): "lc", and "found"
+    # once this player discovered it (their controller's GetHasUnlockedLevelChallengeObject - re-read: _check_discovered,
+    # never again once found); its challenge unknown (a co-op client: AssociatedChallenge not replicated) - not called
+    vault_found: set[str] = set()
+    vault_calls: list[str] = []
+
+    def vault_unlocked(io) -> bool:  # noqa: ANN001
+        vault_calls.append(io.Name)
+        return io.Name in vault_found
+
+    vault_real_pc = col.get_pc
+    col.get_pc = lambda **k: ns(GetHasUnlockedLevelChallengeObject=vault_unlocked)
+    vault_def = ns(Name="IO_VaultRoy", StatusMenuMapInfoBoxHeader="", _get_address=lambda: 0x5A0,
+                   _path_name=lambda: "GD_LevelChallenges.InteractiveObjects.IO_VaultRoy",
+                   BehaviorProviderDefinition=ns(BehaviorSequences=[ns(BehaviorData2=[
+                       ns(Behavior=ns(Class=ns(Name="Behavior_DiscoverLevelChallengeObject")))])]))
+    vault_io = ns(**{**vars(barrel), "Name": "WillowInteractiveObject_263", "_get_address": lambda: 0x5A1,
+                     "BalanceDefinitionState": None, "InteractiveObjectDefinition": vault_def,
+                     "AssociatedChallenge": ns(Name="Sanctuary_VaultRoy")})
+    vault_client_io = ns(**{**vars(vault_io), "Name": "WillowInteractiveObject_0", "_get_address": lambda: 0x5A2,
+                            "AssociatedChallenge": None})
+    c.object_spawned(vault_io)
+    c.object_spawned(vault_client_io)
+    vault_rec = c._object_records[(0x5A1, "WillowInteractiveObject_263")]
+    vault_client_rec = c._object_records[(0x5A2, "WillowInteractiveObject_0")]
+    assert (vault_rec.get("lc"), vault_rec.get("found"), vault_client_rec.get("lc"), vault_client_rec.get("found")) == (1, 0, 1, None), \
+        (vault_rec, vault_client_rec)
+    assert vault_calls == ["WillowInteractiveObject_263"], ("its challenge unknown: not called", vault_calls)
+    assert "lc" not in objs["Treasure Chest"], "no Behavior_DiscoverLevelChallengeObject: not a level challenge object"
+    vault_found.add("WillowInteractiveObject_263")  # clicked
+    c._placed_loading = True  # (the client's placed ones not loaded yet: its unknown one kept)
+    c._check_discovered()
+    vault_shown = {o["i"]: o for o in json.loads(hub.latest("objects"))["objects"]}
+    assert vault_shown[vault_rec["i"]].get("found") == 1 and "found" not in vault_shown[vault_client_rec["i"]], vault_shown
+    assert list(c._undiscovered) == [(0x5A2, "WillowInteractiveObject_0")], c._undiscovered
+    c._check_discovered()
+    assert vault_calls == ["WillowInteractiveObject_263"] * 2, ("found: not asked again", vault_calls)
+    # a co-op client's: no challenge, every number 1 - the map package's object at its position (c._placed:
+    # files/challenges.py) and the controller's LevelChallengeUnlocks (Sanctuary's [55300] = group 27 << 11 | 0b100: its
+    # symbol 3 found); nothing placed near: not known
+    vault_client_far = ns(**{**vars(vault_client_io), "Name": "WillowInteractiveObject_7", "_get_address": lambda: 0x5A3,
+                             "Location": ns(X=9000.0, Y=9000.0, Z=0.0)})
+    vault_client_two = ns(**{**vars(vault_client_io), "Name": "WillowInteractiveObject_8", "_get_address": lambda: 0x5A4,
+                             "Location": ns(X=6537.0, Y=-1675.0, Z=4338.0)})
+    vault_client_io.Location = ns(X=11742.0, Y=5866.0, Z=3714.0)
+    c.object_spawned(vault_client_far)
+    c.object_spawned(vault_client_two)
+    c._placed = [[11742, 5866, 3714, 3, "GD_Challenges.LevelChallenges.Sanctuary_VaultRoy"],
+                 [6537, -1675, 4338, 2, "GD_Challenges.LevelChallenges.Sanctuary_VaultRoy"]]
+    c._placed_loading = False
+    vault_real_find = sys.modules["unrealsdk"].find_object
+    sys.modules["unrealsdk"].find_object = lambda cls, path: ns(LevelChallengeObjectGroupIdx=27) \
+        if (cls, path) == ("ChallengeDefinition", "GD_Challenges.LevelChallenges.Sanctuary_VaultRoy") else None
+    col.get_pc = lambda **k: ns(GetHasUnlockedLevelChallengeObject=vault_unlocked, LevelChallengeUnlocks=[3 << 11 | 0b11111, 55300])
+    try:
+        c._check_discovered()
+    finally:
+        sys.modules["unrealsdk"].find_object = vault_real_find
+    vault_client_found = {k[1]: (c._object_records[k] or {}).get("found") for k in
+                          [(0x5A2, "WillowInteractiveObject_0"), (0x5A3, "WillowInteractiveObject_7"), (0x5A4, "WillowInteractiveObject_8")]}
+    assert vault_client_found == {"WillowInteractiveObject_0": 1, "WillowInteractiveObject_7": None, "WillowInteractiveObject_8": 0}, \
+        ("a client's: by its placed number in its group's bits (another group's all set)", vault_client_found)
+    assert vault_calls == ["WillowInteractiveObject_263"] * 2, ("a client's: never the call", vault_calls)
+    vault_left = sorted(k[1] for k in c._undiscovered)
+    assert vault_left == ["WillowInteractiveObject_8"], ("found: done; nothing placed near (the placed ones loaded): never known - not re-read", c._undiscovered)
+    c._placed = []
+    col.get_pc = vault_real_pc
+    c.object_destroyed(vault_io)
+    c.object_destroyed(vault_client_io)
+    c.object_destroyed(vault_client_far)
+    c.object_destroyed(vault_client_two)
     c.object_destroyed(barrel)  # it exploded
     c.tick(1001.4)
     names = [o["n"] for o in json.loads(hub.latest("objects"))["objects"]]

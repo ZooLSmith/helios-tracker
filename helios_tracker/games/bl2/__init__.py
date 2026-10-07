@@ -1,7 +1,7 @@
 """Borderlands 2: the reference - what the mod was built on. Its parts (this folder) are every game's unless the game's
 profile has its own."""
 
-from .. import DISCOVERY, profile
+from .. import CHALLENGES, DISCOVERY, profile
 from ..base import Profile
 from .assets import Assets
 from .items import Items
@@ -36,4 +36,4 @@ class Borderlands2(Profile):
     # the attribute presentation a weapon card's damage is shown with (its rounding: inspector._presented) - None: a
     # whole number, rounded (BL2's cards, checked)
     damage_presentation: str | None = None
-    features: frozenset[str] = frozenset({DISCOVERY})
+    features: frozenset[str] = frozenset({DISCOVERY, CHALLENGES})

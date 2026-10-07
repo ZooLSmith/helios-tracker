@@ -756,6 +756,20 @@ def explosion_info(definition: Any, ctrl: Any = None) -> dict[str, Any]:
     return _explosions[key]
 
 
+_discoverable: dict[int, bool] = {}  # object definition address -> discoverable's, static
+
+
+def discoverable(definition: Any) -> bool:
+    """A level challenge object a player discovers (a Vault symbol): its definition's behaviours hold a
+    Behavior_DiscoverLevelChallengeObject (games.GAME.objects.behaviors - tools/probes/probe_discovery.txt: IO_VaultRoy's,
+    IO_Telescope's, the treasure chests'). Per definition, once (static data)."""
+    key = definition._get_address()
+    if key not in _discoverable:
+        _discoverable[key] = any(try_(lambda b=behavior: str(b.Class.Name), "") == "Behavior_DiscoverLevelChallengeObject"
+                                 for behavior in try_(lambda: games.GAME.objects.behaviors(definition), []) or [])
+    return _discoverable[key]
+
+
 _plants: dict[int, dict[str, Any]] = {}  # object definition address -> plant_info's ({} not a plant), static
 
 

@@ -22,7 +22,7 @@ from mods_base import ENGINE, get_pc
 from unrealsdk.unreal import WeakPointer
 
 from .amounts import pickup_amount
-from .inspector import (buff_info, element_frame, explosion_info, ground_item, is_gear, plant_info, players_complete,
+from .inspector import (buff_info, discoverable, element_frame, explosion_info, ground_item, is_gear, plant_info, players_complete,
                         players_parts, read_players)
 from . import games, levelmap, lootodds
 from .gamedir import game_dir
@@ -46,6 +46,7 @@ OBJECTS_EVERY = 120.0  # s between full interactive object scans: a safety net (
 PLAYERS_EVERY = 2.0  # s between player inspections (gear, backpack, skills)
 MISSIONS_EVERY = 1.0  # s between quest marker reads (owners can move: escorts, NPCs); also the
                       # mission log's fast pass (the tracked / active missions only)
+PLACED_UU = 50.0  # how far a co-op client's level challenge object may be from the map package's one it is (_placed_at)
 MISSION_LOG_EVERY = 5.0  # s between full mission log passes (every mission's status: ~290 entries)
 MAX_PAWNS = 1000  # PawnList walk guard
 VIDEO_GAP = 2.0  # s without a tick: the frames stopped - a video played (ticks: at least 1 per s otherwise)
@@ -316,6 +317,10 @@ class Collector:
         level_changed()  # (every cache kept per level: the properties looked up, the target names, the profile's...)
         self._seats: dict[int, bool] = {}  # class address -> a vehicle seat's (_is_seat; addresses: per level, as above)
         self._areas = []
+        # a co-op client's level challenge objects as the map's packages place them: [[x, y, z, number, challenge path]]
+        # (games.GAME.objects.placed_challenges - loaded on a thread at the level change: _load_placed)
+        self._placed: list[list[Any]] = []
+        self._placed_loading = False  # (being loaded: a client's level challenge objects not known yet - _check_discovered)
         self._areas_found = False  # (the discovery areas: found once a level - _scan_objects)
         self._lookups: list[str] = []  # the level's actors to look up after an objects scan, one per tick (_lookup)
         # containers whose loot odds are to be worked out (their records: sent at once, the odds when done) - and the
@@ -373,9 +378,11 @@ class Collector:
         self._unlooted: dict[tuple[int, str], WeakPointer] = {}  # lootable containers not opened yet
         self._domes: dict[tuple[int, str], WeakPointer] = {}  # air dome bubbles (a record's "dome"): their on / off re-read
         self._damageable: dict[tuple[int, str], WeakPointer] = {}  # objects with health (barrels...): re-read
+        self._undiscovered: dict[tuple[int, str], WeakPointer] = {}  # level challenge objects ("lc") not found yet: re-read
         self._next_looted = 0.0
         self._next_domes = 0.0
         self._next_health = 0.0
+        self._next_discovered = 0.0
         # The level's discovery areas (static records, found by the objects scan) and the areas payload
         self._areas: list[dict[str, Any]] = []
         self._areas_json = ""
@@ -481,6 +488,9 @@ class Collector:
         if self._damageable and due(self._next_health, LOOTED_EVERY):
             self._next_health = now + LOOTED_EVERY
             run("object health", self._check_health)
+        if self._undiscovered and due(self._next_discovered, LOOTED_EVERY):
+            self._next_discovered = now + LOOTED_EVERY
+            run("discovered", self._check_discovered)
 
     def _check_level(self) -> None:
         wi = ENGINE.GetCurrentWorldInfo()
@@ -515,6 +525,36 @@ class Collector:
                 name="helios_tracker map",
                 daemon=True,
             ).start()
+        # a co-op client's level challenge objects (Vault symbols) have no challenge, no number (not replicated): the map
+        # packages' ones, matched by position (_placed_at - games.GAME.objects.discovered)
+        if games.CHALLENGES in games.GAME.features and getattr(try_(lambda: wi.NetMode), "name", "") == "NM_Client":
+            if (loader := try_(lambda: games.GAME.objects.placed_challenges(wi, name))) is not None:
+                self._placed_loading = True
+                threading.Thread(target=self._load_placed, args=(level_id, loader), name="helios_tracker challenges",
+                                 daemon=True).start()
+
+    def _load_placed(self, level_id: int, loader: Any) -> None:
+        """Background thread: files only (the loader's: the map packages' level challenge objects)."""
+        try:
+            placed = loader()
+        except Exception as ex:  # noqa: BLE001
+            log_error("level challenge objects", ex)
+            placed = []
+        if self.level_id == level_id:
+            self._placed = placed
+            self._placed_loading = False
+            log(f"level challenge objects placed in the map's packages: {len(placed)}")
+
+    def _placed_at(self, io: Any) -> tuple[str, int] | None:
+        """The map packages' level challenge object at this one's position (a co-op client's: _placed): (its challenge's
+        path, its number), None if none is near."""
+        if not self._placed:
+            return None
+        loc = io.Location
+        near = min(self._placed, key=lambda p: (p[0] - loc.X) ** 2 + (p[1] - loc.Y) ** 2 + (p[2] - loc.Z) ** 2)
+        if math.dist(near[:3], (loc.X, loc.Y, loc.Z)) > PLACED_UU:
+            return None
+        return near[4], near[3]
 
     def _set_level(self, level: dict[str, Any], keep_lv: bool = True) -> None:
         with self._lock:
@@ -850,6 +890,8 @@ class Collector:
                         self._domes.setdefault(key, WeakPointer(io))
                     if "m" in record:
                         self._damageable.setdefault(key, WeakPointer(io))
+                    if record.get("lc") and not record.get("found"):
+                        self._undiscovered.setdefault(key, WeakPointer(io))
                     if odds_changed and "odds" in record:  # (worked out again a few ms per tick: 107 ms in this loop once)
                         self._odds_queue[key] = WeakPointer(io)
             except Exception as ex:  # noqa: BLE001
@@ -996,6 +1038,8 @@ class Collector:
                         self._domes.setdefault(key, WeakPointer(io))
                     if "m" in record:
                         self._damageable.setdefault(key, WeakPointer(io))
+                    if record.get("lc") and not record.get("found"):
+                        self._undiscovered.setdefault(key, WeakPointer(io))
             except Exception as ex:  # noqa: BLE001
                 log_error("interactive object", ex)
 
@@ -1054,6 +1098,8 @@ class Collector:
                 self._domes[key] = WeakPointer(io)
             if "m" in record:
                 self._damageable[key] = WeakPointer(io)
+            if record.get("lc") and not record.get("found"):
+                self._undiscovered[key] = WeakPointer(io)
 
     def _note_incomplete(self, key: tuple[int, str], io: Any) -> None:
         """A record built before the object had its definition (it arrives a moment after the object
@@ -1129,6 +1175,29 @@ class Collector:
             if (dome := try_(lambda io=io: games.GAME.objects.dome(io))) is not None and dome != record.get("dome"):
                 record["dome"] = dome  # in place: the published list holds this dict
                 changed = True
+        if changed:
+            self._publish_objects()
+
+    def _check_discovered(self) -> None:
+        """Level challenge objects (Vault symbols) this player discovered since: "found" 1 (games.GAME.objects.discovered -
+        known since: 0). Unknown (None) once a client's placed ones are loaded: never known - not re-read (the treasure
+        chests: a Behavior_DiscoverLevelChallengeObject too, no challenge)."""
+        changed = False
+        ctrl = get_pc()
+        for key, pointer in list(self._undiscovered.items()):
+            io, record = pointer(), self._object_records.get(key)
+            if io is None or record is None:
+                self._undiscovered.pop(key, None)
+                continue
+            found = try_(lambda io=io: games.GAME.objects.discovered(io, ctrl, self._placed_at(io)))
+            if found is None and not self._placed_loading:
+                self._undiscovered.pop(key, None)
+            if found is None or int(found) == record.get("found"):
+                continue
+            record["found"] = int(found)  # in place: the published list holds this dict
+            changed = True
+            if found:
+                self._undiscovered.pop(key, None)  # (never undone)
         if changed:
             self._publish_objects()
 
@@ -1260,6 +1329,14 @@ class Collector:
         elif definition is not None and (explosion := try_(lambda: explosion_info(definition), {})):
             record.update(explosion)
         part("kind")
+        # a level challenge object (a Vault symbol: its definition's Behavior_DiscoverLevelChallengeObject) - "lc", and
+        # "found": 1 this player discovered it, 0 not yet, none not known (games.GAME.objects.discovered; re-read:
+        # _check_discovered)
+        if definition is not None and games.CHALLENGES in games.GAME.features and try_(lambda: discoverable(definition), False):
+            record["lc"] = 1
+            if (found := try_(lambda: games.GAME.objects.discovered(io, get_pc()))) is not None:
+                record["found"] = int(found)
+            part("challenge")
         # a buff you use (the Pre-Sequel's Moxxtails, BL2's shrines: inspector.buff_info) - not a container, whatever loot
         # list its balance has (the Moxxtails': EpicChestRedLoot, never handed out). The other objects activating a skill
         # (a switch console, the Space Hurps, BL2's whiskey barrel, the raid bosses' ooze / orb...) spawn nothing and have

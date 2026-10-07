@@ -83,6 +83,9 @@ function renderTooltip(mePos, f) {
     : esc(t("tip." + best.kind, null, best.kind));
   lines.push(`<span class="tl">${kindHtml}</span>`);
   if (it.ms) lines.push(`<span class="tl">${esc(t(it.ms.k === "gives" ? "tip.givesMission" : "tip.forMission", { n: it.ms.n }))}</span>`);
+  // a Vault symbol: discovered by the player running the mod or not (collector.py "found" - whatever the layer's
+  // Discovered setting; not known on a co-op client: no line)
+  if (it.lc && it.found != null) lines.push(`<span class="tl">${esc(t(it.found ? "tip.discovered" : "tip.undiscovered"))}</span>`);
   // one for later (Mission items: Upcoming): why it can't be used yet
   const notYet = it.ms ? missionItemNotYet(it.ms, missionsById(S.log)) : null;
   if (notYet) {

@@ -24,6 +24,7 @@ from typing import Any
 # of doing a job is a method, never a feature (profiles.md: "if the else does something, it's a method").
 DISCOVERY = "discovery"  # the level's discovery areas and the map's fog of war (WorldDiscoveryArea, DiscoveredWorldAreas)
 OXYGEN = "oxygen"  # the Oz meter: oxygen pools, air domes, oxygen sources
+CHALLENGES = "challenges"  # level challenge objects a player discovers (the Vault symbols: IO_VaultRoy)
 JUMPPADS = "jumppads"  # jump pads and geysers (OzPlayerJumpPad)
 
 _PROFILES: dict[str, type[Any]] = {}

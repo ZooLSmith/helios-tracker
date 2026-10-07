@@ -4,9 +4,15 @@ from typing import Any
 
 from ..base import Part
 
+MASK_BITS = 11  # a LevelChallengeUnlocks entry: its challenge group above these bits, its objects found in them
+
 
 class Objects(Part):
     """Interactive objects and pickups: behaviours, looted, exits, the missions they give, pickups at rest."""
+
+    def __init__(self, profile: Any) -> None:
+        super().__init__(profile)
+        self._groups: dict[str, int] = {}  # a level challenge's path -> its LevelChallengeObjectGroupIdx (discovered)
 
     def behaviors(self, definition: Any) -> list[Any]:
         """An interactive object definition's behaviours (inspector.explosion_info looks for a Behavior_Explode): its
@@ -34,6 +40,48 @@ class Objects(Part):
     def _destination_name(self, destination: Any) -> str:
         """A travel station definition's name for its map exits: BL2's DisplayName."""
         return str(destination.DisplayName)
+
+    def discovered(self, io: Any, ctrl: Any, placed: tuple[str, int] | None = None) -> bool | None:
+        """A level challenge object (a Vault symbol - its definition's Behavior_DiscoverLevelChallengeObject) discovered by
+        this player. Its challenge known (the host's objects): their controller's GetHasUnlockedLevelChallengeObject(it)
+        (tools/probes/probe_vault_discovered.txt, Sanctuary: the one found True, the four others False). A co-op client's
+        have no challenge, every number 1 (not replicated - tools/probes/probe_vault_client.txt, NM_Client): `placed`, the
+        map package's object at its position (its challenge's path, its number - placed_challenges), and the controller's
+        LevelChallengeUnlocks (the host keeps a client's up to date: ClientSetLevelChallengeUnlockMask) - an entry per
+        challenge, its LevelChallengeObjectGroupIdx << MASK_BITS | the found ones' bits (bit number - 1: Sanctuary's
+        [55300] = 27 << 11 | 0b100, its symbol 3 found). None: not known (no placed object, its challenge not loaded)."""
+        if io.AssociatedChallenge is not None:
+            return bool(ctrl.GetHasUnlockedLevelChallengeObject(io))
+        if placed is None:
+            return None
+        path, number = placed
+        if (group := self._groups.get(path)) is None:
+            import unrealsdk  # noqa: PLC0415
+
+            challenge = unrealsdk.find_object("ChallengeDefinition", path)
+            if challenge is None:
+                return None
+            group = self._groups[path] = int(challenge.LevelChallengeObjectGroupIdx)
+        for entry in ctrl.LevelChallengeUnlocks:
+            if int(entry) >> MASK_BITS == group:
+                return bool(int(entry) >> (number - 1) & 1)
+        return False
+
+    def placed_challenges(self, wi: Any, map_name: str) -> Any:
+        """The level challenge objects placed in the level's packages (its persistent level's and its streaming levels':
+        Sanctuary's ECHO recorders are in Sanctuary_Dynamic) - a loader for a thread (files only: [[x, y, z, number,
+        challenge path], ...] - files/challenges.py), the packages' names read here, on the game thread."""
+        names = [map_name] + [str(s.PackageName) for s in wi.StreamingLevels if s is not None]
+
+        def load() -> list[list[Any]]:
+            from ... import gamedir  # noqa: PLC0415
+            from .files.challenges import placed  # noqa: PLC0415
+
+            packages = [p for n in dict.fromkeys(n.lower() for n in names if n and n != "None")
+                        if (p := gamedir.package_path(f"{n}.upk")) is not None]
+            return placed(packages) if packages else []
+
+        return load
 
     def is_looted(self, io: Any, client: bool) -> bool:
         """A container looted: opened, and no longer usable (bCanBeUsed[0] 1 -> 0). Opened: its SimpleAnimState is a
