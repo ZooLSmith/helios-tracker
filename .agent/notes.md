@@ -249,7 +249,9 @@ co-op yet):
   data. Their actors are in memory, `Outer` a `Level`, but that level is none of the world's (not the world info's
   `Outer`, no `StreamingLevels[].LoadedLevel`; `stat levels` doesn't list it), never set up: `GetTargetName` on
   `tundraexpress_p...WillowInteractiveObject_19` (a fire chandelier) was an access violation, building its record.
-  `collector._in_world` now wants one of the world's levels (`_levels`, once per tick). Seen after a fast travel into
+  `collector._in_world` now wants one of the world's levels (`_levels`, once per tick; a miss reads them again once -
+  a sublevel streamed in before the next tick); proven in game by tools/probes/probe_lmw_prove.py (Tundra Express's
+  package loaded in Three Horns, the collector's scan run: its 39 objects skipped, the map's 137 built). Seen after a fast travel into
   Three Horns (not on every load: in Tundra Express, its extras weren't loaded). tools/probes/probe_lmw_levels.py lists
   the levels, `[world]` or not. Its hotfixes (the containers -> midget traps) reached `SparkServiceConfiguration_6`
   ("Fellowship") through `exec` but were never applied: the file is saved online (`offline="false"`) -

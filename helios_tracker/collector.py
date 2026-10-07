@@ -342,6 +342,7 @@ class Collector:
         self._actors: dict[str, list[WeakPointer]] = {}
         self._actor_classes: dict[str, str] = {}  # (the lookups' classes, by name: the last scan's)
         self._world_levels: set[int] | None = None  # (_levels: this tick's, None until read)
+        self._levels_reread = False  # (_world_level: read again this tick after a miss)
         self._client = False  # a co-op client (set at each objects scan): containers opened by their state alone
         # NPCs giving / taking back missions (their MissionDirectives: tools/probes/probe_directors.txt), by
         # pawn address -> (the pawn, [(mission, begins, ends)]): a co-op client's quest-giver markers
@@ -403,7 +404,7 @@ class Collector:
                 self._video_at, self._video_gap = 0.0, False
                 self.hub.publish("cutscene", "{}")
         self._last_tick = now
-        self._world_levels = None  # (_levels: read again when needed)
+        self._world_levels, self._levels_reread = None, False  # (_levels: read again when needed)
         if now >= self._next_level_check:
             self._next_level_check = now + LEVEL_CHECK_EVERY
             run("level", self._check_level)
@@ -649,22 +650,34 @@ class Collector:
             not actor.Name.startswith("Default__")
             and outer is not None
             and outer.Class.Name == "Level"
-            and outer._get_address() in self._levels()
+            and self._world_level(outer._get_address())
             and not actor.bDeleteMe
         )
+
+    def _world_level(self, address: int) -> bool:
+        """Whether a level (its address) is one of the world's (_levels). Not in them: read again, once per tick - a
+        sublevel streamed in since they were read has its objects' PostBeginPlay hooks (object_spawned) before the
+        next tick, and an object turned away there waits for the next objects scan (OBJECTS_EVERY)."""
+        if address in self._levels():
+            return True
+        if self._levels_reread:
+            return False
+        self._levels_reread = True
+        self._world_levels = None
+        return address in self._levels()
 
     def _levels(self) -> set[int]:
         """The world's levels (addresses): the persistent one and its streaming levels' loaded ones - the levels actors
         are part of. A level can be loaded outside them: Loot Midget World (a text mod) makes other maps' persistent
         levels secondary maps of every map (its LevelList merges: Three Horns - Divide loads tundraexpress_p...), their
         actors in memory but never set up - a function called on one crashes the game (tundraexpress_p's
-        WillowInteractiveObject_19, GetTargetName: tools/probes/probe_lmw_levels.py, a breadcrumb log). Once per tick
-        (levels stream in and out between them)."""
+        WillowInteractiveObject_19, GetTargetName: tools/probes/probe_lmw_levels.py, a breadcrumb log; proven held:
+        probe_lmw_prove.py). Read once per tick (levels stream in and out between them; a few reads per sublevel)."""
         if self._world_levels is None:
             wi = ENGINE.GetCurrentWorldInfo()
             self._world_levels = {wi.Outer._get_address()} | {
-                level._get_address() for s in wi.StreamingLevels
-                if s is not None and (level := s.LoadedLevel) is not None}
+                level._get_address() for s in field(wi, "StreamingLevels")
+                if s is not None and (level := field(s, "LoadedLevel")) is not None}
         return self._world_levels
 
     def _scan(self) -> None:

@@ -1643,6 +1643,20 @@ def check_helios_tracker() -> None:  # noqa: PLR0915
     assert stats_insp.gibbed_code(shield) == "", "no serial: no code"
     (obj,) = json.loads(hub.latest("objects"))["objects"]
     assert obj["n"] == "Incendiary Barrel" and "raw" not in obj and obj["d"] == "IO_FireBarrel", obj
+    # a sublevel streamed in after the tick's levels were read (collector._levels): its objects' spawn hooks come before
+    # the next tick - the levels read again on the miss, the object counted (not left to the next objects scan, 120 s)
+    c._world_levels, c._levels_reread = None, False  # (a tick's start)
+    c._levels()
+    streamed_late_level = ns(Class=ns(Name="Level"), _get_address=lambda: 0x9003)
+    wi.StreamingLevels.append(ns(LoadedLevel=streamed_late_level))
+    streamed_late_io = ns(**{**vars(barrel), "Name": "WillowInteractiveObject_77", "_get_address": lambda: 0x5E1,
+                             "Outer": streamed_late_level})
+    c.object_spawned(streamed_late_io)
+    assert c._object_records.get((0x5E1, "WillowInteractiveObject_77")) is not None, "a sublevel streamed in since: skipped"
+    assert not c._in_world(merged_io), "the merged level: still outside the world after the levels were read again"
+    wi.StreamingLevels.pop()
+    del c._object_records[(0x5E1, "WillowInteractiveObject_77")]
+    c._objects.pop((0x5E1, "WillowInteractiveObject_77"), None)
     # no balance name, no target name: its definition's map hover header (the Pre-Sequel's oxygen source - it came out
     # "Oxygen Cracks ?", its definition's name)
     oxygen_io = ns(**{**vars(barrel), "_get_address": lambda: 0x5F0, "BalanceDefinitionState": None,
