@@ -1,6 +1,6 @@
 [project]
 name = "helios_tracker"
-version = "0.2.2"
+version = "0.2.3"
 authors = [{ name = "ZooL" }]
 license = "GPL-3.0-only"
 description = "A live map of the current level in your web browser: the game's map with players, enemies, NPCs, vehicles and loot on it, with zoom and pan."
