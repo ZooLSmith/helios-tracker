@@ -417,6 +417,8 @@ export default {
   "best.turnInAt": "Turn in at {a}",
   "best.givenAt": "Given at {a}",
   "best.here": "You're here",
+  "best.via": "via {a}",
+  "best.viaFar": "via {a} ({n} maps)",
   "best.turnInTo": "Turn in to {who}",
   "best.from": "From {who}",
   "best.more": "+{n} more",

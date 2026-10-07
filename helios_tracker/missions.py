@@ -264,6 +264,9 @@ class MissionLog:
         self._watch: list[int] = []  # entries the fast pass reads: active ones and the tracked one
         self._cycle: dict[str, Any] | None = None  # the full pass under way (step by step)
         self._tracked = ""
+        # a map fast travel doesn't reach -> the nearest maps it does (travel.py: {"v": names, "n": exits}), set by the
+        # collector - the page adds it to a place ("via The Fridge")
+        self.via: dict[str, dict[str, Any]] = {}
         self._map_regions: dict[str, list[Any]] = {}  # map name (lower case) -> its missions' regions
         self.dirty = False  # the live part changed since the last payload()
         self.step_parts: dict[str, float] = {}  # the last step's time per part (s) and its entries read: the debug report
@@ -496,4 +499,4 @@ class MissionLog:
                 m["wait"] = {"o": wait[0], "m": wait[1]}  # the objective of another mission it waits on
             missions.append(m)
         return {"level": level_id, "tracked": self._tracked or None, "missions": missions,
-                "thresholds": try_(difficulty_thresholds, {}) or {}}
+                "thresholds": try_(difficulty_thresholds, {}) or {}, "via": self.via}

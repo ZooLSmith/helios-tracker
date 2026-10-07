@@ -1,7 +1,7 @@
 """Borderlands 1 - the original 2009 game, and its Game of the Year Enhanced edition - .agent/bl1.md. Borderlands 2's
 profile, its own parts where its way differs (this folder)."""
 
-from .. import CHALLENGES, DISCOVERY, profile
+from .. import CHALLENGES, DISCOVERY, FASTTRAVEL, profile
 from ..bl2 import Borderlands2
 from .assets import Bl1Assets
 from .items import Bl1Items
@@ -38,8 +38,9 @@ class Borderlands1(Borderlands2):
     # its card's damage: AttrPresent_WeaponDamage, ATTRROUNDING_IntCeil (gd_AttributePresentation, offline) - the GGN9's
     # 86 in game, 85 rounded (the user)
     damage_presentation = "gd_AttributePresentation.Weapons.AttrPresent_WeaponDamage"
-    # no WorldDiscoveryArea class (the log: "Couldn't find class")
-    features = Borderlands2.features - {DISCOVERY, CHALLENGES}
+    # no WorldDiscoveryArea class (the log: "Couldn't find class"); its fast travel not probed yet (travel.py reads BL2's
+    # TravelStationDefinitions - BL1's may differ)
+    features = Borderlands2.features - {DISCOVERY, CHALLENGES, FASTTRAVEL}
 
 
 @profile("BL1E")

@@ -265,6 +265,24 @@ co-op yet):
   map's 5 missions all use `GD_GameStages.Zone1.Tundra` -> 13; the enemies here 12-15 (mostly 14).
   Shown under the level's name ("Area level 13": the stages of this map's missions'
   `GameStageRegion`s, `lv` [min, max] in the level payload, after each full mission pass).
+- **A map fast travel doesn't reach** (probe_station_maps.py, probe_fast_travel.py in Thousand Cuts,
+  probe_level_exits.py in Control Core Angel - 2026-10-07): "Given at Fink's Slaughterhouse" is right - its own map
+  (`BanditSlaughter_P`, its own LevelName), not a part of The Fridge; its station a LevelTravelStationDefinition (an
+  exit: `BanditSlaughterToFridge`, `DestinationStationDefinition` `FridgeToBanditSlaughter`). Every
+  `FastTravelStationDefinition` (75) and `LevelTravelStationDefinition` (178) is loaded wherever the player is, every
+  DLC's. ~20 level-list maps have no fast travel station (Fink's, Natural Selection Annex, Ore Chasm, Control Core
+  Angel, Sanctuary Hole, Murderlin's Temple...). The links: the exits (map -> its destination's map) and the level
+  lists' `ConnectedPersistents` disagree a little - the exits have Sanctuary <-> Control Core Angel, Dragon Keep's
+  (theirs also name a `Dungeons_P` no list knows: Dungeon_P), two one-way ones (DamTop -> HypInterlude, Spire ->
+  OasisTown); the lists link maps to themselves (VOGChamber_P, Sanctuary_Hole_P): both used, those left out.
+  `bSendOnly` (DamTop, Wilhelm, Cliffs_Boss, the Vault's...) doesn't mean "can't travel there": The Bunker can be (the
+  user), DamTop and Wilhelm are in the player's list - ignored. The stations unlocked:
+  `pc.ActivatedTeleportersList` (definition names: 'Sanctuary', 'TheFridge'... - the base game's and a DLC's
+  `Cliffs` share one). Sanctuary's station closes for a while (`InaccessibleObjective` Ep8 GiveEridumToLilith,
+  `AccessibleObjective` Ep9 EstablishLink): not followed. `SanctuaryAir_P` ("Sanctuary") is in the level list, no
+  station or exit names it - which map name the game gives late in the story is not checked (the "You're here" test
+  compares StationLevelName `Sanctuary_P`). travel.py: the nearest maps with a station, in exits, unlocked first; the
+  log's payload `via`, the page's "· via The Fridge".
 
 ## Mission level (probe_mission_level.py, in game, 2026-09-23)
 

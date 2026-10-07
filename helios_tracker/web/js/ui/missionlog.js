@@ -5,7 +5,7 @@ import { $, esc, gameTextHtml, nameHtml } from "../dom.js";
 import { money, num, t } from "../i18n.js";
 import { icon } from "../icons.js";
 import { GOALS, isHere, missionAreas, missionCounts, missionDifficulty, missionState, missionTree, nodeVisible, objectiveStates,
-  rankMissions, rewardFor, searchMissions, whereTo } from "../missions.js";
+  rankMissions, rewardFor, searchMissions, viaOf, whereTo } from "../missions.js";
 import { cleanGameText } from "../model.js";
 import { saveSettings, settings } from "../settings.js";
 import { S, isTrackedPlayer } from "../state.js";
@@ -99,10 +99,22 @@ function levelBadge(m, player) {
   return `<span class="mlv ${diff || ""}${m.mlk ? "" : " would"}" title="${esc(tip)}">${esc(text)}</span>`;
 }
 
+/** A place fast travel doesn't reach: "via The Fridge" (the nearest maps with a station; "(2 maps)" further) - the
+ *  mission's Details only (the user: not the list's lines); null for a map with a station, or the player already there. */
+function viaText(place) {
+  const via = isHere(place, S.level) ? null : viaOf(place, S.log);
+  return via ? t(via.n > 1 ? "best.viaFar" : "best.via", { a: via.v.join(" / "), n: via.n }) : null;
+}
+
 /** Where to go for it, as a line: "Go to Sanctuary" (its current step's station), "Turn in at ...",
- *  "Given at ..." (not picked up: its giver's area); "You're here" when it's the current level. */
+ *  "Given at ..." (not picked up: its giver's area); "You're here" when it's the current level. Active with no step
+ *  place (no StationOverride on its step or objectives: Torture Chairs, Find Tannis's ECHO recorders): where it was given (the user: the line was empty) - and
+ *  who gave it on the next line, as a mission not picked up (fromHtml). */
 function placeHtml(m, state) {
   const place = whereTo(m, state);
+  if (!place && state === "active" && m.area) { // (not "You're here": it isn't where to go)
+    return `<span class="mplace">${esc(t("best.givenAt", { a: m.area }))}</span>`;
+  }
   if (!place || !place.a) return "";
   const key = place.why === "turnin" ? "best.turnInAt" : state === "active" ? "best.goTo" : "best.givenAt";
   const here = isHere(place, S.level);
@@ -124,6 +136,12 @@ function nextHtml(m, state) {
     return esc(text.join(" · "));
   }
   return m.giver ? esc(t("best.from", { who: cleanGameText(m.giver) })) : "";
+}
+
+/** Who gave it, for an active mission with no step place (placeHtml's "Given at" line): "From Patricia Tannis" - its
+ *  objectives stay on the line after. */
+function fromHtml(m, state) {
+  return state === "active" && !whereTo(m, state) && m.area && m.giver ? esc(t("best.from", { who: cleanGameText(m.giver) })) : "";
 }
 
 /** Best now's ranking for the selected player and goal (the head's summary and the list share it). */
@@ -157,7 +175,7 @@ function bestHtml(query = "") {
   if (!rows.length) return `<div class="muted">${esc(t(matching ? "mlog.noMatch" : "best.none"))}</div>`;
   html += `<div class="mbestlist">` + rows.slice(0, BEST_TOP).map((r, n) => { // the top 10 only
     const m = r.m, after = (r.after || []).map((d) => S.log.missions.find((x) => x.i === d)).filter(Boolean);
-    const lines = [placeHtml(m, r.state), nextHtml(m, r.state),
+    const lines = [placeHtml(m, r.state), fromHtml(m, r.state), nextHtml(m, r.state),
       after.length ? esc(t("best.after", { name: after.map((x) => x.n).join(", ") })) : ""]
       .filter(Boolean).map((h) => `<span class="msub">${h}</span>`).join("");
     const here = isHere(whereTo(m, r.state), S.level);
@@ -261,7 +279,8 @@ function rewardHtml(rw, player) {
 function detailHtml(m, tree) {
   const rows = [];
   const state = missionState(m, tree.byId), open = state !== "done";
-  const at = (place) => place.a + (open && isHere(place, S.level) ? ` · ${t("best.here")}` : ""); // "..., You're here"
+  const at = (place) => place.a + (viaText(place) ? ` · ${viaText(place)}` : "") + // "... · via The Fridge"
+    (open && isHere(place, S.level) ? ` · ${t("best.here")}` : ""); // "..., You're here"
   // Where: given at (its own station), go to (in progress: where it's done), turn in at (its turn-in
   // station, else back at its own) - the same places as the Best now rows
   if (m.area) rows.push([t("mdetail.givenAt"), at({ a: m.area, map: m.map })]);

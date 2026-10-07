@@ -37,6 +37,37 @@ class World(Part):
         that only clears the map's fog)."""
         return str(area.WorldAreaDisplayName or "")
 
+    def travel_network(self) -> tuple[list[tuple[str, str]], list[tuple[str, str]]]:
+        """The ways between maps and the fast travel stations (travel.py), static game data: ([(from map, to map)],
+        [(station name, its map)]). Every one loaded wherever the player is, every DLC's (tools/probes/probe_fast_travel.txt:
+        75 stations in Thousand Cuts; probe_level_exits_VOGChamber_P.txt: 178 exits, 75 stations). The links: each exit
+        (a LevelTravelStationDefinition in its StationLevelName, to its DestinationStationDefinition's) and the level
+        lists' ConnectedPersistents - both: the exits have links the lists lack (Sanctuary <-> Control Core Angel, Dragon
+        Keep's), the lists one the exits name wrong (Dragon Keep's exits to a "Dungeons_P" no list knows: Dungeon_P). A
+        few find_all (every object walked): once."""
+        import unrealsdk  # noqa: PLC0415
+
+        def live(cls: str, exact: bool = True) -> list[Any]:
+            return [o for o in unrealsdk.find_all(cls, exact=exact) if not o.Name.startswith("Default__")]
+
+        links = []
+        for exit_ in live("LevelTravelStationDefinition"):
+            if (dest := exit_.DestinationStationDefinition) is not None:
+                links.append((str(exit_.StationLevelName), str(dest.StationLevelName)))
+        for level_list in live("LevelDependencyList", exact=False):
+            for entry in level_list.LevelList:
+                links.extend((str(entry.PersistentMap), str(c)) for c in entry.ConnectedPersistents)
+        # (bSendOnly ignored: The Bunker's is, and it can be travelled to - the user; so are DamTop's and Wilhelm's, both
+        # in the player's ActivatedTeleportersList)
+        stations = [(str(s.Name), str(s.StationLevelName)) for s in live("FastTravelStationDefinition")]
+        return links, stations
+
+    def unlocked_stations(self, pc: Any) -> list[str]:
+        """The fast travel stations the player activated, by their definitions' names (the controller's
+        ActivatedTeleportersList: ['Sanctuary', 'TheFridge', ...] - probe_fast_travel.txt). Names only: the base game's
+        and a DLC's Cliffs share one."""
+        return [str(n) for n in pc.ActivatedTeleportersList]
+
     def movie_no_skip(self, args: Any) -> bool:
         """ClientPlayBinkMovie's arguments: whether the video can't be skipped."""
         return bool(args.bForceNoSkip)

@@ -87,6 +87,12 @@ export function isHere(place, level) {
   return !!(place && place.map && level && level.map && place.map.toLowerCase() === String(level.map).toLowerCase());
 }
 
+/** How to get to a place fast travel doesn't reach (the log's "via", travel.py: Fink's Slaughterhouse -> The Fridge):
+ *  { v: [the nearest maps with a station, as the game names them], n: exits from there }, null for a map with one. */
+export function viaOf(place, log) {
+  return (place && place.map && log && log.via && log.via[String(place.map).toLowerCase()]) || null;
+}
+
 /** The mission a side mission hangs under in the tree: the first mission it needs that's in the
  *  log (story missions are a flat list: they chain one after the other). */
 function parentOf(m, byId) {

@@ -70,7 +70,7 @@ bottom-left message).
   unlocks under it (`Dependencies`), done / active / available (every dependency done, offered:
   `bHeardKickoff`) / unknown (dependencies done, not offered yet: the game titles it "Inconnu") /
   locked (hidden unless asked); ready to turn in (`MS_ReadyToTurnIn` / `MS_RequiredObjectivesComplete`) in green, with the
-  panel's tracked mission saying so (and the turn-in text). A mission's details: description, giver, turn in, base level,
+  panel's tracked mission saying so (and the turn-in text). A mission's details: description, giver, turn in (its places: "· via" the nearest maps with fast travel for a map without - travel.py, the log's `via`), base level,
   objectives done + current step, reward (XP, currency, items; alternative), requires / unlocks
   (neutral links with their state; Back walks the history). Rewards: `GetExperienceReward` /
   `GetCurrencyReward` (function calls: only active / available / tracked missions, cached per

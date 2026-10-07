@@ -416,6 +416,8 @@ export default {
   "best.turnInAt": "報告場所: {a}",
   "best.givenAt": "受注場所: {a}",
   "best.here": "現在地",
+  "best.via": "{a} 経由",
+  "best.viaFar": "{a} 経由（{n} マップ）",
   "best.turnInTo": "報告先: {who}",
   "best.from": "依頼者: {who}",
   "best.more": "他 {n} 件",

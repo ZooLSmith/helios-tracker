@@ -26,6 +26,7 @@ DISCOVERY = "discovery"  # the level's discovery areas and the map's fog of war 
 OXYGEN = "oxygen"  # the Oz meter: oxygen pools, air domes, oxygen sources
 CHALLENGES = "challenges"  # level challenge objects a player discovers (the Vault symbols: IO_VaultRoy)
 JUMPPADS = "jumppads"  # jump pads and geysers (OzPlayerJumpPad)
+FASTTRAVEL = "fasttravel"  # the fast travel network and the maps' exits (travel.py: a map without a station, "via")
 
 _PROFILES: dict[str, type[Any]] = {}
 

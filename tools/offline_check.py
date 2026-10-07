@@ -214,7 +214,7 @@ gameBl1.push([cardIconKey("jakobs"), cardIconKey("none"), cardIconKey("None"), c
 const { objectCategory: gameCategory } = await load("js/model.js");
 const gameOutpost = { d: "OutpostDefinition", n: "OutpostDefinition", raw: 1, c: "EmergencyTeleportOutpost" };
 gameBl1.push(gameCategory(gameOutpost));
-setGame("bl2", ["challenges", "discovery"]);
+setGame("bl2", ["challenges", "discovery", "fasttravel"]);
 gameBl1.push(gameCategory(gameOutpost)); // (BL2's: not a class of its - not a station by it)
 const gameBl2 = { shown: gameShown(), seraph: rarity(501)[0], etech: lootLayer({ q: 6, c: "WillowWeapon" }) };
 setGame("", []);
@@ -300,6 +300,10 @@ const placeM = { area: "Sanctuary", map: "Sanctuary_P", tin: { a: "Southern Shel
 const where = { active: whereTo(placeM, "active"), ready: whereTo(placeM, "ready"), available: whereTo(placeM, "available"),
   readyNoTin: whereTo({ area: "Sanctuary", map: "Sanctuary_P" }, "ready"), activeNoGo: whereTo({ area: "Sanctuary", map: "Sanctuary_P" }, "active"),
   none: whereTo({}, "active"), here: isHere(whereTo(placeM, "available"), { map: "sanctuary_p" }), notHere: isHere({ map: "Ice_P" }, { map: "Sanctuary_P" }) };
+const { viaOf } = await load("js/missions.js");
+const viaLog = { via: { banditslaughter_p: { v: ["The Fridge"], n: 1 } } };
+where.via = viaOf({ a: "Fink's Slaughterhouse", map: "BanditSlaughter_P" }, viaLog);
+where.viaNone = [viaOf({ a: "Sanctuary", map: "Sanctuary_P" }, viaLog), viaOf({ a: "x" }, viaLog), viaOf({ map: "BanditSlaughter_P" }, {})];
 const { rewardFor } = await load("js/missions.js");
 const rwM = { rw: { "12": { xp: 900 }, "15": { xp: 1100 } } };
 const fallback = { own: rewardFor(rwM, 12), toLocal: rewardFor(rwM, 20, 15), toAny: rewardFor(rwM, 20, 30), none: rewardFor({}, 12, 15) };
@@ -1307,7 +1311,7 @@ def check_helios_tracker() -> None:  # noqa: PLR0915
         time.sleep(0.05)
     assert level["status"] == "ready" and level["upp"] == 128.0 and level["center"] == [-3072.0, -10240.0], level
     # the game and its features, for the page (games.py -> game.js)
-    assert level["game"] == "bl2" and level["features"] == ["challenges", "discovery"], (level.get("game"), level.get("features"))
+    assert level["game"] == "bl2" and level["features"] == ["challenges", "discovery", "fasttravel"], (level.get("game"), level.get("features"))
     # The games' profiles (games.py): one per game, by mods_base's name; each other game only what differs from BL2
     from helios_tracker import games as game_profiles  # noqa: PLC0415
     profile_bl2, profile_tps, profile_bl1 = (game_profiles.make_profile(n) for n in ("BL2", "TPS", "BL1"))
@@ -2935,6 +2939,8 @@ def check_helios_tracker() -> None:  # noqa: PLR0915
     assert (w["active"]["why"], w["active"]["a"], w["ready"]["a"], w["available"]["why"]) == ("step", "Bay", "Southern Shelf", "home"), w
     assert (w["readyNoTin"]["why"], w["readyNoTin"]["a"], w["activeNoGo"], w["none"]) == ("turnin", "Sanctuary", None, None), w
     assert w["here"] is True and w["notHere"] is False, ("here: the map names compared, any case", w)
+    # "via": a map without fast travel, looked up by its map in any case; a map with a station / no map / no table: none
+    assert w["via"] == {"v": ["The Fridge"], "n": 1} and w["viaNone"] == [None, None, None], (w["via"], w["viaNone"])
     assert mis["tooHigh"] == {"rows": ["ok", "t2", "okKid"], "n": 3, "lv": 11, "total": 160}, mis["tooHigh"]  # dlcKid: its parent's Lv 30
     best = mis["best"]  # u counts its alternative reward (2000 XP); l2 (two steps away) and d (done) are out; e: no reward known
     assert (best["xp"], best["cash"], best["effort"]) == ("ual3vl1ery", "vual1l3ery", "vual3l1ery"), best
@@ -3034,6 +3040,57 @@ def check_script() -> None:
     # one data folder whichever the install: a folder install's too (not the package - the user: code only there)
     assert paths.SDKMOD is None and paths.DATA == paths.PACKAGE.parent / ".helios_tracker", paths.DATA
     print("  user script: autoexec.ps1 in the data folder (sdk_mods/.helios_tracker/, a folder install's too), its log beside it")
+
+
+def check_travel() -> None:
+    """travel.py: a map without a fast travel station -> the nearest maps with one (probe_level_exits_VOGChamber_P.txt's
+    links, a few): the unlocked ones first, every one at the same count, a map with a station of its own left out; the
+    Travel table rebuilt only when the unlocked stations change, named as the game names the maps."""
+    from types import SimpleNamespace as ns  # noqa: PLC0415
+
+    from helios_tracker import games as travel_games  # noqa: PLC0415
+    from helios_tracker.travel import Travel, via_maps  # noqa: PLC0415
+
+    travel_links = [("BanditSlaughter_P", "Fridge_P"), ("Fridge_P", "BanditSlaughter_P"), ("Fridge_P", "Frost_P"),
+                    ("Frost_P", "Fridge_P"), ("Sanctuary_Hole_P", "Sanctuary_Hole_P"), ("caverns_p", "Sanctuary_Hole_P"),
+                    ("Ice_P", "Sanctuary_Hole_P"), ("Sanctuary_P", "Ice_P"), ("Ice_P", "Sanctuary_P"),
+                    ("VOGChamber_P", "VOGChamber_P"), ("Boss_Cliffs_P", "VOGChamber_P"), ("Sanctuary_P", "VOGChamber_P"),
+                    ("Deep_P", "BanditSlaughter_P"), ("Lonely_P", "Lonely_P"), ("TundraTrain_P", "None")]
+    travel_stations = [("TheFridge", "Fridge_P"), ("IceWest", "Frost_P"), ("Caverns", "caverns_p"), ("IceEast", "Ice_P"),
+                       ("Sanctuary", "Sanctuary_P"), ("Cliffs_Boss", "Boss_Cliffs_P"), ("TundraTrain", "None")]
+    all_unlocked = [n for n, _ in travel_stations]
+    via_all = via_maps(travel_links, travel_stations, all_unlocked)
+    assert via_all == {"banditslaughter_p": (["Fridge_P"], 1), "sanctuary_hole_p": (["Ice_P", "caverns_p"], 1),
+                       "vogchamber_p": (["Boss_Cliffs_P", "Sanctuary_P"], 1)}, via_all  # (Deep_P: nothing leads in)
+    # The Fridge not unlocked: the nearest unlocked one (Three Horns - Valley, two exits); nothing unlocked: any station
+    via_locked = via_maps(travel_links, travel_stations, ["IceWest"])
+    assert via_locked["banditslaughter_p"] == (["Frost_P"], 2) and via_locked["sanctuary_hole_p"] == (["Ice_P", "caverns_p"], 1), via_locked
+    assert via_maps(travel_links, travel_stations, [])["banditslaughter_p"] == (["Fridge_P"], 1)
+
+    real_game = travel_games.GAME
+    travel_games.GAME = travel_games.make_profile("BL2")
+    try:
+        reads = []
+        travel_games.GAME.world.travel_network = lambda: (reads.append(1), (travel_links, travel_stations))[1]
+        unlocked_now = list(all_unlocked)
+        travel_games.GAME.world.unlocked_stations = lambda pc_obj: unlocked_now
+        titles = {"Fridge_P": "The Fridge", "Frost_P": "Three Horns - Valley", "Ice_P": "Three Horns - Divide",
+                  "caverns_p": "Caustic Caverns", "Sanctuary_P": "Sanctuary"}  # (Boss_Cliffs_P: no name - left out)
+        travel_table = Travel()
+        assert travel_table.update(ns(), titles.get) is True and reads == [1], reads
+        assert travel_table.via == {"banditslaughter_p": {"v": ["The Fridge"], "n": 1},
+                                    "sanctuary_hole_p": {"v": ["Caustic Caverns", "Three Horns - Divide"], "n": 1},
+                                    "vogchamber_p": {"v": ["Sanctuary"], "n": 1}}, travel_table.via
+        assert travel_table.update(ns(), titles.get) is False and reads == [1]  # the same stations: nothing rebuilt
+        unlocked_now.remove("TheFridge")
+        assert travel_table.update(ns(), titles.get) is True and reads == [1], "the network read once"
+        assert travel_table.via["banditslaughter_p"] == {"v": ["Three Horns - Valley"], "n": 2}, travel_table.via
+        assert travel_table.update(None, titles.get) is False  # (no controller yet)
+        travel_games.GAME = travel_games.make_profile("BL1")  # not probed: the feature left out, nothing read
+        assert travel_games.FASTTRAVEL not in travel_games.GAME.features and Travel().update(ns(), titles.get) is False
+    finally:
+        travel_games.GAME = real_game
+    print("  travel: a map without fast travel -> the nearest with it (unlocked first, ties kept), rebuilt on a new station")
 
 
 def check_games_import() -> None:
@@ -3324,6 +3381,7 @@ def main() -> None:
     check_helios_tracker()
     check_frames()
     check_script()
+    check_travel()
     check_games_import()
     check_shared_names()
     check_parts_contract()

@@ -416,6 +416,8 @@ export default {
   "best.turnInAt": "보고 장소: {a}",
   "best.givenAt": "제공 장소: {a}",
   "best.here": "현재 위치",
+  "best.via": "{a} 경유",
+  "best.viaFar": "{a} 경유 ({n}개 지역)",
   "best.turnInTo": "보고: {who}",
   "best.from": "제공: {who}",
   "best.more": "+{n}개 더",

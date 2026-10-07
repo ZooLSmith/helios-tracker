@@ -416,6 +416,8 @@ export default {
   "best.turnInAt": "在 {a} 回報",
   "best.givenAt": "於 {a} 接取",
   "best.here": "你在這裡",
+  "best.via": "經由 {a}",
+  "best.viaFar": "經由 {a}（{n} 張地圖）",
   "best.turnInTo": "回報給 {who}",
   "best.from": "來自 {who}",
   "best.more": "+{n} 個",

@@ -416,6 +416,8 @@ export default {
   "best.turnInAt": "Сдать в {a}",
   "best.givenAt": "Выдано в {a}",
   "best.here": "Вы здесь",
+  "best.via": "через {a}",
+  "best.viaFar": "через {a} (карт: {n})",
   "best.turnInTo": "Сдать: {who}",
   "best.from": "От: {who}",
   "best.more": "+{n} ещё",

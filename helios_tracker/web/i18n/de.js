@@ -416,6 +416,8 @@ export default {
   "best.turnInAt": "Abschluss in {a}",
   "best.givenAt": "Erhalten in {a}",
   "best.here": "Du bist hier",
+  "best.via": "über {a}",
+  "best.viaFar": "über {a} ({n} Karten)",
   "best.turnInTo": "Abschluss bei {who}",
   "best.from": "Von {who}",
   "best.more": "+{n} weitere",

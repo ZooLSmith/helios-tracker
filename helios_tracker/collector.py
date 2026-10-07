@@ -29,6 +29,7 @@ from .gamedir import game_dir
 from .missions import MissionLog, mission_id
 from .missions import objective_index as _mission_index
 from .shops import ShopReader
+from .travel import Travel
 from .skills import SkillReader
 from .frames import FRAMES
 from .paths import DIAGNOSTICS
@@ -358,6 +359,7 @@ class Collector:
         self._givers: dict[int, tuple[WeakPointer, list[tuple[Any, bool, bool]]]] = {}
         self._next_log = 0.0
         self._log = MissionLog()
+        self._travel = Travel()  # how to get to a map fast travel doesn't reach: "via" (the log's payload)
         self._active = False  # a page was connected last tick
         self._pickups: dict[int, WeakPointer] = {}  # by address: from scans and the spawn hook
         self._gear_classes: dict[int, bool] = {}  # item class address -> gear (cards on the map; per level: addresses)
@@ -2027,6 +2029,10 @@ class Collector:
         tracker = self._tracker() if self._tracker is not None else None
         started = time.perf_counter()
         if self._missions_readable() and self._log.step(tracker, self._player_controllers):
+            # the "via" table: the player's unlocked stations checked (one array), rebuilt when they changed
+            if try_(lambda: self._travel.update(get_pc(possibly_loading=True), level_name), False):
+                self._log.via = self._travel.via
+                self._log.dirty = True
             self._publish_log()
             self._update_area_level()
         if DIAGNOSTICS and (time.perf_counter() - started) * 1000 > SLOW_MS:  # slow: which part - debug only
