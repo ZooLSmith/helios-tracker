@@ -466,8 +466,7 @@ def _inventory(pawn: Any, player: dict[str, Any]) -> None:
     if inv_mgr is None:  # (a co-op client, for the others) what their pawn shows: their equipped gear
         seen: set[int] = set()
         equipped = []
-        for inv in [try_(lambda: pawn.Weapon), *(try_(lambda: list(pawn.HolsteredWeaponSlots), []) or []),
-                    *(try_(lambda: list(pawn.EquippedItems), []) or [])]:
+        for inv in try_(lambda: games.GAME.pawns.shown_gear(pawn), []) or []:  # (each game's)
             if inv is None or (key := inv._get_address()) in seen:
                 continue
             seen.add(key)
@@ -1195,7 +1194,8 @@ def read_players(world_info: Any, me: Any, pc: Any = None) -> list[dict[str, Any
                 mark = part("card keys", mark)
                 _inventory(pawn, player)
                 mark = part("inventory", mark)
-                games.GAME.skills.read(ctrl, player, try_(lambda p=pawn: _skill_bonuses(p), {}))  # (each game's tree)
+                # (each game's tree; failing - logged by the part, once -: the player listed without, not dropped)
+                try_(lambda p=pawn, c=ctrl, r=player: games.GAME.skills.read(c, r, try_(lambda: _skill_bonuses(p), {})))
                 part("skills", mark)
                 players.append(player)
         except Exception as ex:  # noqa: BLE001

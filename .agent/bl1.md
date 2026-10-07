@@ -374,3 +374,23 @@ says when it was seen.
   CookedPC, the export by the rest (a package names its exports without itself: `Textures.Credits`) - served at
   `/texture/<path>.png` like BL2's (`Bl1Assets.serve`). A weapon's pickup has no `ItemDefinition` (its
   `DefinitionData` is a weapon's): no flag icon, as in BL2.
+- **Another player, on a co-op client** (tools/probes/probe_bl1_other_gear.txt, 2026-10-07): their pawn has no
+  Controller (not replicated) - the class from their player info's `CharacterName` (`CN_Mordecai`: `Bl1Pawns.class_name`),
+  no skills (`Bl1Skills.read`: "coopClient"; reading `ctrl.PlayerClass` raised, the player dropped from the list and
+  "Who" while the map showed both pawns). No InvManager; `Weapon` None, no `HolsteredWeaponSlots` - the gun in their
+  hands is their pawn's `AttachedWeapon` (its Instigator the pawn, no Owner: `Bl1Pawns.shown_gear`), the only item of
+  theirs on the client: `EquippedItems` all None, `EquippedItemDefs` the definitions only (a shield, a grenade mod),
+  their other weapons never sent - a weapon arrives when drawn (the pawn idles empty-handed until then, the user saw),
+  no caching. So their Gear tab: the held weapon alone (BL2's client gets their holstered weapons and items too).
+- **Missions on a co-op client** (tools/probes/probe_bl1_client_missions.txt, 2026-10-07): no MissionTracker at all (the
+  collector waited for one: no log, no markers, nothing logged); the controller's `MissionPlaythroughData` is the
+  client's own log (3 entries, the playthrough's 28 missions, its `ActiveMission`) - `Bl1Missions.readable` (no tracker
+  needed), `Bl1Missions.active` (the tracker's, else the controller's playthrough entry's). The GRI's `MissionBitfield`
+  is there too, not read.
+- **Another player's skills, on the host** (tools/probes/probe_bl1_remote_skills.py, the same save on both sides,
+  2026-10-07): their controller's PlayerSkills[] has the same 66 definitions in the same order as ours (the client's own
+  array too, its grades right), but the grades are misplaced - most two slots down from ~29 (Pistol 2 on DoubleTime, Gun
+  Crazy's 5 on Loaded: the page lit Sniper 5), DoubleTime_Master (16) not, a stray Ransack 2 - so the branches' points
+  were wrong too (Sniper 5, Rogue 2, the action skill 0 for Gunslinger 5 + Bloodwing). The game's own copy (nothing
+  wrong in play). Not decodable from one sample (a second - a known point spent - could tell a rule): not shown,
+  "unavailable" (Bl1Skills.read). Their class's tree itself (names, icons, tiers) is right - a rank-less tree possible.

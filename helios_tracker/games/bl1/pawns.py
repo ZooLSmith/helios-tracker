@@ -29,11 +29,13 @@ class Bl1Pawns(Pawns):
         # probe_player_text.txt): the globals' PlayerCharacters[] = {CharacterClassName "Hunter", DefaultCharacterName
         # "Mordecai"} - localized (WillowGame/Localization/INT/gd_globals.INT, [General.Globals GlobalsDefinition]; the
         # load character menu's "Hunter", "Soldier", "Berserker" - the user), by the class's CharacterName (Mordecai's 1 -
-        # its entry 1; the file's order Roland 0, Mordecai 1, Lilith 2, Brick 3). The controller's class: ours / the host's
+        # its entry 1; the file's order Roland 0, Mordecai 1, Lilith 2, Brick 3). The player info's CharacterName (CN_Mordecai:
+        # tools/probes/probe_bl1.txt - replicated, everyone's): not the controller's class - another player's on a co-op
+        # client isn't (None: it raised, their class missing)
         import unrealsdk  # noqa: PLC0415
 
         entry = unrealsdk.find_object("GlobalsDefinition", "GD_Globals.General.Globals").PlayerCharacters[
-            int(ctrl.PlayerClass.CharacterName)]
+            int(pri.CharacterName)]
         return {k: v for k, v in (("cls", str(entry.CharacterClassName)), ("char", str(entry.DefaultCharacterName))) if v}
 
     def name(self, pawn: Any) -> str:
@@ -55,3 +57,9 @@ class Bl1Pawns(Pawns):
         # no AIClass on its pawns: their own AIPawnName ('ClapTrap'; 'None' on most enemies)
         name = str(pawn.AIPawnName)
         return "" if name == "None" else name
+
+    def shown_gear(self, pawn: Any) -> list[Any]:
+        # Another player's pawn on a co-op client (tools/probes/probe_bl1_other_gear.txt): Weapon None, no
+        # HolsteredWeaponSlots - the gun in its hands is its AttachedWeapon (its Instigator the pawn, no Owner); its
+        # EquippedItems all None (their definitions only: EquippedItemDefs - a shield, a grenade mod)
+        return [pawn.AttachedWeapon, *pawn.EquippedItems]

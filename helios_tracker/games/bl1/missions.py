@@ -65,6 +65,23 @@ class Bl1Missions(Missions):
                                 if d._get_address() not in picked]
         return log + self._not_picked
 
+    def readable(self, tracker: Any) -> bool:
+        # Its log is the controller's (entries), not the tracker's: a co-op client has no MissionTracker at all, its
+        # controller's MissionPlaythroughData its own log (tools/probes/probe_bl1_client_missions.txt: 28 missions) - the
+        # missions were all missing there
+        return True
+
+    def active(self, tracker: Any) -> Any:
+        # The tracker's ActiveMission; no tracker (a co-op client): the controller's playthrough entry's
+        # (MissionPlaythroughInfo.ActiveMission - tools/probes/probe_bl1_client_missions.txt)
+        if tracker is not None:
+            return tracker.ActiveMission
+        from mods_base import ENGINE, get_pc  # noqa: PLC0415
+
+        data = get_pc().MissionPlaythroughData
+        playthrough = int(ENGINE.GetCurrentWorldInfo().GRI.HostCurrentPlaythrough)
+        return data[playthrough].ActiveMission if playthrough < len(data) else None
+
     def picked_entries(self, tracker: Any) -> Any:
         # its log only: the stand-ins for the missions not picked up (~218) can't be active - the markers went through
         # them all every second (2-3 ms)

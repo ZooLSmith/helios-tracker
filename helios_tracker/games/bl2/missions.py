@@ -14,6 +14,15 @@ class Missions(Part):
 
         return def_name(objective)
 
+    def readable(self, tracker: Any) -> bool:
+        """Whether the missions can be read now (the collector's log, markers): BL2's come from the MissionTracker (found by
+        the objects scan: None until then)."""
+        return tracker is not None
+
+    def active(self, tracker: Any) -> Any:
+        """The tracked mission's definition (None: none): the tracker's ActiveMission."""
+        return tracker.ActiveMission
+
     def entries(self, tracker: Any) -> Any:
         """The playthrough's missions, each {MissionDef, Status, its progress...} (missions.py MissionLog): the
         tracker's MissionList - every mission of the game, not started ones too. None: not there yet (loading)."""

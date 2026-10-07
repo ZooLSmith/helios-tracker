@@ -38,3 +38,9 @@ class Pawns(Part):
         from ...util import def_name  # noqa: PLC0415
 
         return def_name(pawn.AIClass)
+
+    def shown_gear(self, pawn: Any) -> list[Any]:
+        """The gear a player pawn shows when its inventory isn't there (another player, on a co-op client: no
+        InvManager - inspector._inventory): the weapon in its hands, its holstered weapons, its equipped items (None:
+        an empty slot)."""
+        return [pawn.Weapon, *pawn.HolsteredWeaponSlots, *pawn.EquippedItems]

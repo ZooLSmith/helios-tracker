@@ -28,7 +28,19 @@ class Bl1Skills(Skills):
 
     def read(self, ctrl: Any, player: dict[str, Any], bonuses: dict[str, Any]) -> None:
         # No PlayerSkillTree: the controller's PlayerSkills[] and SkillTreeBranches[] (tools/probes/probe_bl1_skills.txt) -
-        # _player_skills; its branches' names: the skill menu's (_read_branch_names)
+        # _player_skills; its branches' names: the skill menu's (_read_branch_names). No controller (another player, on a
+        # co-op client: theirs isn't replicated - its PlayerClass read failed, the player dropped from the list): none, as
+        # BL2's (inspector._skills)
+        if ctrl is None:
+            player["skillsWhy"] = "unavailable" if player["local"] else "coopClient"
+            return
+        # Another player's, on the host: their controller is there but its ranks aren't theirs - the game's own copy,
+        # misplaced (tools/probes/probe_bl1_remote_skills.py, the same save on both sides: most grades two slots down from
+        # ~29 - Gun Crazy's 5 on Loaded, another branch -, a stray Ransack 2, the action skill 0; the client's own array
+        # laid out as the host's, its ranks right). Not decodable from one sample: not shown (the user's call)
+        if not player["local"]:
+            player["skillsWhy"] = "unavailable"
+            return
         self._player_skills(ctrl, player, bonuses, self._read_branch_names(ctrl), self._cached_skill_icons(ctrl))
 
     def _player_skills(self, ctrl: Any, player: dict[str, Any], bonuses: dict[str, list[list[Any]]] | None = None,

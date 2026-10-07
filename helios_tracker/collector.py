@@ -469,7 +469,7 @@ class Collector:
             run("players", self._publish_players)
             heavy = True
         # The mission log's full pass: a slice per tick until it's done (never one long hitch)
-        if self._tracker is not None and (self._log.in_cycle or (due(self._next_log, MISSION_LOG_EVERY) and not heavy)):
+        if self._missions_readable() and (self._log.in_cycle or (due(self._next_log, MISSION_LOG_EVERY) and not heavy)):
             if not self._log.in_cycle:
                 self._next_log = now + MISSION_LOG_EVERY
             run("mission log", self._full_log)
@@ -1928,7 +1928,7 @@ class Collector:
         WillowWaypoint whose AreaRadius > 0 is an area ("somewhere in this circle"), 0 a point.
         """
         tracker = self._tracker() if self._tracker is not None else None
-        if tracker is None:
+        if not self._missions_readable():
             return
         started = mark = time.perf_counter()
         parts: dict[str, float] = {}  # (the slow-task report's breakdown - diagnostics)
@@ -1946,7 +1946,7 @@ class Collector:
         part("fast")
         self._publish_log()
         part("log")
-        active = try_(lambda: tracker.ActiveMission)
+        active = try_(lambda: games.GAME.missions.active(tracker))
         active_addr = active._get_address() if active is not None else None
         markers, giver_npcs = [], set()
         states = None  # the log's missions to pick up / hand in (giver_states): read once, for the game's directives
@@ -2017,11 +2017,16 @@ class Collector:
                 if part_s * 1000 > 1.0:
                     self._timings.add("missions." + name, part_s * 1000)
 
+    def _missions_readable(self) -> bool:
+        """Whether the missions can be read now (games.GAME.missions.readable - each game's: where its log comes from)."""
+        tracker = self._tracker() if self._tracker is not None else None
+        return bool(try_(lambda: games.GAME.missions.readable(tracker), False))
+
     def _full_log(self) -> None:
         """One step of the full pass; published when the cycle completes."""
         tracker = self._tracker() if self._tracker is not None else None
         started = time.perf_counter()
-        if tracker is not None and self._log.step(tracker, self._player_controllers):
+        if self._missions_readable() and self._log.step(tracker, self._player_controllers):
             self._publish_log()
             self._update_area_level()
         if DIAGNOSTICS and (time.perf_counter() - started) * 1000 > SLOW_MS:  # slow: which part - debug only

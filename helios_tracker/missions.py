@@ -412,7 +412,7 @@ class MissionLog:
 
     def _track(self, tracker: Any) -> bool:
         """Reads the tracked mission; False if it isn't one of the watched entries yet."""
-        active = try_(lambda: tracker.ActiveMission)
+        active = try_(lambda: games.GAME.missions.active(tracker))
         tracked = mission_id(active) if active is not None else ""
         if tracked != self._tracked:
             self._tracked = tracked

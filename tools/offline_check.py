@@ -1314,6 +1314,31 @@ def check_helios_tracker() -> None:  # noqa: PLR0915
     assert type(game_profiles.GAME) is type(profile_bl2), "the fake mods_base's game: BL2"
     assert profile_tps.features == profile_bl2.features | {"oxygen", "jumppads"} and profile_tps.packages == "CookedPCConsole"
     assert profile_bl1.features == set() and profile_bl1.packages == "CookedPC" and profile_bl1.gibbed_prefix == ""
+    # another player on a co-op client: no controller (not replicated) - no skills, the reason the page shows; it raised in
+    # BL1 (its PlayerClass), the player dropped from the list and "Who" (the map showed both pawns)
+    bl1_other = {"local": False}
+    profile_bl1.skills.read(None, bl1_other, {})
+    assert bl1_other == {"local": False, "skillsWhy": "coopClient"}, bl1_other
+    # another player's on the host: their controller's ranks are the game's misplaced copy - not shown
+    bl1_hosted = {"local": False}
+    profile_bl1.skills.read(ns(PlayerSkills=[], SkillTreeBranches=[]), bl1_hosted, {})
+    assert bl1_hosted == {"local": False, "skillsWhy": "unavailable"}, bl1_hosted
+    # their gear: the gun in their hands is their pawn's AttachedWeapon (Weapon None; tools/probes/probe_bl1_other_gear.txt)
+    bl1_sniper = ns(Name="WillowWeapon_25")
+    assert profile_bl1.pawns.shown_gear(ns(AttachedWeapon=bl1_sniper, Weapon=None, EquippedItems=[None] * 3)) == [bl1_sniper, None, None, None]
+    # their missions: no MissionTracker on a BL1 co-op client (tools/probes/probe_bl1_client_missions.txt) - its log the
+    # controller's anyway: readable without one (BL2's: the tracker's), the tracked one the controller's playthrough entry's
+    assert not profile_bl2.missions.readable(None) and profile_bl1.missions.readable(None)
+    bl1_mb = sys.modules["mods_base"]
+    bl1_real_pc, bl1_real_engine = bl1_mb.get_pc, bl1_mb.ENGINE
+    bl1_active = ns(Name="M_HarvestCrystals_Electrical")
+    bl1_mb.get_pc = lambda **k: ns(MissionPlaythroughData=[ns(ActiveMission=bl1_active), ns(ActiveMission=None)])
+    bl1_mb.ENGINE = ns(GetCurrentWorldInfo=lambda: ns(GRI=ns(HostCurrentPlaythrough=0)))
+    try:
+        assert profile_bl1.missions.active(None) is bl1_active
+        assert profile_bl1.missions.active(ns(ActiveMission=None)) is None, "a tracker (the host): its own"
+    finally:
+        bl1_mb.get_pc, bl1_mb.ENGINE = bl1_real_pc, bl1_real_engine
     assert (profile_bl2.exe_depth, profile_bl1.exe_depth) == (2, 1), "Binaries/Win32/Borderlands2.exe, Binaries/Borderlands.exe"
     # BL1's world is "Loader" in every area: the area is its first LevelStreamingPersistent (tools/probes/probe_bl1.txt);
     # none (the main menu): the world's own package
@@ -1518,13 +1543,14 @@ def check_helios_tracker() -> None:  # noqa: PLR0915
     assert profile_entries == [("games.World.map_name", "AttributeError"), ("games.World.map_name", "TypeError")], (
         "logged once per exception type", profile_entries)
     assert profile_logged.world.map_name(ns(GetStreamingPersistentMapName=lambda: "Ice_P")) == "Ice_P", "and works as before"
-    # its class name: the globals' PlayerCharacters[] by the class's CharacterName (no identifier definitions: "Mordecai ?")
+    # its class name: the globals' PlayerCharacters[] by the player info's CharacterName (no identifier definitions: "Mordecai
+    # ?") - another player's on a co-op client too: no controller (not replicated)
     bl1_globals = ns(PlayerCharacters=[ns(CharacterClassName="Soldier", DefaultCharacterName="Roland"),
                                        ns(CharacterClassName="Hunter", DefaultCharacterName="Mordecai")])
     bl1_real_find_object = sys.modules["unrealsdk"].find_object
     sys.modules["unrealsdk"].find_object = lambda cls, path: bl1_globals if cls == "GlobalsDefinition" else None
     try:
-        assert profile_bl1.pawns.class_name(ns(PlayerClass=ns(CharacterName=1)), None) == {"cls": "Hunter", "char": "Mordecai"}
+        assert profile_bl1.pawns.class_name(None, ns(CharacterName=1)) == {"cls": "Hunter", "char": "Mordecai"}
     finally:
         sys.modules["unrealsdk"].find_object = bl1_real_find_object
     # its missions not picked up: the log's entries, then every other mission loaded, not started - offered: eligible
