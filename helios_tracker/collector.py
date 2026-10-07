@@ -64,6 +64,7 @@ PLAYERS_RETRY = 0.1  # s: gear cards left to build (inspector.ITEMS_SECONDS per 
 SLOW_MS = 4.0  # a task taking longer than this on the game thread is reported (it can cause a hitch)
 RECORDS_SECONDS = 0.002  # per tick, building the records of newly found interactive objects (a scan's backlog)
 INCOMPLETE_EVERY = 1.0  # s between retries of object records built before their definition arrived
+PICKUP_RETRY_EVERY = 1.0  # s between retries of a pickup's description built before its item arrived (_pickup_info)
 SLOW_REPORT_EVERY = 30.0  # s between console reports of slow tasks
 # A tick's periodic tasks (missions, areas, shops, looted...) start only while the tick (state included) is under
 # this: the others wait for the next tick - their 1 s timers used to fire in the same tick, ~15 ms every second
@@ -329,6 +330,9 @@ class Collector:
         self._odds_job: tuple[tuple[int, str], WeakPointer, Any] | None = None
         # pickups at rest (games.GAME.objects.pickup_at_rest): address -> (their last record, its item, the next full read)
         self._resting: dict[int, tuple[dict[str, Any], dict[str, Any] | None, float]] = {}
+        # pickups described before their item arrived (a co-op client: the pickup replicated first) -> when to describe
+        # them again (_pickup_info)
+        self._pickup_retry: dict[int, float] = {}
         self._areas_json = ""
         self._next_scan = 0.0
         self._next_objects = 0.0
@@ -731,6 +735,7 @@ class Collector:
         # (INFO_REFRESH_PER_TICK), not all on the next one; a pickup's never changes (refreshing them: 2-8 ms a tick)
         self._stale_info = [a for a in self._info if a not in self._pickups]
         self._resting = {k: v for k, v in self._resting.items() if k in self._pickups}  # (gone since: forgotten)
+        self._pickup_retry = {k: v for k, v in self._pickup_retry.items() if k in self._pickups}
 
     def movie_started(self, pc: Any, name: str, no_skip: bool) -> None:
         """From the ClientPlayBinkMovie hook: a cutscene video starts on this PC (tools/probes/probe_cutscene_watch.txt:
@@ -849,7 +854,12 @@ class Collector:
         return best
 
     def pickup_spawned(self, pickup: Any) -> None:
-        """From the WillowPickup:PostBeginPlay hook: a new pickup (loot drop...), no scan needed."""
+        """From the WillowPickup:PostBeginPlay hook: a new pickup (loot drop...), no scan needed. What was kept for its
+        address (an earlier pickup's, picked up since - an address reused): forgotten."""
+        addr = pickup._get_address()
+        self._info.pop(addr, None)
+        self._resting.pop(addr, None)
+        self._pickup_retry.pop(addr, None)
         if self._level_key is not None and self.hub.clients:
             if not self._hook_seen:
                 self._hook_seen = True
@@ -1439,11 +1449,18 @@ class Collector:
         return gear
 
     def _pickup_info(self, p: Any) -> dict[str, Any]:
+        """A pickup's description (its name, kind, rarity...), kept - but one built before its item arrived (a co-op
+        client: the pickup replicated first, its Inventory None or its item's name not there yet - it showed "Pickup ?"
+        for good, the client seeing cash) built again every PICKUP_RETRY_EVERY until it has its name."""
         addr = p._get_address()
-        if (info := self._info.get(addr)) is not None:
-            return info
+        if (info := self._info.get(addr)) is not None and (addr not in self._pickup_retry or time.monotonic() < self._pickup_retry[addr]):
+            return info  # (the clock read only for one waiting for its item)
         inv = try_(lambda: p.Inventory)
         name = item_name(inv)
+        if inv is None or not name:
+            self._pickup_retry[addr] = time.monotonic() + PICKUP_RETRY_EVERY
+        else:
+            self._pickup_retry.pop(addr, None)
         info = {
             "i": f"{addr:x}",
             **named(name, def_name(inv.Class) if inv is not None else "", str(p.Class.Name)),
@@ -1654,7 +1671,8 @@ class Collector:
                 pickups.append(pickup)
                 # at rest (and its card built, if it's gear): read again in PICKUP_RESTING_EVERY - staggered by its
                 # address the first time (a level's pickups all at rest at once: not all re-read in one tick)
-                if (not gear or item is not None) and try_(lambda get=get: games.GAME.objects.pickup_at_rest(get), False):
+                complete = p._get_address() not in self._pickup_retry  # (described: not again in a moment)
+                if (not gear or item is not None) and complete and try_(lambda get=get: games.GAME.objects.pickup_at_rest(get), False):
                     first = key not in self._resting
                     later = PICKUP_RESTING_EVERY * ((1 + (key >> 4) % 10 / 10) if first else 1)
                     self._resting[key] = (pickup, item, now + later)

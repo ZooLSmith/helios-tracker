@@ -2068,6 +2068,22 @@ def check_helios_tracker() -> None:  # noqa: PLR0915
     c.object_destroyed(vault_client_io)
     c.object_destroyed(vault_client_far)
     c.object_destroyed(vault_client_two)
+    # a pickup described before its item arrived (a co-op client: the pickup replicated first - "Pickup ?" for good, the
+    # client seeing cash): described again (PICKUP_RETRY_EVERY) until it has its name, then kept
+    late_pickup = ns(_get_address=lambda: 0x7A0, Class=ns(Name="WillowPickup"), Inventory=None, InventoryRarityLevel=0,
+                     bCostsToPickUp=False)
+    late_first = c._pickup_info(late_pickup)
+    assert late_first.get("raw") and 0x7A0 in c._pickup_retry, ("no item yet: a guess, retried", late_first)
+    assert c._pickup_info(late_pickup) is late_first, "not again before PICKUP_RETRY_EVERY"
+    late_pickup.Inventory = shield
+    c._pickup_retry[0x7A0] = 0.0  # (its retry due)
+    late_named = c._pickup_info(late_pickup)
+    assert late_named["n"] == col.item_name(shield) and not late_named.get("raw") and 0x7A0 not in c._pickup_retry, late_named
+    assert c._pickup_info(late_pickup) is late_named, "described: kept"
+    # its address reused by a new pickup (picked up, another dropped - a weapon thrown down): the old description forgotten
+    c.pickup_spawned(late_pickup)
+    assert 0x7A0 not in c._info, "a new pickup at a known address: described again"
+    c._pickups.pop(0x7A0, None)
     c.object_destroyed(barrel)  # it exploded
     c.tick(1001.4)
     names = [o["n"] for o in json.loads(hub.latest("objects"))["objects"]]
