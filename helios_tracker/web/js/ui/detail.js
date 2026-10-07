@@ -185,6 +185,9 @@ export function renderDetail(resetScroll) {
   if (it.lists && it.lists.length) tech.push([t("detail.lists"), it.lists.join(", ")]);
   if (it.c) tech.push([t("item.class"), String(it.c)]);
   if (it.d) tech.push([t("detail.definition"), it.dp || it.d]);
+  // where it is, in the game's units (the cursor's coordinates: tooltip.js) - a pawn's where it's drawn
+  const at = it.fx !== undefined ? pawnPos(it, performance.now()) : it;
+  if (at.x != null) tech.push([t("detail.position"), ["X", "Y", "Z"].map((k) => `${k} ${num(Math.round(at[k.toLowerCase()]))}`).join(" · ")]);
   const kvHtml = (list) => `<div class="kv">` + list.map(([k, v, h]) => `<span>${esc(k)}</span><span>${h ?? esc(v)}</span>`).join("") + `</div>`;
   // a fold (its header: the title, a count), closed until opened - remembered per object (S.itemFolds, as items')
   const fold = (key, title, count, inner) => `<div class="ifold${S.itemFolds.has(`${it.i}:${key}`) ? " open" : ""}" data-fold="${key}" ` +

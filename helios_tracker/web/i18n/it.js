@@ -188,6 +188,7 @@ export default {
   "detail.slots": "Oggetti per apertura (max)",
   "detail.price": "Prezzo",
   "detail.definition": "Definizione",
+  "detail.position": "Posizione",
   "detail.contents": "PUÒ CONTENERE",
   "detail.nearby": "NEI DINTORNI",
   "odds.tip": "Probabilità calcolate dai dati del bottino del gioco (~: non ancora verificate su drop reali). Si estrae una riga per apertura; un pool estrae una delle sue righe.",

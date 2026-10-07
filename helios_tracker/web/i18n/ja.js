@@ -188,6 +188,7 @@ export default {
   "detail.slots": "1 回の開封の個数（最大）",
   "detail.price": "価格",
   "detail.definition": "定義",
+  "detail.position": "位置",
   "detail.contents": "中身の候補",
   "detail.nearby": "付近",
   "odds.tip": "ゲームの戦利品データから計算した確率（~: 実際のドロップでは未検証）。開封ごとに 1 行が選ばれ、プールはその中の 1 行を選ぶ。",

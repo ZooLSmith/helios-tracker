@@ -188,6 +188,7 @@ export default {
   "detail.slots": "한 번 열 때 아이템 수 (최대)",
   "detail.price": "가격",
   "detail.definition": "정의",
+  "detail.position": "위치",
   "detail.contents": "포함 가능",
   "detail.nearby": "근처",
   "odds.tip": "게임의 전리품 데이터로 계산한 확률 (~: 실제 드롭으로 아직 확인 안 됨). 한 번 열 때 한 줄이 선택되며, 풀은 그중 한 줄을 선택합니다.",

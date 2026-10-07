@@ -188,6 +188,7 @@ export default {
   "detail.slots": "Objetos por apertura (máx.)",
   "detail.price": "Precio",
   "detail.definition": "Definición",
+  "detail.position": "Posición",
   "detail.contents": "PUEDE CONTENER",
   "detail.nearby": "CERCA",
   "odds.tip": "Probabilidades calculadas a partir de los datos de botín del juego (~: aún no comprobadas con botines reales). Se elige una línea por apertura; un grupo elige una de sus líneas.",

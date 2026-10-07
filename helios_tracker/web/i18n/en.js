@@ -189,6 +189,7 @@ export default {
   "detail.slots": "Items per opening (max)",
   "detail.price": "Price",
   "detail.definition": "Definition",
+  "detail.position": "Position",
   "detail.contents": "CAN CONTAIN",
   "detail.nearby": "NEARBY",
   "odds.tip": "Chances worked out from the game's loot data (~: not checked against real drops yet). One line is picked per opening; a pool picks one of its lines.",

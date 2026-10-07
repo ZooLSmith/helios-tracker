@@ -188,6 +188,7 @@ export default {
   "detail.slots": "每次開啟件數（最多）",
   "detail.price": "價格",
   "detail.definition": "定義",
+  "detail.position": "位置",
   "detail.contents": "可能包含",
   "detail.nearby": "附近",
   "odds.tip": "依遊戲的戰利品資料算出的機率（~：尚未以實際掉落驗證）。每次開啟抽一行；一個池會抽其中一行。",

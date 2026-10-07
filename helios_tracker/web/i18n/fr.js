@@ -188,6 +188,7 @@ export default {
   "detail.slots": "Objets par ouverture (max)",
   "detail.price": "Prix",
   "detail.definition": "Définition",
+  "detail.position": "Position",
   "detail.contents": "PEUT CONTENIR",
   "detail.nearby": "À PROXIMITÉ",
   "odds.tip": "Chances calculées à partir des données de butin du jeu (~ : pas encore vérifiées sur de vrais butins). Une ligne est tirée par ouverture ; un pool tire une de ses lignes.",

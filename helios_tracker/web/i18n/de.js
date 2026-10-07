@@ -188,6 +188,7 @@ export default {
   "detail.slots": "Objekte pro Öffnen (max.)",
   "detail.price": "Preis",
   "detail.definition": "Definition",
+  "detail.position": "Position",
   "detail.contents": "KANN ENTHALTEN",
   "detail.nearby": "IN DER NÄHE",
   "odds.tip": "Chancen aus den Beutedaten des Spiels berechnet (~: noch nicht mit echten Drops abgeglichen). Pro Öffnen wird eine Zeile gezogen; ein Pool zieht eine seiner Zeilen.",
