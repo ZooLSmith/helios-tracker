@@ -1184,16 +1184,21 @@ def check_helios_tracker() -> None:  # noqa: PLR0915
             GetSkillPointsSpentInTree=lambda: 4,
         ),
     )
+    # the world's levels (collector._levels): the persistent one (the world info's Outer) and a streamed one's
+    world_level = ns(Class=ns(Name="Level"), _get_address=lambda: 0x9000)
+    streamed_level = ns(Class=ns(Name="Level"), _get_address=lambda: 0x9001)
     wi = ns(
         GetStreamingPersistentMapName=lambda: "Sanctuary_P",
         GetMapInfo=lambda: ns(TacticalMapVolume=vol, TacticalMapMovie=movie),
         PawnList=me,
+        Outer=world_level,
+        StreamingLevels=[None, ns(LoadedLevel=streamed_level), ns(LoadedLevel=None)],
     )
     col.ENGINE = ns(GetCurrentWorldInfo=lambda: wi)
     col.get_pc = lambda **k: ns(MyWillowPawn=me, Rotation=ns(Yaw=0))
     gamedir.cooked_dir = lambda: GAME_COOKED
     barrel = ns(  # an interactive object whose display name comes from its balance definition
-        Name="WillowInteractiveObject_3", Outer=ns(Class=ns(Name="Level")), bDeleteMe=False, bHidden=False,
+        Name="WillowInteractiveObject_3", Outer=world_level, bDeleteMe=False, bHidden=False,
         Location=ns(X=9000.0, Y=1000.0, Z=3690.0), InteractiveObjectDefinition=ns(Name="IO_FireBarrel"),
         BalanceDefinitionState=ns(BalanceDefinition=ns(DefaultDisplayName="Incendiary Barrel")),
         Class=ns(Name="WillowInteractiveObject"), _get_address=lambda: 0x500,
@@ -1249,13 +1254,24 @@ def check_helios_tracker() -> None:  # noqa: PLR0915
     real_find_all = col.unrealsdk.find_all
     # the level's discovery areas (tools/probes/probe_discovery.txt): a named one, a fog of war only one
     def discovery(n, short, name, fog, r):
-        return ns(Name=f"WorldDiscoveryArea_{n}", Outer=ns(Class=ns(Name="Level")), bDeleteMe=False, bUseCustomName=False,
+        return ns(Name=f"WorldDiscoveryArea_{n}", Outer=streamed_level, bDeleteMe=False, bUseCustomName=False,
                   CustomName="None", DefaultWorldAreaShortName=short, WorldAreaDisplayName=name, bForFogOfWarOnly=fog,
                   DetectionRadius=r, Location=ns(X=100.4, Y=-200.0, Z=30.0))
     areas_fake = [discovery(4, "SOUTHERNSHELF_PWDA_4", "Wreck Of The Ice Sickle", False, 4644.0),
                   discovery(3, "SOUTHERNSHELF_PWDA_3", "", True, 5908.1)]
-    col.unrealsdk.find_all = lambda cls, exact=True: {"WillowInteractiveObject": [barrel], "MissionTracker": [tracker],
-                                                     "WorldDiscoveryArea": areas_fake}.get(cls, [])
+    # another map's persistent level loaded outside the world (Loot Midget World's level merges: tundraexpress_p in Three
+    # Horns - Divide): its actors skipped - a function called on one crashed the game (GetTargetName); the objects
+    # check below expects the barrel alone
+    def merged_crash(*_a):
+        raise AssertionError("a game function called on an actor of a level outside the world")
+    merged_level = ns(Class=ns(Name="Level"), _get_address=lambda: 0x9002)
+    merged_io = ns(**{**vars(barrel), "Name": "WillowInteractiveObject_19", "_get_address": lambda: 0x5E0,
+                      "Outer": merged_level, "BalanceDefinitionState": None, "GetTargetName": merged_crash,
+                      "GetHumanReadableName": merged_crash})
+    merged_area = ns(**{**vars(discovery(9, "TUNDRAEXPRESS_PWDA_9", "Tundra Express Farmstead", False, 3000.0)),
+                        "Outer": merged_level})
+    col.unrealsdk.find_all = lambda cls, exact=True: {"WillowInteractiveObject": [barrel, merged_io], "MissionTracker": [tracker],
+                                                     "WorldDiscoveryArea": [*areas_fake, merged_area]}.get(cls, [])
     hub = Hub()
     c = col.Collector(hub)
     c.tick(1000.0)
@@ -1978,7 +1994,7 @@ def check_helios_tracker() -> None:  # noqa: PLR0915
                          "ShopInventory": [vend_gun, vend_ammo, None], "FeaturedItem": vend_feat,
                          "GetSellingPriceForInventory": lambda inv, pc, n: vend_prices[inv._get_address()]})
     vend_game = ns(SecondsUntilShopsReset=1169.0, ShopTimerRate=1.0)
-    vend_world = ns(Game=vend_game)
+    vend_world = ns(Game=vend_game, Outer=world_level, StreamingLevels=[])
     vend_saved = (col.ENGINE, getattr(vend_mod.unrealsdk, "find_class", None))
     col.ENGINE = ns(GetCurrentWorldInfo=lambda: vend_world)
     vend_mod.unrealsdk.find_class = lambda name: ns(ClassDefaultObject=ns(WeaponsShopTitle="Marcus Munitions"))

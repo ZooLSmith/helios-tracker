@@ -341,6 +341,7 @@ class Collector:
         # markers are worked out from them: _client_markers)...
         self._actors: dict[str, list[WeakPointer]] = {}
         self._actor_classes: dict[str, str] = {}  # (the lookups' classes, by name: the last scan's)
+        self._world_levels: set[int] | None = None  # (_levels: this tick's, None until read)
         self._client = False  # a co-op client (set at each objects scan): containers opened by their state alone
         # NPCs giving / taking back missions (their MissionDirectives: tools/probes/probe_directors.txt), by
         # pawn address -> (the pawn, [(mission, begins, ends)]): a co-op client's quest-giver markers
@@ -402,6 +403,7 @@ class Collector:
                 self._video_at, self._video_gap = 0.0, False
                 self.hub.publish("cutscene", "{}")
         self._last_tick = now
+        self._world_levels = None  # (_levels: read again when needed)
         if now >= self._next_level_check:
             self._next_level_check = now + LEVEL_CHECK_EVERY
             run("level", self._check_level)
@@ -639,15 +641,31 @@ class Collector:
                 return v
         return None
 
-    @staticmethod
-    def _in_world(actor: Any) -> bool:
-        """Placed/spawned in a level (not a template or a default object), and not being destroyed."""
+    def _in_world(self, actor: Any) -> bool:
+        """Placed/spawned in one of the world's levels (not a template or a default object, not a level loaded outside
+        the world), and not being destroyed."""
+        outer = actor.Outer
         return (
             not actor.Name.startswith("Default__")
-            and actor.Outer is not None
-            and actor.Outer.Class.Name == "Level"
+            and outer is not None
+            and outer.Class.Name == "Level"
+            and outer._get_address() in self._levels()
             and not actor.bDeleteMe
         )
+
+    def _levels(self) -> set[int]:
+        """The world's levels (addresses): the persistent one and its streaming levels' loaded ones - the levels actors
+        are part of. A level can be loaded outside them: Loot Midget World (a text mod) makes other maps' persistent
+        levels secondary maps of every map (its LevelList merges: Three Horns - Divide loads tundraexpress_p...), their
+        actors in memory but never set up - a function called on one crashes the game (tundraexpress_p's
+        WillowInteractiveObject_19, GetTargetName: tools/probes/probe_lmw_levels.py, a breadcrumb log). Once per tick
+        (levels stream in and out between them)."""
+        if self._world_levels is None:
+            wi = ENGINE.GetCurrentWorldInfo()
+            self._world_levels = {wi.Outer._get_address()} | {
+                level._get_address() for s in wi.StreamingLevels
+                if s is not None and (level := s.LoadedLevel) is not None}
+        return self._world_levels
 
     def _scan(self) -> None:
         """Every SCAN_EVERY: the pickups (their positions are read per tick)."""
@@ -861,7 +879,8 @@ class Collector:
             self._next_areas = 0.0
         elif (cls := self._actor_classes.get(name)) is not None:  # (the markers' actors: a new list - the profile's
             # indexes of it are rebuilt)
-            self._actors[name] = [WeakPointer(a) for a in unrealsdk.find_all(cls, exact=False) if not a.Name.startswith("Default__")]
+            self._actors[name] = [WeakPointer(a) for a in unrealsdk.find_all(cls, exact=False)
+                                  if try_(lambda a=a: self._in_world(a), False)]
 
     def _queue_odds(self, key: tuple[int, str], io: Any, record: dict[str, Any] | None) -> None:
         """A container record without its odds yet: they're worked out a few ms per tick (_work_odds)."""

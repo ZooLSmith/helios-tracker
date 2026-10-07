@@ -241,6 +241,19 @@ co-op yet):
   `GetTargetName` / `GetMapDisplayName` / `GetTransformedName` on some pawn. Now the balance's
   `PlayThroughs[].DisplayName`, read as a property (collector.pawn_display_name). Rule: prefer property reads; a
   new function call in a loop = a crash risk, keep them rare and cached.
+- **Levels loaded outside the world crash a function call on their actors** (2026-10-07, a player's report, reproduced:
+  Loot Midget World, a text mod - `BLCM/BLCMods`' `mopioid/LootMidgetWorld.blcm`). Its "Map Merges" rewrite the
+  `LevelDependencyList`s (`GD_Globals.General.LevelList`, the DLCs'; the game works from a merged copy,
+  `Transient.LevelDependencyList_N`): other maps' persistent levels as `SecondaryMaps` of every map (Three Horns -
+  Divide: `tundraexpress_p`, `CraterLake_P`, `icecanyon_p`, `Grass_Cliffs_P`) - their packages loaded for the midget
+  data. Their actors are in memory, `Outer` a `Level`, but that level is none of the world's (not the world info's
+  `Outer`, no `StreamingLevels[].LoadedLevel`; `stat levels` doesn't list it), never set up: `GetTargetName` on
+  `tundraexpress_p...WillowInteractiveObject_19` (a fire chandelier) was an access violation, building its record.
+  `collector._in_world` now wants one of the world's levels (`_levels`, once per tick). Seen after a fast travel into
+  Three Horns (not on every load: in Tundra Express, its extras weren't loaded). tools/probes/probe_lmw_levels.py lists
+  the levels, `[world]` or not. Its hotfixes (the containers -> midget traps) reached `SparkServiceConfiguration_6`
+  ("Fellowship") through `exec` but were never applied: the file is saved online (`offline="false"`) -
+  probe_lmw_hotfix.py.
 - The collector sends, for active missions, where to go (`go`): the step's objective / step station
   override; the page's whereTo: that (active; none: no place shown), the turn-in station (ready), its own
   station (not picked up: where to grab it).
