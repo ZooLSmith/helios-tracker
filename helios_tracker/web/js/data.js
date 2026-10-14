@@ -3,7 +3,7 @@ import { $ } from "./dom.js";
 import { decodeTexture } from "./dxt.js";
 import { setGameLanguage, setVariant, t } from "./i18n.js";
 import { gameKey, setGame } from "./game.js";
-import { objectCategory, setRarityTable } from "./model.js";
+import { cleanGameText, objectCategory, setRarityTable } from "./model.js";
 import { initColors } from "./shapes.js";
 import { invalidate } from "./scheduler.js";
 import { settings } from "./settings.js";
@@ -311,7 +311,9 @@ function onObjects(msg) {
  *  pieces discovered (by name); full: all of it explored. */
 function onAreas(msg) {
   if (!S.level || msg.level !== S.level.id) return;
-  S.areas = msg.areas;
+  // their names plain text: the game's can carry markup (Dragon Keep's Unassuming Docks: '<font size="48">The Temple of
+  // Unwarranted Self Importance</font>', Docks_P.upk - the one of its 90 areas, read offline; the user saw it on the map)
+  S.areas = msg.areas.map((a) => (a.n ? { ...a, n: cleanGameText(a.n) } : a));
   S.fogSeen = new Set(msg.seen || []);
   S.explored = !!msg.full;
   invalidate();
