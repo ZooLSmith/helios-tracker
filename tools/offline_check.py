@@ -362,7 +362,9 @@ const vaultCat = objectCategory({ d: "IO_VaultRoy", n: "Vault Roy", c: "WillowIn
   + "," + objectCategory({ d: "InteractiveObject_SpeedMoxxtail", n: "Speed Moxxtail", c: "WillowInteractiveObject", buff: 1 })
   + "," + objectCategory({ d: "SlotMachine", n: "Slot Machine", c: "WillowInteractiveObject", cost: 85 })
   + "," + objectCategory({ d: "InteractiveObj_TreasureChest_Golden", c: "WillowInteractiveObject", cost: 1, lootable: 1,
-    lists: ["EpicChestGoldenLoot"] }); // (costs a golden key: still a chest)
+    lists: ["EpicChestGoldenLoot"] }) // (costs a golden key: still a chest)
+  + "," + objectCategory({ d: "InteractiveObj_Urn", c: "WillowInteractiveObject", lootable: 1, lists: ["UrnLoot"],
+    loot: ["Pool_Money_1", "Pool_WeaponChest_Artifacts"] }); // (Dragon Keep's urn: its list says no chest, whatever a pool says)
 // The map's click / hover pick (input.js hitAt): what the pointer is ON wins over a nearer-layer marker merely close by
 // (a chest under the pointer, a pickup 10 px off: the chest); both under it: the layer (an item on its chest: the item);
 // on none: the nearest centre
@@ -2920,9 +2922,9 @@ def check_helios_tracker() -> None:  # noqa: PLR0915
     assert mis["stepOrder"] == ("Throw breaker:current,Power up jump pad:current,Use jump pad:done,Kill Deadlift:current,"
                                 "Pick up digistruct key:current"), ("the step's own order, in its slots", mis["stepOrder"])
     assert mis["healthShown"] == "107,107,100,100", ("health rounded down, as the game's HUD; the max the same", mis["healthShown"])
-    assert mis["vaultCat"] == "vaultsymbol,station,container,oxygen,oxygen,oxygen,jumppad,npc,chest,buff,slots,chest", \
+    assert mis["vaultCat"] == "vaultsymbol,station,container,oxygen,oxygen,oxygen,jumppad,npc,chest,buff,slots,chest,container", \
         ("a vault symbol: its own layer; Catch-A-Ride: a station; anything with loot a container (the Pre-Sequel's"
-         " Hyperion ammo crate: no container word in its name)", mis["vaultCat"])
+         " Hyperion ammo crate: no container word in its name; Dragon Keep's urn: its list, not its relic pool)", mis["vaultCat"])
     delta_want = json.loads(delta_hub.latest("objs"))
     delta_gone_want = {"objects": [{"i": "x"}]}
     assert mis["deltaOut"] == [delta_want, delta_want, None, json.loads(delta_hub.latest("rows")), delta_gone_want,

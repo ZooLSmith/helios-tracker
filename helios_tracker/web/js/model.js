@@ -194,9 +194,11 @@ export function isGear(cls) {
  *  same way (Pool_EpicChest_Weapons_LongGuns...: 2; Pool_WeaponChest...: 1). */
 export function chestTier(o) {
   for (const [pattern, tier] of gameData().chestByDefinition) if (pattern.test(o.d || "")) return tier; // (the game's own: game.js)
-  const lists = o.lists || [], pools = o.loot || [];
-  if (lists.some((l) => /epic/i.test(l)) || pools.some((l) => /epicchest/i.test(l))) return 2;
-  return lists.some((l) => /weaponchest/i.test(l)) || pools.some((l) => /weaponchest/i.test(l)) ? 1 : 0;
+  // the pools only without a list: a list names the container's tier, its pools may borrow a chest's (Dragon Keep's urn:
+  // UrnLoot, its relic roll Pool_WeaponChest_Artifacts among the cash and ammo - a "Weapon chest" it isn't, the user)
+  const lists = o.lists || [], names = lists.length ? lists : o.loot || [];
+  if (names.some((l) => (lists.length ? /epic/i : /epicchest/i).test(l))) return 2;
+  return names.some((l) => /weaponchest/i.test(l)) ? 1 : 0;
 }
 
 /** The golden chest (Sanctuary's, opened with a golden key): its loot list's name, like chestTier's
