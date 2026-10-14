@@ -35,7 +35,10 @@ export function whereTo(m, state) {
 /** Whether a mission item on the ground matters now (its "ms": the mission it gives / is for - the
  *  game places them ahead, e.g. pizzas for a step not reached yet, not pickable). One an objective
  *  asks for ("for"): while its mission is picked up, that objective (oi) in the current step and not
- *  done. One giving a mission ("gives", an ECHO log): while that mission can be picked up - not started, not
+ *  done - and its mission not ready to turn in: an objective a choice left undone stays in the step (Dragon Keep's
+ *  "Ell in Shining Armor": the bulky armor picked, "Pick up metal bikini" current, the bikini unpickable and gone in
+ *  game, still on the map - the user). RequiredObjectivesComplete isn't that: optional objectives can be left
+ *  (.agent/notes.md). One giving a mission ("gives", an ECHO log): while that mission can be picked up - not started, not
  *  locked (a mission it needs not done: the game doesn't let the item be used yet - the Pre-Sequel's Data Device,
  *  The Secret Chamber's, lies in Pity's Fall before its main mission is done). No link, or the mission not in the
  *  log (yet): shown. */
@@ -43,7 +46,7 @@ export function missionItemWanted(ms, missionsById) {
   const m = ms && missionsById ? missionsById.get(ms.i) : null;
   if (!m) return true;
   if (ms.k === "gives") return ["available", "unknown"].includes(missionState(m, missionsById));
-  if (!pickedUp(m)) return false;
+  if (!pickedUp(m) || m.st === "ReadyToTurnIn") return false;
   if (ms.oi == null) return true; // (its objective not known: the mission being on is enough)
   const s = objectiveStates(m)[ms.oi];
   return !!s && s.state === "current";
@@ -64,7 +67,7 @@ export function missionItemNotYet(ms, missionsById) {
     return { why: "locked", needs };
   }
   if (m.st === "NotStarted") return { why: "notPicked" };
-  if (!pickedUp(m) || ms.oi == null) return null;
+  if (!pickedUp(m) || m.st === "ReadyToTurnIn" || ms.oi == null) return null; // (ready: nothing left to do with it)
   const s = objectiveStates(m)[ms.oi];
   return s && s.state === "pending" ? { why: "step" } : null;
 }

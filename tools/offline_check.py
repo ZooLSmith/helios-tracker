@@ -238,7 +238,9 @@ const tree = missionTree(log);
 const { gameTextHtml } = await load("js/dom.js");
 const { cleanGameText } = await load("js/model.js");
 const gameText = [gameTextHtml("Go to [place]Sanctuary[-place].<br>Find <font color='#f00'>Roland</font> & <b>win</b><BR/><script>x</script>"),
-  cleanGameText("Line one.<br>Line <i>two</i> [place]here[-place]")];
+  cleanGameText("Line one.<br>Line <i>two</i> [place]here[-place]"),
+  // an area's name (Dragon Keep's Unassuming Docks, Docks_P.upk WorldDiscoveryArea_2 - the map's: data.js onAreas)
+  cleanGameText('<font size="48">The Temple of Unwarranted Self Importance</font>')];
 const flat = (nodes, d = 0) => nodes.flatMap((n) => [`${"-".repeat(d)}${n.m.i}:${n.state}`, ...flat(n.children, d + 1)]);
 const areaLog = [{ i: "a", num: 5, st: "Complete", deps: [], area: "Sanctuary" }, { i: "b", num: 1, st: "Active", deps: [], area: "Shelf" },
   { i: "c", num: 9, st: "NotStarted", deps: [] }, { i: "d", num: 3, st: "NotStarted", deps: [], area: "Sanctuary", kick: 1 }];
@@ -312,10 +314,15 @@ const { missionItemWanted } = await load("js/missions.js");
 const itemLog = new Map([
   ["act", { i: "act", st: "Active", obj: [{ c: 1 }, { c: 4 }, { c: 1 }], p: [1, 2, 0], cur: [1] }],
   ["new", { i: "new", st: "NotStarted" }], ["old", { i: "old", st: "Complete" }],
-  ["lockedGiven", { i: "lockedGiven", st: "NotStarted", deps: ["act"] }]]);
+  ["lockedGiven", { i: "lockedGiven", st: "NotStarted", deps: ["act"] }],
+  // a choice made (Dragon Keep's Ellie: the bulky armor picked, the bikini's objective still in the step): ready to turn
+  // in, its other item not wanted; required objectives done, an optional one's still is
+  ["chose", { i: "chose", st: "ReadyToTurnIn", obj: [{ c: 1 }, { c: 1 }], p: [0, 1], cur: [0, 1] }],
+  ["optional", { i: "optional", st: "RequiredObjectivesComplete", obj: [{ c: 1 }, { c: 1 }], p: [1, 0], cur: [0, 1] }]]);
 const items = [{ k: "for", i: "act", oi: 1 }, { k: "for", i: "act", oi: 2 }, { k: "for", i: "act", oi: 0 }, { k: "for", i: "new", oi: 0 },
   { k: "gives", i: "new" }, { k: "gives", i: "old" }, { k: "for", i: "nowhere", oi: 0 },
-  { k: "gives", i: "lockedGiven" }].map((ms) => missionItemWanted(ms, itemLog));
+  { k: "gives", i: "lockedGiven" }, { k: "for", i: "chose", oi: 0 }, { k: "for", i: "optional", oi: 1 }]
+  .map((ms) => missionItemWanted(ms, itemLog));
 // the ones for later (Mission items: Upcoming): a pending objective's, a mission not picked up yet's, a locked mission's
 const { missionItemLater } = await load("js/missions.js");
 const { missionItemNotYet } = await load("js/missions.js");
@@ -324,7 +331,7 @@ const notYetWhy = [{ k: "gives", i: "lockedGiven" }, { k: "for", i: "new", oi: 0
   .map((ms) => missionItemNotYet(ms, itemLog));
 const itemsLater = [{ k: "for", i: "act", oi: 1 }, { k: "for", i: "act", oi: 2 }, { k: "for", i: "act", oi: 0 }, { k: "for", i: "new", oi: 0 },
   { k: "gives", i: "new" }, { k: "gives", i: "old" }, { k: "for", i: "nowhere", oi: 0 },
-  { k: "gives", i: "lockedGiven" }].map((ms) => missionItemLater(ms, itemLog));
+  { k: "gives", i: "lockedGiven" }, { k: "for", i: "chose", oi: 0 }].map((ms) => missionItemLater(ms, itemLog));
 const { look, withAlpha } = await load("js/look.js");
 const { settings: lookSettings } = await load("js/settings.js");
 const lookDefault = look();
@@ -2907,8 +2914,8 @@ def check_helios_tracker() -> None:  # noqa: PLR0915
     assert mis["difficulty"] == ["impossible", "tough", "normal", "normal", "trivial", None, None], mis["difficulty"]
     assert mis["finish"] == "f4:7,f1:5,f2:1", mis["finish"]
     # its objective current (to do) / later step / done / mission not started; gives: not started / done; unknown mission
-    assert mis["items"] == [True, False, False, False, True, False, True, False], mis["items"]  # (a locked mission's item: not wanted)
-    assert mis["itemsLater"] == [False, True, False, True, False, False, False, True], mis["itemsLater"]  # (later: pending, not picked up, locked)
+    assert mis["items"] == [True, False, False, False, True, False, True, False, False, True], mis["items"]  # (a locked mission's item: not wanted; ready to turn in: the one not chosen not either)
+    assert mis["itemsLater"] == [False, True, False, True, False, False, False, True, False], mis["itemsLater"]  # (later: pending, not picked up, locked)
     assert mis["notYetWhy"] == [{"why": "locked", "needs": ["act"]}, {"why": "notPicked"}, {"why": "step"}, None], mis["notYetWhy"]
     assert mis["statsOut"] == ["Gun Damage: +6\u202f%", "Reload Speed: +8\u202f%", "Shield Recharge Delay: -12\u202f%",
                                "Regenerates 0.4\u202f% of your Max Health / sec.", "Turret Duration: +2 seconds",
@@ -2953,7 +2960,7 @@ def check_helios_tracker() -> None:  # noqa: PLR0915
         assert want in me_info, (want, me_info)
     assert "Crippled" in down_info and "Not known here" in down_info, down_info
     assert "Not in this area" in gone_info, gone_info
-    assert mis["gameText"] == ["Go to Sanctuary.<br>Find Roland &amp; win<br>x", "Line one. Line two here"], mis["gameText"]
+    assert mis["gameText"] == ["Go to Sanctuary.<br>Find Roland &amp; win<br>x", "Line one. Line two here", "The Temple of Unwarranted Self Importance"], mis["gameText"]
     print(f"  page JS: {len(js['modules'])} modules import under Node, DXT5 decode matches,"
           f" world->map within {js['err']:.3f} px of the probe samples")
 

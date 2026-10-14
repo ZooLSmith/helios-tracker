@@ -116,6 +116,11 @@ item's `DefinitionData.ItemDefinition` (a `UsableItemDefinition`):
   on the map): the page draws one only while it matters (missions.js missionItemWanted) - "for" (its
   objective `oi`): the mission picked up and that objective in the current step, not done; "gives":
   the mission not started. No link / mission not in the log: drawn. Seen right in game (the pizzas).
+  A choice between two items (Dragon Keep's "Ell in Shining Armor", 2026-10-14: the bulky armor or the metal bikini):
+  the one not picked stays a live pickup, out of sight, not pickable (`bPickupable` False - not a sign by itself: the
+  ECHO logs read False too, and Dark Forest's three Crumpets), its objective never done and still in the current step
+  - the mission `ReadyToTurnIn`. So: no "for" item is wanted once its mission is ReadyToTurnIn (nothing left to do;
+  RequiredObjectivesComplete still can have optional objectives) - tools/probes/probe_mission_pickup.txt.
   (The objects' side: an object a mission switches off by hiding its mesh - "Objects switched off without
   being hidden" below, BL1's T.K.'s Food.)
 - Customization items (skins / heads) are gear: `WillowUsableCustomizationItem`, a real `RarityLevel`
