@@ -25,79 +25,80 @@
 <script type="module" src="assets/js/site.js"></script>
 </head>
 <body>
-<a class="skip" href="#content" data-i18n="ui.skip"></a>
+<a class="skip" href="#content" data-i18n="ui.skip">Skip to content</a>
 <header class="top">
-  <a class="brand" href="./" data-i18n-label="ui.home"><span class="h">H</span><span>ELIOS TRACKER</span></a>
+  <a class="brand" href="./" data-i18n-label="ui.home" aria-label="Helios Tracker, home"><span class="h">H</span><span>ELIOS TRACKER</span></a>
   <div class="top-tools"></div>
 </header>
 
 <div class="page" tabindex="-1">
 <div class="shell">
   <main id="content" class="doc">
-    <h1 data-i18n="install.h"></h1>
-    <p class="lead" data-i18n="install.lead"></p>
+    <h1 data-i18n="install.h">Install</h1>
+    <p class="lead" data-i18n="install.lead">You need <a class="game" href="https://store.steampowered.com/app/49520/">Borderlands 2</a> or <a class="game" href="https://store.steampowered.com/app/261640/">Borderlands: <span class="the">The</span> Pre-Sequel</a> on PC, with the Python SDK. Then it's one file. Playing <a class="game bl1" href="https://store.steampowered.com/app/729040/">Borderlands</a>&nbsp;? <a href="#bl1">See below</a>.</p>
 
     <ol class="steps">
       <li>
-        <h3 id="sdk" data-i18n="install.sdk" data-search="kw.sdk"></h3>
-        <p data-i18n="install.sdkText"></p>
+        <h3 id="sdk" data-i18n="install.sdk" data-search="kw.sdk">Install the Python SDK</h3>
+        <p data-i18n="install.sdkText">The SDK is the games' mod manager. Download it from its <a href="https://github.com/bl-sdk/willow2-mod-manager/releases">releases page</a>, which also links to the install instructions. Helios Tracker needs the current one (version 3, with the Mods menu in game).</p>
       </li>
       <li>
-        <h3 id="download" data-i18n="install.download"></h3>
-        <p data-i18n="install.downloadText"></p>
+        <h3 id="download" data-i18n="install.download">Download the mod</h3>
+        <p data-i18n="install.downloadText">Get <code>helios_tracker.sdkmod</code> from the <a href="https://github.com/ZooLSmith/helios-tracker/releases">releases page</a>.</p>
       </li>
       <li>
-        <h3 id="copy" data-i18n="install.copy"></h3>
-        <p data-i18n="install.copySteam"></p>
-        <p data-i18n="install.copyText"></p>
+        <h3 id="copy" data-i18n="install.copy">Put it in <code>sdk_mods</code></h3>
+        <p data-i18n="install.copySteam">On Steam, right-click the game in your library, then <strong>Manage</strong>, <strong>Browse local files</strong>.</p>
+        <p data-i18n="install.copyText">Copy the file into the <code>sdk_mods</code> folder of the game's install.</p>
         <div class="code"><pre><code>Borderlands 2\sdk_mods\helios_tracker.sdkmod
 BorderlandsPreSequel\sdk_mods\helios_tracker.sdkmod</code></pre></div>
-        <p data-i18n="install.copyBoth"></p>
+        <p data-i18n="install.copyBoth">Playing more than one? Put a copy in each game's <code>sdk_mods</code>.</p>
       </li>
       <li>
-        <h3 id="enable" data-i18n="install.enable"></h3>
-        <p data-i18n="install.enableText"></p>
+        <h3 id="enable" data-i18n="install.enable">Turn it on</h3>
+        <p data-i18n="install.enableText">Start the game, open <strong>Mods</strong> from the main menu, pick <strong>Helios Tracker</strong> and enable it. It stays on for the next sessions.</p>
       </li>
       <li>
-        <h3 id="open" data-i18n="install.open"></h3>
-        <p data-i18n="install.openText"></p>
+        <h3 id="open" data-i18n="install.open">Open the map</h3>
+        <p data-i18n="install.openText">In the mod's options, press <strong>Open Map in Browser</strong>, or go to this address in any browser on the same PC:</p>
         <div class="code"><pre><code>http://localhost:8777/</code></pre></div>
-        <p data-i18n="install.openTab"></p>
+        <p data-i18n="install.openTab">Leave the tab open while you play. It follows you from level to level by itself.</p>
       </li>
     </ol>
 
-    <h2 id="bl1" data-i18n="install.bl1" data-search="kw.bl1"></h2>
-    <p data-i18n="install.bl1Text"></p>
-    <p data-i18n="install.bl1Sdk"></p>
-    <p data-i18n="install.bl1Report"></p>
+    <h2 id="bl1" data-i18n="install.bl1" data-search="kw.bl1"><span class="game bl1">Borderlands</span> <small>(experimental)</small></h2>
+    <p data-i18n="install.bl1Text">Helios Tracker also runs in <a class="game bl1" href="https://store.steampowered.com/app/729040/">Borderlands</a>, the original and the Game of the Year Enhanced edition. It's newer and less tested than the other two games.</p>
+    <p data-i18n="install.bl1Sdk">The SDK is its own build: get it from <a href="https://github.com/bl-sdk/willow1-mod-manager/releases">its releases page</a>. The mod is the same <code>helios_tracker.sdkmod</code>, installed the same way.</p>
+    <p data-i18n="install.bl1Report">Something wrong or missing? <a href="https://github.com/ZooLSmith/helios-tracker/issues/new">Open an issue</a> and say which edition you play.</p>
 
-    <h2 id="coop" data-i18n="install.coop" data-search="kw.coop"></h2>
-    <p data-i18n="install.coopText"></p>
-    <p data-i18n="install.coopClient"></p>
+    <h2 id="coop" data-i18n="install.coop" data-search="kw.coop">Playing co-op</h2>
+    <p data-i18n="install.coopText">Only one player needs the mod. If you can choose, install it on the <strong>host</strong>'s PC: the host's game knows everything, while a client's game only knows what the host sends it.</p>
+    <p data-i18n="install.coopClient">As a client it still works, with less in it:</p>
     <ul>
-      <li data-i18n="install.coopGear"></li>
-      <li data-i18n="install.coopSkills"></li>
-      <li data-i18n="install.coopMap"></li>
+      <li data-i18n="install.coopGear">other players' gear and skill trees aren't available: the game doesn't send them to clients, and their tabs say so;</li>
+      <li data-i18n="install.coopSkills">skills, cooldowns and mission rewards are yours only;</li>
+      <li data-i18n="install.coopMap">the map shows what the host's game shares with yours.</li>
     </ul>
 
-    <h2 id="next" data-i18n="install.next"></h2>
+    <h2 id="next" data-i18n="install.next">Other ways to open it</h2>
     <ul>
-      <li data-i18n="install.next.home"></li>
-      <li data-i18n="install.next.obs"></li>
-      <li data-i18n="install.next.overlay"></li>
+      <li data-i18n="install.next.home"><a href="share?path=home">On your local network</a>: a phone, a tablet, another PC</li>
+      <li data-i18n="install.next.obs"><a href="share?path=stream">In OBS</a>, with a see-through background</li>
+      <li data-i18n="install.next.overlay"><a href="share?path=overlay">In the Steam overlay</a></li>
     </ul>
-    <p data-i18n="install.next.help"></p>
+    <p data-i18n="install.next.help">If the map won't open, see <a href="troubleshooting">Troubleshooting</a>.</p>
 
-    <h2 id="update" data-i18n="install.update" data-search="kw.update"></h2>
-    <p data-i18n="install.updateText"></p>
-    <p data-i18n="install.updateAuto"></p>
-    <p data-i18n="install.removeText"></p>
+    <h2 id="update" data-i18n="install.update" data-search="kw.update">Updating or removing it</h2>
+    <p data-i18n="install.updateText">To update, press <strong>Check for Updates</strong> in the mod's options. If there's a new version, the game asks before downloading it, then offers to reload the mod right away: no need to restart the game.</p>
+    <p data-i18n="install.updateAuto">Or turn on <strong>Automatic Updates</strong> (off by default): at most once a day, when the mod starts, a new version installs and reloads by itself, and the game says so at the bottom left of the screen.</p>
+    <p data-i18n="install.removeText">To remove it, delete <code>helios_tracker.sdkmod</code> and the <code>.helios_tracker</code> folder next to it. The mod's options are saved apart, in <code>sdk_mods\settings</code>.</p>
   </main>
 </div>
 
 <footer class="foot">
   <div>
-    <p data-i18n="foot.legal"></p>
+    <p data-i18n="foot.legal">Helios Tracker is a fan-made mod, not made or endorsed by Gearbox Software or 2K. Borderlands and its names belong to them.</p>
+    <p class="social"><a href="https://x.com/ZooL_Smith"><svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M18.9 1.2h3.7l-8 9.1 9.4 12.5h-7.4l-5.8-7.6-6.6 7.6H.5l8.6-9.8L0 1.2h7.6l5.2 6.9 6.1-6.9Zm-1.3 19.4h2L6.5 3.3H4.3l13.3 17.3Z"/></svg>@ZooL_Smith</a></p>
   </div>
 </footer>
 </div>

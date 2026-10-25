@@ -25,204 +25,204 @@
 <script type="module" src="assets/js/site.js"></script>
 </head>
 <body>
-<a class="skip" href="#content" data-i18n="ui.skip"></a>
+<a class="skip" href="#content" data-i18n="ui.skip">Skip to content</a>
 <header class="top">
-  <a class="brand" href="./" data-i18n-label="ui.home"><span class="h">H</span><span>ELIOS TRACKER</span></a>
+  <a class="brand" href="./" data-i18n-label="ui.home" aria-label="Helios Tracker, home"><span class="h">H</span><span>ELIOS TRACKER</span></a>
   <div class="top-tools"></div>
 </header>
 
 <div class="page" tabindex="-1">
 <div class="shell">
   <main id="content" class="doc">
-    <h1 data-i18n="share.h"></h1>
-    <p class="lead" data-i18n="share.lead"></p>
+    <h1 data-i18n="share.h">Open or share the map</h1>
+    <p class="lead" data-i18n="share.lead">A few questions, and the best way to open or share the map for what you want.</p>
     <div class="quiz" data-start="who">
       <section class="step question" id="q-who" data-step="q:who">
-        <h2 data-i18n="share.who"></h2>
+        <h2 data-i18n="share.who">Who should see the map?</h2>
         <ul class="answers">
-          <li><a href="#r-this-pc" data-key="pc" data-next="r:this-pc" data-i18n="share.who.pc"></a></li>
-          <li><a href="#r-lan" data-key="home" data-next="r:lan" data-i18n="share.who.home"></a></li>
-          <li><a href="#r-overlay" data-key="overlay" data-next="r:overlay" data-i18n="share.who.overlay"></a></li>
-          <li><a href="#r-obs" data-key="stream" data-next="r:obs" data-i18n="share.who.stream"></a></li>
-          <li><a href="#q-whom" data-key="elsewhere" data-next="q:whom" data-i18n="share.who.elsewhere"></a></li>
+          <li><a href="#r-this-pc" data-key="pc" data-next="r:this-pc" data-i18n="share.who.pc">Just me, on this PC</a></li>
+          <li><a href="#r-lan" data-key="home" data-next="r:lan" data-i18n="share.who.home">Me, on another device at home</a></li>
+          <li><a href="#r-overlay" data-key="overlay" data-next="r:overlay" data-i18n="share.who.overlay">Me, without leaving the game</a></li>
+          <li><a href="#r-obs" data-key="stream" data-next="r:obs" data-i18n="share.who.stream">In my stream, for viewers</a></li>
+          <li><a href="#q-whom" data-key="elsewhere" data-next="q:whom" data-i18n="share.who.elsewhere">People elsewhere, in their own browser</a></li>
         </ul>
       </section>
       <section class="step question" id="q-whom" data-step="q:whom">
-        <h2 data-i18n="share.whom"></h2>
+        <h2 data-i18n="share.whom">Who's watching?</h2>
         <ul class="answers">
-          <li><a href="#q-domain" data-key="friends" data-next="q:domain" data-i18n="share.whom.friends"></a></li>
-          <li><a href="#q-domain" data-key="upto50" data-next="q:domain" data-i18n="share.whom.upto50"></a></li>
-          <li><a href="#r-more" data-key="more" data-next="r:more" data-i18n="share.whom.more"></a></li>
+          <li><a href="#q-domain" data-key="friends" data-next="q:domain" data-i18n="share.whom.friends">A few friends I choose</a></li>
+          <li><a href="#q-domain" data-key="upto50" data-next="q:domain" data-i18n="share.whom.upto50">My stream's viewers, up to about 50</a></li>
+          <li><a href="#r-more" data-key="more" data-next="r:more" data-i18n="share.whom.more">More than 50 viewers</a></li>
         </ul>
       </section>
       <section class="step question" id="q-domain" data-step="q:domain">
-        <h2 data-i18n="share.domain"></h2>
+        <h2 data-i18n="share.domain">Which suits you?</h2>
         <ul class="answers">
-          <li><a href="#r-cloudflare" data-key="domain" data-next="r:cloudflare" data-i18n="share.domain.domain"></a></li>
-          <li><a href="#r-funnel" data-key="account" data-next="r:funnel" data-i18n="share.domain.account"></a></li>
-          <li><a href="#r-quick" data-key="no-account" data-next="r:quick" data-i18n="share.domain.none"></a></li>
+          <li><a href="#r-cloudflare" data-key="domain" data-next="r:cloudflare" data-i18n="share.domain.domain">I have a domain on Cloudflare</a></li>
+          <li><a href="#r-funnel" data-key="account" data-next="r:funnel" data-i18n="share.domain.account">Signing in once with Google, Microsoft, GitHub or Apple is fine</a></li>
+          <li><a href="#r-quick" data-key="no-account" data-next="r:quick" data-i18n="share.domain.none">Nothing to sign up for</a></li>
         </ul>
       </section>
       <section class="step result" id="r-this-pc" data-step="r:this-pc">
-        <h2 data-i18n="share.pc"></h2>
-        <p data-i18n="share.pcText"></p>
+        <h2 data-i18n="share.pc">Open it on this PC</h2>
+        <p data-i18n="share.pcText">In the mod's options, press <strong>Open Map in Browser</strong>, or go to this address in any browser on the gaming PC:</p>
         <div class="code"><pre><code>http://localhost:8777/</code></pre></div>
-        <p data-i18n="share.pcSee"></p>
+        <p data-i18n="share.pcSee">See <a href="install#open">Install</a>.</p>
       </section>
       <section class="step result" id="r-lan" data-step="r:lan">
-        <h2 data-i18n="share.lan" data-search="kw.lan"></h2>
-        <p data-i18n="share.lanText"></p>
+        <h2 data-i18n="share.lan" data-search="kw.lan">Your local network</h2>
+        <p data-i18n="share.lanText">Any device on the same network as the gaming PC can open the map: a phone, a tablet, another PC. Nothing leaves your home network.</p>
         <ol class="steps">
           <li>
-            <h3 id="lan-allow" data-i18n="share.lan.allow"></h3>
-            <p data-i18n="share.lan.allowText"></p>
+            <h3 id="lan-allow" data-i18n="share.lan.allow">Allow LAN access</h3>
+            <p data-i18n="share.lan.allowText">Turn on <strong>Allow LAN Access</strong> in the mod's options. With it off, only the gaming PC can open the map.</p>
           </li>
           <li>
-            <h3 id="lan-address" data-i18n="share.lan.address"></h3>
-            <p data-i18n="share.lan.addressText"></p>
+            <h3 id="lan-address" data-i18n="share.lan.address">Find the gaming PC's address</h3>
+            <p data-i18n="share.lan.addressText">On the gaming PC, open Windows <strong>Settings</strong>, <strong>Network &amp; internet</strong>, then the Wi-Fi or Ethernet connection it's using, and note its <strong>IPv4 address</strong>. Or type <code>ipconfig</code> in Command Prompt or PowerShell: it's the <strong>IPv4 Address</strong> line.</p>
           </li>
           <li>
-            <h3 id="lan-open" data-i18n="share.lan.open"></h3>
-            <p data-i18n="share.lan.openText"></p>
+            <h3 id="lan-open" data-i18n="share.lan.open">Open it on the other device</h3>
+            <p data-i18n="share.lan.openText">On the phone or the other PC, connected to the same network, type <code>http://</code> followed by that address and <code>:8777/</code> in the browser.</p>
           </li>
         </ol>
-        <h3 id="lan-firewall" data-i18n="share.lan.firewall"></h3>
-        <p data-i18n="share.lan.firewallText"></p>
+        <h3 id="lan-firewall" data-i18n="share.lan.firewall">The firewall</h3>
+        <p data-i18n="share.lan.firewallText">Windows may ask whether to let the game through its firewall: allow it on private networks. If you said no before, the other device can't connect: allow the game in <strong>Windows Defender Firewall</strong>, <strong>Allow an app through firewall</strong>.</p>
       </section>
       <section class="step result" id="r-overlay" data-step="r:overlay">
-        <h2 data-i18n="share.overlay" data-search="kw.overlay"></h2>
-        <p data-i18n="share.overlayText"></p>
+        <h2 data-i18n="share.overlay" data-search="kw.overlay">The Steam overlay</h2>
+        <p data-i18n="share.overlayText">Press <kbd>Shift</kbd>+<kbd>Tab</kbd> in game, open the <strong>Web browser</strong> and go to this address:</p>
         <div class="code"><pre><code>http://localhost:8777/</code></pre></div>
-        <p data-i18n="share.overlayZoom"></p>
+        <p data-i18n="share.overlayZoom">The overlay's browser has no zoom: use the <strong>Size</strong> under <strong>Panels</strong> in the page's <strong>Settings</strong> instead.</p>
       </section>
       <section class="step result" id="r-obs" data-step="r:obs">
-        <h2 data-i18n="share.obs" data-search="kw.obs"></h2>
-        <p data-i18n="share.obsText"></p>
+        <h2 data-i18n="share.obs" data-search="kw.obs">An OBS overlay</h2>
+        <p data-i18n="share.obsText">The map in a scene, over your game, with its background see-through. Viewers see it in the stream: nothing to share.</p>
         <ol class="steps">
           <li>
-            <h3 id="obs-source" data-i18n="share.obs.source"></h3>
-            <p data-i18n="share.obs.sourceText"></p>
+            <h3 id="obs-source" data-i18n="share.obs.source">Add a browser source</h3>
+            <p data-i18n="share.obs.sourceText">Add a <strong>Browser</strong> source with the URL <code>http://localhost:8777/</code>.</p>
           </li>
           <li>
-            <h3 id="obs-interact" data-i18n="share.obs.interact"></h3>
-            <p data-i18n="share.obs.interactText"></p>
+            <h3 id="obs-interact" data-i18n="share.obs.interact">Reach the page</h3>
+            <p data-i18n="share.obs.interactText">Right-click the source and choose <strong>Interact</strong>.</p>
           </li>
           <li>
-            <h3 id="obs-see-through" data-i18n="share.obs.seeThrough"></h3>
-            <p data-i18n="share.obs.seeThroughText"></p>
+            <h3 id="obs-see-through" data-i18n="share.obs.seeThrough">Make it see-through</h3>
+            <p data-i18n="share.obs.seeThroughText">In the page's <strong>Settings</strong> tab, under <strong>Map</strong>, lower <strong>Background</strong> to 0 %. The scene now shows through, with only the level's shape and the markers left. The <strong>Map</strong> slider and the <strong>Opacity</strong> under <strong>Panels</strong> fade the rest.</p>
           </li>
         </ol>
-        <p data-i18n="share.obs.settings"></p>
+        <p data-i18n="share.obs.settings">The page remembers its settings per browser, so the OBS source keeps its own look apart from your normal browser.</p>
       </section>
       <section class="step result" id="r-funnel" data-step="r:funnel" data-internet="">
-        <h2 data-i18n="share.funnel"></h2>
-        <p data-i18n="share.funnelText"></p>
+        <h2 data-i18n="share.funnel">Tailscale Funnel</h2>
+        <p data-i18n="share.funnelText">A public HTTPS address that stays the same: anyone with it opens the map, with no account and nothing to install on their side.</p>
         <ol class="steps">
           <li>
-            <h3 id="funnel-install" data-i18n="share.funnel.install"></h3>
-            <p data-i18n="share.funnel.installText"></p>
+            <h3 id="funnel-install" data-i18n="share.funnel.install">Install Tailscale</h3>
+            <p data-i18n="share.funnel.installText">Install <a href="https://tailscale.com/download">Tailscale</a> on the gaming PC and sign in.</p>
           </li>
           <li>
-            <h3 id="funnel-run" data-i18n="share.funnel.run"></h3>
-            <p data-i18n="share.funnel.runText"></p>
+            <h3 id="funnel-run" data-i18n="share.funnel.run">Open the funnel</h3>
+            <p data-i18n="share.funnel.runText">Run this in a terminal. The first time, it gives a link to turn Funnel on for your account:</p>
             <div class="code"><pre><code>tailscale funnel 8777</code></pre></div>
           </li>
           <li>
-            <h3 id="funnel-share" data-i18n="share.funnel.share"></h3>
-            <p data-i18n="share.funnel.shareText"></p>
+            <h3 id="funnel-share" data-i18n="share.funnel.share">Share the address</h3>
+            <p data-i18n="share.funnel.shareText">It prints your address: <code>https://</code> then your PC's name on <code>ts.net</code>. It stays the same every time.</p>
           </li>
         </ol>
-        <p data-i18n="share.funnel.details"></p>
+        <p data-i18n="share.funnel.details">Details: <a href="https://tailscale.com/kb/1223/funnel">Tailscale Funnel</a>.</p>
         <details class="extra" id="funnel-autoexec">
-          <summary data-i18n="share.autoexec"></summary>
+          <summary data-i18n="share.autoexec">Optional: start it automatically with the map</summary>
           <ol>
-            <li data-i18n="share.autoexec.file"></li>
-            <li><span data-i18n="share.autoexec.paste"></span>
+            <li data-i18n="share.autoexec.file">In <code>sdk_mods</code>, open the <code>.helios_tracker</code> folder (the mod creates it the first time the game runs with it) and create a text file named <code>autoexec.ps1</code> in it.</li>
+            <li><span data-i18n="share.autoexec.paste">Paste this line in it:</span>
               <div class="code"><pre><code>tailscale funnel $env:HELIOS_PORT</code></pre></div></li>
-            <li data-i18n="share.autoexec.done"></li>
+            <li data-i18n="share.autoexec.done">From now on the tunnel starts with the map, and stops with it.</li>
           </ol>
         </details>
       </section>
       <section class="step result" id="r-cloudflare" data-step="r:cloudflare" data-internet="">
-        <h2 data-i18n="share.cloudflare"></h2>
-        <p data-i18n="share.cloudflareText"></p>
+        <h2 data-i18n="share.cloudflare">A Cloudflare tunnel</h2>
+        <p data-i18n="share.cloudflareText">A named tunnel publishes the map on your own domain, like <code>map.</code> and your domain, with HTTPS.</p>
         <ol class="steps">
           <li>
-            <h3 id="cloudflare-install" data-i18n="share.cloudflared"></h3>
-            <p data-i18n="share.cloudflaredText"></p>
+            <h3 id="cloudflare-install" data-i18n="share.cloudflared">Install cloudflared</h3>
+            <p data-i18n="share.cloudflaredText">Install <a href="https://developers.cloudflare.com/cloudflare-one/connections/connect-networks/downloads/">cloudflared</a> on the gaming PC (or, in a terminal: <code>winget install Cloudflare.cloudflared</code>).</p>
           </li>
           <li>
-            <h3 id="cloudflare-create" data-i18n="share.cloudflare.create"></h3>
-            <p data-i18n="share.cloudflare.createText"></p>
+            <h3 id="cloudflare-create" data-i18n="share.cloudflare.create">Create the tunnel</h3>
+            <p data-i18n="share.cloudflare.createText">In Cloudflare's dashboard, create a tunnel and give it a hostname on your domain.</p>
           </li>
           <li>
-            <h3 id="cloudflare-run" data-i18n="share.cloudflare.run"></h3>
-            <p data-i18n="share.cloudflare.runText"></p>
-            <div class="code"><pre><code data-i18n="share.cloudflare.cmd"></code></pre></div>
+            <h3 id="cloudflare-run" data-i18n="share.cloudflare.run">Run it</h3>
+            <p data-i18n="share.cloudflare.runText">On the gaming PC, with your tunnel's name:</p>
+            <div class="code"><pre><code data-i18n="share.cloudflare.cmd">cloudflared tunnel run --url http://127.0.0.1:8777 your-tunnel-name</code></pre></div>
           </li>
           <li>
-            <h3 id="cloudflare-share" data-i18n="share.cloudflare.share"></h3>
-            <p data-i18n="share.cloudflare.shareText"></p>
+            <h3 id="cloudflare-share" data-i18n="share.cloudflare.share">Share the address</h3>
+            <p data-i18n="share.cloudflare.shareText">Your hostname, with <code>https://</code>. It stays the same every time.</p>
           </li>
         </ol>
-        <p data-i18n="share.cloudflare.details"></p>
+        <p data-i18n="share.cloudflare.details">Details: <a href="https://developers.cloudflare.com/cloudflare-one/connections/connect-networks/">Cloudflare Tunnel</a>.</p>
         <details class="extra" id="cloudflare-autoexec">
-          <summary data-i18n="share.autoexec"></summary>
+          <summary data-i18n="share.autoexec">Optional: start it automatically with the map</summary>
           <ol>
-            <li data-i18n="share.autoexec.file"></li>
-            <li><span data-i18n="share.autoexec.paste"></span>
-              <div class="code"><pre><code data-i18n="share.cloudflare.autoexecCmd"></code></pre></div></li>
-            <li data-i18n="share.cloudflare.autoexecDone"></li>
+            <li data-i18n="share.autoexec.file">In <code>sdk_mods</code>, open the <code>.helios_tracker</code> folder (the mod creates it the first time the game runs with it) and create a text file named <code>autoexec.ps1</code> in it.</li>
+            <li><span data-i18n="share.autoexec.paste">Paste this line in it:</span>
+              <div class="code"><pre><code data-i18n="share.cloudflare.autoexecCmd">cloudflared tunnel run --url http://127.0.0.1:$env:HELIOS_PORT your-tunnel-name</code></pre></div></li>
+            <li data-i18n="share.cloudflare.autoexecDone">From now on the tunnel starts with the map, and stops with it. Use your tunnel's name.</li>
           </ol>
         </details>
       </section>
       <section class="step result" id="r-quick" data-step="r:quick" data-internet="">
-        <h2 data-i18n="share.quick" data-search="kw.internet"></h2>
-        <p data-i18n="share.quickText"></p>
+        <h2 data-i18n="share.quick" data-search="kw.internet">A quick Cloudflare tunnel</h2>
+        <p data-i18n="share.quickText">No account and no domain: one program and one command.</p>
         <ol class="steps">
           <li>
-            <h3 id="quick-install" data-i18n="share.cloudflared"></h3>
-            <p data-i18n="share.cloudflaredText"></p>
+            <h3 id="quick-install" data-i18n="share.cloudflared">Install cloudflared</h3>
+            <p data-i18n="share.cloudflaredText">Install <a href="https://developers.cloudflare.com/cloudflare-one/connections/connect-networks/downloads/">cloudflared</a> on the gaming PC (or, in a terminal: <code>winget install Cloudflare.cloudflared</code>).</p>
           </li>
           <li>
-            <h3 id="quick-run" data-i18n="share.quick.run"></h3>
-            <p data-i18n="share.quick.runText"></p>
+            <h3 id="quick-run" data-i18n="share.quick.run">Open the tunnel</h3>
+            <p data-i18n="share.quick.runText">Run this in a terminal while the map runs, and leave it open:</p>
             <div class="code"><pre><code>cloudflared tunnel --url http://127.0.0.1:8777</code></pre></div>
           </li>
           <li>
-            <h3 id="quick-share" data-i18n="share.quick.share"></h3>
-            <p data-i18n="share.quick.shareText"></p>
+            <h3 id="quick-share" data-i18n="share.quick.share">Share the link</h3>
+            <p data-i18n="share.quick.shareText">It prints a <code>trycloudflare.com</code> address: paste it here, and share the link you get. Everyone keeps their own settings with it, even though the address changes at every start.</p>
             <div class="live-maker" data-live-maker>
-              <label class="live-in"><span data-i18n="share.quick.address"></span> <input type="url" data-i18n-placeholder="share.quick.placeholder" autocomplete="off" spellcheck="false"></label>
-              <div class="live-out" hidden><a class="live-link" target="_blank" rel="noopener"></a><button type="button" class="live-copy" data-i18n="ui.copy"></button></div>
+              <label class="live-in"><span data-i18n="share.quick.address">Your tunnel's address</span> <input type="url" data-i18n-placeholder="share.quick.placeholder" autocomplete="off" spellcheck="false" placeholder="https://example.trycloudflare.com"></label>
+              <div class="live-out" hidden><a class="live-link" target="_blank" rel="noopener"></a><button type="button" class="live-copy" data-i18n="ui.copy">Copy</button></div>
             </div>
           </li>
         </ol>
-        <p data-i18n="share.quick.limits"></p>
+        <p data-i18n="share.quick.limits">Good for an evening, not for a stream's fixed link:</p>
         <ul>
-          <li data-i18n="share.quick.changes"></li>
-          <li data-i18n="share.quick.bursts"></li>
+          <li data-i18n="share.quick.changes">The address changes at every start, and Cloudflare offers quick tunnels for testing, with no guarantee.</li>
+          <li data-i18n="share.quick.bursts">For the first half-minute after the page opens (and after each refresh), movement comes in bursts; then it's smooth.</li>
         </ul>
         <details class="extra" id="quick-ssh">
-          <summary data-i18n="share.ssh"></summary>
-          <p data-i18n="share.sshText"></p>
+          <summary data-i18n="share.ssh">Or, with nothing to install: an SSH tunnel</summary>
+          <p data-i18n="share.sshText">Windows already has <code>ssh</code>. Free services run these tunnels, for example localhost.run. Run this in a terminal while the map runs, answer <code>yes</code> the first time, and paste the <code>https://</code> address it prints in step 3's box:</p>
           <div class="code"><pre><code>ssh -R 80:127.0.0.1:8777 nokey@localhost.run</code></pre></div>
-          <p data-i18n="share.sshNote"></p>
+          <p data-i18n="share.sshNote">These are third-party services, not part of Helios Tracker: their free plans have time limits and can change, and a service can close. Like a quick tunnel, the address changes every time: share it through the site too. If it stops working, another SSH tunnel service works the same way: check that its address doesn't contain your IP (some free ones do). Details: <a href="https://localhost.run/">localhost.run</a>.</p>
         </details>
       </section>
       <section class="step result" id="r-more" data-step="r:more">
-        <h2 data-i18n="share.more"></h2>
-        <p data-i18n="share.moreText"></p>
-        <p data-i18n="share.moreRelay"></p>
+        <h2 data-i18n="share.more">More than 50 viewers</h2>
+        <p data-i18n="share.moreText">That's beyond what the mod can serve: every viewer gets every update straight from your PC, and your upload runs out long before that.</p>
+        <p data-i18n="share.moreRelay">It needs a <strong>relay</strong>: a server that receives the map's stream once and sends it on to every viewer, so your PC uploads it only once. Or, for Twitch, an extension that shows the map in the player. Both mean running a service of your own: Helios Tracker doesn't provide one.</p>
       </section>
       <section class="before" id="before-sharing">
-        <h3 data-i18n="share.before"></h3>
+        <h3 data-i18n="share.before">Before you share</h3>
         <ul>
-          <li data-i18n="share.before.anyone"></li>
-          <li data-i18n="share.before.stop"></li>
-          <li data-i18n="share.before.lan"></li>
-          <li data-when="friends" data-i18n="share.before.router"></li>
-          <li data-i18n="share.before.upload"></li>
+          <li data-i18n="share.before.anyone">Anyone with the link sees the map, the players' names and their gear.</li>
+          <li data-i18n="share.before.stop">Stop the tunnel when you're done.</li>
+          <li data-i18n="share.before.lan"><strong>Allow LAN Access</strong> isn't needed: the tunnel connects to the PC itself.</li>
+          <li data-when="friends" data-i18n="share.before.router"><strong>Why not just open a port on the router?</strong> You can, but the link is then your home IP address: whoever gets it, and whoever they pass it on to, knows it, and while the port is open your PC is reachable from the whole internet on it. The address also changes now and then, and many internet providers don't allow it at all. A tunnel keeps your IP private and the link working.</li>
+          <li data-i18n="share.before.upload"><strong>Every viewer uses your upload:</strong> your PC sends each of them every update, about 0.6 Mbit/s per viewer (more in busy levels). To go easier on it, lower <strong>Tick Rate</strong> in the mod's options (10 by default; 5 halves it): the page smooths the movement in between. It applies to everyone, your own page too.</li>
         </ul>
       </section>
     </div>
@@ -231,7 +231,8 @@
 
 <footer class="foot">
   <div>
-    <p data-i18n="foot.legal"></p>
+    <p data-i18n="foot.legal">Helios Tracker is a fan-made mod, not made or endorsed by Gearbox Software or 2K. Borderlands and its names belong to them.</p>
+    <p class="social"><a href="https://x.com/ZooL_Smith"><svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M18.9 1.2h3.7l-8 9.1 9.4 12.5h-7.4l-5.8-7.6-6.6 7.6H.5l8.6-9.8L0 1.2h7.6l5.2 6.9 6.1-6.9Zm-1.3 19.4h2L6.5 3.3H4.3l13.3 17.3Z"/></svg>@ZooL_Smith</a></p>
   </div>
 </footer>
 </div>

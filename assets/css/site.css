@@ -506,6 +506,9 @@ kbd { padding: .05em .4em; background: var(--control); border: 1px solid var(--p
 .foot { padding: 0 1.25rem; font-size: .85rem; color: var(--dim); }
 .foot > div { max-width: 76rem; margin: 0 auto; padding: 1rem 0; border-top: 1px solid var(--divider); display: flex; flex-wrap: wrap; gap: .5rem 2rem; justify-content: center; text-align: center; }
 .foot p { margin: 0; }
+.foot .social a { display: inline-flex; align-items: center; gap: .4rem; color: var(--dim); text-decoration: none; }
+.foot .social a:hover, .foot .social a:focus-visible { color: var(--accent); }
+.foot .social .icon { width: .9rem; height: .9rem; }
 /* the home's link to the questionnaire, under "Where to view it" */
 .more-link { margin: -.4rem 0 1.4rem; font-weight: 600; }
 

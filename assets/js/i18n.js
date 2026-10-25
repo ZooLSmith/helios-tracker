@@ -1,5 +1,6 @@
 // Translations, the tracker page's way (its js/i18n.js): catalogs in ../i18n/, t("key", {vars}) with English
-// fallback. The pages hold no text: their elements name a key and applyI18n fills them -
+// fallback. The pages' elements name a key and applyI18n fills them (their English is written in the HTML too,
+// by tools/site_text.py on master: search engines read it there) -
 //   data-i18n             the element's content (HTML: the catalogs are ours, with links and <strong> in them);
 //                         an empty string hides it (.i18n-empty: a note only one language needs)
 //   data-i18n-title / -label / -placeholder / -content / -alt   the title / aria-label / placeholder / content / alt
