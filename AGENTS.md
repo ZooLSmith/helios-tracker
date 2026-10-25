@@ -165,9 +165,12 @@ bl2-helios-tracker/
   (no history shared with `master`), checked out as a worktree at `_work/web_documentation`
   (`git worktree add _work/web_documentation documentation`; `_work/` is gitignored).
 - Handwritten HTML / CSS, no build: one set of pages at the root (`index.html`, `install.html`...), `assets/` the
-  shared CSS / JS / fonts / images. Translated the tracker page's way: the pages hold structure only, each text a
-  key (`data-i18n="install.sdk"`, `data-i18n-label` / `-title` / `-placeholder` / `-content` for attributes), the
+  shared CSS / JS / fonts / images. Translated the tracker page's way: each text in the pages a key
+  (`data-i18n="install.sdk"`, `data-i18n-label` / `-title` / `-placeholder` / `-content` for attributes), the
   words in `assets/i18n/en.js` (every key; values are HTML) and the others (same keys), filled by `assets/js/i18n.js`.
+  The English is written in the HTML too, for search engines (the pages empty, Google left the home "Crawled -
+  currently not indexed"): `python tools/site_text.py` writes `en.js` into the pages - run it after editing `en.js`
+  or a page's keys (`--check`: which pages are out of date); en.js stays the source, never edit the text in a page.
   The language: the visitor's pick in localStorage (`helios.site.lang`, "auto" = the browser's), switched in place.
   The same nine languages as the page. A new language = a catalog + its line in `assets/i18n/index.js` (a new
   script: its fonts in `site.css` - Exo 2's subset, or a `:lang()` stack of system fonts like the CJK ones); a new
