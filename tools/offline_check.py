@@ -1247,10 +1247,13 @@ def check_helios_tracker() -> None:  # noqa: PLR0915
     # tracked one (3 objectives, the current step = the last two), a side mission it unlocked
     # (available) and one needing the tracked mission (locked)
     status = enum.Enum("EMissionStatus", ["MS_NotStarted", "MS_Active", "MS_Complete"], start=0)
-    secure = ns(Name="Securethetown", ProgressMessage="Sécuriser la ville", ObjectiveCount=1, _get_address=lambda: 0x650)
-    kill = ns(Name="KillBandits", ProgressMessage="Tuer des bandits", ObjectiveCount=5, _get_address=lambda: 0x651)
+    secure = ns(Name="Securethetown", ProgressMessage="Sécuriser la ville", ObjectiveCount=1, bRememberItemsWithinObjective=False,
+                _get_address=lambda: 0x650)
+    kill = ns(Name="KillBandits", ProgressMessage="Tuer des bandits", ObjectiveCount=5, bRememberItemsWithinObjective=False,
+              _get_address=lambda: 0x651)
     # (its station: set below, once the stations exist)
-    extra = ns(Name="Bonus", ProgressMessage="Bonus", ObjectiveCount=1, bObjectiveIsOptional=True, _get_address=lambda: 0x652)
+    extra = ns(Name="Bonus", ProgressMessage="Bonus", ObjectiveCount=1, bObjectiveIsOptional=True, bRememberItemsWithinObjective=False,
+               _get_address=lambda: 0x652)
 
     # travel stations (tools/probes/probe_area.txt): the name the game shows, the map they're in
     shelf = ns(_get_address=lambda: 0x680, StationDisplayName="Southern Shelf", StationLevelName="SouthernShelf_P")
@@ -1495,6 +1498,14 @@ def check_helios_tracker() -> None:  # noqa: PLR0915
     assert profile_bl2.assets.serve("/nope.png") is None and profile_bl1.assets.serve("/nope.png") is None
     assert profile_bl1.assets.serve("/icon/SharedSkillIcons_Soldier.SkillIcon-Able.png") is None and profile_bl1.assets.textures_ready()
     assert profile_bl2.missions.current_objectives([1], 3) == [1] and profile_bl1.missions.current_objectives([1], 3) == [0, 1, 2]
+    # an objective remembering its items (bRememberItemsWithinObjective): a bitmask, its count the bits set - Hunter's
+    # Grotto's eggs (tools/probes/probe_objective_bits.txt: 611975230 = 12 of 23); a plain count as is; a negative int
+    # (the 32nd bit set) counted as its 32 bits
+    eggs_objective, queen_objective = ns(bRememberItemsWithinObjective=True), ns(bRememberItemsWithinObjective=False)
+    eggs_entry = ns(MissionDef=ns(ObjectiveDefs=[eggs_objective, queen_objective]), ObjectivesProgress=[611975230, 1])
+    assert profile_bl2.missions.progress(eggs_entry) == (12, 1), profile_bl2.missions.progress(eggs_entry)
+    eggs_entry.ObjectivesProgress = [-2147483647, 0]
+    assert profile_bl2.missions.progress(eggs_entry) == (2, 0), profile_bl2.missions.progress(eggs_entry)
     assert not {"tacmap", "scan", "fontlibrary", "missionsteps", "waypointmarkers", "learnedelements"} & (
         profile_bl2.features | profile_tps.features | profile_bl1.features), "features: systems a game has - only"
     # its containers looted: no longer usable (probe_bl1_looted: bCanBeUsed a flag, no animation state)

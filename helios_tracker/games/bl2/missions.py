@@ -39,8 +39,16 @@ class Missions(Part):
         return [(o._get_address(), o) for o in mdef.ObjectiveDefs if o is not None]
 
     def progress(self, entry: Any) -> tuple[int, ...]:
-        """A mission entry's count per objective (its definition's order): ObjectivesProgress."""
-        return tuple(int(v) for v in entry.ObjectivesProgress)
+        """A mission entry's count per objective (its definition's order): ObjectivesProgress. An objective that remembers
+        its items (bRememberItemsWithinObjective) keeps a bitmask there, a bit per item taken - its count is the bits set
+        (Hunter's Grotto's "Collect drifter eggs", 23: 611975230 = 12 eggs, bits up to the 30th - which items, not
+        slots; the page took it for done and hid the eggs - tools/probes/probe_objective_bits.txt)."""
+        defs = list(entry.MissionDef.ObjectiveDefs) if entry.MissionDef is not None else []
+        return tuple(
+            (int(v) & 0xFFFFFFFF).bit_count() if i < len(defs) and defs[i] is not None and defs[i].bRememberItemsWithinObjective
+            else int(v)
+            for i, v in enumerate(entry.ObjectivesProgress)
+        )
 
     def status(self, entry: Any) -> str:
         """A mission entry's status, as the page names them (EMissionStatus without "MS_": Active, ReadyToTurnIn...)."""

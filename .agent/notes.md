@@ -135,6 +135,10 @@ item's `DefinitionData.ItemDefinition` (a `UsableItemDefinition`):
   (4) (tools/probes/probe_turnin.txt); 5 (failed?) not seen - the page shows unknown names as the game's.
   2 and 3 = the page's "ready" (to turn in: green).
   `ObjectivesProgress[i]` = count of `MissionDef.ObjectiveDefs[i]` (empty before the mission starts).
+  Not always a count: an objective with `bRememberItemsWithinObjective` keeps a **bitmask** there, a bit per item taken
+  (which ones, not slots: bits up to the 30th for 23 eggs) - its count is the bits set (Hunter's Grotto's "Egg on Your
+  Face", "Collect drifter eggs" 23: 611975230 = 12 eggs; read as a count it was "done" and the page hid the eggs -
+  tools/probes/probe_objective_bits.txt, 2026-11-13). In both BL2's and the Pre-Sequel's WillowGame. games/bl2/missions.py progress.
 - **The objectives' order** (the Pre-Sequel's "Marooned", 2026-09-26 - the user: "Throw breaker" first in game,
   "Pick up digistruct key" last; the page had ObjectiveDefs' order): each step orders its own. A step is a
   `MissionObjectiveSetDefinition` (InitialObjectiveSet, then each set's NextSet - bAutoEnableNextSet), its
@@ -164,7 +168,8 @@ item's `DefinitionData.ItemDefinition` (a `UsableItemDefinition`):
 - `MissionList[].bHeardKickoff`: false on missions not started (probe); taken as "offered" (the
   game shows an undiscovered mission as "Inconnu") - to confirm in game.
 - `MissionObjectiveSetDefinition`: `ObjectiveDefinitions`, `NextSet`, `bCanCompleteMission`.
-  `MissionObjectiveDefinition`: `ProgressMessage` (localized), `ObjectiveCount`, `bObjectiveIsOptional`.
+  `MissionObjectiveDefinition`: `ProgressMessage` (localized), `ObjectiveCount`, `bObjectiveIsOptional`,
+  `bRememberItemsWithinObjective` (its progress a bitmask: above).
 - `tracker.GetMissionStatus(mission)` works; `GetCurrentObjectives` / `GetObjectivesProgress` have
   out params (not needed: the list has it all).
 
