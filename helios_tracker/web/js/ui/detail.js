@@ -6,12 +6,12 @@ import { icon } from "../icons.js";
 import { cardIconKey, isGear, nameText, rarity, shownHealth, shownMaxHealth } from "../model.js";
 import { S, findDetail, isTrackedPlayer, itemById, onSale, pawnPos, trackedPawn } from "../state.js";
 import { saveDrawer } from "./drawer.js";
-import { bindItems, renderInspector } from "./inspector.js";
+import { bindItems, openInspector, renderInspector } from "./inspector.js";
 import { itemHtml, pickupAmount, pickupIconHtml, priceText, rarityName } from "./items.js";
 import { renderPlayers } from "./players.js";
 import { oddsHtml } from "./odds.js";
 import { machineStockHtml } from "./shops.js";
-import { missionItemNotYet, missionsById } from "../missions.js";
+import { foldText, missionItemNotYet, missionsById } from "../missions.js";
 
 /** Opens an object's / marker's panel. From the vending machines' list: a back button to it (`back`: that machine
  *  first on return - shops.js). */
@@ -24,6 +24,13 @@ export function openDetail(kind, id) {
   saveDrawer();
   renderPlayers();
   renderInspector(true);
+}
+
+/** Opens what a link names (data-open-detail + data-kind: the Nearby list, the Layers tab's search): a player, their
+ *  inspector; anything else, its panel. */
+export function openThing(kind, id) {
+  if (kind === "me" || kind === "player") openInspector(id);
+  else openDetail(kind, id);
 }
 
 /** A link to a mission in the mission log (the drawer's delegated click: missionlog.js). */
@@ -72,34 +79,67 @@ const NEAR_UU = 1.5 * UU_PER_METER, NEAR_HEIGHT_UU = 3 * UU_PER_METER;
 
 const openedCards = new Set(); // ground items whose card was opened once for them (then as the user leaves it)
 
-/** Everything on the map within NEAR_UU across (and NEAR_HEIGHT_UU in height) of `it` (objects, loot, pawns, point
- *  objectives / quest givers; not itself), the closest first: [{ item, kind, d }] - the markers stacked there, one
- *  click away (the map's click picks one). */
+/** Everything on the map with a panel: objects, loot, pawns (not respawning: their position means nothing), point
+ *  objectives / quest givers - [{ item, kind }]. */
+export function mapThings() {
+  const out = [];
+  for (const o of S.objects) out.push({ item: o, kind: o.cat });
+  for (const p of S.pickups) out.push({ item: p, kind: "loot" });
+  for (const p of S.pawns.values()) if (p.rs !== 2) out.push({ item: p, kind: p.k });
+  for (const mk of S.missions.markers) if (!mk.rad) out.push({ item: mk, kind: mk.k });
+  return out.filter(({ item }) => item.x != null);
+}
+
+/** Where a map thing is now (a pawn: interpolated). */
+const thingPos = (item, now) => (item.fx !== undefined ? pawnPos(item, now) : item);
+
+/** What names a map thing (an objective point / a quest giver: its objective or mission). */
+const thingNamed = (item, kind) => (kind === "objective" || kind === "directive" ? item.objective || item.mission : item);
+
+/** Everything on the map within NEAR_UU across (and NEAR_HEIGHT_UU in height) of `it` (mapThings; not itself), the
+ *  closest first: [{ item, kind, d }] - the markers stacked there, one click away (the map's click picks one). */
 function nearby(it) {
-  const at = it.fx !== undefined ? pawnPos(it, performance.now()) : it, out = [];
-  const consider = (item, kind) => {
-    if (item === it || item.x == null) return;
-    const pos = item.fx !== undefined ? pawnPos(item, performance.now()) : item;
+  const now = performance.now(), at = thingPos(it, now), out = [];
+  for (const { item, kind } of mapThings()) {
+    if (item === it) continue;
+    const pos = thingPos(item, now);
     const d = Math.hypot(pos.x - at.x, pos.y - at.y);
     if (d <= NEAR_UU && Math.abs(pos.z - at.z) <= NEAR_HEIGHT_UU) out.push({ item, kind, d });
-  };
-  for (const o of S.objects) consider(o, o.cat);
-  for (const p of S.pickups) consider(p, "loot");
-  for (const p of S.pawns.values()) if (p.rs !== 2) consider(p, p.k); // (respawning: its position means nothing)
-  for (const mk of S.missions.markers) if (!mk.rad) consider(mk, mk.k);
+  }
   return out.sort((a, b) => a.d - b.d);
+}
+
+/** The map things whose name holds every word of `query` (case and accents ignored: missions.js foldText), with their
+ *  distance across from `at` (a position; none: d null), the closest first, then by name: [{ item, kind, d }] - the
+ *  Layers tab's search. */
+export function findThings(things, query, at) {
+  const words = foldText(query).split(/\s+/).filter(Boolean);
+  if (!words.length) return [];
+  const now = performance.now();
+  return things.map(({ item, kind }) => ({ item, kind, name: foldText(nameText(thingNamed(item, kind))) }))
+    .filter(({ name }) => words.every((w) => name.includes(w)))
+    .map(({ item, kind, name }) => {
+      const pos = thingPos(item, now);
+      return { item, kind, name, d: at ? Math.hypot(pos.x - at.x, pos.y - at.y) : null };
+    })
+    .sort((a, b) => (a.d ?? 0) - (b.d ?? 0) || a.name.localeCompare(b.name))
+    .map(({ item, kind, d }) => ({ item, kind, d }));
+}
+
+/** A map thing's row: its name (a link to its panel), its kind, how far (d: none, left out). */
+export function thingRowHtml({ item, kind, d }) {
+  const color = kind === "loot" && isGear(item.c) ? ` style="color:${rarity(item.q || 0)[1]}"` : "";
+  const far = d == null ? "" : " · " + t("unit.meters", { n: num(d / UU_PER_METER, 1) });
+  return `<div class="nbrow"><a class="mlink" data-open-detail="${esc(item.i)}" data-kind="${esc(kind)}"${color}>` +
+    `${nameHtml(thingNamed(item, kind))}</a><span class="nbkind">${esc(kindText(kind, item) + far)}</span></div>`;
 }
 
 /** The Nearby list: each one's name (a link to its panel), its kind, how far. */
 function nearbyHtml(it) {
   const list = nearby(it);
   if (!list.length) return "";
-  return `<div class="group">${esc(t("detail.nearby"))} · ${num(list.length)}</div><div class="nblist">` + list.map(({ item, kind, d }) => {
-    const name = kind === "objective" || kind === "directive" ? nameHtml(item.objective || item.mission) : nameHtml(item);
-    const color = kind === "loot" && isGear(item.c) ? ` style="color:${rarity(item.q || 0)[1]}"` : "";
-    return `<div class="nbrow"><a class="mlink" data-open-detail="${esc(item.i)}" data-kind="${esc(kind)}"${color}>${name}</a>` +
-      `<span class="nbkind">${esc(kindText(kind, item))} · ${esc(t("unit.meters", { n: num(d / UU_PER_METER, 1) }))}</span></div>`;
-  }).join("") + `</div>`;
+  return `<div class="group">${esc(t("detail.nearby"))} · ${num(list.length)}</div><div class="nblist">` +
+    list.map(thingRowHtml).join("") + `</div>`;
 }
 
 export function renderDetail(resetScroll) {

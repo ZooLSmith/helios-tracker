@@ -2,13 +2,18 @@
 // its settings panel under it, built from model.js's LAYER_SETTINGS. A folder layer (Gear,
 // Pickups, Containers) is a row that folds / turns on and off the layers under it. Rebuilt on any
 // structural change (fold, open / close, language); one set of delegated handlers on #layers.
+// Above them, a search: what's on the map now by name (#layerFound, in the list's place while there's a query), each a
+// link to its panel - refreshed from the frames (refreshLayerSearch: things move, come and go). The map brackets them
+// all (draw.js drawFound: searchFound()) while there's a query, whatever tab shows.
 import { $, esc } from "../dom.js";
 import { gameData } from "../game.js";
-import { t } from "../i18n.js";
+import { num, t } from "../i18n.js";
 import { icon } from "../icons.js";
 import { LAYERS, LAYER_GROUPS, LAYER_SETTINGS, layerInGame, layerNameKey } from "../model.js";
 import { invalidate } from "../scheduler.js";
 import { layerCfg, saveSettings, settings } from "../settings.js";
+import { pawnPos, trackedPawn } from "../state.js";
+import { findThings, mapThings, openThing, thingRowHtml } from "./detail.js";
 import { tipAttrs } from "./hovertip.js";
 
 // The layer's marker as drawn on the map (12 px SVG)
@@ -125,7 +130,45 @@ export function renderLayers() {
       `<div class="lgbody">${rows.map(rowHtml).join("")}</div></div>`;
   }).join("");
   syncBoxes();
+  renderFound(true); // (the language: its words)
   invalidate(); // the counts are filled by the next frame
+}
+
+// The search's results: the closest first (to the tracked player), at most MAX_FOUND rows (the count says how many)
+const MAX_FOUND = 200;
+let foundHtml = "", nextFind = 0;
+let foundKeys = null; // every result's "<kind>:<id>" (not only the rows shown), null: no query
+
+/** What the search found, as "<kind>:<id>" keys (the map brackets them: draw.js), or null (no query). */
+export function searchFound() { return foundKeys; }
+
+/** The search's results in the layers' place (an empty query: the layers back). `force`: written even unchanged. */
+function renderFound(force) {
+  const query = $("layerSearch").value, found = $("layerFound"), searching = !!query.trim();
+  found.hidden = !searching;
+  $("layers").hidden = searching;
+  let html = "", keys = null;
+  if (searching) {
+    const me = trackedPawn(), list = findThings(mapThings(), query, me ? pawnPos(me, performance.now()) : null);
+    keys = new Set(list.map((f) => f.kind + ":" + f.item.i));
+    html = !list.length ? `<div class="muted">${esc(t("layers.noMatch"))}</div>`
+      : `<div class="group">${esc(t("layers.found", { n: num(list.length) }))}</div><div class="nblist">` +
+        list.slice(0, MAX_FOUND).map(thingRowHtml).join("") + (list.length > MAX_FOUND ? `<div class="muted">…</div>` : "") + `</div>`;
+  }
+  if (!sameKeys(keys, foundKeys)) { foundKeys = keys; invalidate(); } // (the map's brackets)
+  if (html === foundHtml && !force) return;
+  foundHtml = html;
+  found.innerHTML = html;
+}
+
+const sameKeys = (a, b) => a === b || (!!a && !!b && a.size === b.size && [...a].every((k) => b.has(k)));
+
+/** From the frames (draw.js): the results again, twice a second while there's a query (another tab showing too: the
+ *  map's brackets follow what comes and goes). */
+export function refreshLayerSearch(now) {
+  if (now < nextFind || !$("layerSearch").value.trim()) return;
+  nextFind = now + 500;
+  renderFound();
 }
 
 // The layers a folder's box turns on and off
@@ -181,6 +224,13 @@ export function initLayers() {
     invalidate();
   });
 
+  const search = $("layerSearch");
+  search.addEventListener("input", () => renderFound());
+  search.addEventListener("keydown", (e) => { if (e.key === "Escape" && search.value) { search.value = ""; renderFound(); } });
+  $("layerFound").addEventListener("click", (e) => { // a result: its panel (a player: their inspector)
+    const link = e.target.closest("[data-open-detail]");
+    if (link) openThing(link.dataset.kind, link.dataset.openDetail);
+  });
   $("layersAll").onclick = () => setLayersOn(LAYERS, true);
   $("layersNone").onclick = () => setLayersOn(LAYERS, false);
   // Collapse: every layer's settings closed, every category and folder folded

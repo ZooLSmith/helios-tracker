@@ -9,8 +9,7 @@ import { GOALS, isHere, missionAreas, missionCounts, missionDifficulty, missionS
 import { cleanGameText } from "../model.js";
 import { saveSettings, settings } from "../settings.js";
 import { S, isTrackedPlayer } from "../state.js";
-import { openDetail } from "./detail.js";
-import { openInspector } from "./inspector.js";
+import { openThing } from "./detail.js";
 import { saveDrawer } from "./drawer.js";
 import { renderPlayers } from "./players.js";
 
@@ -412,8 +411,7 @@ export function initMissionLog() {
     // a quest giver's NPC / object, from its "!"'s panel; a thing in a panel's Nearby list (a player: their inspector)
     const detail = e.target.closest("[data-open-detail]");
     if (detail) {
-      if (detail.dataset.kind === "me" || detail.dataset.kind === "player") openInspector(detail.dataset.openDetail);
-      else openDetail(detail.dataset.kind, detail.dataset.openDetail);
+      openThing(detail.dataset.kind, detail.dataset.openDetail);
       return;
     }
     if (!S.missionView) return;

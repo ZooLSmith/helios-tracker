@@ -242,7 +242,13 @@ bottom-left message).
   headings that fold, no box), a row
   per layer (enabled, marker icon, count, ⚙) and its settings panel inline under it (several can
   be open). Buttons: All on / All off (every layer on the map) and Collapse (every category and
-  folder folded, every settings panel closed). Players can't be hidden (no enabled box), only configured. Folder rows (a tri-state box
+  folder folded, every settings panel closed). **Search** under them (`ui/layers.js`, `detail.js` findThings): what's on
+  the map now (the Nearby list's things: objects, loot, pawns, point objectives / quest givers - hidden layers' too) whose
+  name holds every word (case, accents ignored), in the layers' place while typed: the closest to the tracked player
+  first, at most 200 rows, each a link to its panel (a player: the inspector); refreshed from the frames (2/s), Esc clears.
+  On the map: every result bracketed like the selection, in `--map-found` (magenta), still, no line (`draw.js` drawFound;
+  hidden layers' too, whatever tab shows - while there's a query); the selected one keeps the selection's.
+  Players can't be hidden (no enabled box), only configured. Folder rows (a tri-state box
   turning their layers on / off, they fold): **Gear** (a layer per rarity; `misc` = rarity 0 /
   unknown), **Pickups** (not gear, a layer per kind: Ammo, Cash, Eridium, Health, Mission items (WillowMissionItem: ECHO logs, objective items; the objectives' green), Other - the collector's
   `pk`, from the item definition's inventory card `Presentation`, resolved once per definition:

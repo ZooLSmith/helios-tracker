@@ -143,6 +143,7 @@
   --map-ink: #1a1200;
   --map-turnin: #00f800; /* a mission to hand in: the game's green "?" (sampled: _work/return_questionmark.png) */
   --map-golden: #ffc933; /* the golden chest (Big chests, opened with a golden key): gold, not the chests' orange-red */
+  --map-found: #ff5cf0; /* the Layers tab's search results' brackets: a magenta no layer, rarity or theme accent uses */
   --map-boss: #c9a54a; /* a boss's outline (its AI class's bBoss, the boss bar's pawn): a muted gold */
   --map-halo: rgba(5, 10, 14, .9);
   --map-bar-back: rgba(0, 0, 0, .7);

@@ -426,10 +426,22 @@ refreshLootDetail(countLootRender); // nothing changed: not again
 S.groundItems = new Map([["lootCard", { i: "lootCard" }]]);
 refreshLootDetail(countLootRender); // its card came: again
 Object.assign(S, { detail: null, pickups: [], groundItems: new Map() });
+// The Layers tab's search (detail.js findThings): every word, case and accents ignored, a made-up name by its pretty
+// form, an objective point by its objective; the closest first, then by name; no tracked player: no distance
+const { findThings } = await load("js/ui/detail.js");
+const searchThings = [
+  { item: { i: "o1", n: "Marcus Munitions", x: 300, y: 400, z: 0 }, kind: "vendor" },
+  { item: { i: "o2", n: "Fire_Barrel02", raw: 1, x: 10, y: 0, z: 0 }, kind: "explosive" },
+  { item: { i: "p1", n: "Ménage Marcus", x: 30, y: 40, z: 0 }, kind: "npc" },
+  { item: { i: "m1", objective: { n: "Talk to Marcus" }, x: 0, y: 0, z: 0 }, kind: "objective" },
+  { item: { i: "o3", n: "Ammo crate", x: 0, y: 0, z: 0 }, kind: "container" }];
+const foundIds = (q, at) => findThings(searchThings, q, at).map((f) => f.item.i + ":" + (f.d ?? "-"));
+const foundThings = { marcus: foundIds("MARCUS", { x: 0, y: 0 }), accents: foundIds("menage", null), two: foundIds("marcus  muni", null),
+  raw: foundIds("barrel", null), none: foundIds("  ", null), noAt: foundIds("marcus", null) };
 const missionsOut = { deltaOut, lootDetailRenders, rowsOut, shotCostOut, bonusOut, statsOut, lookOut, vaultCat, healthShown, variantWords, stepOrder, hitPicks, items, itemsLater, notYetWhy, fallback, where, tooHigh, finish, difficulty, best, search, infoHtml, areas, gameText, story: flat(tree.story), other: flat(tree.other), counts: missionCounts(log),
   objectives: objectiveStates(log[1]).map((s) => s.state) };
 console.log(JSON.stringify({ sha: crypto.createHash("sha256").update(rgba).digest("hex"), err, back, right, raw, modules, missions: missionsOut,
-  migrated, checked: { enemy: checked.layers.enemy, view: checked.view, openLayers: checked.ui.openLayers, drawer: checked.ui.drawer, badDrawer }, i18nKeys, unknownSettings, lootLayers, gameRarity, gameOut, freeRects }));
+  migrated, checked: { enemy: checked.layers.enemy, view: checked.view, openLayers: checked.ui.openLayers, drawer: checked.ui.drawer, badDrawer }, i18nKeys, unknownSettings, lootLayers, gameRarity, gameOut, freeRects, foundThings }));
 """
 
 
@@ -2902,6 +2914,9 @@ def check_helios_tracker() -> None:  # noqa: PLR0915
     assert chk["view"]["follow"] is False and chk["view"]["motion"] == 15 and chk["openLayers"] == ["loot"], chk
     assert chk["drawer"] == {"k": "mission", "id": "M_Plan"} and chk["badDrawer"] == {}, chk  # restored on a refresh
     assert not js["unknownSettings"], js["unknownSettings"]
+    found_things = js["foundThings"]
+    assert found_things == {"marcus": ["m1:0", "p1:50", "o1:500"], "accents": ["p1:-"], "two": ["o1:-"], "raw": ["o2:-"],
+                            "none": [], "noAt": ["o1:-", "p1:-", "m1:-"]}, ("the Layers tab's search", found_things)
     missing = sorted(k for k in js["i18nKeys"] if k not in langs["en"])
     assert not missing, ("layer panel keys missing from the catalogs", missing)
     mis = js["missions"]

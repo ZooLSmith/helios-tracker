@@ -16,6 +16,8 @@ import { tooltip } from "./tooltip.js";
 import { refreshPlayerInfo } from "./ui/inspector.js";
 import { updatePlayerVitals } from "./ui/players.js";
 import { refreshShops } from "./ui/shops.js";
+import { mapThings } from "./ui/detail.js";
+import { refreshLayerSearch, searchFound } from "./ui/layers.js";
 import { H, W, centerOnTarget, ctx, dpr, fit, heightK, refreshNorth, setCtx, toScreen } from "./view.js";
 
 /** The mission log by mission id (mission items check their mission): rebuilt only when the log changes. */
@@ -52,6 +54,22 @@ function drawSelection(f, now, tracked, mePos, hits, place) {
     leader(mx, my, sx, sy, 12 * G, r + 9 * G, COLORS.tracked, G);
   }
   brackets(sx, sy, r + 5 * G + breathe, COLORS.tracked, G);
+}
+
+/** The Layers tab's search results: the selection's brackets around each (their own colour, still, no line - many at
+ *  once), hidden layers' too (the search is how to find them); the selected one keeps the selection's. */
+function drawFound(now, tracked, hits, place) {
+  const keys = searchFound();
+  if (!keys || !keys.size) return;
+  const G = look().marker / 100, sel = selectedOnMap(now, tracked);
+  const drawnR = new Map(hits.map((h) => [h.item, h.r])); // (drawn: its marker's size; else a default)
+  for (const { item, kind } of mapThings()) {
+    if (!keys.has(kind + ":" + item.i) || (sel && item === sel.item) || offMap(item.z)) continue;
+    const pos = item.fx !== undefined ? pawnPos(item, now) : item;
+    const [sx, sy] = place(pos.x, pos.y, pos.z);
+    if (sx < -40 || sy < -40 || sx > W + 40 || sy > H + 40) continue;
+    brackets(sx, sy, (drawnR.get(item) ?? 6 * G) + 5 * G, COLORS.found, G);
+  }
 }
 
 // The 3D view's map plane (S.view.ground, world uu): the tracked player's height - the same origin as the tooltips'
@@ -459,6 +477,7 @@ export function draw() {
   ctx.globalAlpha = FADED; ctx.drawImage(dimCtx.canvas, 0, 0);
   ctx.globalAlpha = 1; ctx.drawImage(fullCtx.canvas, 0, 0);
   ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  drawFound(now, tracked, hits, place); // (over every marker, under the selection)
   drawSelection(f, now, tracked, mePos, hits, place); // (over every marker)
   S.hits = hits;
 
@@ -472,5 +491,6 @@ export function draw() {
   updatePlayerVitals(now); // with the frames: follows the Refresh rate setting
   refreshPlayerInfo(now);
   refreshShops(now); // (the restock countdowns, the closest machines: the same)
+  refreshLayerSearch(now); // (the Layers tab's search: what's found, how far)
   refreshNorth(); // (the compass: shown once the user turned the map, pointing north)
 }
