@@ -259,3 +259,94 @@ spawns, the page shows it then). Dropped items and enemies show at any distance 
 `find_all` per level (the `_lookup` queue: one per tick), their definitions resolved once (cached per population
 definition); `bHasSpawned` read now and then (a few points per tick, round robin - property reads) or not at all: the
 object spawn hook already tells when one appears (its position matches the point's).
+
+## Damage log (planned: nothing built, the probes first)
+
+**The wish** (the user, 2026-11-14): every hit logged - who dealt it, who took it, how much, whether a crit, its
+element... - in real time, on the page. Its look isn't decided; what is: per enemy its last 3-4 hits taken, a tab
+per player (what they dealt, what they took), a general tab (everyone, each one's share), and a timeline to pick a
+time window. Modular (the views separate from the store) and cheap above all.
+
+**The game side (to probe first)** - read-only, no blind calls:
+
+1. Signatures only: the functions with Damage / Crit / Hit in their name on WillowPawn, WillowAIPawn,
+   WillowPlayerPawn, WillowPlayerController, WillowGameInfo, WillowVehicle. The candidate: UE3's
+   `TakeDamage(amount, instigator, hit location, momentum, damage type, hit info, causer)`; the game shows damage
+   numbers, so a crit is known somewhere.
+2. A timed hook on the one picked (removed after ~15 s, its output written section by section): each call's
+   arguments, health / shield before (PRE) and after (POST) - what landed, past shields and resistances -, calls
+   per second, our time per call. Answers: is a burn / corrode tick a call? splash one per target? where's the
+   crit, the element? what does a firefight cost?
+3. A co-op client: TakeDamage likely runs on the host only - a client may see only health going down (no crit,
+   no element). Then the client's log is another method of the profile (health deltas), not a feature.
+
+**The mod**
+
+- A profile part, `games/<game>/damage.py`: the hook's target, reading a hit into a raw tuple (source, target,
+  amount, damage type, crit, health / shield before and after). Another game overrides what differs; a game
+  without a way lacks the feature.
+- The hook does next to nothing: a few `util.field` reads, a tuple appended, return - no names, no JSON, no lookups.
+  The collector's update tick drains them: ids, a batch of rows per tick, published once (as the pickups'
+  PostBeginPlay hook already feeds the collector).
+- Rows: `[t_ms, source_id, target_id, amount, flags, type_idx]` - flags a bit field (crit, shield hit, killing
+  blow, damage over time, splash); ids the pawns' ids the page already has; a damage type sent once (its name from
+  the game: element, weapon, skill) on a small record channel (`damagetypes`), then its index. Time: the mod's own
+  monotonic clock (ms since the session started), not WorldInfo.TimeSeconds (restarted each level, stopped while
+  paused): one continuous timeline, a pause or a loading screen a gap.
+- **The hub needs an event channel**: today a channel keeps its latest payload only (two batches between two sends:
+  the first lost). An append-only one, with sequence numbers.
+- **The server keeps the history** (the user: a page refresh mid-fight shouldn't lose it; a page opened late sees
+  the fight): each tick's batch kept as the chunk already encoded to send it (no second encoding), for the longest
+  "Keep hits for" (60 min) and under a byte cap (~20-30 MB: the game is 32-bit, short on memory) - a page keeps
+  less if set so. A thread doesn't make it free (the server's threads share the game's GIL with our hooks): the cost
+  is a catch-up - up to an hour, ~10 MB - so it's the chunks written as they are (a write mostly lets the GIL go),
+  outside the hub's lock (architecture.md 1b), and its own request: the page fetches `/damage?since=<seq>`, then
+  follows the live channel from that sequence - a big catch-up never holds up the other channels. Cleared at a mod
+  reload, the game's exit, a reset from the page.
+- Collected only while a page is open (as the collector).
+- **A switch to turn it off** (the user: players who don't want it): a mod option, **Damage Log** (a `BoolOption`
+  beside LAN / Refresh rate, its name in the game's languages - i18n.py), in the game's Mods menu (the user) - the
+  page never talks to the mod, it only receives. Off: the hook disabled (no work at all, not just nothing sent),
+  the server's history dropped, the feature left out of the level message - the page hides its damage tab and the
+  per-enemy hits (a layer's `needs:`). Switched at once, no reload. On by default (the user).
+- **Everything that takes damage** (the user): pawns (vehicles too: pawns) and objects (barrels, the ones the collector
+  already gives a health - `_health`: bCanTakeDirectDamage / bCanTakeRadiusDamage), every source (enemies hitting each
+  other, escorts like Ol' Pukey); the page filters. Reading a hit is shared (amount, instigator, damage type, crit);
+  only reading the health before / after differs - a pawn's health + shield, an object's Health. A target id says
+  its kind (a pawn's id or an object's: two channels, two id spaces).
+  But one hook won't catch all: a hook is on a function object, and a class overriding TakeDamage has its own -
+  `Engine.Actor:TakeDamage` only fires for the classes that don't. The probe lists which classes override it (and
+  TakeRadiusDamage...); each one hooked, all into the same reader.
+
+**The page**
+
+- `damage.js`, the store: two levels.
+  - Hits: typed arrays, a column per field (~24 bytes a hit), in blocks (a minute each): expiring = dropping whole
+    blocks past the cutoff. Kept for a time, not a count - **Keep hits for** 1 / 5 / 10 / 30 / 60 min (default 10;
+    the Panels group): a boss fight can last an hour (the user). An hour at 100 hits/s (4 players) = 360k hits,
+    ~9 MB; a safety cap ~1M hits (a pathological rate), the oldest dropped first.
+  - Per-second totals for the whole session, never dropped (per player: dealt, taken - maybe crits, elements): a few
+    numbers a second.
+  - A window's stats: its whole seconds from the totals, only the two partial seconds at its edges from the hits
+    (binary search: in time order) - cheap for any window. Past the kept hits the totals still work; the hit lists
+    and an enemy's last hits don't.
+  - A pawn's name copied into the store with its first hit (a dead enemy leaves `pawninfo`, its lines stay).
+- The views, each replaceable: the damage panel (global), the damage section of an actor's panel (below). Drawn from the frame's `refresh...(now)`, throttled, only the rows that changed; only the visible
+  rows built.
+- **The panel, top to bottom** (the user, 2026-11-14): the timeline, then the actors involved, then the events.
+  - The actors: everyone dealt or took damage in the window - players, enemies, objects -, each with what it took
+    and dealt. Ordered by how recent and how much: while live, a score that fades (each hit's damage, halved every
+    ~10 s: a fight going on rises, an old one sinks); a frozen window, its totals. Clicking one opens its own panel,
+    as anywhere else (detail.js `openThing`: an enemy's, a barrel's, a player's - the inspector).
+  - The events: the hits, newest first - source -> target, amount, crit, element -, only the visible rows built.
+- **Global vs per actor** (the user): the damage panel is the global view (everyone, each player's share); every
+  actor's own panel gets a damage section - the same one for any actor, a player, an enemy, a barrel: what it took
+  and dealt, its totals, its hits (the "last 3-4 hits" of an enemy is this section). One renderer, given an actor,
+  used by every panel; the window the timeline's (one window for the whole page - live by default when the damage
+  panel was never opened).
+- **The timeline**: a strip on top of the damage tab, a canvas - damage per second over time, dealt above the line
+  and taken below, stacked by player colour; two handles pick the window every view shows. The right handle at the
+  end = pinned to now, the window sliding with the game (its width kept; at first the last 60 s - the user); dragged back, the window
+  freezes; a Live button brings it back. Marks on it: level changes, player deaths, a boss's start / end (data we
+  have). The stretch where only the totals remain shaded. Redrawn from the frames (the Refresh rate rule).
+- A page refresh or a reconnect: the store refilled from the server's history (above).
