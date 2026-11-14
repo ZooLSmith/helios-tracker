@@ -3,7 +3,8 @@
 // handle at the end, the window sliding with the game, its width kept (its end reads "now"); the right handle dragged
 // back: frozen - back to the end: live again (the user: no button for it). The window itself dragged moves both
 // handles, its width kept (the user); a click on the track elsewhere centres it there. Its times relative ("60 s ago" -
-// the user). Reusable: any view builds one with rangeHtml() and refreshes it from the frames with refreshRange();
+// the user). Right under the track, a 2 px heatmap of the damage over the same time (the user's idea): where the
+// fights were, at a glance. Reusable: any view builds one with rangeHtml() and refreshes it from the frames with refreshRange();
 // step 4's timeline goes under it.
 import { esc } from "../dom.js";
 import { t } from "../i18n.js";
@@ -34,7 +35,7 @@ export function agoText(store, ms) {
 /** The control's HTML (one per view: data-dmrange binds it). */
 export function rangeHtml() {
   return `<div class="dmrange" data-dmrange><div class="dmtrack" data-tip="${esc(t("dmg.windowTip"))}">` +
-    `<div class="dmsel"></div><div class="dmh lo" tabindex="0"></div><div class="dmh hi" tabindex="0"></div></div>` +
+    `<div class="dmsel"></div><div class="dmh lo" tabindex="0"></div><div class="dmh hi" tabindex="0"></div></div><canvas class="dmheat"></canvas>` +
     `<div class="dmrangebar"><span class="dmfrom"></span><span class="dmto"></span></div></div>`;
 }
 
@@ -115,7 +116,39 @@ export function refreshRange(root, store, scale = true) {
   sel.style.width = `${pct(t2) - pct(t1)}%`;
   root.querySelector(".dmh.lo").style.left = `${pct(t1)}%`;
   root.querySelector(".dmh.hi").style.left = `${pct(t2)}%`;
+  drawHeat(root, store, min, max);
   const from = agoText(store, t1), to = damageWindow.live ? t("dmg.now") : agoText(store, t2);
   if (root.querySelector(".dmfrom").textContent !== from) root.querySelector(".dmfrom").textContent = from;
   if (root.querySelector(".dmto").textContent !== to) root.querySelector(".dmto").textContent = to;
+}
+
+const heatShown = new WeakMap(); // a control -> what its heatmap was drawn from (drawn again only on a change)
+
+/** The heatmap under the track: the damage dealt (store.heat: per second, not on oneself) in a column per pixel over
+ *  [min, max], the accent's opacity the square root of its share of the busiest column (a small fight still shows). */
+function drawHeat(root, store, min, max) {
+  const canvas = root.querySelector(".dmheat");
+  if (!canvas) return;
+  const width = canvas.clientWidth;
+  const key = `${store.count}|${Math.floor(min / 1000)}|${Math.floor(max / 1000)}|${width}`;
+  if (!width || heatShown.get(root) === key) return;
+  heatShown.set(root, key);
+  if (canvas.width !== width) canvas.width = width;
+  canvas.height = 1; // (stretched to its CSS height)
+  const bins = new Float64Array(width), span = Math.max(1, max - min);
+  for (const [sec, amount] of store.heat) {
+    const x = Math.floor(((sec * 1000 + 500 - min) / span) * width);
+    if (x >= 0 && x < width) bins[x] += amount;
+  }
+  let top = 0;
+  for (const v of bins) if (v > top) top = v;
+  const g = canvas.getContext("2d");
+  g.clearRect(0, 0, width, 1);
+  if (!top) return;
+  g.fillStyle = getComputedStyle(canvas).color; // (its CSS: the accent - a theme's own)
+  for (let x = 0; x < width; x++) {
+    if (!bins[x]) continue;
+    g.globalAlpha = Math.max(0.15, Math.sqrt(bins[x] / top));
+    g.fillRect(x, 0, 1, 1);
+  }
 }

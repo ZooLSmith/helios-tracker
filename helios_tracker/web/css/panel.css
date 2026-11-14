@@ -235,7 +235,7 @@ button.act:hover { border-color: var(--accent); }
 .dma .sw { display: inline-block; width: 12px; height: 12px; margin-right: 3px; vertical-align: -2px; } /* (its map marker) */
 .dma .sw svg { display: block; }
 .dmarrow { color: var(--dim); margin: 0 5px; }
-.dmamt { text-align: right; font-variant-numeric: tabular-nums; font-weight: 600; min-width: 3ch; }
+.dmamt { text-align: right; font-variant-numeric: tabular-nums; font-weight: 600; min-width: var(--dmamt, 3ch); } /* (amount.js) */
 .dmamt.shield { color: var(--shield); }
 .dmwhat { display: flex; align-items: center; gap: 3px; }
 .dmi.type { height: 12px; width: auto; max-width: 30px; }

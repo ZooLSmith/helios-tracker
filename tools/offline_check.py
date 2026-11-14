@@ -444,6 +444,7 @@ const foundThings = { marcus: foundIds("MARCUS", { x: 0, y: 0 }), accents: found
 const { DamageStore } = await load("js/damage/store.js");
 const { createFeed } = await load("js/damage/feed.js");
 const { actorsHtml, linesHtml } = await load("js/damage/view.js");
+const { amountText: dmgAmount, amountWidth: dmgAmountWidth } = await load("js/damage/amount.js");
 const { searchWords } = await load("js/damage/search.js");
 const { summaryHtml } = await load("js/damage/info.js");
 const dmgHistory = {
@@ -471,7 +472,9 @@ const dmgFirst = { times: dmgStore.latest(10).map((h) => h.t), count: dmgStore.c
   summary: summaryHtml(dmgStore, 2000), quiet: summaryHtml(dmgStore, 120000), // (the minute before 2 s / before 2 min)
   // the pane's filters (search.js, the window): every word, case ignored, a tag by its name; a time span
   searched: linesHtml(dmgStore, 300, -Infinity, Infinity, searchWords("RAKK Crit")),
-  windowed: linesHtml(dmgStore, 300, 140, 1000), overview: actorsHtml(dmgStore, 0, 2000, searchWords("rak")) };
+  windowed: linesHtml(dmgStore, 300, 140, 1000), overview: actorsHtml(dmgStore, 0, 2000, searchWords("rak")),
+  amounts: [dmgAmount(4.25), dmgAmount(99999), dmgAmount(130400), dmgAmount(1234567)],
+  amountWidths: [dmgAmountWidth(99999), dmgAmountWidth(130400)], maxHit: dmgStore.maxHit };
 dmgFeed({ sid: "s1", b: [{ q: 5, v: [[1400, "dead", 1, 0, -1]] }] }); // (4 missing: a gap)
 await dmgSettle();
 const dmgGap = { count: dmgStore.count, events: dmgStore.events.map((e) => e.kind) };
@@ -2999,6 +3002,10 @@ def check_helios_tracker() -> None:  # noqa: PLR0915
     dmg_overview = dmg_first["overview"]
     assert dmg_overview.count('class="dmactor"') == 1 and ">Rakk<" in dmg_overview and ">20<" in dmg_overview, (
         "the overview: an actor's dealt / taken, found by name", dmg_overview)
+    assert dmg_first["amounts"] == ["4.3", "99,999", "130.4K", "1.2M"], (
+        "amounts in full up to 99,999, short from 100,000 (the user)", dmg_first["amounts"])
+    assert dmg_first["amountWidths"] == ["6ch", "6ch"], "the column never narrower than before (99,999 > 130.4K)"
+    assert dmg_first["maxHit"] == 10, ("the biggest hit kept for the column's width", dmg_first["maxHit"])
     assert dmg_page["gap"] == {"count": 4, "events": ["fx+", "dead"]}, ("a gap: the history asked again", dmg_page["gap"])
     assert dmg_page["expired"] == {"count": 0, "events": 0}, dmg_page["expired"]
     assert dmg_page["second"] == {"sid": "s2", "t0": 9000, "count": 1, "name": "Me again", "rakk": False}, dmg_page["second"]

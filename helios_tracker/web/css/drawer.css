@@ -439,6 +439,10 @@
   box-shadow: 0 0 0 1px var(--panel-edge); cursor: ew-resize; outline: none; z-index: 1; }
 .dmh::before { content: ""; position: absolute; inset: -2px -5px; } /* (an easier grab than 6 px) */
 .dmh:hover, .dmh:focus-visible, .dmrange[data-held="lo"] .lo, .dmrange[data-held="hi"] .hi { background: var(--accent); }
+/* the damage over the track's time, a heatmap (window.js drawHeat: a column per pixel, the accent's opacity) */
+.dmheat { position: static; inset: auto; cursor: default; touch-action: auto; /* (not the map's: base.css's canvas rule) */
+  display: block; width: 100%; height: 2px; margin: 1px 0 2px; color: var(--accent); image-rendering: pixelated;
+  background: color-mix(in srgb, var(--control) 50%, transparent); border-radius: 1px; }
 .dmrangebar { display: flex; align-items: center; justify-content: space-between; gap: 6px; font-size: 11px; color: var(--dim);
   font-variant-numeric: tabular-nums; }
 /* the log: a virtual list (damage/vlist.js) - the lines in view in a spacer as tall as all of them */

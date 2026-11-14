@@ -9,7 +9,8 @@
 // Built once (the search keeps its focus: the players' updates redraw the drawer); its list and the window's handles
 // drawn again from the frames (draw.js), throttled, the DOM written only when the text changed.
 import { $, esc, nameHtml } from "../dom.js";
-import { num, numShort, numUpTo, t } from "../i18n.js";
+import { num, t } from "../i18n.js";
+import { amountText, amountWidth, isShortened } from "./amount.js";
 import { LAYERS, cardIconKey, prettyRaw } from "../model.js";
 import { saveSettings, settings } from "../settings.js";
 import { S } from "../state.js";
@@ -74,6 +75,7 @@ function drawList(resetScroll) {
   const list = $("dmList");
   if (!list) return;
   const store = damageStore, [t1, t2] = windowSpan(store), words = searchWords(S.damageView.query || "");
+  list.style.setProperty("--dmamt", amountWidth(store.maxHit)); // (as wide as the biggest hit yet: amount.js)
   if (vlist) {
     const items = logItems(store, ROWS, t1, t2, words);
     if (items.length) vlist.set(items.length, (i) => itemHtml(store, items[i]), resetScroll);
@@ -116,8 +118,8 @@ export function actorsHtml(store, t1, t2, words = []) {
   if (!rows.length) return `<div class="note">${esc(t(totals.size ? "dmg.noMatch" : "dmg.quietWindow"))}</div>`;
   return `<div class="dmactor dmhead"><span></span><span>${esc(t("dmg.dealt"))}</span><span>${esc(t("dmg.taken"))}</span></div>` +
     rows.map(([id, [dealt, taken]]) => `<div class="dmactor"><span class="dmwho">${actorHtml(store, id)}</span>` +
-      `<span class="dmamt">${dealt ? esc(numShort(Math.round(dealt))) : ""}</span>` +
-      `<span class="dmamt taken">${taken ? esc(numShort(Math.round(taken))) : ""}</span></div>`).join("");
+      `<span class="dmamt">${dealt ? esc(amountText(dealt)) : ""}</span>` +
+      `<span class="dmamt taken">${taken ? esc(amountText(taken)) : ""}</span></div>`).join("");
 }
 
 // An actor's map layer (its marker beside its name): a pawn's by its kind; an object's by its category - the map's own
@@ -149,7 +151,6 @@ const defName = (def) => (def ? (def.raw ? prettyRaw(def.n) : def.n || "") : "")
 const clockText = (store, ms) => new Date(store.t0 + ms).toLocaleTimeString(globalThis.document?.documentElement.lang || undefined,
   { hour: "2-digit", minute: "2-digit", second: "2-digit" });
 
-const amountText = (n) => (n >= 10 ? num(Math.round(n)) : numUpTo(n, 1));
 
 // An item card icon (the game's art, /cardicon/: items.js's) - only when the game's card art is served; one the game
 // hasn't (a 404 - each one stalls the page a few ms, the user saw it, and the log's lines are drawn again and again)
@@ -193,8 +194,8 @@ function hitHtml(store, h) {
     (h.f & FLAG.FOLDED ? `<span class="dmtag">×${num(h.c)}</span>` : "");
   const tip = tipSections(defName(store.whats.get(h.w)) || actorName(store, h.a), [
     { kind: "meta", lines: [`${actorName(store, h.a)} → ${actorName(store, h.v)}`, clockText(store, h.t)] },
-    { kind: "stats", lines: [el?.eln || "",
-      h.h && h.s ? t("dmg.split", { h: amountText(h.h), s: amountText(h.s) }) : h.s ? t("dmg.shield") : ""] },
+    { kind: "stats", lines: [isShortened(h.h + h.s) ? num(Math.round(h.h + h.s)) : "", el?.eln || "",
+      h.h && h.s ? t("dmg.split", { h: num(Math.round(h.h)), s: num(Math.round(h.s)) }) : h.s ? t("dmg.shield") : ""] },
   ]);
   return `<div class="dmrow${h.f & FLAG.KILL ? " kill" : ""}"${tip}>` +
     `<span class="dmwho">${actorHtml(store, h.a)}<span class="dmarrow">→</span>${actorHtml(store, h.v)}</span>` +

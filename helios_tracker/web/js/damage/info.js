@@ -4,8 +4,9 @@
 // frames (draw.js), throttled, the DOM written only when its text changed.
 import { $, esc } from "../dom.js";
 import { hasFeature } from "../game.js";
-import { numShort, t } from "../i18n.js";
+import { t } from "../i18n.js";
 import { settings } from "../settings.js";
+import { amountText } from "./amount.js";
 import { damageStore } from "./store.js";
 import { actorHtml, openDamageLog } from "./view.js";
 
@@ -49,7 +50,9 @@ export function summaryHtml(store, end = store.now()) {
   });
   const top = [...dealt].sort((a, b) => b[1] - a[1]).slice(0, TOP);
   if (!top.length || total <= 0) return `<div class="muted">${esc(t("dmg.quiet"))}</div>`;
-  return top.map(([id, amount]) => `<div class="dmsum"><span class="dmwho">${actorHtml(store, id)}</span>` +
+  // (the amounts' column as wide as its widest: the rows are grids of their own)
+  const width = Math.max(3, ...top.map(([, amount]) => amountText(amount).length));
+  return top.map(([id, amount]) => `<div class="dmsum" style="--dmamt:${width}ch"><span class="dmwho">${actorHtml(store, id)}</span>` +
     `<span class="dmbar"><i style="width:${(100 * amount / top[0][1]).toFixed(1)}%"></i></span>` +
-    `<span class="dmamt" data-tip="${esc(t("unit.percent", { n: Math.round(100 * amount / total) }))}">${esc(numShort(Math.round(amount)))}</span></div>`).join("");
+    `<span class="dmamt" data-tip="${esc(t("unit.percent", { n: Math.round(100 * amount / total) }))}">${esc(amountText(amount))}</span></div>`).join("");
 }

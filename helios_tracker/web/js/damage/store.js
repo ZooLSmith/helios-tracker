@@ -63,6 +63,9 @@ export class DamageStore {
     this.serial = 0; // hits ever added (a hit's serial: what an event's link names)
     this.events = []; // {t, kind, actor, other, hit (a serial, -1: none), rest}, in time order
     this.seconds = new Map(); // second -> Map(player id -> [dealt, taken]): the session's, never dropped
+    this.maxHit = 0; // the biggest hit seen in the session (health + shield): the amount column's width (amount.js)
+    this.heat = new Map(); // second -> all the damage dealt in it (not on oneself), as long as the hits are kept: the
+    // time window's heatmap (window.js)
     this.keepMs = 10 * BLOCK_MS;
     this.version = 0; // bumped on any change (the views redraw on a new one)
   }
@@ -101,6 +104,8 @@ export class DamageStore {
     this.count++;
     const amount = row[3] + row[4];
     const sec = Math.floor(t / 1000);
+    if (amount > this.maxHit) this.maxHit = amount;
+    if (row[1] !== row[2]) this.heat.set(sec, (this.heat.get(sec) || 0) + amount);
     for (const [id, side] of [[row[1], 0], [row[2], 1]]) {
       if (!PLAYER_KINDS.has(this.actors.get(id)?.k)) continue;
       let s = this.seconds.get(sec);
@@ -131,6 +136,10 @@ export class DamageStore {
     let e = 0;
     while (e < this.events.length && this.events[e].t < cutoff) e++;
     if (e) this.events.splice(0, e);
+    for (const sec of this.heat.keys()) { // (in time order, give or take a late batch: up to the first one kept)
+      if (sec * 1000 >= cutoff) break;
+      this.heat.delete(sec);
+    }
     if (dropped || e) this.version++;
   }
 
