@@ -300,6 +300,10 @@ client, a lean hook's cost.
     = that hit (the call stack, not a guess - as ApplyStatusEffect); a player goes down first (DamageSummary's
     bWasInjured: Fight For Your Life) - the hit that downed them and the death later, apart; a barrel: its
     bHasBeenKilled set inside the hit. A death without a hit (a fall, out of the world): no killing blow.
+  - **A player's state in a fight** (the user, 2026-11-14): downed (Fight For Your Life), revived (by whom), back up
+    by a second wind (the kill that gave it), died - events in the log like the hits (the recap, the timeline's
+    marks, the player's own list). Their functions probed (probe_damage_lean.py: SetInjuredState,
+    GoFromInjuredToHealthy, the revive ones...).
   - "What with": the weapon's own name from the game (the item: its card's name), a grenade, a skill...; an
     effect by its element's symbol. Times: wall clock (the mod's clock + the session's start, sent once).
   Events sent: hits (ticks among them, flagged), effect applied (with its hit), effect ended.

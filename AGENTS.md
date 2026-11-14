@@ -107,6 +107,11 @@ bl2-helios-tracker/
   parameters" crashed the game: some native getters assume a context, a card being built, a menu open).
   Read properties and list signatures; call a specific function only once it's known. Write the output
   file after each section, so a crash still leaves what came before.
+  A probe that runs on (hooks, a timer) **prints in the game console when it's done** (`[helios probe] <name>:
+  done - <file>`): the user shouldn't have to check the file (the user). Its timer runs on `PostRender`: the game
+  draws no frames while another window has the focus - the end comes on the first frame back in the game. Never
+  `lines += ...` inside a function (it makes `lines` a local: UnboundLocalError at the end, the results lost):
+  `lines.extend(...)`.
 - **Dev overlays**: anything drawn on the canvas from `PostRender` renders in front of the console (a
   console-state check doesn't help): give it an auto-timeout (~15 s) and a short, blind-typeable off
   command (`pyexec <mod>/off.py`), said before it runs.

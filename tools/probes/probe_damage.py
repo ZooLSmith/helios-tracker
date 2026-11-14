@@ -256,6 +256,7 @@ def _tick(obj, args, ret, func):  # noqa: ANN001, ANN202, ARG001
         lines.extend(_props(target, TARGET_WORDS))
         _flush()
     lines.append("== done")
+    print(f"[helios probe] {OUT.stem}: done - {OUT}")  # (in the console: no checking the file to know)
     _flush()
 
 

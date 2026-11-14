@@ -792,6 +792,32 @@ a barrel, your own grenade. Run 1's function listing kept in tools/probes/probe_
   identity**: two burns from the same gun tick at the same instant with the same amounts, indistinguishable. The
   ticks themselves are dealt by native code (no script function with the effect in hand fired per tick).
   Corrosive / shock not tried yet.
+- **The lean hooks and the killing blow** (probe_damage_lean.py, a real fight - Rakks, bandits, a vehicle, 2026-11-14):
+  - Cost, our hooks' bodies (util.field reads, a tuple appended): the victim's `ProcessDamageTakenSkillEvents` 67 us
+    mean (135 max: ~12 fields read off the pipeline and its DamageSummary), `WillowPawn:TakeDamage` PRE 16 us (the
+    DamageCauser kept on a stack: the pipeline has none) and POST 1 us, a barrel's TakeDamage POST 120 us. ~85 us a
+    hit; that fight's busiest second 34 hits (~3 ms). The stack empty at the end (PRE / POST paired).
+  - **The killing blow, from the game**: `Died(Killer, DamageType, HitLocation, Pipeline)` runs inside the killing
+    hit's TakeDamage, its Pipeline that hit's (FinalDamage over PreviousHealth) - the chain WillowAIPawn -> WillowPawn
+    -> Engine.Pawn:Died (one hook: Engine.Pawn's, each death once). A burn tick killed one (DamageSource
+    StatusEffect). The killer's pawn gets `KilledEnemy(aTargetPawn)` in the same hit (WillowPlayerPawn's, then
+    WillowPawn's).
+  - Seen too: a vehicle's guns (`DamageCauser` a `WillowVehicleWeapon`, source MachineGun), running enemies over
+    (source `WillowDmgSource_VehicleRanInto`, no causer); melee (source Melee, causer a `MeleeDefinition` - a Rakk's);
+    an enemy's grenade on a barrel (instigator a `WillowMind`: an AI controller); **crushing** - you and an enemy
+    stuck together: `DmgType_Crushed` as DamageSource, no DamageTypeDef, ~0.3 a hit both ways, ~3 hits a millisecond
+    (a flood of tiny hits - to fold). An AI pawn's `bWasInjured`: its own injured (crippled) state, not FFYL.
+  - **A player down, back up, bled out** (two more runs, solo): downed = `PlayInjured(Killer, DamageType, HitLocation)`
+    and `SetInjuredState(INJURED_Injured)` **inside the hit that downed them** (an enemy's melee, a grenade: Killer
+    the enemy's WillowMind; the hit's DamageSummary bWasInjured True) - exact, as the killing blow. ~3 s later
+    `SetInjuredState(INJURED_Targeted)` (Fight For Your Life's next phase). A **second wind**: `ClientOnRevived`
+    on the downed player **inside the killing hit's TakeDamage** (the kill that gave it - before that enemy's Died),
+    then `GoFromInjuredToHealthy`, `SetInjuredState(INJURED_Not)`, `SetInjuredDeadState(INJUREDDEAD_None)`
+    (`Behavior_GiveInjuredPlayerSecondWind` didn't fire). **Bled out**: `SetInjuredDeadState(INJUREDDEAD_Start)`,
+    `StartInjuredDeathSequence`, then `INJUREDDEAD_InitRagdoll` - a player's death is this, **no `Died`** -; the
+    respawn: `GoFromInjuredToHealthy` + INJURED_Not + INJUREDDEAD_None (after a dead state: a respawn, not a second
+    wind). `SetRevivePct` runs every frame while down (-1: nobody reviving); `CheckShouldBeAutoRevived` once, 2 s in.
+    Not seen: a revive by another player (co-op), `KilledBy`.
 - Not seen yet: a co-op client (TakeDamage is server-side in UE3: a client likely gets none of this), vehicles,
   the player hit by an enemy (only by their own grenade), enemies hitting each other.
 

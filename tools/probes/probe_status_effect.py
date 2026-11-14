@@ -231,9 +231,10 @@ def _tick(obj, args, ret, func):  # noqa: ANN001, ANN202, ARG001
         return
     _remove()
     lines.append(f"== 2b. calls in {DURATION:.0f} s")
-    lines += [f"   {n:6d}  {path}" for path, n in sorted(counts.items(), key=lambda pn: -pn[1])]
+    lines.extend(f"   {n:6d}  {path}" for path, n in sorted(counts.items(), key=lambda pn: -pn[1]))  # (not +=: a local)
     lines.append(f"   (hooked, never called: {len(hooked) - len(counts)})")
     lines.append("== done")
+    print(f"[helios probe] {OUT.stem}: done - {OUT}")  # (in the console: no checking the file to know)
     _flush()
 
 
