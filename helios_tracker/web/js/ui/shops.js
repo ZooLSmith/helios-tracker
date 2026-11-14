@@ -65,6 +65,7 @@ export function openShops(id = null) {
   S.inspect = null;
   S.detail = null;
   S.missionView = null;
+  S.damageView = null;
   $("inspector").classList.add("open");
   saveDrawer();
   renderPlayers();

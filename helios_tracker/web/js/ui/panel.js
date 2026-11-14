@@ -2,6 +2,8 @@
 // layers.js.
 import { $, esc } from "../dom.js";
 import { renderLevel } from "../data.js";
+import { damageInfoChanged } from "../damage/info.js";
+import { KEEP_CHOICES } from "../damage/store.js";
 import { LOOK_RANGES, THEMES, applyLook, look, setThemeAttr, themeName } from "../look.js";
 import { COLORS, initColors } from "../shapes.js";
 import { CATALOG, langPref, setLanguage, t } from "../i18n.js";
@@ -146,8 +148,17 @@ export function initPanel() {
   };
   mapColorsBox.onchange = () => { settings.view.mapColors = mapColorsBox.value; saveSettings(); invalidate(); };
 
+  // Keep hits for: the damage log's (shown with the session's "damage" feature: damage/info.js)
+  const keepBox = $("keepHits");
+  const renderKeep = () => {
+    keepBox.innerHTML = KEEP_CHOICES.map((n) => `<option value="${n}">${esc(t("unit.minutes", { n }))}</option>`).join("");
+    keepBox.value = String(KEEP_CHOICES.includes(settings.view.keepHits) ? settings.view.keepHits : 10);
+  };
+  renderKeep();
+  keepBox.onchange = () => { settings.view.keepHits = +keepBox.value; saveSettings(); damageInfoChanged(); invalidate(); };
+
   const langBox = $("lang");
-  languageRenders = () => { renderThemes(); refreshStatus(); renderLevel(); renderPlayers(); renderTargets(); renderMotion(); renderLayers(); renderInspector(); renderMission(); invalidate(); };
+  languageRenders = () => { renderThemes(); renderKeep(); damageInfoChanged(); refreshStatus(); renderLevel(); renderPlayers(); renderTargets(); renderMotion(); renderLayers(); renderInspector(); renderMission(); invalidate(); };
   langBox.innerHTML = `<option value="auto" data-i18n="lang.auto"></option>` +
     Object.keys(CATALOG).map((c) => `<option value="${c}">${esc(CATALOG[c]["lang.name"] || c)}</option>`).join("");
   langBox.value = CATALOG[langPref] ? langPref : "auto";

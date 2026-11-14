@@ -1,5 +1,7 @@
 // The game's data: the SSE stream (/events) and what each event does to the state.
 import { $ } from "./dom.js";
+import { createFeed } from "./damage/feed.js";
+import { damageStore } from "./damage/store.js";
 import { decodeTexture } from "./dxt.js";
 import { setGameLanguage, setVariant, t } from "./i18n.js";
 import { gameKey, setGame } from "./game.js";
@@ -60,7 +62,11 @@ export function connect() {
   onRecords("items", "items", onItems);
   onRecords("pickups", "pickups", onPickups);
   onRecords("pawninfo", "pawns", onPawnInfo);
+  on("damage", onDamage); // (an event channel: its own feed - damage/feed.js)
 }
+
+// The damage log: its batches into the store (the Info tab's section and the panels read it, from the frames)
+const onDamage = createFeed(damageStore, (url) => fetch(url, { cache: "no-store" }).then((r) => r.json()), invalidate);
 
 /** The record channels' records as the page has them: name -> {v: version, meta: its own fields, recs: id -> record}. */
 const stores = {};
@@ -119,6 +125,7 @@ function onLevel(level) {
   renderLevel();
   renderMessage();
   if (level.status === "ready" && !wasReady) loadImages(level);
+  restoreDrawer("level"); // (the damage log: open with the session's "damage" feature only)
 }
 
 /** The message over the map: the level's (loading, no map...). */

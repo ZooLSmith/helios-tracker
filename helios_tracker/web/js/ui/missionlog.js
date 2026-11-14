@@ -22,6 +22,7 @@ export function openMissionLog(id = null) {
   S.inspect = null;
   S.detail = null;
   S.shopView = null;
+  S.damageView = null;
   $("inspector").classList.add("open");
   saveDrawer();
   renderPlayers();

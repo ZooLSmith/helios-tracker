@@ -64,5 +64,7 @@ export function applyI18n() {
   document.documentElement.lang = lang;
   for (const el of document.querySelectorAll("[data-i18n]")) el.textContent = t(el.dataset.i18n);
   for (const el of document.querySelectorAll("[data-i18n-title]")) el.title = t(el.dataset.i18nTitle);
+  // (the page's own tooltip - ui/hovertip.js: data-tip)
+  for (const el of document.querySelectorAll("[data-i18n-tip]")) el.dataset.tip = t(el.dataset.i18nTip);
   for (const el of document.querySelectorAll("[data-i18n-placeholder]")) el.placeholder = t(el.dataset.i18nPlaceholder);
 }

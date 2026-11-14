@@ -20,6 +20,7 @@ export function openDetail(kind, id) {
   S.inspect = null;
   S.missionView = null;
   S.shopView = null;
+  S.damageView = null;
   $("inspector").classList.add("open");
   saveDrawer();
   renderPlayers();

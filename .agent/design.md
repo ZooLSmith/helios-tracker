@@ -422,4 +422,25 @@ summary; 5. a co-op client and vehicles probed.
 Step 1 seen in game (2026-11-14, solo, Bullymongs and Rakks): `/damage?since=0` - names right (the map's, the guns'
 from the game, a melee / an explosion its object name "?"), crits, killing blows, effects applied, ticks, downed and
 a second wind; a splash's burn unlinked (-1) as expected. Few "fx-" there: the game was paused with effects running
-(the user). To look at: an `eln` "amplify" on DmgType_Normal (inspector.element_of, the item card's - wrong for a hit?).
+(the user). The "amplify" on every plain hit: the game's text, WillowMenu.int [DamageTypes] Impact=amplify - DmgType_Normal's
+enum is Impact: a plain damage type has no element, no name (inspector.element_frame). The log a virtual list
+(damage/vlist.js - the user: thousands of divs), its tooltips the page's own (hovertip.js), the window dragged whole.
+Step 2 (2026-11-14): `web/js/damage/store.js` (the hits in minute blocks, the events with their hit's serial, the
+players' per-second totals, Keep hits for - Settings, Panels), `feed.js` (the catch-up, a gap, a new session),
+`info.js` (the Info tab's Damage section: a quick summary - 4 lines at most, who dealt the most in the last minute;
+the user: "a really quick summary... who's doing the most damage", not the log), `view.js` (its "All": the log in
+the drawer, as Mission's / Shops'). The drawer laid out as the mission log (the user): on top the pane's filters - a
+search (`search.js`: every word in a line's names, what with, element, tags) and the time window (`window.js`: two
+handles, the right one at the end = live, no button for it - the user; one window for the page) -, then two views:
+Overview (the actors in the window, dealt / taken; step 4's timeline goes under the handles) and Log (every line).
+Self damage (attacker = victim) left out of dealt / taken (the user). Each name with its map marker (layers.js
+`layerIcon`; an object's category read off the map while it's there). A barrel's fire is the barrel's (the user: a
+barrel or the environment shown as its own source, like an enemy): probe_damage_causer.py - the WillowDamageArea
+burning the player had the barrel as its Owner and Base, the player as the hit's instigator; GAME.damage.owner. Still
+open: a barrel's own explosion (not sampled: a Behavior_Explode, Outer chain to read), damage from the world itself.
+The range's times relative ("60 s ago" ... "now" - the user); live judged on the slider's own end (a drag: time goes
+on - the window froze in the past, the user caught it). The log (the user: unreadable - too condensed, the time
+column in the way, weapon names in full): a time heading when the second changes, a line = who -> whom, its tags,
+what with as icons (a weapon's item card type icon - card_keys sent with its definition -, the element's icon), the
+amount; names and details in the line's tooltip. The Overview: a placeholder (dealt / taken per actor) - the real one
+is the actor's summary (one row per who / what with, the effects on top, the small ones folded: above) at steps 3-4.

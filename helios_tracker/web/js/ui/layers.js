@@ -16,8 +16,8 @@ import { pawnPos, trackedPawn } from "../state.js";
 import { findThings, mapThings, openThing, thingRowHtml } from "./detail.js";
 import { tipAttrs } from "./hovertip.js";
 
-// The layer's marker as drawn on the map (12 px SVG)
-function layerIcon(l) {
+// The layer's marker as drawn on the map (12 px SVG) - also beside a name elsewhere (the damage log: damage/view.js)
+export function layerIcon(l) {
   const c = l.color, o = `style="stroke: var(--map-outline)" stroke-width="1"`;
   const triangle = `<polygon points="6,1.5 10.5,9.5 1.5,9.5" fill="${c}" ${o}/>`;
   const dot = `<circle cx="6" cy="6" r="3.5" fill="${c}" ${o}/>`;

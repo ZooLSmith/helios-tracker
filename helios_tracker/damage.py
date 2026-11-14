@@ -228,7 +228,10 @@ class DamageLog:
         damage = games.GAME.damage
         instigator, health, shield, crit, element, source, kind = damage.hit(args)
         causer = frame[4] if frame is not None else None
-        attacker, target = self._actor(instigator), self._actor(victim)
+        # who dealt it: the game's instigator - but a barrel's fire is the barrel's (the user: shown as its own source,
+        # like an enemy - not the player who set it off), as the game ties it (GAME.damage.owner)
+        owner = damage.owner(causer)
+        attacker, target = self._actor(owner if owner is not None else instigator), self._actor(victim)
         what = self._id(self._what, causer if causer is not None else source)
         element_id = self._id(self._elements, element)
         flags = (CRIT if crit else 0) | (TICK if kind == 1 else 0)

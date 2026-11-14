@@ -42,6 +42,11 @@
           <span class="iscount" id="playersCount"></span></div>
         <div id="players" class="players isbody"><div class="muted">—</div></div>
       </div>
+      <div class="isec" data-sec="damage" id="damageSec" hidden>
+        <div class="ishead" data-i18n-title="info.foldTip"><span class="isfold"></span><h3 data-i18n="h.damage"></h3>
+          <button class="islink" id="damageAll" data-i18n="info.all" data-i18n-title="dmg.all" hidden></button></div>
+        <div id="damage" class="isbody" data-i18n-tip="dmg.summaryTip"></div>
+      </div>
     </div></section>
     <section class="ptab" data-ptab="layers">
     <div class="btnrow">
@@ -74,6 +79,7 @@
     <div class="cset"><span class="clabel" data-i18n="view.theme"></span><select id="theme"></select></div>
     <div class="cset"><span class="clabel" data-i18n="view.panelOpacity"></span><input type="range" id="panelOpacity" min="20" max="100" step="5"><span class="cval" id="panelOpacityVal"></span></div>
     <div class="cset" data-i18n-title="view.uiScaleTip"><span class="clabel" data-i18n="view.uiScaleLabel"></span><input type="range" id="uiScale" min="70" max="200" step="10"><span class="cval" id="uiScaleVal"></span></div>
+    <div class="cset" id="keepHitsRow" data-i18n-title="view.keepHitsTip" hidden><span class="clabel" data-i18n="view.keepHits"></span><select id="keepHits"></select></div>
     <h3 data-i18n="view.motion" data-i18n-title="view.motionTip"></h3>
     <select id="motion" data-i18n-title="view.motionTip"></select>
     <h3 data-i18n="h.language"></h3>

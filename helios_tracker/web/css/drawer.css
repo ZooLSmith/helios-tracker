@@ -425,3 +425,27 @@
   #ifold { display: none; }
   .mfilters.closed { display: block; }
 }
+/* The damage log (damage/view.js): the mission log's layout - its list scrolls alone under the filters */
+.ibody.mlistview > #dmList { flex: 1; min-height: 0; overflow: auto; padding: 0 8px 12px 4px; margin: 0 -8px 0 -4px; }
+/* the time window (damage/window.js): a thin track, the window on it in the accent - dragged, it moves whole (its
+   width kept) -, a handle at each end; under it, its start, its end ("now": live) */
+.dmrange { margin: 0 0 6px; }
+.dmtrack { position: relative; height: 16px; cursor: pointer; touch-action: none; }
+.dmtrack::before { content: ""; position: absolute; left: 0; right: 0; top: 7px; height: 2px; background: var(--control); border-radius: 1px; }
+.dmsel { position: absolute; top: 5px; height: 6px; background: color-mix(in srgb, var(--accent) 55%, transparent);
+  border-radius: 3px; cursor: grab; }
+.dmrange[data-held="move"] .dmsel { cursor: grabbing; }
+.dmh { position: absolute; top: 1px; width: 6px; height: 14px; margin-left: -3px; border-radius: 3px; background: var(--text);
+  box-shadow: 0 0 0 1px var(--panel-edge); cursor: ew-resize; outline: none; z-index: 1; }
+.dmh::before { content: ""; position: absolute; inset: -2px -5px; } /* (an easier grab than 6 px) */
+.dmh:hover, .dmh:focus-visible, .dmrange[data-held="lo"] .lo, .dmrange[data-held="hi"] .hi { background: var(--accent); }
+.dmrangebar { display: flex; align-items: center; justify-content: space-between; gap: 6px; font-size: 11px; color: var(--dim);
+  font-variant-numeric: tabular-nums; }
+/* the log: a virtual list (damage/vlist.js) - the lines in view in a spacer as tall as all of them */
+.vspace { position: relative; }
+.vrows { position: absolute; left: 0; right: 0; top: 0; will-change: transform; }
+/* the overview: an actor a row - its name, what it dealt, what it took */
+.dmactor { display: grid; grid-template-columns: minmax(0, 1fr) 56px 56px; column-gap: 6px; padding: 2px 0;
+  border-bottom: 1px solid var(--hover); font-size: 11px; }
+.dmactor.dmhead { color: var(--dim); font-size: 10px; text-transform: uppercase; text-align: right; }
+.dmamt.taken { color: var(--dim); }

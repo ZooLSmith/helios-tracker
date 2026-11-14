@@ -12,6 +12,7 @@ import { renderTargets } from "./panel.js";
 import { elementIconLoaded, itemsByKind } from "./items.js";
 import { renderMissionLog } from "./missionlog.js";
 import { renderShopsView } from "./shops.js";
+import { renderDamageView } from "../damage/view.js";
 import { alignPatterns, playerSub, renderPlayers } from "./players.js";
 import { playerInfoHtml } from "./playerinfo.js";
 import { skillsHtml } from "./skills.js";
@@ -23,6 +24,7 @@ export function openInspector(id) {
   S.detail = null;
   S.missionView = null;
   S.shopView = null;
+  S.damageView = null;
   S.skillTab = null; // back to their tree with the most points
   $("inspector").classList.add("open");
   saveDrawer();
@@ -35,6 +37,7 @@ export function closeInspector() {
   S.detail = null;
   S.missionView = null;
   S.shopView = null;
+  S.damageView = null;
   $("inspector").classList.remove("open");
   saveDrawer();
   renderPlayers();
@@ -48,6 +51,7 @@ export function renderInspector(resetScroll) {
   }
   if (S.missionView) { renderMissionLog(resetScroll); return; }
   if (S.shopView) { renderShopsView(resetScroll); return; }
+  if (S.damageView) { renderDamageView(resetScroll); return; }
   if (S.detail) { renderDetail(resetScroll); return; }
   $("itabs").style.display = "";
   if (!S.inspect) { box.classList.remove("open"); return; }

@@ -23,8 +23,8 @@ from unrealsdk.unreal import WeakPointer
 
 from .amounts import pickup_amount
 from .damage import DamageLog
-from .inspector import (buff_info, discoverable, element_frame, element_of, explosion_info, ground_item, is_gear, plant_info,
-                        players_complete, players_parts, read_players)
+from .inspector import (buff_info, card_keys, discoverable, element_frame, element_of, explosion_info, ground_item, is_gear,
+                        plant_info, players_complete, players_parts, read_players)
 from . import games, levelmap, lootodds
 from .gamedir import game_dir
 from .missions import MissionLog, mission_id
@@ -625,10 +625,12 @@ class Collector:
         return {"k": "other", **named("", str(actor.Class.Name))}
 
     def _damage_what(self, obj: Any) -> dict[str, Any]:
-        """What dealt a hit, for the damage log: an item (a gun, a grenade...) by its name in the game, else its own object
-        name - marked as a guess (a firing mode's explosion, a melee, a damage source's class)."""
+        """What dealt a hit, for the damage log: an item (a gun, a grenade...) by its name in the game and its item card's
+        icon keys (inspector.card_keys: "wt" its type, "el" its element, "mf" its maker - the page shows those, the name
+        in a tooltip), else its own object name - marked as a guess (a firing mode's explosion, a melee, a damage
+        source's class)."""
         if self._is(obj, "Inventory"):
-            return named(try_(lambda: item_name(obj), "") or "", str(obj.Name))
+            return {**named(try_(lambda: item_name(obj), "") or "", str(obj.Name)), **(try_(lambda: card_keys(obj), {}) or {})}
         return named("", str(obj.Name))
 
     def _damage_element(self, damage_type: Any) -> dict[str, Any]:

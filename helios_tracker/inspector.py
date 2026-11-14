@@ -686,7 +686,9 @@ def learned_frame(enum: str) -> str:
     none) - games.GAME.items.damage_type_frame. Another source (another enum, a mapping found in the game's data) replaces
     this function's body, nothing else."""
     frame = _element_frames.get(enum) or _ENUM_FRAMES.get(enum) or enum.removeprefix("DAMAGE_TYPE_").lower()
-    return "" if frame in ("", "none", "normal", "unknown") else frame
+    # "impact": the plain damage type's (GD_Impact.DamageType.DmgType_Normal - a plain gun's hits; no element: the
+    # game's text names it "amplify", WillowMenu.int's [DamageTypes] Impact=amplify - the user saw it on every hit)
+    return "" if frame in ("", "none", "normal", "unknown", "impact") else frame
 _explosions: dict[int, dict[str, Any]] = {}  # object definition address -> its explosion's element ({} none), static
 
 
@@ -698,8 +700,8 @@ def element_of(damage_type: Any, ctrl: Any = None) -> dict[str, str]:
     if frame := element_frame(enum):
         out["el"] = frame
         out["et"] = enum  # (its damage type: the collector updates "el" once its frame's learned)
-    if name := _element_name(damage_type, ctrl or get_pc()):
-        out["eln"] = name
+        if name := _element_name(damage_type, ctrl or get_pc()):
+            out["eln"] = name  # (an element's only, as an item's: a plain damage type's text is "amplify")
     colour = try_(lambda: damage_type.HUDDamageColor)
     rgb = tuple(try_(lambda c=c: int(getattr(colour, c)), 0) for c in ("R", "G", "B")) if colour is not None else ()
     if any(rgb):

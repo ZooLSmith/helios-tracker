@@ -43,6 +43,7 @@ class Damage(Part):
     def __init__(self, profile: Any) -> None:
         super().__init__(profile)
         self._kinds: dict[int, int] = {}  # a damage source class's address -> its hits' kind (classes: static)
+        self._areas: dict[int, bool] = {}  # a causer class's address -> a damage area (classes: static)
         self._classes: dict[str, Any] = {}
 
     def hooks(self) -> tuple[tuple[str, bool, str], ...]:
@@ -75,6 +76,22 @@ class Damage(Part):
         """What dealt it (TakeDamage's DamageCauser - the pipeline has none): a weapon, a grenade's or a firing mode's
         Behavior_Explode, a MeleeDefinition, a vehicle's weapon... None for some (run over, crushed)."""
         return _field(args, "DamageCauser")
+
+    def owner(self, causer: Any) -> Any:
+        """The object a causer belongs to, when the game ties it to one: a damage area (a barrel's fire on the ground) -
+        its Owner, the interactive object that left it (probe_damage_causer.py: WillowDamageArea's Owner and Base the
+        barrel; the hit's instigator the player who set it off). None otherwise."""
+        if causer is None:
+            return None
+        cls = causer.Class
+        key = cls._get_address()
+        area = self._areas.get(key)
+        if area is None:
+            area = self._areas[key] = bool(cls._inherits(self._cls("WillowDamageArea")))  # (once per class)
+        if not area:
+            return None
+        owner = _field(causer, "Owner")
+        return owner if owner is not None and owner.Class._inherits(self._cls("WillowInteractiveObject")) else None
 
     def object_killed(self, obj: Any) -> bool:
         """An interactive object destroyed (a barrel blown): its bHasBeenKilled - read before and after its hit."""

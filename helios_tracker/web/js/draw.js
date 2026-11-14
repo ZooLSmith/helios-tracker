@@ -16,6 +16,8 @@ import { tooltip } from "./tooltip.js";
 import { refreshPlayerInfo } from "./ui/inspector.js";
 import { updatePlayerVitals } from "./ui/players.js";
 import { refreshShops } from "./ui/shops.js";
+import { refreshDamageInfo } from "./damage/info.js";
+import { refreshDamageView } from "./damage/view.js";
 import { mapThings } from "./ui/detail.js";
 import { refreshLayerSearch, searchFound } from "./ui/layers.js";
 import { H, W, centerOnTarget, ctx, dpr, fit, heightK, refreshNorth, setCtx, toScreen } from "./view.js";
@@ -492,5 +494,7 @@ export function draw() {
   refreshPlayerInfo(now);
   refreshShops(now); // (the restock countdowns, the closest machines: the same)
   refreshLayerSearch(now); // (the Layers tab's search: what's found, how far)
+  refreshDamageInfo(now); // (the Info tab's Damage section: who dealt the most lately; the store's expiry)
+  refreshDamageView(now); // (the damage log in the drawer, while open)
   refreshNorth(); // (the compass: shown once the user turned the map, pointing north)
 }

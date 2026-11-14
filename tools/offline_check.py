@@ -438,10 +438,55 @@ const searchThings = [
 const foundIds = (q, at) => findThings(searchThings, q, at).map((f) => f.item.i + ":" + (f.d ?? "-"));
 const foundThings = { marcus: foundIds("MARCUS", { x: 0, y: 0 }), accents: foundIds("menage", null), two: foundIds("marcus  muni", null),
   raw: foundIds("barrel", null), none: foundIds("  ", null), noAt: foundIds("marcus", null) };
+// The damage log (damage/feed.js into damage/store.js): the server's messages as server.py _Events sends them - a
+// catch-up (the stream's batches meanwhile waiting, one it brought skipped), a gap fetched again, a new session
+// dropping everything; rows put in time order, an event linked to its hit, a player's per-second totals, expiry
+const { DamageStore } = await load("js/damage/store.js");
+const { createFeed } = await load("js/damage/feed.js");
+const { actorsHtml, linesHtml } = await load("js/damage/view.js");
+const { searchWords } = await load("js/damage/search.js");
+const { summaryHtml } = await load("js/damage/info.js");
+const dmgHistory = {
+  "s1:0": { sid: "s1", t0: 1000, seq: 2, defs: { a: { 1: { k: "me", n: "Me" }, 2: { k: "enemy", n: "Rakk" } }, w: { 1: { n: "Gun" } } },
+    b: [{ q: 1, h: [[100, 1, 2, 10, 0, 1, 1, 0]] }, { q: 2, h: [[1200, 1, 2, 5, 5, 4, 1, 0]], v: [[1200, "fx+", 2, 1, 0, 1, 1]] }] },
+  "s1:3": { sid: "s1", t0: 1000, seq: 5, defs: {}, b: [{ q: 4, h: [[1300, 2, 1, 2, 0, 0, 0, 0]] }, { q: 5, v: [[1400, "dead", 1, 0, -1]] }] },
+  "s2:0": { sid: "s2", t0: 9000, seq: 1, defs: { a: { 1: { k: "me", n: "Me again" } } }, b: [{ q: 1, h: [[50, 1, 0, 1, 0, 0, 0, 0]] }] },
+};
+const dmgStore = new DamageStore(), dmgUrls = [];
+let dmgSession = "s1";
+const dmgSelf = new DamageStore(); // (one's own damage on oneself: not in the summary)
+dmgSelf.add({ a: { 1: { k: "me", n: "Me" }, 2: { k: "enemy", n: "Rakk" } }, h: [[100, 1, 1, 500, 0, 0, 0, 0], [200, 1, 2, 5, 0, 0, 0, 0]] });
+const dmgSelfSummary = summaryHtml(dmgSelf, 1000);
+const dmgFeed = createFeed(dmgStore, async (url) => {
+  dmgUrls.push(url);
+  await new Promise((r) => setImmediate(r));
+  return dmgHistory[`${dmgSession}:${url.split("=")[1]}`];
+});
+const dmgSettle = async () => { for (let i = 0; i < 5; i++) await new Promise((r) => setImmediate(r)); };
+dmgFeed({ sid: "s1", t0: 1000, seq: 2, catchup: 1 });
+dmgFeed({ sid: "s1", b: [{ q: 2, h: [[1200, 1, 2, 5, 5, 4, 1, 0]] }, { q: 3, h: [[150, 2, 1, 3, 0, 0, 0, 0]] }] }); // (waits)
+await dmgSettle();
+const dmgFirst = { times: dmgStore.latest(10).map((h) => h.t), count: dmgStore.count, events: dmgStore.events.map((e) => [e.kind, e.hit]),
+  dealt: dmgStore.totals(1, 0, 1999), firstSecond: dmgStore.totals(1, 0, 999), lines: linesHtml(dmgStore, 300),
+  summary: summaryHtml(dmgStore, 2000), quiet: summaryHtml(dmgStore, 120000), // (the minute before 2 s / before 2 min)
+  // the pane's filters (search.js, the window): every word, case ignored, a tag by its name; a time span
+  searched: linesHtml(dmgStore, 300, -Infinity, Infinity, searchWords("RAKK Crit")),
+  windowed: linesHtml(dmgStore, 300, 140, 1000), overview: actorsHtml(dmgStore, 0, 2000, searchWords("rak")) };
+dmgFeed({ sid: "s1", b: [{ q: 5, v: [[1400, "dead", 1, 0, -1]] }] }); // (4 missing: a gap)
+await dmgSettle();
+const dmgGap = { count: dmgStore.count, events: dmgStore.events.map((e) => e.kind) };
+dmgStore.setKeep(1);
+dmgStore.expire(2 * 60000 + 1); // (a minute kept: the first minute's block gone)
+const dmgExpired = { count: dmgStore.count, events: dmgStore.events.length };
+dmgSession = "s2";
+dmgFeed({ sid: "s2", t0: 9000, seq: 1, catchup: 1 });
+await dmgSettle();
+const damageOut = { selfSummary: dmgSelfSummary, urls: dmgUrls, first: dmgFirst, gap: dmgGap, expired: dmgExpired,
+  second: { sid: dmgStore.sid, t0: dmgStore.t0, count: dmgStore.count, name: dmgStore.actors.get(1).n, rakk: dmgStore.actors.has(2) } };
 const missionsOut = { deltaOut, lootDetailRenders, rowsOut, shotCostOut, bonusOut, statsOut, lookOut, vaultCat, healthShown, variantWords, stepOrder, hitPicks, items, itemsLater, notYetWhy, fallback, where, tooHigh, finish, difficulty, best, search, infoHtml, areas, gameText, story: flat(tree.story), other: flat(tree.other), counts: missionCounts(log),
   objectives: objectiveStates(log[1]).map((s) => s.state) };
 console.log(JSON.stringify({ sha: crypto.createHash("sha256").update(rgba).digest("hex"), err, back, right, raw, modules, missions: missionsOut,
-  migrated, checked: { enemy: checked.layers.enemy, view: checked.view, openLayers: checked.ui.openLayers, drawer: checked.ui.drawer, badDrawer }, i18nKeys, unknownSettings, lootLayers, gameRarity, gameOut, freeRects, foundThings }));
+  migrated, checked: { enemy: checked.layers.enemy, view: checked.view, openLayers: checked.ui.openLayers, drawer: checked.ui.drawer, badDrawer }, i18nKeys, unknownSettings, lootLayers, gameRarity, gameOut, freeRects, foundThings, damageOut }));
 """
 
 
@@ -2935,6 +2980,30 @@ def check_helios_tracker() -> None:  # noqa: PLR0915
     assert chk["view"]["follow"] is False and chk["view"]["motion"] == 15 and chk["openLayers"] == ["loot"], chk
     assert chk["drawer"] == {"k": "mission", "id": "M_Plan"} and chk["badDrawer"] == {}, chk  # restored on a refresh
     assert not js["unknownSettings"], js["unknownSettings"]
+    dmg_page = js["damageOut"]
+    assert dmg_page["urls"] == ["/damage?since=0", "/damage?since=3", "/damage?since=0"], dmg_page["urls"]
+    dmg_first = dmg_page["first"]
+    assert dmg_first["times"] == [1200, 150, 100] and dmg_first["count"] == 3, ("in time order, q2 not twice", dmg_first)
+    assert dmg_first["events"] == [["fx+", 1]], ("the effect linked to its batch's hit: the second hit's serial", dmg_first)
+    assert dmg_first["dealt"] == [20, 3] and dmg_first["firstSecond"] == [10, 3], ("a player's per-second totals", dmg_first)
+    assert "Rakk" in dmg_first["lines"] and dmg_first["lines"].count('class="dmrow') == 3, dmg_first["lines"]
+    dmg_summary = dmg_first["summary"]
+    assert dmg_summary.count('class="dmsum"') == 2 and dmg_summary.index(">Me<") < dmg_summary.index(">Rakk<"), (
+        "the summary: who dealt the most first", dmg_summary)
+    assert 'class="dmsum"' not in dmg_first["quiet"], ("nothing in the last minute: no line", dmg_first["quiet"])
+    assert dmg_page["selfSummary"].count('class="dmsum"') == 1 and ">500<" not in dmg_page["selfSummary"], (
+        "one's own damage on oneself: not dealt", dmg_page["selfSummary"])
+    assert dmg_first["lines"].count('class="sw"><svg') == 6, ("each name with its map marker", dmg_first["lines"])
+    assert dmg_first["searched"].count('class="dmrow') == 1 and "dmtag crit" in dmg_first["searched"], dmg_first["searched"]
+    assert dmg_first["windowed"].count('class="dmrow') == 1 and ">3<" in dmg_first["windowed"], dmg_first["windowed"]
+    dmg_overview = dmg_first["overview"]
+    assert dmg_overview.count('class="dmactor"') == 1 and ">Rakk<" in dmg_overview and ">20<" in dmg_overview, (
+        "the overview: an actor's dealt / taken, found by name", dmg_overview)
+    assert dmg_page["gap"] == {"count": 4, "events": ["fx+", "dead"]}, ("a gap: the history asked again", dmg_page["gap"])
+    assert dmg_page["expired"] == {"count": 0, "events": 0}, dmg_page["expired"]
+    assert dmg_page["second"] == {"sid": "s2", "t0": 9000, "count": 1, "name": "Me again", "rakk": False}, dmg_page["second"]
+    print("  damage log page: a catch-up with the stream waiting, a gap refetched, time order, a hit's events, totals, "
+          "expiry, a new session")
     found_things = js["foundThings"]
     assert found_things == {"marcus": ["m1:0", "p1:50", "o1:500"], "accents": ["p1:-"], "two": ["o1:-"], "raw": ["o2:-"],
                             "none": [], "noAt": ["o1:-", "p1:-", "m1:-"]}, ("the Layers tab's search", found_things)
@@ -3441,6 +3510,7 @@ def check_damage_log() -> None:
     class DClass:  # a class: its own name and its superclasses' (find_class below gives names)
         def __init__(self, *names: str) -> None:
             self.names, self.Name = set(names), names[0]
+            self._get_address = lambda: id(self)
 
         def _inherits(self, cls: str) -> bool:
             return cls in self.names
@@ -3593,6 +3663,15 @@ def check_damage_log() -> None:
         fifth = batches()[-1]
         assert len(fifth["h"]) == 1 and fifth["h"][0][3] == 97.0 and fifth["h"][0][5] == dmg.KILL, ("the barrel only", fifth["h"])
         assert fifth["v"] == [[3250, "level", 0, 0, -1, "Southern Shelf"]], fifth["v"]
+        # a barrel's fire on the ground (a damage area, its Owner the barrel - probe_damage_causer.py) burning the player
+        # who set it off: the barrel's hit, not the player's own (the user)
+        barrel_fire = dobj(0x720, DClass("WillowDamageArea", "Actor"), Owner=barrel)
+        call("open", respawned, hit(pc, 5.0, causer=barrel_fire))
+        call("read", respawned, hit(pc, 5.0, causer=barrel_fire))
+        call("close", respawned)
+        log.tick(True)
+        fire_row = batches()[-1]["h"][0]
+        assert fire_row[1] == fifth["h"][0][2] and fire_row[2] == you, ("the barrel's fire: the barrel's", fire_row)
 
         # the stream: a new page told to catch up; one a batch behind gets it; the catch-up: every definition, the batches
         events = hub._events["damage"]

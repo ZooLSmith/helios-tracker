@@ -4,6 +4,8 @@
 // needs has arrived; if it's gone: its category's list - the mission list for a mission, the Players
 // list (the Info tab) for a player; a map object (picked up, killed...) or a quest marker: closed
 // (their list is the map).
+import { openDamageLog } from "../damage/view.js";
+import { hasFeature } from "../game.js";
 import { invalidate } from "../scheduler.js";
 import { saveSettings, settings } from "../settings.js";
 import { S, findDetail } from "../state.js";
@@ -21,6 +23,7 @@ export function saveDrawer() {
   const d = S.inspect ? { k: "player", name: S.inspect.name }
     : S.missionView ? { k: "mission", id: S.missionView.id || "" }
     : S.shopView ? { k: "shops", id: S.shopView.id || "" }
+    : S.damageView ? { k: "damage" }
     : S.detail ? { k: "detail", kind: S.detail.kind, id: S.detail.id }
     : {};
   if (JSON.stringify(d) === JSON.stringify(settings.ui.drawer)) return;
@@ -53,6 +56,11 @@ export function restoreDrawer(payload) {
     if (!got.has("shops")) return;
     pending = null;
     openShops(typeof d.id === "string" && S.shops.machines.some((m) => m.i === d.id) ? d.id : null);
+  } else if (d.k === "damage") {
+    if (!got.has("level")) return; // (shown only with the session's "damage" feature: closed without it)
+    pending = null;
+    if (hasFeature("damage")) openDamageLog();
+    else saveDrawer();
   } else if (d.k === "detail" && typeof d.id === "string") {
     const was = S.detail;
     S.detail = { kind: d.kind, id: d.id }; // findDetail looks it up by kind

@@ -218,6 +218,35 @@ button.act:hover { border-color: var(--accent); }
   letter-spacing: .06em; cursor: pointer; }
 .islink:hover { color: var(--accent); }
 .isec.closed .isbody { display: none; }
+/* The Info tab's Damage section (damage/info.js): who dealt the most lately - a name, a bar, the amount */
+.dmsum { display: grid; grid-template-columns: minmax(0, 1fr) 60px auto; align-items: center; column-gap: 6px; padding: 1px 0; }
+.dmbar { height: 5px; background: var(--hover); border-radius: 2px; overflow: hidden; }
+.dmbar i { display: block; height: 100%; background: var(--accent); }
+/* The damage log in the drawer (damage/view.js): a time heading when the second changes; a line - who -> whom (the
+   room), its tags, what with (its icons: a weapon's type, the element), the amount; its details in its tooltip */
+.damage { font-size: 12px; }
+/* (every line the same height: the log is a virtual list - vlist.js) */
+.dmtime { color: var(--dim); font-size: 10px; font-variant-numeric: tabular-nums; height: 20px; box-sizing: border-box;
+  display: flex; align-items: flex-end; padding-bottom: 2px; }
+.dmrow { display: grid; grid-template-columns: minmax(0, 1fr) auto auto auto; align-items: center; column-gap: 6px;
+  height: 20px; box-sizing: border-box; border-bottom: 1px solid var(--hover); overflow: hidden; }
+.dmwho { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.dma.me, .dma.player { color: var(--name); font-weight: 600; }
+.dma .sw { display: inline-block; width: 12px; height: 12px; margin-right: 3px; vertical-align: -2px; } /* (its map marker) */
+.dma .sw svg { display: block; }
+.dmarrow { color: var(--dim); margin: 0 5px; }
+.dmamt { text-align: right; font-variant-numeric: tabular-nums; font-weight: 600; min-width: 3ch; }
+.dmamt.shield { color: var(--shield); }
+.dmwhat { display: flex; align-items: center; gap: 3px; }
+.dmi.type { height: 12px; width: auto; max-width: 30px; }
+.dmi.element { height: 13px; width: auto; }
+.dmel { width: 8px; height: 8px; border-radius: 50%; flex: none; }
+.dmtags { display: flex; gap: 4px; }
+.dmtag { font-size: 9px; letter-spacing: .04em; text-transform: uppercase; color: var(--dim); }
+.dmtag.crit { color: var(--warn); }
+.dmtag.kill, .dmtag.down { color: var(--bad); }
+.dmrow.kill .dmamt { color: var(--bad); }
+.dmrow.ev .dmwho { color: var(--dim); }
 @media (max-width: 520px) {
   #panel { width: calc(100% - 24px); max-height: 45%; }
 }
