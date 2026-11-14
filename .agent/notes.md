@@ -476,7 +476,7 @@ level's geometry (a function call). Also seen: a pile's anims are Open / Opened 
 The probe compares an object with the others of its definition (the fields where it differs from most): reusable for
 any "why is this one different".
 
-## Containers spawned by distance (probe_chest_spawn.py, in game, BL2 Three Horns, 2026-10-04)
+## Containers spawned by distance (probe_chest_spawn.py, in game, BL2 Cove_P, 2026-10-04)
 
 Chests, coolers, cash boxes, ammo boxes and most Bullymong piles aren't placed in the level: the population system's
 `PopulationOpportunityPoint`s spawn them (each its `PopulationDef`: PopulationDefinition:CashBox, BanditCooler,
@@ -487,7 +487,8 @@ five pile points from 224-330 m away - none spawned, no pile object there; from 
 them (the spawn hook catches them) - we don't filter by distance. (Some piles exist much farther - up to 182 m: placed
 in the level, or not culled once spawned - not checked.) Also there: `PopulationOpportunityDen` (enemy dens:
 PopDef_PrimalBeastMix_Ice...) and `WillowPopulationPoint` (their spawn points: PopPointDef_PrimalDen_Walk...) - other
-fields (no bHasSpawned / SpawnAndCullRadius). An idea, not built: the points not spawned yet could show where a
+fields (no bHasSpawned / SpawnAndCullRadius). (The map was first written down as Three Horns: Cove_P's packages have
+the same 137 points, its definitions' counts the same - tools/probes/check_population_points.txt.) An idea, not built: the points not spawned yet could show where a
 container will appear (design.md if wanted).
 
 ## Level geometry for a 3D map (offline, the level's packages, 2026-09-25 - parked: design.md)
@@ -708,6 +709,29 @@ Southern Shelf's `_P` alone: 404 `StaticMesh`, 4131 `StaticMeshComponent`, 11 `T
   `ReplicatedBossHealth` / `ReplicatedBossShield` (replicated: a co-op client's too) - set while the bar is up.
   collector.py: a boss = bBoss, or a pawn that's been the BossPawn this level (`_note_boss`, kept per level). Before
   its fight starts (no bar yet) a boss without bBoss isn't known. Also: `WillowAIPawn.IsBoss()` (native; not called).
+
+## Allegiances: an escort the game calls an enemy (probe_pukey.py, in game, BL2 Scylla's Grove, 2026-11-14)
+
+The page's pawn kind is `pawn.IsEnemy(me)` (me: `pc.MyWillowPawn`) -> enemy, else npc (collector.py `_pawn_info`;
+re-read every scan: not a stale first look). Ol' Pukey (Sir Hammerlock's Big Game Hunt, the mission "Ol' Pukey", "Protect
+Pukey" - a friendly skag you escort, the user) came out an enemy, and that is the game's own answer:
+- Its `Allegiance` (a `PawnAllegiance`) is `GD_Sage_AI_Allegiance.Allegiance_Sage_Defendee`: `DefaultOpinion`
+  OPINION_Enemy, `bForceAllOtherOpinions` True + `ForcedOtherOpinion` OPINION_Enemy (everyone's opinion of it forced:
+  enemy - the Savages go for it), `OtherOpinions` friendly only to `GD_Allegiance_Vs.Player.CompetitorAllegiance0/1`
+  (the duels'). No opinion of `GD_AI_Allegiance.Allegiance_Player`: you're its enemy too. `IsEnemy(me)` True, as a
+  Savage's (`Allegiance_Sage_Savages`: DefaultOpinion Enemy, no OtherOpinions).
+- The player's `Allegiance_Player`: DefaultOpinion Enemy, `MyOpinions` friendly to the duel allegiances; its
+  `AllegianceChildren` hold your deployed turret.
+- Nothing else on the pawn or its controller (`WillowMind`) says friendly: no field with allegiance / friend / hostile /
+  neutral / faction / team in its name does (`bSeeFriendly` False on all three). Its AI class:
+  `GD_Sage_SM_OldPukeyData.Creature.CharClass_Sage_Skag_Mission_Pukey`. What sets it apart: "Protect Pukey"'s objective
+  marker is on it (the mission's waypoint).
+- `WillowAIPawn` also has `IsFriendly(anObject)`, `IsNeutral(anObject)`, `IsSameAllegiance(anObject)`,
+  `GetObjectAllegiance()`, `HideTargetInfoOnHud(HUDOwner)`, `ShowSelfAsTarget(bControllersOnly)` (signatures only: not
+  called - what the HUD uses for a target's colour isn't known).
+- The probe's first version crashed the game: IsEnemy called on every `WillowAIPawn` find_all gave (templates and pawns
+  out of play among them). Call it only on what the collector walks (`WorldInfo.PawnList`, not bDeleteMe / bIsDead /
+  bHidden), as it does.
 
 ## Item serials / Gibbed codes (probe_serial.py + probe_serial2.py, in game, both games, 2026-09-26)
 
@@ -977,6 +1001,11 @@ Southern Shelf's `_P` alone: 404 `StaticMesh`, 4131 `StaticMeshComponent`, 11 `T
   DLC's Content - the Pre-Sequel's DLC classes have no "GD_" -, + Startup).
 
 ## Open
+
+- **Ol' Pukey drawn as an enemy** (2026-11-14, the user: "a friendly beast"): the game's allegiance says enemy (above,
+  "Allegiances: an escort the game calls an enemy"), nothing on it says friendly. Not decided: what the game shows when
+  you aim at it (a red name? your shots hurt it?) - if it's friendly there, the HUD's own test is the one to probe
+  (IsFriendly / HideTargetInfoOnHud...); a "Protect" objective's text is not a rule (guessing).
 
 - **Game-thread spikes, not reproduced** (the log, co-op host with 3 others, Wildlife Exploitation Preserve, 2026-09-30):
   "players" (every 2 s, usually 10-18 ms) once 557 ms, "state.pickups" up to 135 ms, "state.pawns" 102 ms, "scan

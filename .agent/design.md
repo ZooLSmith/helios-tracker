@@ -191,7 +191,7 @@ above all - before they exist, so they can be found from the map.
 **Why they don't show today**: they don't exist yet. Most containers (chests, coolers, cash boxes, ammo boxes, most
 Bullymong piles) aren't placed in the level: the population system's `PopulationOpportunityPoint`s spawn them when the
 player comes within `SpawnAndCullRadius` (8000 uu, 80 m) - notes.md "Containers spawned by distance"
-(tools/probes/probe_chest_spawn.txt, Three Horns: 137 points; a pile appears at its point's exact position when it
+(tools/probes/probe_chest_spawn.txt, Cove_P: 137 points; a pile appears at its point's exact position when it
 spawns, the page shows it then). Dropped items and enemies show at any distance (the user): they exist once spawned, wherever.
 
 **What we'd want**
@@ -209,7 +209,18 @@ spawns, the page shows it then). Dropped items and enemies show at any distance 
 
 **What has to be true first** (probes - read-only, no blind calls)
 
-1. **What a point spawns** - answered (tools/probes/probe_population_def.py, BL2 Three Horns, 2026-10-04: 137 points, 12
+0. **The points are in the map's files** - answered (tools/probes/check_population_points.py, offline, 2026-10-07):
+   every `PopulationOpportunityPoint` is a placed actor of the map's packages (the persistent level's and its streaming
+   levels' - the same set as files/challenges.py's), its `Location`, `PopulationDef` (the definition's path),
+   `SpawnAndCullRadius` when not the default, `Rotation`, `GameStageRegion` readable as the Vault symbols' are. Cove_P's
+   packages: 137 points (Cove_P 92, Cove_LiarsBerg 34, Cove_Dynamic 11), the definitions' counts exactly the live probe's
+   (which the notes first called Three Horns: it was Cove_P - Ice_P has 263 points, no such counts). So the points can
+   come from the worker, as the Vault symbols' do: a co-op client gets them too (4 below), whatever is streamed in, no
+   `find_all`. Their definitions resolved in game by path (`find_object`, loaded with the map) or not at all (the
+   name as a guess). Also there: `WillowPopulationOpportunityPoint` (a subclass - Ice_P: 88 of its 263 points, Cove_P
+   none) with a `MissionObjectiveBit`: a point tied to a mission's objective - whether it spawns without it, not known
+   (a probe: one in Three Horns - Divide, its mission not taken).
+1. **What a point spawns** - answered (tools/probes/probe_population_def.py, BL2 Cove_P, 2026-10-04: 137 points, 12
    definitions): `PopulationOpportunityPoint.PopulationDef` (a PopulationDefinition) -> `ActorArchetypeList[]`, each a
    `PopulationActor {SpawnFactory, Probability, MaxActiveAtOneTime}`; a container's factory is a
    `PopulationFactoryInteractiveObject` whose `ObjectBalanceDefinition` (an InteractiveObjectBalanceDefinition:
@@ -218,7 +229,7 @@ spawns, the page shows it then). Dropped items and enemies show at any distance 
    its definition's - the same rule). The balance is what lootodds keys a container type's odds by: a point's "Can
    contain" without the container existing (`lootodds.odds_job` on the balance - no object needed but its own Loot).
    Its `ObjectDefinition` mostly None (the vending machines' set).
-   Three Horns' definitions: BullymongPile (44 points), BanditCooler (36), CashBox (21), BanditAmmo (10), BanditGasTank
+   Cove_P's definitions: BullymongPile (44 points), BanditCooler (36), CashBox (21), BanditAmmo (10), BanditGasTank
    (7), Pop_BarrelMixture (6), WeaponChest_BanditPotty (4), EpicChest_Bandit (2 - the big red chests), WeaponChest_White
    (2), three vending machines.
 2. **Whether a point always spawns** - answered for this level: every container definition has one entry, `Probability`
