@@ -27,6 +27,8 @@ OXYGEN = "oxygen"  # the Oz meter: oxygen pools, air domes, oxygen sources
 CHALLENGES = "challenges"  # level challenge objects a player discovers (the Vault symbols: IO_VaultRoy)
 JUMPPADS = "jumppads"  # jump pads and geysers (OzPlayerJumpPad)
 FASTTRAVEL = "fasttravel"  # the fast travel network and the maps' exits (travel.py: a map without a station, "via")
+DAMAGE = "damage"  # the damage log: every hit read where the game handles it (damage.py, games/<game>/damage.py) - a
+# player can switch it off (the Damage Log option): the level message's features are the session's (profiles.md)
 
 _PROFILES: dict[str, type[Any]] = {}
 

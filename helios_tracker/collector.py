@@ -22,8 +22,9 @@ from mods_base import ENGINE, get_pc
 from unrealsdk.unreal import WeakPointer
 
 from .amounts import pickup_amount
-from .inspector import (buff_info, discoverable, element_frame, explosion_info, ground_item, is_gear, plant_info, players_complete,
-                        players_parts, read_players)
+from .damage import DamageLog
+from .inspector import (buff_info, discoverable, element_frame, element_of, explosion_info, ground_item, is_gear, plant_info,
+                        players_complete, players_parts, read_players)
 from . import games, levelmap, lootodds
 from .gamedir import game_dir
 from .missions import MissionLog, mission_id
@@ -302,6 +303,12 @@ class Collector:
         self._interps: tuple[int, list[Any]] | None = None  # (level id, the level's Matinees: WeakPointers)
         self._classes: dict[str, Any] = {}
         self._timings = _Timings()
+        # features the player switched off (the mod's options: the Damage Log) - the level message's are the session's
+        self.off_features: set[str] = set()
+        self.damage = DamageLog(hub)  # (lives across resets: its history is the session's)
+        self.damage.name_actor = self._damage_actor
+        self.damage.name_what = self._damage_what
+        self.damage.name_element = self._damage_element
         self.rate = 10.0  # updates per second (the mod's option; sent so the page can align on it)
         self._hook_seen = False
         self._usability_hook_seen = False
@@ -421,6 +428,8 @@ class Collector:
         if now >= self._next_level_check:
             self._next_level_check = now + LEVEL_CHECK_EVERY
             run("level", self._check_level)
+        # the damage log: its hooks while a page is open (none: no work at all), what they caught published
+        run("damage", self.damage.tick, self._level_key is not None and bool(self.hub.clients))
         if self._level_key is None:
             return
         if not self.hub.clients:  # no page open: only follow the level
@@ -524,6 +533,7 @@ class Collector:
         else:
             level.update(status="loading", **source.placement)
         self._set_level(level)
+        self.damage.level_changed(level["name"])  # (a mark in its log)
         if source is not None:
             threading.Thread(
                 target=self._extract,
@@ -569,8 +579,62 @@ class Collector:
             if keep_lv and "lv" not in level and self._level and self._level.get("id") == level["id"] and "lv" in self._level:
                 level = {**level, "lv": self._level["lv"]}  # (the map thread's copy predates the area's level)
             self._level = level
-            self.hub.publish("level", json.dumps({**level, "game": games.GAME.key, "features": sorted(games.GAME.features),
+            self.hub.publish("level", json.dumps({**level, "game": games.GAME.key, "features": self.session_features(),
                                                   **({"lang": _language[0]} if _language and _language[0] else {})}))
+
+    def session_features(self) -> list[str]:
+        """The level message's features: the session's - the game's (games.GAME.features: what the mod's checks read) but
+        those the player switched off (profiles.md)."""
+        return sorted(games.GAME.features - self.off_features)
+
+    def set_feature(self, name: str, on: bool) -> None:
+        """A feature the player switched on / off (a mod option): the level message sent again if it changed (the same
+        level id: the page resets nothing - data.js onLevel - it shows or hides what needs it)."""
+        if (name not in self.off_features) == on:
+            return
+        if on:
+            self.off_features.discard(name)
+        else:
+            self.off_features.add(name)
+        if name == games.DAMAGE:
+            self.damage.set_enabled(on)
+        if self._level is not None:
+            self._set_level(dict(self._level))
+
+    def _damage_actor(self, actor: Any, identity: Any) -> dict[str, Any]:
+        """The damage log's definition of an actor (damage.py: at the tick, once per id - again for a player's new pawn):
+        its kind, name - the map's own (_pawn_info, the object's record) -, its map id ("m": the page opens its panel)."""
+        if actor is None:  # (a player without a pawn - dead, between levels -, an AI controller without one)
+            pri = try_(lambda: identity.PlayerReplicationInfo)
+            kind = "player" if self._is(identity, "PlayerController") else "other"
+            return {"k": kind, **named(try_(lambda: str(pri.PlayerName), "") or "", str(identity.Class.Name))}
+        address = actor._get_address()
+        if self._is(actor, "Pawn"):
+            me = try_(lambda: games.GAME.pawns.local(get_pc()))
+            info = self._pawn_info(actor, me)
+            out = {"k": info["k"], "n": info["n"], "m": info["i"]}
+            for key in ("raw", "boss"):
+                if key in info:
+                    out[key] = info[key]
+            return out
+        if self._is(actor, "WillowInteractiveObject"):
+            record = self._object_records.get((address, str(actor.Name)))
+            name = ({"n": record["n"], **({"raw": 1} if record.get("raw") else {})} if record
+                    else named("", def_name(try_(lambda: actor.InteractiveObjectDefinition)), str(actor.Class.Name)))
+            return {"k": "object", **name, "m": f"{address:x}"}  # (its category: the page's - data.js objectCategory)
+        return {"k": "other", **named("", str(actor.Class.Name))}
+
+    def _damage_what(self, obj: Any) -> dict[str, Any]:
+        """What dealt a hit, for the damage log: an item (a gun, a grenade...) by its name in the game, else its own object
+        name - marked as a guess (a firing mode's explosion, a melee, a damage source's class)."""
+        if self._is(obj, "Inventory"):
+            return named(try_(lambda: item_name(obj), "") or "", str(obj.Name))
+        return named("", str(obj.Name))
+
+    def _damage_element(self, damage_type: Any) -> dict[str, Any]:
+        """A hit's element, for the damage log: its definition's name, and as an item's (inspector.element_of - "el" its
+        card frame, "eln" the game's name, "ecol" its colour), those it has."""
+        return {"d": str(damage_type.Name), **(try_(lambda: element_of(damage_type), {}) or {})}
 
     def _extract(self, level: dict[str, Any], map_name: str, source: levelmap.MapSource) -> None:
         """Background thread: files only, no UObjects (the source's load)."""

@@ -260,7 +260,7 @@ spawns, the page shows it then). Dropped items and enemies show at any distance 
 definition); `bHasSpawned` read now and then (a few points per tick, round robin - property reads) or not at all: the
 object spawn hook already tells when one appears (its position matches the point's).
 
-## Damage log (planned: nothing built, the probes first)
+## Damage log (being built: the mod side done - step 1 below -, the page next)
 
 **The wish** (the user, 2026-11-14): every hit logged - who dealt it, who took it, how much, whether a crit, its
 element... - in real time, on the page. Its look isn't decided; what is: per enemy its last 3-4 hits taken, a tab
@@ -321,47 +321,70 @@ The first questions, as asked:
 3. A co-op client: TakeDamage likely runs on the host only - a client may see only health going down (no crit,
    no element). Then the client's log is another method of the profile (health deltas), not a feature.
 
-**The mod**
+**The mod** (the architecture, agreed with the user 2026-11-14)
 
-- A profile part, `games/<game>/damage.py`: the hook's target, reading a hit into a raw tuple (source, target,
-  amount, damage type, crit, health / shield before and after). Another game overrides what differs; a game
-  without a way lacks the feature.
-- The hook does next to nothing: a few `util.field` reads, a tuple appended, return - no names, no JSON, no lookups.
-  The collector's update tick drains them: ids, a batch of rows per tick, published once (as the pickups'
-  PostBeginPlay hook already feeds the collector).
-- Rows: `[t_ms, source_id, target_id, amount, flags, type_idx]` - flags a bit field (crit, shield hit, killing
-  blow, damage over time, splash); ids the pawns' ids the page already has; a damage type sent once (its name from
-  the game: element, weapon, skill) on a small record channel (`damagetypes`), then its index. Time: the mod's own
-  monotonic clock (ms since the session started), not WorldInfo.TimeSeconds (restarted each level, stopped while
-  paused): one continuous timeline, a pause or a loading screen a gap.
-- **The hub needs an event channel**: today a channel keeps its latest payload only (two batches between two sends:
-  the first lost). An append-only one, with sequence numbers.
+- A profile part, `games/<game>/damage.py` (`GAME.damage`): the functions hooked, a hit read into a raw tuple (a few
+  `util.field` reads), the floods told apart (below). The feature `DAMAGE` ("damage"): Borderlands 2's only, until the
+  Pre-Sequel and BL1 are probed (the same functions? - a game without a way lacks the feature).
+- **One record per hit, built while the game handles it.** `TakeDamage` PRE opens a frame (a stack: hits nest - a
+  splash's per target, a second wind inside the enemy's killing hit), what runs inside attaches to the top frame:
+  the read (`ProcessDamageTakenSkillEvents`), an effect started (`ApplyStatusEffect`: the hit applied it), the
+  killing blow (`Died`), a player downed (`PlayInjured` / `SetInjuredState`), a second wind (`ClientOnRevived`: on
+  the kill that gave it). The POST closes it: queued. Every link is the game's call order, never a guess.
+  Outside a hit: an effect ended (`OnStatusEffectEnd`), a player bled out (`SetInjuredDeadState`), respawned, a
+  level change - events of their own.
+- `damage.py` (no game named): the log - the frames, the queue, the actors' ids, the names. The hooks do nothing
+  else: no names, no JSON, no lookups. The collector's tick drains the queue: what's new named, one batch a tick
+  (none when empty), published once.
+- **The actors' ids: the log's own** (1, 2... for the session), not the map's - those are addresses, reused once
+  something is gone: an hour's log would mix enemies. An address -> (id, a WeakPointer): the pointer dead or on
+  another object = a new id. Each actor sent once: its name (the map's), its kind (player, enemy, ally, object,
+  vehicle), its map id while alive (a click opens its panel; gone - dead, another level -, the name stays, no link).
+- "What with": the causer's own name from the game (a weapon's, once per weapon); none (a Rakk's melee, run over):
+  its object name marked "?" (the game text rule); the element: the hit's `DamageTypeDef`. Names cost game calls:
+  once per actor / weapon, at the tick, never in a hook.
+- **Floods** (crushing - you and an enemy stuck together: ~3 hits a millisecond, ~85 us each): the profile's read
+  tells one by a cheap first check and sums it per (attacker, target) into one row per 250 ms, with its hit count -
+  the amounts real, the per-hit detail lost; only floods, never normal hits (the user: fine while the span is short).
+- Rows: `[t_ms, attacker, target, health, shield, flags, what, element]` - flags a bit field (crit, tick, killing
+  blow, applied an effect, downed, folded: + its count); the actors and "what with" by the log's ids, each defined
+  once. Time: ms since the session started (taken in the hook), not WorldInfo.TimeSeconds (restarted each level,
+  stopped while paused): one continuous timeline, a pause or a loading screen a gap; the start's wall clock sent once.
+- The cost: ~85 us a hit (probe_damage_lean.py), a fight's busiest second 34 hits (~3 ms).
+- **The server: an event channel** (today a channel keeps its latest payload only: two batches between two sends,
+  the first lost) - append-only, each batch encoded once with a sequence number, the stream sending the new ones.
 - **The server keeps the history** (the user: a page refresh mid-fight shouldn't lose it; a page opened late sees
-  the fight): each tick's batch kept as the chunk already encoded to send it (no second encoding), for the longest
-  "Keep hits for" (60 min) and under a byte cap (~20-30 MB: the game is 32-bit, short on memory) - a page keeps
-  less if set so. A thread doesn't make it free (the server's threads share the game's GIL with our hooks): the cost
-  is a catch-up - up to an hour, ~10 MB - so it's the chunks written as they are (a write mostly lets the GIL go),
-  outside the hub's lock (architecture.md 1b), and its own request: the page fetches `/damage?since=<seq>`, then
-  follows the live channel from that sequence - a big catch-up never holds up the other channels. Cleared at a mod
-  reload, the game's exit, a reset from the page.
+  the fight): the batches as encoded (no second encoding), for the longest "Keep hits for" (60 min) and under a byte
+  cap (~25 MB: the game is 32-bit, short on memory), the oldest dropped. The definitions (actors, "what with") kept
+  apart, for the session: a history cut at the front still decodes. A thread doesn't make it free (the server's
+  threads share the game's GIL with our hooks): a catch-up - up to an hour, ~10 MB - is its own request,
+  `GET /damage?since=<seq>`: the definitions, then the batches written as they are (a write mostly lets the GIL go),
+  outside the hub's lock (architecture.md 1b); the page then follows the stream from that sequence (a gap: asked
+  again). A big catch-up never holds up the other channels. Cleared at a mod reload, the game's exit, the option off.
 - Collected only while a page is open (as the collector).
 - **A switch to turn it off** (the user: players who don't want it): a mod option, **Damage Log** (a `BoolOption`
   beside LAN / Refresh rate, its name in the game's languages - i18n.py), in the game's Mods menu (the user) - the
-  page never talks to the mod, it only receives. Off: the hook disabled (no work at all, not just nothing sent),
-  the server's history dropped, the feature left out of the level message - the page hides its damage tab and the
-  per-enemy hits (a layer's `needs:`). Switched at once, no reload. On by default (the user).
+  page never talks to the mod, it only receives. On by default (the user). Off: the hooks removed (no work at all,
+  not just nothing sent), the history dropped. **The level message's `features` are the session's** (the user,
+  2026-11-14 - what the page reads is what this session has, whatever the reason): the game's (`GAME.features`, what
+  the mod's checks read) minus what the player switched off. Switched: the level message sent again (the same level
+  id: the page resets nothing - data.js `onLevel`), the page hiding its damage views by `hasFeature("damage")` /
+  `needs: "damage"` - no message of its own. At once, no reload.
 - **Everything that takes damage** (the user): pawns (vehicles too: pawns) and objects (barrels, the ones the collector
   already gives a health - `_health`: bCanTakeDirectDamage / bCanTakeRadiusDamage), every source (enemies hitting each
-  other, escorts like Ol' Pukey); the page filters. Reading a hit is shared (amount, instigator, damage type, crit);
-  only reading the health before / after differs - a pawn's health + shield, an object's Health. A target id says
-  its kind (a pawn's id or an object's: two channels, two id spaces).
-  But one hook won't catch all: a hook is on a function object, and a class overriding TakeDamage has its own -
-  `Engine.Actor:TakeDamage` only fires for the classes that don't. The probe lists which classes override it (and
-  TakeRadiusDamage...); each one hooked, all into the same reader.
+  other, escorts like Ol' Pukey); the page filters. A hook is on a function object, and a class overriding
+  TakeDamage has its own: the profile names each one hooked (WillowPawn's, WillowInteractiveObject's; a vehicle's to
+  probe - it may not run WillowPawn's), all into the same log.
 
 **The page**
 
-- `damage.js`, the store: two levels.
+- `web/js/damage/`, one job per file: `store.js` (the hits, the totals, a window's queries - no DOM), `feed.js` (the
+  live batches, the catch-up request, a gap refetched), `section.js` (an actor's damage: the summary and the recap -
+  every panel's), `timeline.js`, `view.js` (the full view).
+- **Where** (the user, 2026-11-14): no tab of its own - the Info tab, a **Damage** section below Players: a very
+  quick summary (what exactly: to decide - e.g. each player's dealt / taken in the timeline's window), its heading's
+  "All" opening the full view in the drawer, as Mission's opens the mission log (`missionAll`).
+- The store (`store.js`): two levels.
   - Hits: typed arrays, a column per field (~24 bytes a hit), in blocks (a minute each): expiring = dropping whole
     blocks past the cutoff. Kept for a time, not a count - **Keep hits for** 1 / 5 / 10 / 30 / 60 min (default 10;
     the Panels group): a boss fight can last an hour (the user). An hour at 100 hits/s (4 players) = 360k hits,
@@ -372,22 +395,31 @@ The first questions, as asked:
     (binary search: in time order) - cheap for any window. Past the kept hits the totals still work; the hit lists
     and an enemy's last hits don't.
   - A pawn's name copied into the store with its first hit (a dead enemy leaves `pawninfo`, its lines stay).
-- The views, each replaceable: the damage panel (global), the damage section of an actor's panel (below). Drawn from the frame's `refresh...(now)`, throttled, only the rows that changed; only the visible
+- The views, each replaceable: the Info tab's summary, the full view (global), the damage section of an actor's panel (below). Drawn from the frame's `refresh...(now)`, throttled, only the rows that changed; only the visible
   rows built.
-- **The panel, top to bottom** (the user, 2026-11-14): the timeline, then the actors involved, then the events.
+- **The full view, top to bottom** (the user, 2026-11-14 - in the drawer): the timeline, then the actors involved, then the events.
   - The actors: everyone dealt or took damage in the window - players, enemies, objects -, each with what it took
     and dealt. Ordered by how recent and how much: while live, a score that fades (each hit's damage, halved every
     ~10 s: a fight going on rises, an old one sinks); a frozen window, its totals. Clicking one opens its own panel,
     as anywhere else (detail.js `openThing`: an enemy's, a barrel's, a player's - the inspector).
   - The events: the hits, newest first - source -> target, amount, crit, element -, only the visible rows built.
-- **Global vs per actor** (the user): the damage panel is the global view (everyone, each player's share); every
+- **Global vs per actor** (the user): the full view is the global one (everyone, each player's share); every
   actor's own panel gets a damage section - the same one for any actor, a player, an enemy, a barrel: what it took
   and dealt, its totals, its hits (the "last 3-4 hits" of an enemy is this section). One renderer, given an actor,
-  used by every panel; the window the timeline's (one window for the whole page - live by default when the damage
-  panel was never opened).
-- **The timeline**: a strip on top of the damage tab, a canvas - damage per second over time, dealt above the line
+  used by every panel; the window the timeline's (one window for the whole page - live by default when the full
+  view was never opened).
+- **The timeline**: a strip on top of the full view, a canvas - damage per second over time, dealt above the line
   and taken below, stacked by player colour; two handles pick the window every view shows. The right handle at the
   end = pinned to now, the window sliding with the game (its width kept; at first the last 60 s - the user); dragged back, the window
   freezes; a Live button brings it back. Marks on it: level changes, player deaths, a boss's start / end (data we
   have). The stretch where only the totals remain shaded. Redrawn from the frames (the Refresh rate rule).
 - A page refresh or a reconnect: the store refilled from the server's history (above).
+
+**Order of work** (each step testable alone): 1. the mod - the profile part, `damage.py`, the hub's event channel and
+history, the option -, offline_check's fakes, a console command printing the log's counts in game; 2. `store.js` +
+`feed.js`, a plain list of events; 3. an actor's damage section in every panel; 4. the timeline and the Info tab's
+summary; 5. a co-op client and vehicles probed.
+Step 1 seen in game (2026-11-14, solo, Bullymongs and Rakks): `/damage?since=0` - names right (the map's, the guns'
+from the game, a melee / an explosion its object name "?"), crits, killing blows, effects applied, ticks, downed and
+a second wind; a splash's burn unlinked (-1) as expected. Few "fx-" there: the game was paused with effects running
+(the user). To look at: an `eln` "amplify" on DmgType_Normal (inspector.element_of, the item card's - wrong for a hit?).

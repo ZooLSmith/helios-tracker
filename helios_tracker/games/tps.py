@@ -2,7 +2,7 @@
 
 from typing import Any
 
-from . import JUMPPADS, OXYGEN, profile
+from . import DAMAGE, JUMPPADS, OXYGEN, profile
 from .bl2 import Borderlands2
 from .bl2.objects import Objects
 from .bl2.skills import Skills
@@ -75,4 +75,5 @@ class PreSequel(Borderlands2):
     PARTS = {**Borderlands2.PARTS, "world": TpsWorld, "objects": TpsObjects, "skills": TpsSkills}
     key = "tps"
     gibbed_prefix = "BLOZ"
-    features = Borderlands2.features | {OXYGEN, JUMPPADS}
+    # (the damage log: its functions not probed in this game yet - notes.md "Damage: where a hit can be read" is BL2's)
+    features = (Borderlands2.features | {OXYGEN, JUMPPADS}) - {DAMAGE}

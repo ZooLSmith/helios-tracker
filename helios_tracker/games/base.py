@@ -28,6 +28,7 @@ class Profile:
     skills: Any
     assets: Any
     ui: Any
+    damage: Any
 
     def __init__(self) -> None:
         self.parts: dict[str, Part] = {name: cls(self) for name, cls in self.PARTS.items()}

@@ -1335,12 +1335,21 @@ def check_helios_tracker() -> None:  # noqa: PLR0915
         time.sleep(0.05)
     assert level["status"] == "ready" and level["upp"] == 128.0 and level["center"] == [-3072.0, -10240.0], level
     # the game and its features, for the page (games.py -> game.js)
-    assert level["game"] == "bl2" and level["features"] == ["challenges", "discovery", "fasttravel"], (level.get("game"), level.get("features"))
+    assert level["game"] == "bl2" and level["features"] == ["challenges", "damage", "discovery", "fasttravel"], (level.get("game"), level.get("features"))
+    # the level message's features are the session's (profiles.md): the Damage Log switched off - sent again without it,
+    # the same level (the page resets nothing); back on
+    c.set_feature("damage", False)
+    level_off = json.loads(hub.latest("level"))
+    assert level_off["features"] == ["challenges", "discovery", "fasttravel"] and level_off["id"] == level["id"], level_off["features"]
+    assert not c.damage.enabled, "off: the log's hooks out, its history dropped"
+    c.set_feature("damage", True)
+    assert json.loads(hub.latest("level"))["features"] == level["features"] and c.damage.enabled
     # The games' profiles (games.py): one per game, by mods_base's name; each other game only what differs from BL2
     from helios_tracker import games as game_profiles  # noqa: PLC0415
     profile_bl2, profile_tps, profile_bl1 = (game_profiles.make_profile(n) for n in ("BL2", "TPS", "BL1"))
     assert type(game_profiles.GAME) is type(profile_bl2), "the fake mods_base's game: BL2"
-    assert profile_tps.features == profile_bl2.features | {"oxygen", "jumppads"} and profile_tps.packages == "CookedPCConsole"
+    # (the damage log: probed in BL2 only - the Pre-Sequel's without it until it is)
+    assert profile_tps.features == (profile_bl2.features | {"oxygen", "jumppads"}) - {"damage"} and profile_tps.packages == "CookedPCConsole"
     assert profile_bl1.features == set() and profile_bl1.packages == "CookedPC" and profile_bl1.gibbed_prefix == ""
     # another player on a co-op client: no controller (not replicated) - no skills, the reason the page shows; it raised in
     # BL1 (its PlayerClass), the player dropped from the list and "Who" (the map showed both pawns)
@@ -2743,12 +2752,13 @@ def check_helios_tracker() -> None:  # noqa: PLR0915
         res = sse.getresponse()
         assert res.headers["Content-Type"] == "text/event-stream", res.headers
         events = set()
-        while len(events) < 14:
+        while len(events) < 15:
             line = res.fp.readline().decode()
             if line.startswith("event: "):
                 events.add(line[7:].strip())
+        # ("damage": the damage log's event channel - the level's mark in it: a new page told to catch up)
         assert events == {"level", "state", "objects", "players", "missions", "missiondefs", "missionlog", "areas", "shops",
-                          "shoptimer", "lootpools", "pickups", "pawninfo", "items"}, events
+                          "shoptimer", "lootpools", "pickups", "pawninfo", "items", "damage"}, events
         # CORS: the project's site (its /live/ page) and local pages may read, any other site not - files and the stream
         for cors_origin, cors_ok in (("https://helios-tracker.zoolsmith.com", True), ("https://zoolsmith.github.io", True), ("http://127.0.0.1:8931", True),
                                      ("http://localhost", True), ("https://evil.example", False), ("", False)):
@@ -3141,8 +3151,8 @@ def check_games_import() -> None:
         "print(sorted(g._PROFILES), g.GAME, sorted(p.parts), 'unrealsdk' in sys.modules or 'mods_base' in sys.modules)\n"
     )
     out = subprocess.run([sys.executable, "-c", child, str(ROOT / "helios_tracker")], capture_output=True, text=True, check=True)
-    assert out.stdout.strip() == ("['AoDK', 'BL1', 'BL1E', 'BL2', 'TPS'] None ['assets', 'items', 'missions', 'objects', 'pawns', "
-                                  "'shops', 'skills', 'ui', 'world'] False"), (out.stdout, out.stderr[-500:])
+    assert out.stdout.strip() == ("['AoDK', 'BL1', 'BL1E', 'BL2', 'TPS'] None ['assets', 'damage', 'items', 'missions', 'objects', "
+                                  "'pawns', 'shops', 'skills', 'ui', 'world'] False"), (out.stdout, out.stderr[-500:])
     print("  games: imported without the SDK (the files worker's way), the profiles registered, none picked before boot")
 
 
@@ -3411,6 +3421,241 @@ def check_ingame_text() -> None:
     print(f"  in-game text: {len(i18n.TEXT)} languages x {len(english)} keys, placeholders matching English")
 
 
+def check_damage_log() -> None:
+    """The damage log (damage.py, games/bl2/damage.py, the hub's event channel - design.md "Damage log"): a hit read in
+    its frame, what ran inside it linked to it (an effect applied, the killing blow, a player downed, a second wind), a
+    player's id kept across respawns, a flood summed, an object's hit and its destruction, the events outside a hit;
+    the channel's batches and catch-up (the stream, GET /damage), its byte cap, the switch off (a new session)."""
+    import http.client  # noqa: PLC0415
+    import json  # noqa: PLC0415
+    import types  # noqa: PLC0415
+
+    import unrealsdk  # noqa: PLC0415 - (the fake)
+
+    from helios_tracker import damage as dmg, games, server as dmg_server  # noqa: PLC0415
+    from helios_tracker import collector as dmg_col  # noqa: PLC0415
+    from helios_tracker.server import Hub, TrackerServer  # noqa: PLC0415
+
+    dns = types.SimpleNamespace
+
+    class DClass:  # a class: its own name and its superclasses' (find_class below gives names)
+        def __init__(self, *names: str) -> None:
+            self.names, self.Name = set(names), names[0]
+
+        def _inherits(self, cls: str) -> bool:
+            return cls in self.names
+
+    def dobj(address: int, cls: DClass, **kw: object) -> types.SimpleNamespace:
+        return dns(_get_address=lambda: address, Class=cls, Name=f"{cls.Name}_{address:x}", **kw)
+
+    saved_find_class = getattr(unrealsdk, "find_class", None)
+    unrealsdk.find_class = lambda name: name
+    games.GAME.damage._classes.clear()
+    try:
+        ai = DClass("WillowAIPawn", "WillowPawn", "Pawn")
+        enemy = dobj(0x100, ai)
+        enemy_mind = dobj(0x101, DClass("WillowMind", "AIController", "Controller"), Pawn=enemy)
+        enemy_b = dobj(0x110, ai)
+        player_cls = DClass("WillowPlayerPawn", "WillowPawn", "Pawn")
+        player = dobj(0x200, player_cls)
+        pc = dobj(0x201, DClass("WillowPlayerController", "PlayerController", "Controller"), Pawn=player)
+        player.Controller = pc
+        gun = dobj(0x300, DClass("WillowWeapon", "Weapon", "Inventory"), GetShortHumanReadableName=lambda: "Unkempt Harold")
+        fire = dobj(0x400, DClass("WillowDamageTypeDefinition"))
+        burning = dobj(0x410, DClass("StatusEffectDefinition"))
+        sources = {kind: dns(_get_address=lambda a=a: a, Name=n, Class=DClass("Class")) for kind, a, n in (
+            ("pistol", 0x500, "WillowDmgSource_Pistol"), ("status", 0x501, "WillowDmgSource_StatusEffect"),
+            ("crush", 0x502, "DmgType_Crushed"))}
+
+        def hit(instigator: object, health: float, shield: float = 0.0, crit: bool = False, source: str = "pistol",
+                causer: object = gun, element: object = fire) -> types.SimpleNamespace:
+            summary = dns(FinalDamage=health, DamageDealtToShields=shield, bWasCrit=crit)
+            return dns(Pipeline=dns(DamageSummary=summary, DamageInstigator=instigator, DamageTypeDef=element,
+                                    DamageSource=sources[source]), DamageCauser=causer)
+
+        hub = Hub()
+        log = dmg.DamageLog(hub)
+        log.name_actor = lambda actor, identity: {"n": str(actor.Name) if actor is not None else "?",
+                                                  "m": f"{actor._get_address():x}" if actor is not None else None}
+        log.name_what = lambda obj: {"n": str(obj.Name)}
+        log.name_element = lambda obj: {"d": str(obj.Name)}
+        clock = [1000]
+        log._ms = lambda: clock[0]
+        roles = {role for _, _, role in games.GAME.damage.hooks()}
+        assert all(hasattr(log, "_on_" + role) for role in roles), ("every role the profile hooks: handled", roles)
+        on = {role: log._handler(role) for role in roles}
+
+        def call(role: str, obj: object, args: object = None) -> None:
+            on[role](obj, args if args is not None else dns(), None, None)
+
+        def batches() -> list[dict]:
+            return [json.loads(b) for _, _, b in hub._events["damage"].batches]
+
+        # a crit that applies a burn and kills: one row, its flags; the effect linked to it (its index)
+        call("open", enemy, hit(pc, 120.5, crit=True))
+        call("read", enemy, hit(pc, 120.5, crit=True))
+        call("effect_start", dobj(0x600, DClass("StatusEffectsComponent"), Outer=enemy),
+             dns(InstigatedBy=pc, DamageCauser=gun, StatusEffectDefinition=burning))
+        call("died", enemy, dns())
+        call("close", enemy)
+        log.tick(True)
+        assert log.hooked, "a page open, the option on, a game with the log: hooked"
+        first = batches()[0]
+        assert first["q"] == 1 and len(first["h"]) == 1, first
+        crit_row = first["h"][0]
+        you, them = crit_row[1], crit_row[2]
+        assert crit_row[0] == 1000 and crit_row[3:6] == [120.5, 0.0, dmg.CRIT | dmg.KILL | dmg.EFFECT], crit_row
+        assert first["v"] == [[1000, "fx+", them, you, 0, crit_row[6], first["v"][0][6]]], first["v"]
+        assert first["a"][str(you)] == {"n": "WillowPlayerPawn_200", "m": "200"}, ("a player: named from their pawn", first["a"])
+        assert first["w"][str(crit_row[6])] == {"n": "WillowWeapon_300"} and first["e"][str(crit_row[7])] == {"d": "WillowDamageTypeDefinition_400"}
+
+        # a burn's tick (an effect's damage), the effect's end; a death outside any hit
+        clock[0] = 1300
+        call("open", enemy_b, hit(pc, 7.0, source="status"))
+        call("read", enemy_b, hit(pc, 7.0, source="status"))
+        call("close", enemy_b)
+        call("effect_end", dobj(0x601, DClass("StatusEffectsComponent"), Outer=enemy_b),
+             dns(ASE=dns(EventInstigator=pc, DamageCauser=gun, StatusEffectDefinition=burning)))
+        call("died", enemy, dns())
+        log.tick(True)
+        second = batches()[1]
+        assert second["h"][0][5] == dmg.TICK and second["h"][0][1] == you, second
+        assert [e[1] for e in second["v"]] == ["fx-", "died"] and second["v"][0][4] == -1, second["v"]
+
+        # downed by an enemy (its controller: the enemy's id), a second wind from a kill (inside the enemy's hit), up:
+        # nothing more; downed again, bled out, up: a respawn - a new pawn, the same player's id, its map id sent again
+        clock[0] = 2000
+        call("open", player, hit(enemy_mind, 40.0, shield=60.0))
+        call("read", player, hit(enemy_mind, 40.0, shield=60.0))
+        call("downed", player, dns(Killer=enemy_mind))
+        call("close", player)
+        call("open", enemy, hit(pc, 300.0))
+        call("read", enemy, hit(pc, 300.0))
+        call("second_wind", player)
+        call("died", enemy, dns())
+        call("close", enemy)
+        call("healthy", player)
+        log.tick(True)
+        third = batches()[2]
+        down_row, wind_row = third["h"]
+        assert down_row[1] == them and down_row[2] == you and down_row[5] == dmg.DOWNED, ("an AI's controller: its pawn's id", down_row)
+        assert wind_row[5] == dmg.KILL | dmg.SECOND_WIND, wind_row
+        assert [e[1:5] for e in third["v"]] == [["down", you, them, 0], ["wind", you, 0, 1]], third["v"]
+        call("open", player, hit(enemy_mind, 50.0))
+        call("read", player, hit(enemy_mind, 50.0))
+        call("downed", player, dns(Killer=enemy_mind))
+        call("close", player)
+        call("dead_state", player, dns(InjuredDeadStateVal=dns(name="INJUREDDEAD_None")))
+        call("dead_state", player, dns(InjuredDeadStateVal=dns(name="INJUREDDEAD_Start")))
+        respawned = dobj(0x210, player_cls, Controller=pc)
+        pc.Pawn = respawned
+        call("healthy", respawned)
+        call("open", respawned, hit(enemy_mind, 5.0))
+        call("read", respawned, hit(enemy_mind, 5.0))
+        call("close", respawned)
+        log.tick(True)
+        fourth = batches()[3]
+        assert [e[1] for e in fourth["v"]] == ["down", "dead", "up"] and fourth["v"][2][5:] == ["respawn"], fourth["v"]
+        assert fourth["h"][1][2] == you and fourth["a"] == {str(you): {"n": "WillowPlayerPawn_210", "m": "210"}}, \
+            ("a respawned player: the same id, their new pawn's map id", fourth.get("a"))
+
+        # a flood (crushing): summed per span, its row once the span is over
+        clock[0] = 3000
+        for crushed_at in (3000, 3001, 3002):
+            clock[0] = crushed_at
+            call("open", player, hit(enemy_mind, 0.25, source="crush", causer=None, element=None))
+            call("read", player, hit(enemy_mind, 0.25, source="crush", causer=None, element=None))
+            call("close", player)
+        log.tick(True)
+        assert all("h" not in b for b in batches()[4:]), "a flood's span not over: no hit yet (its source's name: sent)"
+        clock[0] = 3000 + dmg.FOLD_MS
+        log.tick(True)
+        flood_row = batches()[-1]["h"][0]
+        assert flood_row[3] == 0.8 and flood_row[5] == dmg.FOLDED and flood_row[8] == 3 and flood_row[7] == 0, flood_row
+        assert json.loads(hub._events["damage"].defs["w"][str(flood_row[6])]) == {"n": "DmgType_Crushed"}, "no causer: the source"
+
+        # an object: its hit read in its TakeDamage's POST, destroyed by it - the killing blow; one hit for nothing: no row
+        barrel = dobj(0x700, DClass("WillowInteractiveObject"), bHasBeenKilled=False)
+        call("object_open", barrel, hit(pc, 97.0))
+        barrel.bHasBeenKilled = True
+        call("object_close", barrel, hit(pc, 97.0))
+        crate = dobj(0x710, DClass("WillowInteractiveObject"), bHasBeenKilled=False)
+        call("object_open", crate, hit(pc, 0.0))
+        call("object_close", crate, hit(pc, 0.0))
+        # a POST without its PRE (the hooks added mid-call): nothing; a read that fails: logged, the stack still paired
+        call("close", enemy)
+        call("open", enemy, hit(pc, 1.0))
+        call("read", enemy, dns())
+        call("close", enemy)
+        assert not log._frames, "the frames paired"
+        log.level_changed("Southern Shelf")
+        log.tick(True)
+        fifth = batches()[-1]
+        assert len(fifth["h"]) == 1 and fifth["h"][0][3] == 97.0 and fifth["h"][0][5] == dmg.KILL, ("the barrel only", fifth["h"])
+        assert fifth["v"] == [[3250, "level", 0, 0, -1, "Southern Shelf"]], fifth["v"]
+
+        # the stream: a new page told to catch up; one a batch behind gets it; the catch-up: every definition, the batches
+        events = hub._events["damage"]
+        last_seq = events.seq
+        head = json.loads(events.since(None))
+        assert head["catchup"] == 1 and head["seq"] == last_seq and head["sid"] == events.sid and head["t0"] == log.t0_epoch, head
+        behind = json.loads(events.since(last_seq - 1))
+        assert behind["sid"] == events.sid and [b["q"] for b in behind["b"]] == [last_seq], behind
+        assert json.loads(events.since(last_seq - dmg_server.EVENTS_STREAM - 1)).get("catchup") == 1, "too far behind: a catch-up"
+        catch_head, catch_batches, catch_tail = hub.event_history("damage", 2)
+        caught = json.loads(catch_head + ",".join(catch_batches) + catch_tail)
+        assert [b["q"] for b in caught["b"]] == list(range(3, last_seq + 1)), [b["q"] for b in caught["b"]]
+        assert caught["defs"]["a"][str(you)]["m"] == "210", ("the definitions: the latest", caught["defs"])
+
+        # over HTTP: the catch-up as one JSON (written in pieces), any CORS like the rest
+        dmg_http = TrackerServer("127.0.0.1", 0, hub)
+        try:
+            dmg_conn = http.client.HTTPConnection("127.0.0.1", dmg_http.port, timeout=5)
+            dmg_conn.request("GET", "/damage?since=0", headers={"Origin": "http://localhost"})
+            dmg_res = dmg_conn.getresponse()
+            over_http = json.loads(dmg_res.read())
+            assert dmg_res.status == 200 and dmg_res.headers["Access-Control-Allow-Origin"] == "http://localhost"
+            assert [b["q"] for b in over_http["b"]] == list(range(1, last_seq + 1)) and over_http["seq"] == last_seq, over_http["seq"]
+            dmg_conn.close()
+        finally:
+            dmg_http.stop()
+
+        # the byte cap: the oldest batches dropped, the definitions kept
+        saved_cap = dmg_server.EVENTS_KEEP_BYTES
+        dmg_server.EVENTS_KEEP_BYTES = sum(len(b) for _, _, b in events.batches) - 1
+        try:
+            hub.publish_events("damage", '{"h":[]}', {}, log.t0_epoch)
+        finally:
+            dmg_server.EVENTS_KEEP_BYTES = saved_cap
+        assert events.batches[0][0] > 1 and events.defs["a"], "the oldest dropped, the definitions kept"
+
+        # switched off: the hooks out, its history dropped - a new session (the pages told to catch up); no work after
+        old_sid = events.sid
+        log.set_enabled(False)
+        assert not log.hooked and not events.batches and events.sid != old_sid
+        assert json.loads(events.since(events.seq - 1)).get("catchup") == 1, "a page up to date: told the session changed"
+        call("open", enemy, hit(pc, 1.0))  # (a hook's call can't come once removed - a direct call: still nothing kept)
+        log.tick(True)
+        assert not log.hooked and not events.batches, "off: never hooked again by the tick"
+        log.set_enabled(True)
+        log.tick(False)
+        assert not log.hooked, "no page: no hooks"
+
+        # the collector's namers: a weapon by its game name, an element as an item's (inspector.element_of)
+        namer = dmg_col.Collector(Hub())
+        assert namer._damage_what(gun) == {"n": "Unkempt Harold"}, namer._damage_what(gun)
+        assert namer._damage_what(sources["crush"]) == {"n": "DmgType_Crushed", "raw": 1}
+        assert namer._damage_element(fire)["d"] == "WillowDamageTypeDefinition_400"
+        print(f"  damage log: {len(roles)} hook roles; a crit / burn / kill / downed / second wind / respawn / flood / barrel"
+              f" linked as the game calls them; the stream, the catch-up over HTTP, the byte cap, the switch off")
+    finally:
+        games.GAME.damage._classes.clear()
+        if saved_find_class is None:
+            del unrealsdk.find_class
+        else:
+            unrealsdk.find_class = saved_find_class
+
+
 def main() -> None:
     _install_fakes()
     check_helios_tracker()
@@ -3423,6 +3668,7 @@ def main() -> None:
     check_sdkmod()
     check_updater()
     check_ingame_text()
+    check_damage_log()
     print("OK")
 
 

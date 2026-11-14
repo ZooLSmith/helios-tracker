@@ -54,6 +54,10 @@ Plain data stays on the profile (`GAME.key`, `GAME.features`, `GAME.packages`...
 `OXYGEN`, `JUMPPADS` - the page reads the same names: a layer's `needs`); the work for a missing one is skipped. Two
 ways of doing a job is a method, never a feature: **if the `else` does something, it's a method.** No nested feature
 tests (a method is missing), no two features for one choice.
+`GAME.features` is the game's (static: what the mod's checks read); the level message's `features` are **the
+session's** (the user, 2026-11-14): the game's minus what the player switched off in the mod's options (the Damage
+Log) - the page shows what this session has, whatever the reason (`hasFeature`, a layer's `needs`). A switch moved:
+the level message sent again (the same level id: the page resets nothing).
 
 **Runtime conditions** (a co-op client, a menu open, our own pawn without player info) are tested where they happen,
 inside the part or the main code - not a game difference.

@@ -9,7 +9,9 @@ the Hub, the server threads only read them.
     GET /<path>.js|css|png|svg|woff2   its modules / stylesheets / images / fonts under web/ (js/, js/ui/, i18n/,
                              css/, img/, fonts/: the title's "H", ours)
     GET /events       SSE stream: "level", "state" (what moves), "pawninfo", "pickups", "objects", "players"... events,
-                      each the latest JSON - record channels only what changed since the page's version (Hub)
+                      each the latest JSON - record channels only what changed since the page's version (Hub); event
+                      channels ("damage") the batches since the page's last one
+    GET /damage?since=<seq>  an event channel's history (the damage log): its definitions, then its batches after seq
     GET /image/<level>/<n>   raw texture data of map image n of level <level> (decoded by the page)
     GET /font/<slug>.ttf     the game's UI fonts, rebuilt as TrueType (gamefonts.py; 404 until extracted)
     GET /icon/<path>.png     a skill icon ("SharedSkillIcons_Soldier.SkillIcon-Able": gameicons.py, files only)
@@ -49,6 +51,11 @@ KEEPALIVE = 10.0  # s between SSE comments when nothing changes (detects closed 
 _SEP = (",", ":")
 _MISSING = object()
 HISTORY = 64  # versions of a record channel whose changes are kept (~6 s of states): a page further behind gets it whole
+EVENTS_KEEP_S = 3600.0  # an event channel's history: its batches this long (the damage log's longest "Keep hits for")...
+EVENTS_KEEP_BYTES = 25 * 1024 * 1024  # ...and this many bytes at most (the game is 32-bit: short on memory)
+EVENTS_STREAM = 64  # batches a page may be behind on the stream; further: told to catch up (/damage), not sent them all
+EVENTS_WRITE = 256 * 1024  # bytes per write of a catch-up
+SINCE = re.compile(r"since=(\d+)")
 
 
 class _Records:
@@ -148,14 +155,80 @@ class _Records:
         return {**json.loads(self.meta_json), self.list_key: list(self.recs.values())}
 
 
+class _Events:
+    """An event channel (the damage log): append-only - nothing replaced, every batch kept (two batches between two sends:
+    both go). Each batch is the JSON the log made, encoded once, numbered (its sequence, "q" in it); kept EVENTS_KEEP_S
+    and EVENTS_KEEP_BYTES at most, the oldest dropped. Its definitions (what the batches' ids name: actors, weapons...)
+    are kept apart for the session - a history cut at the front still decodes.
+
+    The stream: a page that's new or too far behind gets {"sid", "t0", "seq", "catchup": 1} - it fetches the history
+    (GET /damage?since=, history()), then follows from there; otherwise {"sid", "b": [the batches it lacks]}. "sid": the
+    history's session - a new one after clear() (the page drops what it had); "t0": the log's start (epoch ms: the
+    batches' times are ms since it)."""
+
+    def __init__(self) -> None:
+        self.seq = 0
+        self.batches: deque[tuple[int, float, str]] = deque()  # (seq, time - s, monotonic, JSON)
+        self.bytes = 0
+        self.defs: dict[str, dict[str, str]] = {}  # kind ("a", "w"...) -> id -> its JSON (the latest)
+        self.sid = ""
+        self.t0 = 0
+        self.clear()
+
+    def clear(self) -> None:
+        self.batches.clear()
+        self.bytes = 0
+        self.defs = {}
+        self.sid = f"{time.time_ns():x}"
+
+    def add(self, batch: str, defs: dict[str, dict[str, Any]], now: float) -> None:
+        """A batch (a JSON object: its sequence put in it here, "q") and the definitions it brings."""
+        self.seq += 1
+        batch = f'{{"q":{self.seq},{batch[1:]}' if len(batch) > 2 else f'{{"q":{self.seq}}}'
+        self.batches.append((self.seq, now, batch))
+        self.bytes += len(batch)
+        for kind, entries in defs.items():
+            mine = self.defs.setdefault(kind, {})
+            for key, value in entries.items():
+                mine[str(key)] = json.dumps(value, separators=_SEP)
+        while self.batches and (self.bytes > EVENTS_KEEP_BYTES or now - self.batches[0][1] > EVENTS_KEEP_S):
+            self.bytes -= len(self.batches.popleft()[2])
+
+    def _head(self) -> str:
+        return f'{{"sid":"{self.sid}","t0":{self.t0},"seq":{self.seq},"catchup":1}}'
+
+    def since(self, seen: int | None) -> str:
+        """The stream's message for a page that has every batch up to `seen` (None: nothing yet)."""
+        first = self.batches[0][0] if self.batches else self.seq + 1
+        if seen is None or seen > self.seq or self.seq - seen > EVENTS_STREAM or seen + 1 < first:
+            return self._head()
+        parts = []
+        for q, _, b in reversed(self.batches):  # (the newest few: not the whole hour's)
+            if q <= seen:
+                break
+            parts.append(b)
+        parts.reverse()
+        return f'{{"sid":"{self.sid}","b":[{",".join(parts)}]}}'
+
+    def history(self, since: int) -> tuple[str, list[str], str]:
+        """A catch-up's parts (to write outside the hub's lock): its head (the definitions), the batches after `since`
+        (each as kept: written as they are), its tail."""
+        defs = ",".join(f'"{kind}":{{{",".join(f"{json.dumps(k)}:{v}" for k, v in entries.items())}}}'
+                        for kind, entries in self.defs.items())
+        head = f'{{"sid":"{self.sid}","t0":{self.t0},"seq":{self.seq},"defs":{{{defs}}},"b":['
+        return head, [b for q, _, b in self.batches if q > since], "]}"
+
+
 class Hub:
     """Latest payload per channel, with versions; SSE handlers wait for changes. Record channels (publish_records):
-    each page gets the changes since the version it has."""
+    each page gets the changes since the version it has. Event channels (publish_events: the damage log): every batch,
+    kept - a page gets the ones it lacks."""
 
     def __init__(self) -> None:
         self._cond = threading.Condition()
         self._channels: dict[str, tuple[int, str]] = {}  # (a record channel: its last version's changes)
         self._records: dict[str, _Records] = {}
+        self._events: dict[str, _Events] = {}
         self._images: dict[tuple[int, int], bytes] = {}
         self.fonts: dict[str, bytes] | None = None  # the game's fonts by slug (None: not extracted yet)
         self.closed = False
@@ -185,6 +258,34 @@ class Hub:
             self._cond.notify_all()
             return True
 
+    def publish_events(self, channel: str, batch: str, defs: dict[str, dict[str, Any]], t0: int) -> None:
+        """An event channel's next batch (a JSON object: its sequence "q" added here) and the definitions it brings; t0
+        the log's start (epoch ms)."""
+        with self._cond:
+            events = self._events.get(channel)
+            if events is None:
+                events = self._events[channel] = _Events()
+            events.t0 = t0
+            events.add(batch, defs, time.monotonic())
+            self._channels[channel] = (events.seq, "")
+            self._cond.notify_all()
+
+    def clear_events(self, channel: str) -> None:
+        """An event channel's history dropped (the log switched off): a new session - the pages drop theirs."""
+        with self._cond:
+            if (events := self._events.get(channel)) is not None:
+                events.clear()
+                events.seq += 1  # (a sequence without a batch: every page told to catch up - the new session)
+                self._channels[channel] = (events.seq, "")
+                self._cond.notify_all()
+
+    def event_history(self, channel: str, since: int) -> tuple[str, list[str], str] | None:
+        """An event channel's catch-up (_Events.history), None for no such channel - its parts built under the lock
+        (references: cheap), written outside it."""
+        with self._cond:
+            events = self._events.get(channel)
+            return events.history(since) if events is not None else None
+
     def latest(self, channel: str) -> str:
         """A channel's latest payload whole (a record channel: all its records - its snapshot)."""
         with self._cond:
@@ -209,7 +310,11 @@ class Hub:
             for channel, (version, payload) in self._channels.items():
                 if seen.get(channel) != version:
                     recs = self._records.get(channel)
-                    out.append((channel, recs.since(seen.get(channel)) if recs is not None else payload))
+                    if recs is not None:
+                        payload = recs.since(seen.get(channel))
+                    elif (events := self._events.get(channel)) is not None:
+                        payload = events.since(seen.get(channel))
+                    out.append((channel, payload))
                     seen[channel] = version
             if out:  # (the messages built under the lock: the collector's publish waits meanwhile)
                 FRAMES.server_work("stream", time.perf_counter() - start)
@@ -258,6 +363,8 @@ class _Handler(BaseHTTPRequestHandler):
                 self._send(HTTPStatus.OK, TYPES[m[1]], data)
             elif path.startswith("/image/"):
                 self._image(path)
+            elif path == "/damage":
+                self._history("damage")
             elif (m := FONT.fullmatch(path)) and (data := (self.server.hub.fonts or {}).get(m[1])) is not None:
                 self._send(HTTPStatus.OK, "font/ttf", data)
             elif (data := games.GAME.assets.serve(path)) is not None:  # (the game's own images: icons...)
@@ -294,6 +401,32 @@ class _Handler(BaseHTTPRequestHandler):
             self._send(HTTPStatus.NOT_FOUND, "text/plain", b"no such image (level changed?)")
         else:
             self._send(HTTPStatus.OK, "application/octet-stream", data)
+
+    def _history(self, channel: str) -> None:
+        """An event channel's history after ?since= (_Events.history): built under the hub's lock from what it keeps,
+        written outside it - the batches as they are, in a few writes (a write mostly lets the GIL go)."""
+        m = SINCE.search(self.path.split("?", 1)[1] if "?" in self.path else "")
+        parts = self.server.hub.event_history(channel, int(m[1]) if m else 0)
+        if parts is None:
+            self._send(HTTPStatus.OK, "application/json", b'{"seq":0,"defs":{},"b":[]}')
+            return
+        head, batches, tail = parts
+        self.send_response(HTTPStatus.OK)
+        self._cors()
+        self.send_header("Content-Type", "application/json")
+        self.send_header("Cache-Control", "no-store")
+        self.end_headers()  # (no length: the connection's end is the body's - HTTP/1.0)
+        chunk = [head]
+        size = len(head)
+        for i, batch in enumerate(batches):
+            chunk.append("," + batch if i else batch)
+            size += len(batch) + 1
+            if size >= EVENTS_WRITE:
+                self.wfile.write("".join(chunk).encode())
+                chunk, size = [], 0
+        chunk.append(tail)
+        self.wfile.write("".join(chunk).encode())
+        FRAMES.server_count("damage history")
 
     def _events(self) -> None:
         hub = self.server.hub

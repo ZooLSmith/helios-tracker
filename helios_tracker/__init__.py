@@ -79,6 +79,19 @@ rate = SliderOption(
 )
 
 
+def _on_damage_log(_opt: Any, value: bool) -> None:
+    _collector.set_feature(games.DAMAGE, bool(value))  # (off: its hooks removed, its history dropped - the page hides it)
+
+
+damage_log = BoolOption(
+    "damage_log",
+    value=True,  # (on by default - the user)
+    display_name=t("damage.name"),
+    description=t("damage.desc"),
+    on_change_while_enabled=_on_damage_log,
+)
+
+
 def _url() -> str:
     return f"http://127.0.0.1:{int(port.value)}/"  # not localhost: the server is IPv4 only
 
@@ -479,6 +492,7 @@ _collector.on_page = lambda: _start_assets(False)
 
 def _on_enable() -> None:
     _collector.reset()
+    _collector.set_feature(games.DAMAGE, bool(damage_log.value))
     FRAMES.start_canary()  # (frames.py: tells a GIL held outside our hooks)
     _serving[0] = True
     _start()
@@ -492,6 +506,7 @@ def _on_disable() -> None:
         _stop_locked()
     _stop_worker()
     FRAMES.stop_canary()
+    _collector.damage.stop()  # (its hooks: added by the collector's tick, not mods_base's)
     _collector.reset()
 
 
@@ -614,5 +629,5 @@ mod = build_mod(
     on_disable=_on_disable,
     hooks=[on_post_render, on_bink_movie, on_pickup_spawn, on_object_spawn, on_object_balance, on_object_destroyed,
            on_set_usability, on_change_usability, on_menu_back],
-    options=[open_page, port, lan, rate, auto_update, update_button, next_update_check],
+    options=[open_page, port, lan, rate, damage_log, auto_update, update_button, next_update_check],
 )

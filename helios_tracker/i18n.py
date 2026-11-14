@@ -24,6 +24,9 @@ TEXT: dict[str, dict[str, str]] = {
         "rate.name": "Tick Rate",
         "rate.desc": "How many times per second the mod reads the game and sends it to the page (the page smooths"
                      " movement in between). Lower: lighter on the game and on your upload when sharing the map.",
+        "damage.name": "Damage Log",
+        "damage.desc": "Logs every hit on the page - who dealt it, to whom, how much, crits, elements - while it's"
+                       " open. Off: the game's damage isn't read at all.",
         "auto.name": "Automatic Updates",
         "auto.desc": "Once a day, looks for a new version of Helios Tracker on GitHub, installs it and reloads the mod"
                      " with it. Off: only when you press Check for Updates.",
@@ -61,6 +64,9 @@ TEXT: dict[str, dict[str, str]] = {
         "rate.name": "Fréquence de lecture",
         "rate.desc": "Combien de fois par seconde le mod lit le jeu et l'envoie à la page (la page lisse les mouvements"
                      " entre deux). Plus bas : plus léger pour le jeu et pour votre envoi quand vous partagez la carte.",
+        "damage.name": "Journal des dégâts",
+        "damage.desc": "Note chaque coup sur la page - qui l'a porté, à qui, combien, les critiques, les éléments"
+                       " - tant qu'elle est ouverte. Désactivé : les dégâts du jeu ne sont pas lus du tout.",
         "auto.name": "Mises à jour automatiques",
         "auto.desc": "Une fois par jour, cherche une nouvelle version de Helios Tracker sur GitHub, l'installe et"
                      " recharge le mod avec. Désactivé : seulement quand vous appuyez sur Rechercher des mises à jour.",
@@ -99,6 +105,10 @@ TEXT: dict[str, dict[str, str]] = {
         "rate.name": "Abfragerate",
         "rate.desc": "Wie oft pro Sekunde die Mod das Spiel ausliest und an die Seite sendet (die Seite glättet die"
                      " Bewegung dazwischen). Niedriger: schont das Spiel und deinen Upload, wenn du die Karte teilst.",
+        "damage.name": "Schadensprotokoll",
+        "damage.desc": "Protokolliert jeden Treffer auf der Seite - wer ihn ausgeteilt hat, an wen, wie viel,"
+                       " kritische Treffer, Elemente -, solange sie geöffnet ist. Aus: Der Schaden im Spiel wird"
+                       " gar nicht ausgelesen.",
         "auto.name": "Automatische Updates",
         "auto.desc": "Sucht einmal am Tag auf GitHub nach einer neuen Version von Helios Tracker, installiert sie und"
                      " lädt die Mod damit neu. Aus: nur wenn du Nach Updates suchen drückst.",
@@ -138,6 +148,9 @@ TEXT: dict[str, dict[str, str]] = {
         "rate.desc": "Quante volte al secondo la mod legge il gioco e lo invia alla pagina (la pagina rende fluido il"
                      " movimento nel mezzo). Più bassa: più leggera per il gioco e per il tuo upload quando condividi la"
                      " mappa.",
+        "damage.name": "Registro dei danni",
+        "damage.desc": "Registra ogni colpo nella pagina - chi l'ha inflitto, a chi, quanto, i critici, gli"
+                       " elementi - finché è aperta. Disattivato: i danni del gioco non vengono letti affatto.",
         "auto.name": "Aggiornamenti automatici",
         "auto.desc": "Una volta al giorno cerca una nuova versione di Helios Tracker su GitHub, la installa e ricarica"
                      " la mod. Disattivato: solo quando premi Cerca aggiornamenti.",
@@ -177,6 +190,9 @@ TEXT: dict[str, dict[str, str]] = {
         "rate.desc": "Cuántas veces por segundo el mod lee el juego y lo envía a la página (la página suaviza el"
                      " movimiento entre medias). Más baja: más ligera para el juego y para tu subida al compartir el"
                      " mapa.",
+        "damage.name": "Registro de daño",
+        "damage.desc": "Registra cada golpe en la página - quién lo hizo, a quién, cuánto, los críticos, los"
+                       " elementos - mientras esté abierta. Desactivado: el daño del juego no se lee en absoluto.",
         "auto.name": "Actualizaciones automáticas",
         "auto.desc": "Una vez al día busca una nueva versión de Helios Tracker en GitHub, la instala y recarga el mod"
                      " con ella. Desactivado: solo cuando pulses Buscar actualizaciones.",
@@ -214,6 +230,8 @@ TEXT: dict[str, dict[str, str]] = {
         "rate.name": "読み取り頻度",
         "rate.desc": "Modが1秒間にゲームを読み取ってページに送る回数（ページがその間の動きを滑らかにします）。低いほど"
                      "ゲームの負荷と、マップ共有時のアップロードが軽くなります。",
+        "damage.name": "ダメージログ",
+        "damage.desc": "ページを開いている間、すべての攻撃を記録します（誰が誰に、どれだけ、クリティカル、属性）。オフ：ゲームのダメージを一切読み取りません。",
         "auto.name": "自動アップデート",
         "auto.desc": "1日に1回GitHubでHelios Trackerの新しいバージョンを探し、インストールしてModを再読み込みします。"
                      "オフ：「アップデートを確認」を押したときだけ。",
@@ -250,6 +268,8 @@ TEXT: dict[str, dict[str, str]] = {
         "rate.name": "읽기 빈도",
         "rate.desc": "모드가 1초에 게임을 읽어 페이지로 보내는 횟수(그 사이의 움직임은 페이지가 부드럽게 합니다). 낮을수록"
                      " 게임과 지도 공유 시 업로드 부담이 줄어듭니다.",
+        "damage.name": "피해 기록",
+        "damage.desc": "페이지가 열려 있는 동안 모든 공격을 기록합니다(누가 누구에게, 얼마나, 치명타, 속성). 끄면: 게임의 피해를 전혀 읽지 않습니다.",
         "auto.name": "자동 업데이트",
         "auto.desc": "하루에 한 번 GitHub에서 Helios Tracker의 새 버전을 찾아 설치하고 모드를 다시 불러옵니다."
                      " 끔: 업데이트 확인을 누를 때만.",
@@ -284,6 +304,8 @@ TEXT: dict[str, dict[str, str]] = {
                     "關閉：只有這台電腦能開啟。",
         "rate.name": "讀取頻率",
         "rate.desc": "模組每秒讀取遊戲並傳送到頁面的次數（頁面會平滑其間的移動）。越低：遊戲負擔越輕，分享地圖時的上傳量也越少。",
+        "damage.name": "傷害記錄",
+        "damage.desc": "頁面開啟時記錄每一次命中（誰打了誰、多少、暴擊、元素）。關閉：完全不讀取遊戲的傷害。",
         "auto.name": "自動更新",
         "auto.desc": "每天一次在 GitHub 上尋找 Helios Tracker 的新版本，安裝後重新載入模組。關閉：只在按下「檢查更新」時。",
         "check.name": "檢查更新",
@@ -320,6 +342,9 @@ TEXT: dict[str, dict[str, str]] = {
         "rate.name": "Частота опроса",
         "rate.desc": "Сколько раз в секунду мод читает игру и отправляет данные на страницу (страница сглаживает движение"
                      " между ними). Ниже: меньше нагрузки на игру и на исходящий канал, когда вы делитесь картой.",
+        "damage.name": "Журнал урона",
+        "damage.desc": "Записывает каждое попадание на странице - кто нанёс, кому, сколько, криты, стихии - пока"
+                       " она открыта. Выкл.: урон в игре не считывается вовсе.",
         "auto.name": "Автоматические обновления",
         "auto.desc": "Раз в день ищет новую версию Helios Tracker на GitHub, устанавливает её и перезагружает мод."
                      " Выкл.: только когда вы нажимаете «Проверить обновления».",

@@ -1,9 +1,10 @@
 """Borderlands 2: the reference - what the mod was built on. Its parts (this folder) are every game's unless the game's
 profile has its own."""
 
-from .. import CHALLENGES, DISCOVERY, FASTTRAVEL, profile
+from .. import CHALLENGES, DAMAGE, DISCOVERY, FASTTRAVEL, profile
 from ..base import Profile
 from .assets import Assets
+from .damage import Damage
 from .items import Items
 from .missions import Missions
 from .objects import Objects
@@ -19,7 +20,7 @@ class Borderlands2(Profile):
     """Borderlands 2: the reference - what the mod was built on."""
 
     PARTS = {"world": World, "missions": Missions, "items": Items, "objects": Objects, "pawns": Pawns, "shops": Shops,
-             "skills": Skills, "assets": Assets, "ui": Ui}
+             "skills": Skills, "assets": Assets, "ui": Ui, "damage": Damage}
 
     key = "bl2"  # the page's name for it (the level message's "game": its label variants, its own data - game.js)
     packages = "CookedPCConsole"  # WillowGame/<this>: its cooked packages, the folder the mod reads (None: none read)
@@ -36,4 +37,4 @@ class Borderlands2(Profile):
     # the attribute presentation a weapon card's damage is shown with (its rounding: inspector._presented) - None: a
     # whole number, rounded (BL2's cards, checked)
     damage_presentation: str | None = None
-    features: frozenset[str] = frozenset({DISCOVERY, CHALLENGES, FASTTRAVEL})
+    features: frozenset[str] = frozenset({DISCOVERY, CHALLENGES, FASTTRAVEL, DAMAGE})
