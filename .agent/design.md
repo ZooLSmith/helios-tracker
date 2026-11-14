@@ -267,7 +267,44 @@ element... - in real time, on the page. Its look isn't decided; what is: per ene
 per player (what they dealt, what they took), a general tab (everyone, each one's share), and a timeline to pick a
 time window. Modular (the views separate from the store) and cheap above all.
 
-**The game side (to probe first)** - read-only, no blind calls:
+**The game side - answered on a host** (notes.md "Damage: where a hit can be read", 2026-11-14): one hook per hit,
+after the damage is applied - the victim's `ProcessDamageTakenSkillEvents` (WillowPawn's, WillowPlayerPawn's own) and
+`WillowInteractiveObject:TakeDamage` (POST) -, everything read off its `Pipeline` (reused: read in the call):
+DamageSummary's FinalDamage (health), DamageDealtToShields, bWasCrit, PreviousHealth (a kill: FinalDamage >= it),
+the element (`DamageTypeDef`), the source kind (`DamageSource`: weapon type, StatusEffect = a DoT tick), who
+(`DamageInstigator`), whom (`DamagedPawn` / `DamagedIO`), the head / body (`HitRegionDef`). Still open: a co-op
+client, a lean hook's cost.
+- **Damage over time (a tick)**: `DamageSource` WillowDmgSource_StatusEffect (fire seen; corrosive / shock to
+  check). The wish (the user): a tick shown with the hit that applied it - the effect as one row, its sum, its
+  tick count, how long it lived. A tick names the gun's definition only (its DamageCauser: shared by every
+  bullet), two burns at once indistinguishable: what links them is probed (tools/probes/probe_status_effect.py).
+  **No guessing** (the user): grouping ticks by victim / player / element / time is not the game saying so -
+  how a tick is shown without the game's link is to be discussed.
+  The direction (the user, 2026-11-14 - notes.md: an effect is linked to its hit, a tick to no effect): a tick is
+  damage like any other (it counts in every total, the timeline), never "part of" a hit. What the game says exactly
+  is shown as such: a hit marked as having applied an effect (ApplyStatusEffect ran inside it).
+  **An actor's damage** (the user's sketch, 2026-11-14 - after a tree by attacker, then a pinned "burning since X,
+  so far Y" row: too much / not that): two levels, bearable first, every detail one step away.
+  - The summary: one row per (who, what with) - "You > Pistol - 130 · 3 hits", a burn "You > (fire symbol) - 312 ·
+    15 ticks" -, no time shown (the user: times in the detail only), ordered by its last hit (damaged again: back on
+    top). The small ones folded (the user: not the hits that don't matter much): rows under a share of the actor's
+    damage in the window (~2 %, to tune) in one "+ N more (their sum)" line that opens - a rule, not a judgment. The effects
+    still going on (applied, not ended: ApplyStatusEffect / OnStatusEffectEnd - exact) above a line, always on top;
+    ended, a burn's row joins the others by its last tick. Two burns from the same gun: one row (what the ticks
+    carry). Open: a big hit on top for its size (the sketch's question) - against "the last on top".
+  - The detail (a recap): every hit and tick in time order, each where it happened - its time, who, what with,
+    amount (health / shield), crit, body part, "ignited" on the hit that applied an effect. A row of the summary
+    opens it filtered to that row; the actor's whole recap one click away too.
+  - **The killing blow** (the user): the hit or tick that killed it, marked in both views (the summary's row, the
+    recap's line). To probe: the game's death call (`Pawn:Died` and its overrides) running inside a hit's TakeDamage
+    = that hit (the call stack, not a guess - as ApplyStatusEffect); a player goes down first (DamageSummary's
+    bWasInjured: Fight For Your Life) - the hit that downed them and the death later, apart; a barrel: its
+    bHasBeenKilled set inside the hit. A death without a hit (a fall, out of the world): no killing blow.
+  - "What with": the weapon's own name from the game (the item: its card's name), a grenade, a skill...; an
+    effect by its element's symbol. Times: wall clock (the mod's clock + the session's start, sent once).
+  Events sent: hits (ticks among them, flagged), effect applied (with its hit), effect ended.
+
+The first questions, as asked:
 
 1. Signatures only: the functions with Damage / Crit / Hit in their name on WillowPawn, WillowAIPawn,
    WillowPlayerPawn, WillowPlayerController, WillowGameInfo, WillowVehicle. The candidate: UE3's

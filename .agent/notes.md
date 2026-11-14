@@ -733,6 +733,68 @@ Pukey" - a friendly skag you escort, the user) came out an enemy, and that is th
   out of play among them). Call it only on what the collector walks (`WorldInfo.PawnList`, not bDeleteMe / bIsDead /
   bHidden), as it does.
 
+## Damage: where a hit can be read (probe_damage.py, in game, BL2 Sanctuary, 2026-11-14 - the damage log, design.md)
+
+Three runs, solo (host): the shooting range's target (a `WillowAIPawn`, ~1.79e12 health), a Marauder-type target,
+a barrel, your own grenade. Run 1's function listing kept in tools/probes/probe_damage_functions.txt (gitignored).
+- **A hook reading a function's arguments: its own parameters only.** `fn._fields()` gives the parameters, the
+  locals and the parent function's parameters too; in a PRE hook the locals are uninitialized - reading an Array
+  local (`WillowPawn:TakeRadiusDamage`'s HitRegions) crashed the game (run 1, at the first hit). The parameters:
+  `PropertyFlags & CPF_Parm (0x80)`, their `Outer` the function itself.
+- **TakeDamage** is declared by 38 classes, each override calling its parent: one hit on an AI pawn runs
+  `WillowAIPawn:TakeDamage` -> `WillowPawn:TakeDamage` -> `Engine.Pawn:TakeDamage` -> `Engine.Actor:TakeDamage`
+  (a hook on each = the hit 4 times). The amount changes on the way (Actor's DamageAmount 70.662 where the others
+  had 47.108: the surface bonus added). TakeRadiusDamage (a grenade, a Maliwan pistol's splash) calls TakeDamage
+  per target. `WillowInteractiveObject:TakeDamage` calls Actor's too. Not targets: a `WillowWaypoint` took
+  Actor:TakeDamage / TakeRadiusDamage (2 calls).
+- **The hit's record: its `Pipeline`** (a `WillowDamagePipeline`, a parameter of every TakeDamage and of the skill
+  events) - a transient object **reused for every hit** (WillowDamagePipeline_1 each time; a radius hit _2, _4):
+  read it during the call, never keep it. Its properties: `DamageTypeDef` (= `WillowDamageTypeDef`: the element -
+  `GD_Incendiary.DamageType.DmgType_Incendiary_Impact`, `_Incendiary_Status` for a burn tick,
+  `GD_Explosive...DmgType_Explosive_Impact`, `GD_Impact.DamageType.DmgType_Normal`), `DamageSource` (a class:
+  `WillowDmgSource_Pistol` / `_Shotgun` / `_Sniper` / `_Bullet` / `_Grenade` / `_StatusEffect`...),
+  `DamageInstigator` (the controller), `DamagedActor` / `DamagedPawn` / `DamagedAIPawn` / `DamagedIO` (an
+  interactive object's), `HitRegionDef` (`HitRegion_Head` / `_Body`), `HitLocation`, `ImpactDefinition`,
+  `PenetrationCount`, and **`DamageSummary`**:
+  - `InitialDamage`, `FinalDamage` (to health), `DamageDealtToShields`, `PreviousHealth`, `bWasCrit`,
+    `bWasOneShotKill`, `bWasInjured`, `bWasMaxShield` / `bWasMaxHealth`, `ExtraDamageDealtDueToAmplify`, `HitRegion`,
+    the reductions one by one (`DamageSurfaceReduction` -23.554: flesh hit by fire, a bonus; `DamageSourceReduction`...).
+  - A crit: head hits, `bWasCrit` True, FinalDamage 271.658 from InitialDamage 97.021 (body: 97.021).
+  - Your own grenade on you: InitialDamage 107.404, DamageDealtToShields 92.797, FinalDamage 0 - the shield took it
+    (109.4 -> 16.6, health unchanged). A barrel: PreviousHealth 50, FinalDamage 97.021, its Health 0 after.
+  - The amounts are the game's, before the target's health clamps them (the barrel's 97 for 50 health).
+- **Once per hit, after the damage is applied: the victim's `ProcessDamageTakenSkillEvents(Pipeline, InstigatedBy,
+  DamageType)`** (script, not native: hookable) - `WillowPawn`'s for an AI pawn, `WillowPlayerPawn`'s own for a
+  player (it doesn't call WillowPawn's: no double). The attacker's `ProcessDamageDealtSkillEvents` (WillowPlayerPawn's)
+  once per hit too. Not for an interactive object: its own `WillowInteractiveObject:TakeDamage` (POST: the pipeline
+  filled). Health read in the POST matches (895.054 -> 824.392 = 70.662).
+- **Burn ticks are hits**: each a TakeDamage, `DamageSource` StatusEffect, `DamageCauser` the Behavior that set it
+  (`Behavior_Explode`), the instigator the player, HitLocation zero; ~3 a second, two at once when two burns
+  stack. A run's 132 of ~200 calls.
+- `WillowGameInfo:UpdateTookDamageFromEnemyStats(..., bWasLastDamageACriticalHit)` once per hit too (a native, called
+  from script: its hook fires). `WillowPlayerController:NotifyDamageDealt`, `*:NotifyDamageTaken`,
+  `WillowProjectile:OnDamagedEnemy` never fired (natives called from native code - or no projectile weapon).
+  The pawns also keep `bTookCriticalHitThisTick`, `bWasLastDamageACriticalHit`, `LastHitBy`.
+- The cost, the probe's (it formats every argument): 100-400 us a call in its hooks. A lean hook (a few fields of the
+  pipeline into a tuple) not measured yet.
+- **Damage over time: an effect is linked to its hit, a tick isn't linked to its effect** (probe_status_effect.py,
+  same place, a Maliwan incendiary sniper - each shot a bullet + a splash, both able to ignite): the victim's
+  `StatusEffectComp` (a `StatusEffectsComponent`) rolls `RollChanceForStatusEffect` then runs
+  `ApplyStatusEffect(InstigatedBy, DamageType, StatusEffectDefinition, DamageCauser, HitRegion, bIsFromSpreading,
+  SpreadSource)` **inside the hit's TakeDamage** (the bullet's; the splash's right after its own TakeDamage
+  returned - inside the TakeRadiusDamage, not checked). Not every hit applies one (a chance). Each application is its
+  own active effect, even from the same gun (two burns from WillowWeapon_49 at once, each ending on its own); each ends
+  with `OnStatusEffectEnd(ASE)` (script: hookable), the active effect as a struct: `Duration` (5 s), `TotalElapsedTime`,
+  `DamagePerSecond` (24.2 - the nominal: the ticks dealt ~39/s, the victim's modifiers), `EventInstigator`,
+  `DamageCauser`, `DamageSource`, `StatusEffectDefinition`, `HitRegion`, `HitInfo`, spread fields, `bIsInfiniteDuration`.
+  A tick (a TakeDamage, source StatusEffect, ~every 0.33 s) carries the effect's DamageCauser (the gun for the
+  bullet's burn, the firing mode's Behavior_Explode for the splash's), its instigator, its element - **no effect
+  identity**: two burns from the same gun tick at the same instant with the same amounts, indistinguishable. The
+  ticks themselves are dealt by native code (no script function with the effect in hand fired per tick).
+  Corrosive / shock not tried yet.
+- Not seen yet: a co-op client (TakeDamage is server-side in UE3: a client likely gets none of this), vehicles,
+  the player hit by an enemy (only by their own grenade), enemies hitting each other.
+
 ## Item serials / Gibbed codes (probe_serial.py + probe_serial2.py, in game, both games, 2026-09-26)
 
 - A Gibbed code (`BL2(hwAAAAAB...)`, the Pre-Sequel's `BLOZ(...)`) is the **game's own item serial** - what a save
