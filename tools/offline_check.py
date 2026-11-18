@@ -443,7 +443,9 @@ const foundThings = { marcus: foundIds("MARCUS", { x: 0, y: 0 }), accents: found
 // dropping everything; rows put in time order, an event linked to its hit, a player's per-second totals, expiry
 const { DamageStore } = await load("js/damage/store.js");
 const { createFeed } = await load("js/damage/feed.js");
-const { actorsHtml, linesHtml } = await load("js/damage/view.js");
+const { linesHtml } = await load("js/damage/view.js");
+const { recapHtml, gatherRecap } = await load("js/damage/recap.js");
+const { realtimeEntries } = await load("js/damage/realtime.js");
 const { amountText: dmgAmount, amountWidth: dmgAmountWidth } = await load("js/damage/amount.js");
 const { searchWords } = await load("js/damage/search.js");
 const { summaryHtml } = await load("js/damage/info.js");
@@ -472,11 +474,47 @@ const dmgFirst = { times: dmgStore.latest(10).map((h) => h.t), count: dmgStore.c
   summary: summaryHtml(dmgStore, 2000), quiet: summaryHtml(dmgStore, 120000), // (the minute before 2 s / before 2 min)
   // the pane's filters (search.js, the window): every word, case ignored, a tag by its name; a time span
   searched: linesHtml(dmgStore, 300, -Infinity, Infinity, searchWords("RAKK Crit")),
-  windowed: linesHtml(dmgStore, 300, 140, 1000), overview: actorsHtml(dmgStore, 0, 2000, searchWords("rak")),
+  windowed: linesHtml(dmgStore, 300, 140, 1000), recap: recapHtml(dmgStore, 0, 2000, searchWords("rak"), { tab: "enemies", more: new Set() }),
   amounts: [dmgAmount(4.25), dmgAmount(99999), dmgAmount(130400), dmgAmount(1234567)],
   amountWidths: [dmgAmountWidth(99999), dmgAmountWidth(130400)], maxHit: dmgStore.maxHit };
 dmgFeed({ sid: "s1", b: [{ q: 5, v: [[1400, "dead", 1, 0, -1]] }] }); // (4 missing: a gap)
 await dmgSettle();
+// The Recap's order (recap.js): the biggest pool first (the map pawn's "m" + "sm", kept once seen - the user), then the
+// latest hit, no player cards (their tabs); a bar as wide as its pool against the biggest; an effect still going on: its
+// ticks pinned on top; small rows folded, then shown; a player's tab
+const dmgOrder = new DamageStore();
+dmgOrder.add({ a: { 1: { k: "me", n: "Me" }, 2: { k: "enemy", n: "Psycho", m: "p2" }, 3: { k: "enemy", n: "Boss", m: "p3" } },
+  w: { 1: { n: "Gun" }, 7: { n: "Pebble" }, 8: { n: "Twig" } }, e: { 3: { d: "Fire", ecol: "#ff6600" } },
+  h: [[50, 1, 3, 5, 0, 0, 0, 0], [100, 1, 2, 1000, 0, 0, 1, 0], [110, 1, 2, 1, 0, 0, 7, 0], [120, 1, 2, 1, 0, 0, 8, 0],
+    [300, 1, 2, 4, 0, 2, 0, 3]], v: [[290, "fx+", 2, 1, -1, 0, 5]] });
+const dmgPawnsBefore = S.pawns;
+S.pawns = new Map([["p2", { m: 100 }], ["p3", { m: 5000 }]]);
+const dmgOrderOut = {
+  order: recapHtml(dmgOrder, 0, 1000, []),
+  more: recapHtml(dmgOrder, 0, 1000, [], { tab: "enemies", more: new Set([2]) }),
+  me: recapHtml(dmgOrder, 0, 1000, [], { tab: 1, more: new Set() }),
+};
+S.pawns = new Map(); // (gone from the map: its pool kept)
+dmgOrderOut.kept = recapHtml(dmgOrder, 0, 1000, []);
+// Contributions (store.js contribution - design.md): slag's share of a hit its slagger's, a kill's overkill out of it
+// (in the damage dealt); a heal in no damage total (its own line in the log); Realtime's cards: the dead one kept
+// FADE_MS, then gone, the order by the fading score
+const dmgSlag = new DamageStore();
+dmgSlag.add({ a: { 1: { k: "me", n: "Me" }, 4: { k: "player", n: "Friend" }, 5: { k: "enemy", n: "Rakk" }, 6: { k: "enemy", n: "Psycho" } },
+  w: { 1: { n: "Gun" } },
+  h: [[100, 1, 5, 300, 0, 0, 1, 0, 0, { g: 0.5, by: [4] }], [200, 1, 5, 500, 0, 4, 1, 0, 0, { o: 400 }],
+    [300, 4, 1, 588, 0, 128, 1, 0], [900, 1, 6, 50, 0, 0, 1, 0]] });
+const dmgSlagRecap = gatherRecap(dmgSlag, 0, 1000);
+const dmgPlayerOut = (id) => { const x = dmgSlagRecap.players.get(id); return [x.dealt, x.contrib, x.slag, x.kills, x.healed, x.taken]; };
+const dmgSlagOut = {
+  life: [...dmgSlag.lives.get(5).parts].map(([id, part]) => [id, ...part]), total: dmgSlag.lives.get(5).total,
+  maxHit: dmgSlag.maxHit, dealt: dmgSlag.totals(1, 0, 1999), heat: [...dmgSlag.heat.values()].reduce((a, b) => a + b, 0),
+  me: dmgPlayerOut(1), friend: dmgPlayerOut(4),
+  live: realtimeEntries(dmgSlag, 1000, 30000).map((e) => [e.id, e.dead, e.filled]),
+  later: realtimeEntries(dmgSlag, 11000, 30000).map((e) => e.id),
+  lines: linesHtml(dmgSlag, 300), summary: summaryHtml(dmgSlag, 1000),
+};
+S.pawns = dmgPawnsBefore;
 const dmgGap = { count: dmgStore.count, events: dmgStore.events.map((e) => e.kind) };
 dmgStore.setKeep(1);
 dmgStore.expire(2 * 60000 + 1); // (a minute kept: the first minute's block gone)
@@ -484,7 +522,7 @@ const dmgExpired = { count: dmgStore.count, events: dmgStore.events.length };
 dmgSession = "s2";
 dmgFeed({ sid: "s2", t0: 9000, seq: 1, catchup: 1 });
 await dmgSettle();
-const damageOut = { selfSummary: dmgSelfSummary, urls: dmgUrls, first: dmgFirst, gap: dmgGap, expired: dmgExpired,
+const damageOut = { order: dmgOrderOut, slag: dmgSlagOut, selfSummary: dmgSelfSummary, urls: dmgUrls, first: dmgFirst, gap: dmgGap, expired: dmgExpired,
   second: { sid: dmgStore.sid, t0: dmgStore.t0, count: dmgStore.count, name: dmgStore.actors.get(1).n, rakk: dmgStore.actors.has(2) } };
 const missionsOut = { deltaOut, lootDetailRenders, rowsOut, shotCostOut, bonusOut, statsOut, lookOut, vaultCat, healthShown, variantWords, stepOrder, hitPicks, items, itemsLater, notYetWhy, fallback, where, tooHigh, finish, difficulty, best, search, infoHtml, areas, gameText, story: flat(tree.story), other: flat(tree.other), counts: missionCounts(log),
   objectives: objectiveStates(log[1]).map((s) => s.state) };
@@ -2996,12 +3034,46 @@ def check_helios_tracker() -> None:  # noqa: PLR0915
     assert 'class="dmsum"' not in dmg_first["quiet"], ("nothing in the last minute: no line", dmg_first["quiet"])
     assert dmg_page["selfSummary"].count('class="dmsum"') == 1 and ">500<" not in dmg_page["selfSummary"], (
         "one's own damage on oneself: not dealt", dmg_page["selfSummary"])
-    assert dmg_first["lines"].count('class="sw"><svg') == 6, ("each name with its map marker", dmg_first["lines"])
+    assert dmg_first["lines"].count('class="sw"><svg') == 3 and '"dma me"><span class="sw"' not in dmg_first["lines"], (
+        "each name with its map marker - not a player's (the user: their name is enough)", dmg_first["lines"])
     assert dmg_first["searched"].count('class="dmrow') == 1 and "dmtag crit" in dmg_first["searched"], dmg_first["searched"]
     assert dmg_first["windowed"].count('class="dmrow') == 1 and ">3<" in dmg_first["windowed"], dmg_first["windowed"]
-    dmg_overview = dmg_first["overview"]
-    assert dmg_overview.count('class="dmactor"') == 1 and ">Rakk<" in dmg_overview and ">20<" in dmg_overview, (
-        "the overview: an actor's dealt / taken, found by name", dmg_overview)
+    dmg_recap = dmg_first["recap"]
+    assert dmg_recap.count('class="dmcard') == 1 and ">Rakk<" in dmg_recap and 'data-dmrecap="1"' in dmg_recap, (
+        "the recap: a card per enemy (none for a player - their tab), the search filtering the hits", dmg_recap)
+    assert ">20<" in dmg_recap and ">2 hits<" in dmg_recap and dmg_recap.count('class="dmsrow kill"') == 1, (
+        "Rakk: took 20 - Me's two Gun hits one row, its killing blow marked", dmg_recap)
+    assert 'class="dmseg k0"' in dmg_recap and "--c:var(--dm-p1)" in dmg_recap, ("its bar: Me's hits, Me's colour", dmg_recap)
+    dmg_order = dmg_page["order"]
+    dmg_names = [n for n in ("Boss", "Psycho") if f">{n}<" in dmg_order["order"]]
+    assert sorted(dmg_names, key=lambda n: dmg_order["order"].index(f">{n}<")) == ["Boss", "Psycho"], (
+        "the biggest pool first (the user)", dmg_order["order"])
+    assert dmg_order["order"].count('class="dmcard') == 2, ("no card for a player", dmg_order["order"])
+    assert "width:100.0%" in dmg_order["order"] and "width:4.0%" in dmg_order["order"], (
+        "a bar as wide as its pool against the biggest - never under 4 %", dmg_order["order"])
+    assert dmg_order["kept"].index(">Boss<") < dmg_order["kept"].index(">Psycho<"), "the pool kept once off the map"
+    dmg_open = dmg_order["order"]
+    assert dmg_open.count("dmpinned") == 1 and dmg_open.index(">Still going<") < dmg_open.index(">1,000<"), (
+        "an effect still going on: its ticks on top", dmg_open)
+    assert "+ 2 more (2)" in dmg_open and ">Gun<" not in dmg_open, ("the small rows folded; no weapon names (the user)", dmg_open)
+    assert dmg_order["more"].count('class="dmsrow') - dmg_open.count('class="dmsrow') == 2 and ">Show less<" in dmg_order["more"], (
+        "...and shown")
+    assert 'background:#ff6600' in dmg_open.split(">Psycho<")[1].split("dmbarbox")[0], (
+        "the card's line: the element of the effect going on it", dmg_open)
+    dmg_me = dmg_order["me"]
+    assert ">1,011<" in dmg_me and ">Gun<" in dmg_me and dmg_me.index(">1,000<") < dmg_me.index(">Pebble<"), (
+        "a player's tab: their damage dealt, a row per weapon - the biggest first", dmg_me)
+    dmg_slag = dmg_page["slag"]
+    assert dmg_slag["life"] == [[1, 250, 0, 0], [4, 0, 0, 150]] and dmg_slag["total"] == 400, (
+        "slag's share the slagger's; the kill's overkill out of the contribution", dmg_slag)
+    assert dmg_slag["maxHit"] == 500 and dmg_slag["heat"] == 850 and dmg_slag["dealt"] == [850, 0], (
+        "a heal in no damage total; the overkill in the damage dealt", dmg_slag)
+    assert dmg_slag["me"] == [850, 300, 0, 1, 0, 0] and dmg_slag["friend"] == [0, 150, 150, 0, 588, 0], (
+        "the players: dealt, contribution, slag brought, kills, healing given, taken", dmg_slag)
+    assert dmg_slag["live"] == [[5, True, 1], [6, False, 1]] and dmg_slag["later"] == [6], (
+        "Realtime: the dead one kept a while (filled), then gone; the score's order", dmg_slag)
+    assert 'dmamt heal' in dmg_slag["lines"] and ">heal<" in dmg_slag["lines"], ("a heal's line", dmg_slag["lines"])
+    assert dmg_slag["summary"].count('class="dmsum"') == 1, ("the summary: a heal isn't damage dealt", dmg_slag["summary"])
     assert dmg_first["amounts"] == ["4.3", "99,999", "130.4K", "1.2M"], (
         "amounts in full up to 99,999, short from 100,000 (the user)", dmg_first["amounts"])
     assert dmg_first["amountWidths"] == ["6ch", "6ch"], "the column never narrower than before (99,999 > 130.4K)"
@@ -3545,8 +3617,10 @@ def check_damage_log() -> None:
             ("crush", 0x502, "DmgType_Crushed"))}
 
         def hit(instigator: object, health: float, shield: float = 0.0, crit: bool = False, source: str = "pistol",
-                causer: object = gun, element: object = fire) -> types.SimpleNamespace:
-            summary = dns(FinalDamage=health, DamageDealtToShields=shield, bWasCrit=crit)
+                causer: object = gun, element: object = fire, previous: float = 1e6,
+                slag: float = 0.0) -> types.SimpleNamespace:
+            summary = dns(FinalDamage=health, DamageDealtToShields=shield, bWasCrit=crit, PreviousHealth=previous,
+                          InitialDamage=health / 2 if slag else health, ExtraDamageDealtDueToAmplify=slag)
             return dns(Pipeline=dns(DamageSummary=summary, DamageInstigator=instigator, DamageTypeDef=element,
                                     DamageSource=sources[source]), DamageCauser=causer)
 
@@ -3652,13 +3726,26 @@ def check_damage_log() -> None:
         assert json.loads(hub._events["damage"].defs["w"][str(flood_row[6])]) == {"n": "DmgType_Crushed"}, "no causer: the source"
 
         # an object: its hit read in its TakeDamage's POST, destroyed by it - the killing blow; one hit for nothing: no row
-        barrel = dobj(0x700, DClass("WillowInteractiveObject"), bHasBeenKilled=False)
+        breakable = dns(bCanTakeDirectDamage=True, bCanTakeRadiusDamage=True)
+        barrel = dobj(0x700, DClass("WillowInteractiveObject"), bHasBeenKilled=False, InteractiveObjectDefinition=breakable,
+                      MaxHealth=50.0)
         call("object_open", barrel, hit(pc, 97.0))
         barrel.bHasBeenKilled = True
         call("object_close", barrel, hit(pc, 97.0))
-        crate = dobj(0x710, DClass("WillowInteractiveObject"), bHasBeenKilled=False)
+        crate = dobj(0x710, DClass("WillowInteractiveObject"), bHasBeenKilled=False, InteractiveObjectDefinition=breakable,
+                     MaxHealth=20.0)
         call("object_open", crate, hit(pc, 0.0))
         call("object_close", crate, hit(pc, 0.0))
+        # an object without health (its definition takes no damage - the map's rule, collector._health): not logged at
+        # all, whatever the hit says (the user)
+        no_health = dobj(0x711, DClass("WillowInteractiveObject"), bHasBeenKilled=False, MaxHealth=0.0,
+                         InteractiveObjectDefinition=dns(bCanTakeDirectDamage=False, bCanTakeRadiusDamage=False))
+        call("object_open", no_health, hit(pc, 12.0))
+        call("object_close", no_health, hit(pc, 12.0))
+        # a pawn hit for nothing: no row either
+        call("open", enemy_b, hit(pc, 0.0))
+        call("read", enemy_b, hit(pc, 0.0))
+        call("close", enemy_b)
         # a POST without its PRE (the hooks added mid-call): nothing; a read that fails: logged, the stack still paired
         call("close", enemy)
         call("open", enemy, hit(pc, 1.0))
@@ -3679,6 +3766,51 @@ def check_damage_log() -> None:
         log.tick(True)
         fire_row = batches()[-1]["h"][0]
         assert fire_row[1] == fifth["h"][0][2] and fire_row[2] == you, ("the barrel's fire: the barrel's", fire_row)
+
+        # a hit's extras (notes.md "Slag"): slag's bonus - its share of the hit (bonus / base + bonus) and who slagged the
+        # target (the slag effects running on it: another player's; a burn's instigator left out); a hit past the
+        # health left - its overkill; a plain hit - none
+        slag_friend = dobj(0x202, DClass("WillowPlayerController", "PlayerController", "Controller"), Pawn=None)
+        slagged_enemy = dobj(0x120, ai, StatusEffectComp=dns(ActiveStatusEffects=[
+            dns(StatusEffectDefinition=dns(StatusEffectType=dns(name="STATUS_EFFECT_Amp")), EventInstigator=slag_friend),
+            dns(StatusEffectDefinition=dns(StatusEffectType=dns(name="STATUS_EFFECT_Ignite")), EventInstigator=pc)]))
+        for slag_args in (hit(pc, 200.0, slag=100.0), hit(pc, 80.0, previous=30.0), hit(pc, 5.0)):
+            call("open", slagged_enemy, slag_args)
+            call("read", slagged_enemy, slag_args)
+            call("close", slagged_enemy)
+        log.tick(True)
+        slag_row, overkill_row, plain_row = batches()[-1]["h"]
+        assert slag_row[8] == 0 and slag_row[9]["g"] == 0.5 and len(slag_row[9]["by"]) == 1 and \
+            slag_row[9]["by"][0] not in (you, 0), ("slag's share, the friend who slagged it", slag_row)
+        assert overkill_row[8:] == [0, {"o": 50.0}] and len(plain_row) == 8, ("overkill; a plain hit: no extras",
+                                                                              overkill_row, plain_row)
+        # a heal (notes.md "Healing"): an ally's hit converted - HealDamage inside its TakeDamage, its amount the hit's
+        # FinalDamage: the row marked a heal, no overkill (the health given back past the health before); one outside
+        # any hit: its own row
+        heal_args = hit(slag_friend, 588.1, previous=100.0)
+        call("open", respawned, heal_args)
+        call("read", respawned, heal_args)
+        call("healed", respawned, dns(Healer=slag_friend, Amount=588.1, bIsShieldRestore=False))
+        call("close", respawned)
+        call("healed", respawned, dns(Healer=slag_friend, Amount=40.0, bIsShieldRestore=True))
+        log.tick(True)
+        heal_row, lone_heal_row = batches()[-1]["h"]
+        assert heal_row[2] == you and heal_row[3] == 588.1 and heal_row[5] == dmg.HEAL and len(heal_row) == 8, heal_row
+        assert lone_heal_row[2:6] == [you, 0.0, 40.0, dmg.HEAL], ("a shield restored outside a hit", lone_heal_row)
+        # a projectile (a new object each shot - probe_projectile.py): its weapon's hit (its Owner, an Inventory); an
+        # enemy's, no weapon: its Definition's - shared by every shot of its kind
+        projectile_cls = DClass("WillowProjectile", "Projectile", "Actor")
+        spore = dobj(0x810, DClass("ProjectileDefinition"))
+        for proj_args in (hit(pc, 30.0, causer=dobj(0x800, projectile_cls, Owner=gun, Definition=spore)),
+                          hit(enemy_mind, 9.0, causer=dobj(0x801, projectile_cls, Owner=None, Definition=spore)),
+                          hit(enemy_mind, 9.0, causer=dobj(0x802, projectile_cls, Owner=None, Definition=spore))):
+            call("open", slagged_enemy, proj_args)
+            call("read", slagged_enemy, proj_args)
+            call("close", slagged_enemy)
+        log.tick(True)
+        rocket_row, spore_row, spore_row_b = batches()[-1]["h"]
+        assert rocket_row[6] == crit_row[6], ("a projectile's hit: its weapon's (the gun's id)", rocket_row, crit_row)
+        assert spore_row[6] == spore_row_b[6] != crit_row[6], ("an enemy's projectiles: one id, their definition's", spore_row)
 
         # the stream: a new page told to catch up; one a batch behind gets it; the catch-up: every definition, the batches
         events = hub._events["damage"]

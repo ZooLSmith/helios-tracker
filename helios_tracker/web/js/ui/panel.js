@@ -3,7 +3,7 @@
 import { $, esc } from "../dom.js";
 import { renderLevel } from "../data.js";
 import { damageInfoChanged } from "../damage/info.js";
-import { KEEP_CHOICES } from "../damage/store.js";
+import { KEEP, keepMinutes } from "../damage/store.js";
 import { LOOK_RANGES, THEMES, applyLook, look, setThemeAttr, themeName } from "../look.js";
 import { COLORS, initColors } from "../shapes.js";
 import { CATALOG, langPref, setLanguage, t } from "../i18n.js";
@@ -148,14 +148,15 @@ export function initPanel() {
   };
   mapColorsBox.onchange = () => { settings.view.mapColors = mapColorsBox.value; saveSettings(); invalidate(); };
 
-  // Keep hits for: the damage log's (shown with the session's "damage" feature: damage/info.js)
+  // Keep hits for: the damage log's (shown with the session's "damage" feature: damage/info.js) - a slider, a minute
+  // each, up to 2 h (the user); applied on release (lowered, the hits past it are dropped: not at each step of a drag)
   const keepBox = $("keepHits");
-  const renderKeep = () => {
-    keepBox.innerHTML = KEEP_CHOICES.map((n) => `<option value="${n}">${esc(t("unit.minutes", { n }))}</option>`).join("");
-    keepBox.value = String(KEEP_CHOICES.includes(settings.view.keepHits) ? settings.view.keepHits : 10);
-  };
+  keepBox.min = KEEP.min; keepBox.max = KEEP.max; keepBox.step = 1;
+  const showKeep = (n) => { $("keepHitsVal").textContent = t("unit.minutes", { n }); };
+  const renderKeep = () => { const n = keepMinutes(settings.view.keepHits); keepBox.value = n; showKeep(n); };
   renderKeep();
-  keepBox.onchange = () => { settings.view.keepHits = +keepBox.value; saveSettings(); damageInfoChanged(); invalidate(); };
+  keepBox.oninput = () => showKeep(+keepBox.value);
+  keepBox.onchange = () => { settings.view.keepHits = keepMinutes(keepBox.value); saveSettings(); damageInfoChanged(); invalidate(); };
 
   const langBox = $("lang");
   languageRenders = () => { renderThemes(); renderKeep(); damageInfoChanged(); refreshStatus(); renderLevel(); renderPlayers(); renderTargets(); renderMotion(); renderLayers(); renderInspector(); renderMission(); invalidate(); };

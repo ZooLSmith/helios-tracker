@@ -7,8 +7,9 @@ import { hasFeature } from "../game.js";
 import { t } from "../i18n.js";
 import { settings } from "../settings.js";
 import { amountText } from "./amount.js";
-import { damageStore } from "./store.js";
-import { actorHtml, openDamageLog } from "./view.js";
+import { damageStore, isHeal } from "./store.js";
+import { actorHtml } from "./parts.js";
+import { openDamageLog } from "./view.js";
 
 const TOP = 4;
 const WINDOW_MS = 60000;
@@ -43,7 +44,7 @@ export function summaryHtml(store, end = store.now()) {
   const dealt = new Map();
   let total = 0;
   store.forEachHit(end - WINDOW_MS, end, (h) => {
-    if (!h.a || h.a === h.v) return; // (no attacker; one's own damage on oneself: not "dealt" - the user)
+    if (!h.a || h.a === h.v || isHeal(h)) return; // (no attacker; one's own damage on oneself: not "dealt" - the user; a heal)
     const amount = h.h + h.s;
     dealt.set(h.a, (dealt.get(h.a) || 0) + amount);
     total += amount;

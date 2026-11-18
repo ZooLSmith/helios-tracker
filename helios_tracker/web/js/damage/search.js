@@ -13,7 +13,7 @@ const defText = (def) => (def ? (def.raw ? prettyRaw(def.n) : def.n || "") : "")
 const all = (words, text) => words.every((w) => text.includes(w));
 
 // (the words of a hit's tags: their names as shown)
-const TAG_KEYS = [[FLAG.KILL, "dmg.kill"], [FLAG.CRIT, "dmg.crit"], [FLAG.DOWNED, "dmg.downed"], [FLAG.WIND, "dmg.wind"],
+const TAG_KEYS = [[FLAG.HEAL, "dmg.heal"], [FLAG.KILL, "dmg.kill"], [FLAG.CRIT, "dmg.crit"], [FLAG.DOWNED, "dmg.downed"], [FLAG.WIND, "dmg.wind"],
   [FLAG.EFFECT, "dmg.effect"], [FLAG.TICK, "dmg.tick"]];
 
 /** An actor's name (folded): one def -> its text, cached per definition object. */

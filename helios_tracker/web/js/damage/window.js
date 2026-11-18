@@ -1,17 +1,22 @@
-// The damage log's time window: one for the whole page (design.md - every damage view shows it), and its control - a
-// thin track over the time the hits are kept, two handles, the window between them. Live (the default): the right
+// The damage log's time range: the Recap and Log tabs' (design.md "The rework": shared - one fight recapped, then its
+// lines; Realtime has its own "last N s" slider), and its control - a thin track over the time the hits are kept, two
+// handles, the window between them. Live (the default): the right
 // handle at the end, the window sliding with the game, its width kept (its end reads "now"); the right handle dragged
 // back: frozen - back to the end: live again (the user: no button for it). The window itself dragged moves both
-// handles, its width kept (the user); a click on the track elsewhere centres it there. Its times relative ("60 s ago" -
-// the user). Right under the track, a 2 px heatmap of the damage over the same time (the user's idea): where the
+// handles, its width kept (the user); a click on the track elsewhere centres it there. Its times the clock's
+// ("10:30:12" - "now" live: the user, absolute for a stretch of time; relative is Realtime's). Right under the track, a 2 px heatmap of the damage over the same time (the user's idea): where the
 // fights were, at a glance. Reusable: any view builds one with rangeHtml() and refreshes it from the frames with refreshRange();
 // step 4's timeline goes under it.
 import { esc } from "../dom.js";
 import { t } from "../i18n.js";
+import { saveSettings, settings } from "../settings.js";
+import { clockText } from "./parts.js";
 
 export const MIN_WIDTH = 1000;
-/** The window: live (its width, ms) or frozen (t1 / t2: the log's ms). */
+/** The window: live (its width, ms) or frozen (t1 / t2: the log's ms). Its width the one last picked (the user: not
+ *  60 s each time) - settings.ui.damageWindow, opened live: that much time up to now. */
 export const damageWindow = { live: true, width: 60000, t1: 0, t2: 0 };
+let restored = false;
 
 /** The window now: [t1, t2] (the log's ms). */
 export function windowSpan(store) {
@@ -24,12 +29,6 @@ export function windowSpan(store) {
 function bounds(store) {
   const end = store.now();
   return [end - Math.max(store.keepMs, MIN_WIDTH), end];
-}
-
-/** How long ago a time of the log was: "now", "45 s ago", "3 min ago" (whole minutes from 2 min on). */
-export function agoText(store, ms) {
-  const s = Math.max(0, Math.round((store.now() - ms) / 1000));
-  return s < 1 ? t("dmg.now") : s < 120 ? t("dmg.agoS", { n: s }) : t("dmg.agoMin", { n: Math.round(s / 60) });
 }
 
 /** The control's HTML (one per view: data-dmrange binds it). */
@@ -48,10 +47,16 @@ function setWindow(root, a, b) {
   const [min, max] = scales.get(root);
   if (b >= max - (max - min) / 200) Object.assign(damageWindow, { live: true, width: Math.max(MIN_WIDTH, max - a) });
   else Object.assign(damageWindow, { live: false, t1: a, t2: b });
+  settings.ui.damageWindow = Math.round(damageWindow.live ? damageWindow.width : b - a); // (remembered: saved, debounced)
+  saveSettings();
 }
 
 /** Binds a control built from rangeHtml(); `changed()` when the user moves the window. */
 export function bindRange(root, store, changed) {
+  if (!restored) { // (the first time this page: the width last picked, live)
+    restored = true;
+    Object.assign(damageWindow, { live: true, width: Math.max(MIN_WIDTH, Number(settings.ui.damageWindow) || 60000) });
+  }
   const track = root.querySelector(".dmtrack");
   refreshRange(root, store);
   const span = () => {
@@ -117,7 +122,7 @@ export function refreshRange(root, store, scale = true) {
   root.querySelector(".dmh.lo").style.left = `${pct(t1)}%`;
   root.querySelector(".dmh.hi").style.left = `${pct(t2)}%`;
   drawHeat(root, store, min, max);
-  const from = agoText(store, t1), to = damageWindow.live ? t("dmg.now") : agoText(store, t2);
+  const from = clockText(store, t1), to = damageWindow.live ? t("dmg.now") : clockText(store, t2);
   if (root.querySelector(".dmfrom").textContent !== from) root.querySelector(".dmfrom").textContent = from;
   if (root.querySelector(".dmto").textContent !== to) root.querySelector(".dmto").textContent = to;
 }

@@ -386,7 +386,7 @@ The first questions, as asked:
   "All" opening the full view in the drawer, as Mission's opens the mission log (`missionAll`).
 - The store (`store.js`): two levels.
   - Hits: typed arrays, a column per field (~24 bytes a hit), in blocks (a minute each): expiring = dropping whole
-    blocks past the cutoff. Kept for a time, not a count - **Keep hits for** 1 / 5 / 10 / 30 / 60 min (default 10;
+    blocks past the cutoff. Kept for a time, not a count - **Keep hits for** a slider, 1-120 min (a minute each - the user; the server's history 2 h too, server.py EVENTS_KEEP_S; default 30 - the user, 2026-11-18: 10 was short;
     the Panels group): a boss fight can last an hour (the user). An hour at 100 hits/s (4 players) = 360k hits,
     ~9 MB; a safety cap ~1M hits (a pathological rate), the oldest dropped first.
   - Per-second totals for the whole session, never dropped (per player: dealt, taken - maybe crits, elements): a few
@@ -442,5 +442,57 @@ The range's times relative ("60 s ago" ... "now" - the user); live judged on the
 on - the window froze in the past, the user caught it). The log (the user: unreadable - too condensed, the time
 column in the way, weapon names in full): a time heading when the second changes, a line = who -> whom, its tags,
 what with as icons (a weapon's item card type icon - card_keys sent with its definition -, the element's icon), the
-amount; names and details in the line's tooltip. The Overview: a placeholder (dealt / taken per actor) - the real one
-is the actor's summary (one row per who / what with, the effects on top, the small ones folded: above) at steps 3-4.
+amount; names and details in the line's tooltip. The Overview (overview.js - the user's answers): one entry per actor
+(six Psychos, six entries - not merged by name), players first, then the biggest max health (the user: a boss above a
+Psycho - the map pawn's "m", kept once seen), then the latest hit; its line: name, the effects going on it (their
+elements), dead, dealt, took - a card each (the user: the list fills fast). Under it what it took (the user: not what
+it dealt - its total is on the line), always shown but a player's, which folds (the user: folding an enemy pointless),
+no weapon names (icons; the name in the tooltip - the user). The window's width the last picked, opened live
+(settings.ui.damageWindow - the user: not 60 s each time). It is the actor's
+summary above: a row per who / what with / element / hit or tick, the latest first; the ticks of an attacker with an
+effect still going on it pinned on top (a tick has no effect: the attacker's running effect is the link), rows under 2 %
+folded in "+ N more". The search filters the hits first ("rakk": Rakk, and who Rakk hit). To revisit (the user, not
+sure yet): each entry's current health / shield beside its name - a one-line version of the players' bars, in flex,
+not animated, gone once dead (the map pawn's h / s while it's there).
+The heatmap (the user's idea): 2 px under the time window, the damage per second over the track's time. Amounts in
+full up to 99,999, short from 100,000 (the user), their column as wide as the biggest hit seen.
+**The rework (the user, 2026-11-18 - _work/damage-log/ideas.md; built the same day; the Overview above superseded -
+recap.js took its rows):** three tabs in the drawer, one job each (view.js, settings.ui.damageTab):
+- **Realtime** (realtime.js): what's being done to the enemies now. A card per enemy / object being damaged - no
+  player cards; one not hit for 120 s gone (the user: no "how far back" slider - enemies die, it made no sense; a limit
+  for a fight left behind). Its bar (bars.js): its pool, filled by what it lost, split by who took it off - **over its
+  whole life** (store.js lives: per victim, for the session).
+  Tall, each segment's amount written in it when it has room (the user: else only on hover); the amount beside the name
+  what it lost - contributions, capped at its pool: no overkill (the user). Order: a fading score (its damage taken,
+  halved every 10 s), its pool breaking ties; a new order waits 1.5 s (a thin bar fills: the swap coming - the user's
+  debounce). The cards glide to their place in JS from the frames: the Refresh rate's (smooth / N fps stepped / updates
+  only at once - no CSS transition). Dead: translucent, struck through, gone 10 s later (the user: 4 s too short).
+- **Recap** (recap.js): who did what over a stretch. Its tabs: Enemies, then one per player (every player a tab).
+  Enemies: a card each, the biggest pool first; its bar as wide as its pool against the biggest listed (the user's
+  rule; never under 4 % - a Psycho beside a UVHM boss stays visible), **split by player** (my proposal, taken: the bar
+  says who took it down; the elements in the tooltip and the player's tab), then what it took (the Overview's rows).
+  A player: damage dealt (full, overkill in), contribution, slag brought, kills, healing given, taken; a row per
+  weapon / element / hits or ticks.
+- **Log**: as before, plus heals (their tag, their amount in green).
+- **Time**: Realtime none (its 120 s limit); Recap and Log **share** one range (window.js - the user: a fight recapped, then its
+  lines), its times the clock's ("10:30:12" ... "now" live).
+- **Pool** = max health + max shield (the user: a shield can't be bypassed), the biggest seen (parts.js maxPool - the map
+  pawn's m + sm, kept once it leaves the map).
+- **Contribution** (store.js `contribution`): a hit's health past what the victim had left (its overkill - the mod's
+  "o", from the game's PreviousHealth) out of it, but in the damage dealt (the user: weapons' numbers count it). Slag's
+  share of a hit (the mod's "g" = ExtraDamageDealtDueToAmplify / (InitialDamage + it): 0.5 at +100 % - notes.md "Slag")
+  goes to whoever's slag effect is running on the target ("by": its ActiveStatusEffects' Status_Amp instigators), split
+  equally between several, the shooter keeping theirs when they're one of them (the user: option 1 of 3 - a share of
+  the final amount; its one flaw known: a slag weapon on a slagged target is halved back by the game - the bonus field
+  still says +100 %, so its slagger gets half a hit slag didn't really add to).
+- **Colours**: the players dataviz's categorical slots 1-4 (blue, orange, aqua, yellow - validated on the panels' dark
+  surface, worst adjacent CVD ΔE 8.4), in a fixed order (the page's player first, then by log id - never by rank),
+  anyone else grey; ticks striped 45°, slag 135°; a legend above the bars; 2 px between segments.
+- **Heals** (notes.md "Healing"): an ally's heal is a hit (TakeDamage, HealDamage inside): the mod marks it HEAL (128) -
+  before, it read as damage dealt to the ally. In no damage total (summary, heat, totals, lives, contributions); the
+  Recap's "healing given"; the Log's lines. Regen: nobody's, not logged.
+- **Not logged** (the user): an object without health (its definition takes no damage or its MaxHealth is 0 - the
+  map's rule, collector._health: GAME.damage.object_has_health), and a hit that did nothing (0 to health and shield -
+  but one that killed, downed or gave a second wind keeps its row: that mark is the hit's).
+- Still open: two players' slag on one target (co-op: the probe's step a), a revive by another player, a heal outside
+  a hit (a vial, a Transfusion grenade), an interactive object's slag (its bonus stays its shooter's).

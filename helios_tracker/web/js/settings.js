@@ -43,15 +43,16 @@ export function defaults() {
       // the map images smoothed at any zoom (the canvas' bilinear: draw.js); off, its texels as squares - zoomed out,
       // thin lines dropped
       smoothMap: true,
-      keepHits: 10, // the damage log's hits kept on the page, minutes (damage/store.js KEEP_CHOICES; its totals: the session)
+      keepHits: 30, // the damage log's hits kept on the page, minutes (damage/store.js KEEP_CHOICES; its totals: the session)
     },
     ui: { lang: "auto", panelTab: "info", inspectorTab: "info", openLayers: [], closedGroups: [], showLockedMissions: false,
       missionGroup: "chain", missionGoal: "xp",
       missionFiltersClosed: false, // the mission list's filters folded away (more room for the list)
       panelCollapsed: false, // the left panel folded (its title row and the level only)
       closedInfo: [], // the Info tab's sections folded (their data-sec: "mission", "shops", "players")
-      shopTab: "weapons",
-      damageTab: "overview", // the damage log's view in the drawer: "overview" / "log" (damage/view.js) // the vending machines' tab (a machine kind: shops.py KINDS)
+      shopTab: "weapons", // the vending machines' tab (a machine kind: shops.py KINDS)
+      damageTab: "realtime", // the damage log's tab in the drawer: "realtime" / "recap" / "log" (damage/view.js)
+      damageWindow: 60000, // Recap's and Log's time range's width, ms - the one last picked, opened live (damage/window.js)
       // what the drawer shows, reopened on a refresh (ui/drawer.js): {} (closed), { k: "player", name },
       // { k: "mission", id } ("": the list), { k: "shops", id } ("": no machine first), { k: "detail", kind, id },
       // { k: "damage" } (the damage log)

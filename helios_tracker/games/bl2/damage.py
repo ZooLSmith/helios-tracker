@@ -38,29 +38,59 @@ class Damage(Part):
         ("WillowGame.WillowPawn:ClientOnRevived", True, "second_wind"),
         ("WillowGame.WillowPawn:SetInjuredDeadState", True, "dead_state"),
         ("WillowGame.WillowPawn:GoFromInjuredToHealthy", True, "healthy"),
+        # a heal (notes.md "Healing": an ally's hit converted to healing - a TakeDamage, HealDamage inside it, its
+        # FinalDamage the health given back): the hit marked a heal, not damage
+        ("WillowGame.WillowPawn:HealDamage", True, "healed"),
     )
 
     def __init__(self, profile: Any) -> None:
         super().__init__(profile)
         self._kinds: dict[int, int] = {}  # a damage source class's address -> its hits' kind (classes: static)
         self._areas: dict[int, bool] = {}  # a causer class's address -> a damage area (classes: static)
+        self._projectiles: dict[int, bool] = {}  # a causer class's address -> a projectile (classes: static)
         self._classes: dict[str, Any] = {}
 
     def hooks(self) -> tuple[tuple[str, bool, str], ...]:
         """The functions hooked: (path, PRE, role) - the roles damage.py handles."""
         return self.HOOKS
 
-    def hit(self, args: Any) -> tuple[Any, float, float, bool, Any, Any, int]:
+    def hit(self, args: Any) -> tuple[Any, float, float, bool, Any, Any, int, float, float]:
         """A hit, off its `Pipeline` (a WillowDamagePipeline - reused for every hit: read in the call): (the instigator - a
         controller, health damage, shield damage, crit, the element - its WillowDamageTypeDefinition or None, the source
-        class, its kind - NORMAL / TICK - an effect's / FLOOD - crushing, a hit every few tenths of a millisecond).
-        The amounts are the game's before the health clamps them (a 50-health barrel: 97 taken)."""
+        class, its kind - NORMAL / TICK - an effect's / FLOOD - crushing, a hit every few tenths of a millisecond, the
+        health before it, the amplified share - below).
+        The amounts are the game's before the health clamps them (a 50-health barrel: 97 taken): the health before it
+        (PreviousHealth) says how much of it was overkill.
+        The amplified share: slag's bonus over the hit's base and that bonus (notes.md "Slag": ExtraDamageDealtDueToAmplify
+        is slag's, 0 on a target not slagged, = InitialDamage - +100 % - on one slagged). The game applies the other
+        steps (crit, surface...) to the slagged amount, one after the other: the bonus's share of the hit is that ratio of
+        its final amounts (0.5) - 0 without a bonus."""
         pipeline = _field(args, "Pipeline")
         summary = _field(pipeline, "DamageSummary")
         source = _field(pipeline, "DamageSource")
+        extra = float(_field(summary, "ExtraDamageDealtDueToAmplify"))
+        base = float(_field(summary, "InitialDamage"))
+        share = extra / (base + extra) if extra > 0 and base + extra > 0 else 0.0
         return (_field(pipeline, "DamageInstigator"), float(_field(summary, "FinalDamage")),
                 float(_field(summary, "DamageDealtToShields")), bool(_field(summary, "bWasCrit")),
-                _field(pipeline, "DamageTypeDef"), source, self._kind(source))
+                _field(pipeline, "DamageTypeDef"), source, self._kind(source), float(_field(summary, "PreviousHealth")),
+                share)
+
+    def amplifiers(self, victim: Any) -> list[Any]:
+        """Who slagged `victim` (read only for a hit with an amplified share): the instigators (controllers) of the slag
+        effects running on it - its StatusEffectComp's ActiveStatusEffects whose definition's StatusEffectType is
+        STATUS_EFFECT_Amp (Startup.upk's GD_Amp.StatusEffect.Status_Amp; notes.md "Slag": re-applied by the same player it
+        refreshes - one entry -, by two players not seen yet). A pawn's only: an interactive object's effects not probed
+        (none: its bonus stays its shooter's)."""
+        if not victim.Class._inherits(self._cls("WillowPawn")):
+            return []
+        out = []
+        for ase in _field(_field(victim, "StatusEffectComp"), "ActiveStatusEffects"):
+            definition = _field(ase, "StatusEffectDefinition")
+            kind = _field(definition, "StatusEffectType") if definition is not None else None
+            if getattr(kind, "name", kind) == "STATUS_EFFECT_Amp":
+                out.append(_field(ase, "EventInstigator"))
+        return out
 
     def _kind(self, source: Any) -> int:
         if source is None:
@@ -74,8 +104,25 @@ class Damage(Part):
 
     def causer(self, args: Any) -> Any:
         """What dealt it (TakeDamage's DamageCauser - the pipeline has none): a weapon, a grenade's or a firing mode's
-        Behavior_Explode, a MeleeDefinition, a vehicle's weapon... None for some (run over, crushed)."""
-        return _field(args, "DamageCauser")
+        Behavior_Explode, a MeleeDefinition, a vehicle's weapon... None for some (run over, crushed).
+        A projectile (a rocket, a Dahl rifle's grenade, an enemy's spore bomb) is a new object each shot - one entry per
+        shot, the user saw "Projectile 1", "Projectile 98": its weapon instead, its Owner when that's an Inventory (a
+        player's - probe_projectile.py), else its Definition (a ProjectileDefinition: shared by every shot of its kind -
+        an enemy's)."""
+        causer = _field(args, "DamageCauser")
+        if causer is None or not self._is_projectile(causer):
+            return causer
+        owner = _field(causer, "Owner")
+        if owner is not None and owner.Class._inherits(self._cls("Inventory")):
+            return owner
+        return _field(causer, "Definition") or causer
+
+    def _is_projectile(self, obj: Any) -> bool:
+        key = obj.Class._get_address()
+        found = self._projectiles.get(key)
+        if found is None:
+            found = self._projectiles[key] = bool(obj.Class._inherits(self._cls("WillowProjectile")))  # (once per class)
+        return found
 
     def owner(self, causer: Any) -> Any:
         """The object a causer belongs to, when the game ties it to one: a damage area (a barrel's fire on the ground) -
@@ -92,6 +139,15 @@ class Damage(Part):
             return None
         owner = _field(causer, "Owner")
         return owner if owner is not None and owner.Class._inherits(self._cls("WillowInteractiveObject")) else None
+
+    def object_has_health(self, obj: Any) -> bool:
+        """An interactive object that has health (the log leaves the others out - the user): its definition can take
+        damage (bCanTakeDirectDamage / bCanTakeRadiusDamage) and its MaxHealth is above 0 - the map's own rule
+        (collector._health)."""
+        definition = _field(obj, "InteractiveObjectDefinition")
+        if definition is None or not (_field(definition, "bCanTakeDirectDamage") or _field(definition, "bCanTakeRadiusDamage")):
+            return False
+        return float(_field(obj, "MaxHealth")) > 0
 
     def object_killed(self, obj: Any) -> bool:
         """An interactive object destroyed (a barrel blown): its bHasBeenKilled - read before and after its hit."""
@@ -125,6 +181,11 @@ class Damage(Part):
         ase = _field(args, "ASE")
         return (component.Outer, _field(ase, "EventInstigator"), _field(ase, "DamageCauser"),
                 _field(ase, "StatusEffectDefinition"))
+
+    def healed(self, args: Any) -> tuple[Any, float, bool]:
+        """HealDamage(Amount, Healer, DamageType, DamageTypeDefinition, bIsShieldRestore): (the healer - a controller, the
+        amount, to the shield)."""
+        return _field(args, "Healer"), float(_field(args, "Amount")), bool(_field(args, "bIsShieldRestore"))
 
     def downed_by(self, args: Any) -> Any:
         """PlayInjured(Killer, ...): who downed them (a controller)."""

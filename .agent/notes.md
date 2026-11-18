@@ -820,6 +820,46 @@ a barrel, your own grenade. Run 1's function listing kept in tools/probes/probe_
     Not seen: a revive by another player (co-op), `KilledBy`.
 - Not seen yet: a co-op client (TakeDamage is server-side in UE3: a client likely gets none of this), vehicles,
   the player hit by an enemy (only by their own grenade), enemies hitting each other.
+- **Slag** (probe_slag.py, 2 runs, solo, Ice_P - bullymongs, a slag pistol, a corrosive launcher, an incendiary sniper,
+  2026-11-18): **`DamageSummary.ExtraDamageDealtDueToAmplify` is slag's bonus** - 0 on every hit on a target not
+  slagged (probe_damage.py's too: plain, fire, crits, a barrel, a grenade), = `InitialDamage` (+100 %) on every hit on
+  a slagged one, whatever the gun (the sniper's fire, the launcher's corrosive, the slag pistol itself); mirrored as a
+  negative `DamageSourceReduction` of the same amount. An Amp shield not tried (none at hand).
+  - The bonus is gross: the reductions are applied one after another (each the damage it added / removed at its step:
+    the crit's, the surface's then multiply the slagged amount - the sniper's 17,361 + 17,361, then x4.2 crit, x1.75
+    flesh = 257,636). A slag weapon on a slagged target: the victim's `AmpImpactDamageModifier` 0.5 (an
+    AttributeModifier from `SkillEffectManager.Skill_N`: the slag effect runs as a skill) shows as a +bonus
+    `DamageSurfaceReduction` - Final = Initial: the bonus there cancelled (the field still says +100 %).
+  - The effect: `GD_Amp.StatusEffect.Status_Amp`, Duration 8 s, DamagePerSecond 0 (no ticks). Applied inside the hit
+    (`ApplyStatusEffect`) like the others, but **re-applied it refreshes** - one entry in the target's
+    `StatusEffectComp.ActiveStatusEffects` (an array of the ASE struct, `EventInstigator` the slagger), its
+    TotalElapsedTime back to 0 - not a second effect (burns: each its own). Re-applied by another player: not seen (co-op).
+  - Probes' `_brief`: a WrappedArray has a `_type` too - tested after the struct test it printed every array "{}"
+    (probe_status_effect.py's ModifierStacks too - read as empty, unknown). probe_slag.py tests the array first.
+- **Healing** (probe_healing.py, co-op on the host, 2026-11-18 - the friend's SMG and rocket healing the host): **an
+  ally's heal is a hit** - its TakeDamage runs, and inside it `WillowCoopGameInfo:ConvertDamageToHealing(Damage,
+  DamagedPawn, DamageInstigator, DamageSource, Pipeline)`, then the healed pawn's `WillowPawn:HealDamage(Amount,
+  Healer - the healer's controller, DamageType - the source class, DamageTypeDefinition DmgType_Healing_Impact_NoDoT,
+  bIsShieldRestore)`, then `PlayHealingHit`. The pipeline's InitialDamage is the gun's (1,960 / 177,250), FinalDamage
+  the health given back (= Amount: 588 / 16,547). The damage log marks such a hit a heal (HEAL: HealDamage inside its
+  frame) - before, it read as damage dealt to the ally.
+  - Natural regeneration calls nothing hooked: health rises a little every frame (+0.7 to +1.6 at 120 fps here), no
+    script function - not in the log (nobody's heal). HealDamage outside a hit: not seen (a vial, a Transfusion
+    grenade: to try) - the log keeps it as its own heal row.
+  - The rocket's splash on an enemy ran ConvertDamageToHealing too (an AI pawn), then PlayHealingHit - no HealDamage:
+    not understood; the hit stays damage.
+  - Calling a game function on every `find_all("WillowPlayerPawn")` result crashed the game (run 2: GetHealth() from
+    PostRender - one of them not a pawn in play); read instead: `HealthPool.Data` (a HealthResourcePool) CurrentValue /
+    MaxValue. Run 1 hooked 117 functions picked by name (interfaces, UI, engine natives) and crashed as they went in:
+    hook a few picked by hand.
+  - Not tried yet: two players' slag on one target, a revive by another player.
+- **A projectile's weapon** (probe_projectile.py, 2026-11-18 - a Dahl rifle's grenades, an enemy's spore bomb): a hit by a
+  projectile names the `WillowProjectile` as its DamageCauser - a new object each shot (the log had "Projectile 1",
+  "Projectile 98" for one launcher). A player's: its `Owner` the `WillowWeapon` that fired it (its `Instigator` the
+  pawn, `InstigatorController` the controller), its `Definition` a ProjectileDefinition
+  (`GD_Weap_AssaultRifle.Projectiles.Projectile_Dahl_Grenade`); an enemy's: no Owner, its Definition
+  (`GD_Sage_GiantSpore_Corrosive.Projectiles.Projectile_Spore_CorrosiveBomb`). The log credits the Owner when it's an
+  Inventory, else the Definition (GAME.damage.causer). A thrown grenade not dumped yet.
 
 ## Item serials / Gibbed codes (probe_serial.py + probe_serial2.py, in game, both games, 2026-09-26)
 

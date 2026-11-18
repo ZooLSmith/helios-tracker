@@ -11,8 +11,9 @@ import { tipAttrs } from "./hovertip.js";
 /** A player's "Who" value (Settings): the mod's own player "me", the others by name (ids change per level). */
 export const whoValue = (p) => (p.local ? "me" : p.n);
 
-/** A labelled bar: text on the left, value on the right, the fill = fraction (0..1). */
-function barRow(label, value, fraction, cls) {
+/** A labelled bar: text on the left, value on the right, the fill = fraction (0..1). Also the damage log's Realtime
+ *  cards' (damage/realtime.js: an enemy's shield and health). */
+export function barRow(label, value, fraction, cls) {
   return `<div class="ibar ${cls}"><i style="width:${(Math.max(0, Math.min(1, fraction)) * 100).toFixed(1)}%"></i>` +
     `<span class="ibl">${esc(label)}</span><span class="ibv">${esc(value)}</span></div>`;
 }

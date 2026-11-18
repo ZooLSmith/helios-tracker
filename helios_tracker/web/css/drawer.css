@@ -448,8 +448,71 @@
 /* the log: a virtual list (damage/vlist.js) - the lines in view in a spacer as tall as all of them */
 .vspace { position: relative; }
 .vrows { position: absolute; left: 0; right: 0; top: 0; will-change: transform; }
-/* the overview: an actor a row - its name, what it dealt, what it took */
-.dmactor { display: grid; grid-template-columns: minmax(0, 1fr) 56px 56px; column-gap: 6px; padding: 2px 0;
-  border-bottom: 1px solid var(--hover); font-size: 11px; }
-.dmactor.dmhead { color: var(--dim); font-size: 10px; text-transform: uppercase; text-align: right; }
-.dmamt.taken { color: var(--dim); }
+/* the Recap (damage/recap.js): an enemy a card - its line (its name, its state: effects going on, dead -, what it took),
+   its bar, what it took under it - a row per who / what with, the ones still going on top; a player's tab: their
+   numbers, a row per weapon. Its own tabs under the range */
+.dmcard { background: var(--card); border: 1px solid color-mix(in srgb, var(--panel-edge) 55%, transparent); border-radius: 5px;
+  padding: 3px 8px; margin: 0 0 5px; }
+.dmentry { display: flex; flex-wrap: wrap; align-items: center; column-gap: 8px;
+  padding: 2px 0; font-size: 11px; }
+.dmentry.opens { cursor: pointer; }
+.dmentry.opens:hover .dma { text-decoration: underline; }
+.dmfold { display: inline-flex; vertical-align: -3px; margin-right: 4px; color: var(--dim); font-size: 14px; }
+.dmentry.opens:hover .dmfold { color: var(--text); }
+.dmstate { display: flex; align-items: center; gap: 3px; }
+.dmstate .dmi.element { height: 12px; }
+/* what it dealt / took: a small label before each */
+/* (the name keeps its room: the numbers wrap under it when they don't fit beside it - the user) */
+.dmentry > .dmwho { flex: 1 1 9em; min-width: 9em; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.dmstats { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 0 10px; margin-left: auto; font-variant-numeric: tabular-nums; font-weight: 600; }
+.dmstat { display: inline-flex; align-items: baseline; gap: 4px; }
+.dmstat.taken { color: var(--dim); }
+.dmstatl { font-size: 9px; font-weight: 400; letter-spacing: .06em; text-transform: uppercase; color: var(--dim); }
+.dmrows { margin: 1px 0 2px; padding-top: 2px; border-top: 1px solid var(--hover); }
+.dmsrow { display: grid; grid-template-columns: minmax(0, 1fr) auto auto auto; align-items: center; column-gap: 6px;
+  height: 20px; font-size: 11px; }
+.dmsrow .dmwhat { display: inline-flex; vertical-align: -2px; margin-right: 4px; }
+.dmsrow.kill .dmamt { color: var(--bad); }
+.dmcount { color: var(--dim); font-size: 10px; font-variant-numeric: tabular-nums; }
+.dmpinned { border-bottom: 1px solid var(--panel-edge); margin-bottom: 2px; padding-bottom: 2px; }
+.dmsubhead { color: var(--heading); font-size: 9px; letter-spacing: .08em; text-transform: uppercase; }
+.dmmore { display: block; margin: 2px 0 0; font-size: 11px; }
+.dmcard.dead .dmentry .dma { text-decoration: line-through; }
+.dmrecaptabs { margin: 0 0 6px; }
+.dmrecaptabs .seg { flex-wrap: wrap; }
+.dmsrow .nm { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.dmstat.heal, .dmamt.heal, .dmtag.heal { color: var(--live); }
+/* The damage bars (damage/bars.js): an enemy's pool a track, filled from the left by what it lost, a segment per source
+   in its colour (dataviz's categorical slots 1-4, validated on the panels' dark surface - the players, in a fixed order:
+   parts.js sourceColor), anyone else grey; ticks striped 45°, the slag a player brought striped 135°; 2 px between
+   segments */
+#inspector { --dm-p1: #3987e5; --dm-p2: #d95926; --dm-p3: #199e70; --dm-p4: #c98500; --dm-other: #7c8791; }
+.dmbarbox { margin: 3px 0 2px; }
+.dmtrackbar { height: 8px; border-radius: 3px; background: var(--hover); overflow: hidden; }
+.dmfill { display: flex; gap: 2px; height: 100%; min-width: 0; }
+.dmseg { display: block; flex: 1 1 0; min-width: 2px; height: 100%; background: var(--c); }
+.dmseg:first-child { border-radius: 3px 0 0 3px; }
+.dmtrackbar.big { height: 16px; }
+.dmseg b { display: block; overflow: hidden; white-space: nowrap; text-overflow: clip; padding: 0 3px; font-size: 10px; font-weight: 600;
+  line-height: 16px; color: #fff; text-shadow: 0 0 2px #000, 0 0 1px #000; font-variant-numeric: tabular-nums; }
+.dmseg.k1, .dmkey i.k1 { background: repeating-linear-gradient(45deg, var(--c, var(--dim)) 0 3px, color-mix(in srgb, var(--c, var(--dim)) 45%, transparent) 3px 5px); }
+.dmseg.k2, .dmkey i.k2 { background: repeating-linear-gradient(135deg, var(--c, var(--dim)) 0 2px, transparent 2px 4px); }
+.dmlegend { display: flex; flex-wrap: wrap; gap: 4px 10px; margin: 0 0 6px; font-size: 11px; color: var(--dim); }
+.dmkey { display: inline-flex; align-items: center; gap: 4px; }
+.dmkey i { display: inline-block; width: 10px; height: 8px; border-radius: 2px; background: var(--c); }
+/* Realtime (damage/realtime.js): a card per enemy - its name, what it lost, its bar; a dead one translucent, struck
+   through, until it goes; the cards moved in JS (their transform: the Refresh rate's frames - no CSS transition) */
+.dmswap { height: 2px; margin: 0 0 4px; }
+.dmswap i { display: block; height: 100%; width: 0; background: var(--accent); }
+.dmrt { position: relative; }
+.dmrcard { background: var(--card); border: 1px solid color-mix(in srgb, var(--panel-edge) 55%, transparent); border-radius: 5px;
+  padding: 3px 8px 4px; margin: 0 0 5px; }
+.dmrcard.dead { opacity: .45; }
+.dmrcard.dead .dma { text-decoration: line-through; }
+.dmrline { display: flex; align-items: center; gap: 8px; font-size: 12px; }
+/* its shield and health side by side: the Info tab's bars (.ibar), smaller */
+.dmrvit { display: flex; gap: 4px; }
+.dmrvit:empty { display: none; }
+.dmrvit .ibar { flex: 1 1 0; min-width: 0; height: 16px; margin: 2px 0 0; padding: 0 6px; gap: 6px; font-size: 11px; }
+.dmrline .dmwho { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.dmramt { font-variant-numeric: tabular-nums; font-weight: 600; }

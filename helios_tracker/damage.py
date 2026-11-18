@@ -17,7 +17,8 @@ mix enemies): an address -> (a WeakPointer, its id), the pointer dead = a new id
 respawns (their controller: GAME.damage.identity).
 
 A batch: {"q": its sequence (the hub's), "h": [hits], "v": [events], "a" / "w" / "e": definitions new or changed}:
-- a hit: [t, attacker, target, health, shield, flags, what, element] (+ count: a folded one's) - t ms since the log's
+- a hit: [t, attacker, target, health, shield, flags, what, element] (+ count: a folded one's; + 0, extras: a hit with
+  any - DamageLog._extra: {"o": overkill, "g": slag's share, "by": who slagged it}) - t ms since the log's
   start (the hub's "t0": its epoch ms), attacker / target "a" ids (0: none), what a "w" id (the causer - a weapon, a
   grenade's explosion, a melee... - else the damage source; 0: none), element an "e" id (0: none); flags below;
 - an event: [t, kind, actor, other, hit, ...] - hit: the index in this batch's "h" of the hit it happened in (-1: none):
@@ -51,6 +52,7 @@ EFFECT = 8  # it applied an effect (ApplyStatusEffect ran inside it)
 DOWNED = 16  # it downed its target (a player: Fight For Your Life)
 SECOND_WIND = 32  # it gave a downed player a second wind (the kill)
 FOLDED = 64  # a flood's hits summed: the row's count after its element
+HEAL = 128  # a heal, not damage: its amounts given back (an ally's hit converted to healing - HealDamage inside it)
 
 
 def _amount(value: float) -> float:
@@ -226,7 +228,7 @@ class DamageLog:
 
     def _read(self, victim: Any, args: Any, frame: list[Any] | None) -> list[Any] | None:
         damage = games.GAME.damage
-        instigator, health, shield, crit, element, source, kind = damage.hit(args)
+        instigator, health, shield, crit, element, source, kind, previous, amplified = damage.hit(args)
         causer = frame[4] if frame is not None else None
         # who dealt it: the game's instigator - but a barrel's fire is the barrel's (the user: shown as its own source,
         # like an enemy - not the player who set it off), as the game ties it (GAME.damage.owner)
@@ -241,7 +243,7 @@ class DamageLog:
             key = (attacker, target, what, element_id)
             row = self._floods.get(key)
             if row is not None and t - row[0] >= FOLD_MS:
-                self._queue.append(("h", _rounded(self._floods.pop(key))))
+                self._queue_flood(self._floods.pop(key))
                 row = None
             if row is None:
                 row = self._floods[key] = [t, attacker, target, 0.0, 0.0, flags | FOLDED, what, element_id, 0]
@@ -250,11 +252,30 @@ class DamageLog:
             row[8] += 1
         else:
             row = [t, attacker, target, round(_amount(health), 1), round(_amount(shield), 1), flags, what, element_id]
+            extra = self._extra(victim, _amount(health), _amount(previous), _amount(amplified))
+            if extra:
+                row.extend((0, extra))  # (its count: a folded row's only)
         if frame is not None:
             frame[1] = row
         elif kind != 2:
-            self._queue.append(("h", row))  # (a read outside its TakeDamage: done at once)
+            if row[3] or row[4]:  # (a read outside its TakeDamage: done at once - a hit for nothing not logged)
+                self._queue.append(("h", row))
         return row
+
+    def _extra(self, victim: Any, health: float, previous: float, amplified: float) -> dict[str, Any]:
+        """A hit's extras ({} none - most hits): "o" its overkill (the health it dealt past what was left: the game's
+        amounts aren't clamped - a kill's contribution stops at the kill, its damage dealt doesn't: the user), "g" the
+        share of it slag's bonus made (GAME.damage.hit), "by" who slagged the target (actor ids - the ones whose slag
+        is running on it: GAME.damage.amplifiers - read for such a hit only)."""
+        extra: dict[str, Any] = {}
+        if previous > 0 and health > previous:
+            extra["o"] = round(health - previous, 1)
+        if amplified > 0:
+            extra["g"] = round(amplified, 4)
+            by = sorted({self._actor(x) for x in games.GAME.damage.amplifiers(victim) if x is not None} - {0})
+            if by:
+                extra["by"] = by
+        return extra
 
     def _on_close(self, obj: Any, args: Any) -> None:
         if (frame := self._top(obj)) is None:
@@ -266,17 +287,22 @@ class DamageLog:
         if (frame := self._top(obj)) is None:
             return
         self._frames.pop()
-        row = self._read(obj, args, frame)
-        if row is not None and not row[3] and not row[4] and not row[5] & FOLDED:
-            frame[1] = None  # (an object hit for nothing - one that takes no damage: not a hit to log)
-        elif not frame[5] and games.GAME.damage.object_killed(obj):
+        if not games.GAME.damage.object_has_health(obj):
+            self._close(frame)  # (an object without health: not logged at all - the user; its events, if any, unlinked)
+            return
+        self._read(obj, args, frame)
+        if not frame[5] and games.GAME.damage.object_killed(obj):
             frame[2] |= KILL
         self._close(frame)
 
     def _close(self, frame: list[Any]) -> None:
         row = frame[1]
+        if row is not None and not row[3] and not row[4] and not (row[5] | frame[2]) & (FOLDED | KILL | DOWNED | SECOND_WIND):
+            row = None  # (a hit for nothing: not logged - the user; one that killed / downed / gave a second wind kept)
         if row is not None:
             row[5] |= frame[2]
+            if row[5] & HEAL and not row[5] & FOLDED:
+                del row[8:]  # (a heal: no overkill, no slag - its amounts are what it gave back)
             if not row[5] & FOLDED:  # (a flood's row: queued at its span's end)
                 self._queue.append(("h", row))
         for event in frame[3]:
@@ -311,6 +337,17 @@ class DamageLog:
 
     def _on_effect_end(self, obj: Any, args: Any) -> None:
         self._effect("fx-", obj, args)
+
+    def _on_healed(self, obj: Any, args: Any) -> None:
+        healer, amount, shield = games.GAME.damage.healed(args)
+        if (frame := self._top(obj)) is not None:
+            frame[2] |= HEAL  # (the hit's own amounts are the heal: its FinalDamage the health given back)
+            return
+        # a heal outside any hit (not seen yet - regen calls nothing): its own row, nothing dealt it
+        amount = round(_amount(amount), 1)
+        self._queue.append(("h", [self._ms(), self._actor(healer), self._actor(obj), 0.0 if shield else amount,
+                                  amount if shield else 0.0, HEAL, 0, 0]))
+        self.stats["hits"] += 1
 
     def _on_downed(self, obj: Any, args: Any) -> None:
         player = self._actor(obj)
@@ -372,7 +409,13 @@ class DamageLog:
         for key, row in list(self._floods.items()):
             if force or now - row[0] >= FOLD_MS:
                 del self._floods[key]
-                self._queue.append(("h", _rounded(row)))
+                self._queue_flood(row)
+
+    def _queue_flood(self, row: list[Any]) -> None:
+        """A flood's row, its span over: queued - unless it summed to nothing (not logged: the user)."""
+        row = _rounded(row)
+        if row[3] or row[4]:
+            self._queue.append(("h", row))
 
     def _definitions(self) -> dict[str, dict[str, Any]]:
         """The new ids named (game calls: here, never in a hook), those that changed since last sent."""
