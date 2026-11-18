@@ -514,5 +514,14 @@ recap.js took its rows):** three tabs in the drawer, one job each (view.js, sett
   (its replicated health / shield) one row a second from the **"unattributed"** actor (`reserve_actor`, named by the page:
   dmg.unattributed) - the bars' totals right, in grey; an enemy's death (TornOff) a "died" event. Not on a client: effects,
   a killing blow, a player downed / revived (InjuredState is replicated - not read yet), what dealt a hit.
+  The user's word on it (2026-11-19): "better than nothing". Not built, to revisit:
+  - **Others' damage credited to them**: pair each PlayHit (its attacker known) with its victim's next health / shield
+    drop (seen 5-30 ms after it, notes.md) - the host's share in the bars and the Recap instead of "unattributed". Left
+    out for now (the user's pick): a timing match, not a link the game gives - two hits in one network update, a burn's
+    tick landing in between, would go to the wrong player. If built: the profile already reads both (client_hit,
+    vitals); damage_client.py's _read is where a drop would meet the hits waiting for it.
+  - **Downed / revived on a client**: exact - a pawn's `InjuredState` / `InjuredDeadState` are replicated (Net:
+    probe_damage_client.txt section 1a); read with the victims at the tick, a change = the host's "down" / "dead" /
+    "up" events (who downed them: not known there). `ClientOnRevived` (a second wind) runs on a client too.
 - Still open: two players' slag on one target (co-op: the probe's step a), a revive by another player, a heal outside
   a hit (a vial, a Transfusion grenade), an interactive object's slag (its bonus stays its shooter's).
