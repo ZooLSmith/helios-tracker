@@ -494,5 +494,9 @@ recap.js took its rows):** three tabs in the drawer, one job each (view.js, sett
 - **Not logged** (the user): an object without health (its definition takes no damage or its MaxHealth is 0 - the
   map's rule, collector._health: GAME.damage.object_has_health), and a hit that did nothing (0 to health and shield -
   but one that killed, downed or gave a second wind keeps its row: that mark is the hit's).
+- **Its cost, measured** (the user: check the impacts): the mod - tools/probes/damage_log_stats.py (each hook role's
+  calls / mean / max, ms per second, the busiest second, the tick's draining), damage_log_reset.py to measure one fight
+  alone; the page - heliosDamagePerf() in the browser's console (damage/perf.js: a batch into the store, each tab's
+  drawing, the glide, the range, the Info summary - calls, mean, max, ms per second), .reset().
 - Still open: two players' slag on one target (co-op: the probe's step a), a revive by another player, a heal outside
   a hit (a vial, a Transfusion grenade), an interactive object's slag (its bonus stays its shooter's).

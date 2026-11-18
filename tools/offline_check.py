@@ -3834,6 +3834,14 @@ def check_damage_log() -> None:
         assert rocket_row[6] == crit_row[6], ("a projectile's hit: its weapon's (the gun's id)", rocket_row, crit_row)
         assert spore_row[6] == spore_row_b[6] != crit_row[6], ("an enemy's projectiles: one id, their definition's", spore_row)
 
+        # its cost measured (the user: check the impacts - tools/probes/damage_log_stats.py): per hook role, the tick's
+        # draining, the busiest second; a reset starts over
+        dmg_summary_text = log.summary()
+        assert "busiest second" in dmg_summary_text and "    read:" in dmg_summary_text and "tick:" in dmg_summary_text, (
+            dmg_summary_text)
+        assert log.stats["roles"]["open"][0] > 0 and log.stats["drains"] > 0, log.stats
+        log.reset_stats()
+        assert log.stats["hook_calls"] == 0 and not log.stats["roles"], "reset"
         # the stream: a new page told to catch up; one a batch behind gets it; the catch-up: every definition, the batches
         events = hub._events["damage"]
         last_seq = events.seq

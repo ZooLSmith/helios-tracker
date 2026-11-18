@@ -116,7 +116,8 @@ class DamageLog:
         self._down: dict[int, str] = {}  # a downed player's actor id -> "down" / "wind" (a second wind) / "dead"
         self._actors, self._what, self._elements = _Ids(), _Ids(), _Ids()
         self._sent: dict[tuple[str, int], dict[str, Any]] = {}
-        self.stats = {"hits": 0, "events": 0, "batches": 0, "hook_s": 0.0, "hook_max_s": 0.0, "hook_calls": 0}
+        self.stats: dict[str, Any] = {}
+        self.reset_stats()
 
     # region Switching
 
@@ -157,8 +158,6 @@ class DamageLog:
     def _handler(self, role: str) -> Any:
         body = getattr(self, "_on_" + role)
         failed: set[type] = set()
-        stats = self.stats
-
         def hook(obj: Any, args: Any, ret: Any, func: Any) -> None:  # noqa: ARG001
             with FRAMES.ours():
                 start = time.perf_counter()
@@ -168,13 +167,38 @@ class DamageLog:
                     if type(ex) not in failed:
                         failed.add(type(ex))
                         log_error(f"damage {role}", ex)
-                spent = time.perf_counter() - start
-                stats["hook_s"] += spent
-                stats["hook_calls"] += 1
-                if spent > stats["hook_max_s"]:
-                    stats["hook_max_s"] = spent
+                self._measure(role, start, time.perf_counter() - start)
 
         return hook
+
+    def _measure(self, role: str, start: float, spent: float) -> None:
+        """A hook's time: in all, its role's, its second's (the busiest second: what a hitch is made of)."""
+        stats = self.stats
+        stats["hook_s"] += spent
+        stats["hook_calls"] += 1
+        if spent > stats["hook_max_s"]:
+            stats["hook_max_s"] = spent
+        r = stats["roles"].get(role)
+        if r is None:
+            r = stats["roles"][role] = [0, 0.0, 0.0]  # calls, total s, max s
+        r[0] += 1
+        r[1] += spent
+        if spent > r[2]:
+            r[2] = spent
+        second = int(start)
+        if second != stats["second"]:
+            stats["second"], stats["second_s"], stats["second_calls"] = second, 0.0, 0
+        stats["second_s"] += spent
+        stats["second_calls"] += 1
+        if stats["second_s"] > stats["worst_second_s"]:
+            stats["worst_second_s"], stats["worst_second_calls"] = stats["second_s"], stats["second_calls"]
+
+    def reset_stats(self) -> None:
+        """The measures from zero (tools/probes/damage_log_stats.py: reset - one fight measured alone)."""
+        self.stats = {"hits": 0, "events": 0, "batches": 0, "hook_s": 0.0, "hook_max_s": 0.0, "hook_calls": 0,
+                      "roles": {}, "second": -1, "second_s": 0.0, "second_calls": 0, "worst_second_s": 0.0,
+                      "worst_second_calls": 0, "tick_s": 0.0, "tick_max_s": 0.0, "ticks": 0, "drains": 0,
+                      "since": time.perf_counter()}
 
     # endregion
     # region The hooks' bodies (the game thread, inside the game's calls: reads only)
@@ -399,7 +423,16 @@ class DamageLog:
         elif not want and self._hooked:
             self.stop()
         if self._queue or self._floods or self._actors.fresh or self._what.fresh or self._elements.fresh:
-            self._drain()
+            start = time.perf_counter()
+            self._drain()  # (the tick's work: naming what's new - game calls -, the batch's JSON, publishing)
+            spent = time.perf_counter() - start
+            stats = self.stats
+            stats["tick_s"] += spent
+            stats["drains"] += 1
+            if spent > stats["tick_max_s"]:
+                stats["tick_max_s"] = spent
+        if self._hooked:
+            self.stats["ticks"] += 1
 
     def level_changed(self, name: str) -> None:
         """A new level: a mark in the log; the floods closed, the open frames dropped, the gone objects' ids pruned."""
@@ -471,12 +504,26 @@ class DamageLog:
         self.hub.publish_events(CHANNEL, json.dumps(batch, separators=(",", ":")), defs, self.t0_epoch)
 
     def summary(self) -> str:
-        """The console's line (tools/probes/damage_log_stats.py): counts, our hooks' time."""
+        """The console's lines (tools/probes/damage_log_stats.py): counts, our hooks' time - in all, per role, the busiest
+        second -, the tick's (draining: naming, JSON, publishing), since the last reset."""
         s = self.stats
+        span = max(1e-9, time.perf_counter() - s["since"])
         mean = s["hook_s"] / s["hook_calls"] * 1e6 if s["hook_calls"] else 0.0
-        return (f"damage log: {'on' if self.enabled else 'off'}, hooks {'in' if self._hooked else 'out'}; {s['hits']} hits, "
-                f"{s['events']} events, {s['batches']} batches; hooks {s['hook_calls']} calls, {mean:.1f} us mean, "
-                f"{s['hook_max_s'] * 1e6:.0f} us max, {s['hook_s'] * 1e3:.1f} ms in all; ids: {self._actors.next - 1} actors, "
-                f"{self._what.next - 1} what, {self._elements.next - 1} elements; open frames {len(self._frames)}")
+        tick_mean = s["tick_s"] / s["drains"] * 1e3 if s["drains"] else 0.0
+        lines = [
+            f"damage log: {'on' if self.enabled else 'off'}, hooks {'in' if self._hooked else 'out'}; over {span:.0f} s: "
+            f"{s['hits']} hits ({s['hits'] / span:.1f}/s), {s['events']} events, {s['batches']} batches",
+            f"  hooks: {s['hook_calls']} calls, {mean:.1f} us mean, {s['hook_max_s'] * 1e6:.0f} us max, "
+            f"{s['hook_s'] * 1e3:.1f} ms in all ({s['hook_s'] / span * 1e3:.2f} ms/s); busiest second "
+            f"{s['worst_second_s'] * 1e3:.2f} ms ({s['worst_second_calls']} calls)",
+            f"  tick: {s['drains']} drains, {tick_mean:.2f} ms mean, {s['tick_max_s'] * 1e3:.2f} ms max, "
+            f"{s['tick_s'] * 1e3:.1f} ms in all ({s['tick_s'] / span * 1e3:.2f} ms/s)",
+        ]
+        for role, (calls, total, top) in sorted(s["roles"].items(), key=lambda kv: -kv[1][1]):
+            lines.append(f"    {role}: {calls} calls, {total / calls * 1e6:.1f} us mean, {top * 1e6:.0f} us max, "
+                         f"{total * 1e3:.1f} ms")
+        lines.append(f"  ids: {self._actors.next - 1} actors, {self._what.next - 1} what, {self._elements.next - 1} "
+                     f"elements; open frames {len(self._frames)}")
+        return "\n".join(lines)
 
     # endregion

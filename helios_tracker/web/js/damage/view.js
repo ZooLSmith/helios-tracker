@@ -26,6 +26,7 @@ import { TAGS, actorHtml, actorName, clockText, defName, watchIcons, whatIcons }
 import { eventMatches, hitMatches, searchWords } from "./search.js";
 import { FLAG, damageStore } from "./store.js";
 import { virtualList } from "./vlist.js";
+import { timed } from "./perf.js";
 import { bindRange, rangeHtml, refreshRange, windowSpan } from "./window.js";
 
 const VIEWS = ["realtime", "recap", "log"];
@@ -79,8 +80,10 @@ export function renderDamageView(resetScroll) {
   drawList(resetScroll);
 }
 
-/** The view's list as the window and the search are now. */
-function drawList(resetScroll) {
+/** The view's list as the window and the search are now (timed: perf.js). */
+const drawList = (resetScroll) => timed(`draw: ${viewOf()}`, () => drawListNow(resetScroll));
+
+function drawListNow(resetScroll) {
   const list = $("dmList");
   if (!list) return;
   const store = damageStore;
@@ -101,12 +104,12 @@ function drawList(resetScroll) {
 /** From draw.js' frame: the window's handles (live: it slides) and the list. */
 export function refreshDamageView(now) {
   if (!S.damageView) return;
-  animateRealtime(now); // (every frame: the cards' glide - the Refresh rate's)
+  timed("realtime: glide", () => animateRealtime(now)); // (every frame: the cards' glide - the Refresh rate's)
   if (now - lastAt < EVERY_MS) return;
   lastAt = now;
   if (!$("dmList")) return;
   const range = document.querySelector("#ibody [data-dmrange]");
-  if (range && !range.dataset.held) refreshRange(range, damageStore); // (not under a dragged handle: window.js)
+  if (range && !range.dataset.held) timed("range", () => refreshRange(range, damageStore)); // (not under a dragged handle: window.js)
   const sub = damageStore.count ? t("dmg.kept", { n: damageStore.count }) : "";
   if ($("isub").textContent !== sub) $("isub").textContent = sub;
   drawList(false);
