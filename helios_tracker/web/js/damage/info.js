@@ -1,5 +1,7 @@
-// The Info tab's Damage section (below Players): a quick summary - who dealt the most damage in the last minute, 4
-// lines at most (a name, a bar: their share, the amount); its heading's "All" opens the log in the drawer (view.js).
+// The Info tab's Damage section (below Players): a quick summary - which players dealt the most damage in the last
+// minute (players only - the user: no enemy, no barrel; the span in its heading: a clock, "1 min" - the user: a symbol,
+// not words), 4 lines at most (a name, a bar:
+// their share, the amount); its heading's "All" opens the log in the drawer (view.js).
 // Hidden without the session's "damage" feature (the mod's Damage Log option off, a game without it). Drawn from the
 // frames (draw.js), throttled, the DOM written only when its text changed.
 import { $, esc } from "../dom.js";
@@ -8,7 +10,7 @@ import { t } from "../i18n.js";
 import { settings } from "../settings.js";
 import { amountText } from "./amount.js";
 import { damageStore, isHeal } from "./store.js";
-import { actorHtml } from "./parts.js";
+import { actorHtml, isPlayer } from "./parts.js";
 import { openDamageLog } from "./view.js";
 
 const TOP = 4;
@@ -35,16 +37,18 @@ export function refreshDamageInfo(now) {
   store.setKeep(settings.view.keepHits);
   store.expire();
   $("damageAll").hidden = !store.count && !store.events.length;
+  const span = t("unit.minutes", { n: WINDOW_MS / 60000 });
+  if ($("damageSpan").textContent !== span) $("damageSpan").textContent = span;
   const html = summaryHtml(store);
   if (html !== shownHtml) { shownHtml = html; $("damage").innerHTML = html; }
 }
 
-/** The ones who dealt the most damage in the last minute (health and shields), the most first - to others only. */
+/** The players who dealt the most damage in the last minute (health and shields), the most first - to others only. */
 export function summaryHtml(store, end = store.now()) {
   const dealt = new Map();
   let total = 0;
   store.forEachHit(end - WINDOW_MS, end, (h) => {
-    if (!h.a || h.a === h.v || isHeal(h)) return; // (no attacker; one's own damage on oneself: not "dealt" - the user; a heal)
+    if (!h.a || h.a === h.v || isHeal(h) || !isPlayer(store, h.a)) return; // (no attacker; one's own damage on oneself: not "dealt" - the user; a heal)
     const amount = h.h + h.s;
     dealt.set(h.a, (dealt.get(h.a) || 0) + amount);
     total += amount;

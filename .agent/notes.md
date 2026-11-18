@@ -843,6 +843,9 @@ a barrel, your own grenade. Run 1's function listing kept in tools/probes/probe_
   bIsShieldRestore)`, then `PlayHealingHit`. The pipeline's InitialDamage is the gun's (1,960 / 177,250), FinalDamage
   the health given back (= Amount: 588 / 16,547). The damage log marks such a hit a heal (HEAL: HealDamage inside its
   frame) - before, it read as damage dealt to the ally.
+  The log's first heal marking showed nothing (the user, 2026-11-18: no heal in the Log nor the Recap): most likely
+  such a hit runs no ProcessDamageTakenSkillEvents - no read, no row to mark; HealDamage now makes the row itself
+  when no read came (its Amount, the hit's causer). Not confirmed in game yet.
   - Natural regeneration calls nothing hooked: health rises a little every frame (+0.7 to +1.6 at 120 fps here), no
     script function - not in the log (nobody's heal). HealDamage outside a hit: not seen (a vial, a Transfusion
     grenade: to try) - the log keeps it as its own heal row.

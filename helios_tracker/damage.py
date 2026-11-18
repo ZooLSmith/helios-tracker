@@ -340,13 +340,20 @@ class DamageLog:
 
     def _on_healed(self, obj: Any, args: Any) -> None:
         healer, amount, shield = games.GAME.damage.healed(args)
+        amount = round(_amount(amount), 1)
+        row = [self._ms(), self._actor(healer), self._actor(obj), 0.0 if shield else amount, amount if shield else 0.0,
+               HEAL, 0, 0]
         if (frame := self._top(obj)) is not None:
-            frame[2] |= HEAL  # (the hit's own amounts are the heal: its FinalDamage the health given back)
+            frame[2] |= HEAL
+            # (a hit converted to healing runs no damage-taken skill events - no read, no row (the user saw no heal at
+            # all): HealDamage's own amount the hit's row, what dealt it the hit's causer; a read after it replaces it)
+            if frame[1] is None:
+                row[6] = self._id(self._what, frame[4])
+                frame[1] = row
+                self.stats["hits"] += 1
             return
         # a heal outside any hit (not seen yet - regen calls nothing): its own row, nothing dealt it
-        amount = round(_amount(amount), 1)
-        self._queue.append(("h", [self._ms(), self._actor(healer), self._actor(obj), 0.0 if shield else amount,
-                                  amount if shield else 0.0, HEAL, 0, 0]))
+        self._queue.append(("h", row))
         self.stats["hits"] += 1
 
     def _on_downed(self, obj: Any, args: Any) -> None:

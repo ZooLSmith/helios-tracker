@@ -3029,8 +3029,8 @@ def check_helios_tracker() -> None:  # noqa: PLR0915
     assert dmg_first["dealt"] == [20, 3] and dmg_first["firstSecond"] == [10, 3], ("a player's per-second totals", dmg_first)
     assert "Rakk" in dmg_first["lines"] and dmg_first["lines"].count('class="dmrow') == 3, dmg_first["lines"]
     dmg_summary = dmg_first["summary"]
-    assert dmg_summary.count('class="dmsum"') == 2 and dmg_summary.index(">Me<") < dmg_summary.index(">Rakk<"), (
-        "the summary: who dealt the most first", dmg_summary)
+    assert dmg_summary.count('class="dmsum"') == 1 and ">Me<" in dmg_summary and ">Rakk<" not in dmg_summary, (
+        "the summary: the players only (the user) - Rakk's hit on Me left out", dmg_summary)
     assert 'class="dmsum"' not in dmg_first["quiet"], ("nothing in the last minute: no line", dmg_first["quiet"])
     assert dmg_page["selfSummary"].count('class="dmsum"') == 1 and ">500<" not in dmg_page["selfSummary"], (
         "one's own damage on oneself: not dealt", dmg_page["selfSummary"])
@@ -3797,6 +3797,16 @@ def check_damage_log() -> None:
         heal_row, lone_heal_row = batches()[-1]["h"]
         assert heal_row[2] == you and heal_row[3] == 588.1 and heal_row[5] == dmg.HEAL and len(heal_row) == 8, heal_row
         assert lone_heal_row[2:6] == [you, 0.0, 40.0, dmg.HEAL], ("a shield restored outside a hit", lone_heal_row)
+        # a hit converted to healing that runs no damage-taken skill events (no read - the user saw no heal at all):
+        # HealDamage's amount its row, the hit's causer what dealt it
+        unread_heal = hit(slag_friend, 900.0)
+        call("open", respawned, unread_heal)
+        call("healed", respawned, dns(Healer=slag_friend, Amount=750.5, bIsShieldRestore=False))
+        call("close", respawned)
+        log.tick(True)
+        unread_row = batches()[-1]["h"][0]
+        assert unread_row[1:6] == [heal_row[1], you, 750.5, 0.0, dmg.HEAL] and unread_row[6] == crit_row[6], (
+            "a heal without a read: its own row", unread_row)
         # a projectile (a new object each shot - probe_projectile.py): its weapon's hit (its Owner, an Inventory); an
         # enemy's, no weapon: its Definition's - shared by every shot of its kind
         projectile_cls = DClass("WillowProjectile", "Projectile", "Actor")
