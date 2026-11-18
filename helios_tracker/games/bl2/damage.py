@@ -150,8 +150,10 @@ class Damage(Part):
         return float(_field(obj, "MaxHealth")) > 0
 
     def object_killed(self, obj: Any) -> bool:
-        """An interactive object destroyed (a barrel blown): its bHasBeenKilled - read before and after its hit."""
-        return bool(_field(obj, "bHasBeenKilled"))
+        """An interactive object destroyed (a barrel blown): its bHasBeenKilled, or its Health down to 0 (a skag pile
+        breaks without the flag - the user saw its card stay in Realtime; notes.md: a blown barrel reads health 0) - read
+        before and after its hit (only for one with health: object_has_health)."""
+        return bool(_field(obj, "bHasBeenKilled")) or float(_field(obj, "Health")) <= 0
 
     def identity(self, obj: Any) -> Any:
         """What a hit's party counts as in the log (its id): a player - their controller (it outlives their pawn: a

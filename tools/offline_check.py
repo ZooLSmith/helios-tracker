@@ -3728,17 +3728,17 @@ def check_damage_log() -> None:
         # an object: its hit read in its TakeDamage's POST, destroyed by it - the killing blow; one hit for nothing: no row
         breakable = dns(bCanTakeDirectDamage=True, bCanTakeRadiusDamage=True)
         barrel = dobj(0x700, DClass("WillowInteractiveObject"), bHasBeenKilled=False, InteractiveObjectDefinition=breakable,
-                      MaxHealth=50.0)
+                      MaxHealth=50.0, Health=50.0)
         call("object_open", barrel, hit(pc, 97.0))
-        barrel.bHasBeenKilled = True
+        barrel.bHasBeenKilled, barrel.Health = True, 0.0
         call("object_close", barrel, hit(pc, 97.0))
         crate = dobj(0x710, DClass("WillowInteractiveObject"), bHasBeenKilled=False, InteractiveObjectDefinition=breakable,
-                     MaxHealth=20.0)
+                     MaxHealth=20.0, Health=20.0)
         call("object_open", crate, hit(pc, 0.0))
         call("object_close", crate, hit(pc, 0.0))
         # an object without health (its definition takes no damage - the map's rule, collector._health): not logged at
         # all, whatever the hit says (the user)
-        no_health = dobj(0x711, DClass("WillowInteractiveObject"), bHasBeenKilled=False, MaxHealth=0.0,
+        no_health = dobj(0x711, DClass("WillowInteractiveObject"), bHasBeenKilled=False, MaxHealth=0.0, Health=0.0,
                          InteractiveObjectDefinition=dns(bCanTakeDirectDamage=False, bCanTakeRadiusDamage=False))
         call("object_open", no_health, hit(pc, 12.0))
         call("object_close", no_health, hit(pc, 12.0))
@@ -3756,6 +3756,18 @@ def check_damage_log() -> None:
         log.tick(True)
         fifth = batches()[-1]
         assert len(fifth["h"]) == 1 and fifth["h"][0][3] == 97.0 and fifth["h"][0][5] == dmg.KILL, ("the barrel only", fifth["h"])
+        # an object broken without its killed flag (a skag pile - the user: its card stayed in Realtime): its health
+        # down to 0, the killing blow all the same; hit again at 0, not a second one
+        skag_pile = dobj(0x730, DClass("WillowInteractiveObject"), bHasBeenKilled=False, InteractiveObjectDefinition=breakable,
+                         MaxHealth=30.0, Health=30.0)
+        call("object_open", skag_pile, hit(pc, 40.0))
+        skag_pile.Health = 0.0
+        call("object_close", skag_pile, hit(pc, 40.0))
+        call("object_open", skag_pile, hit(pc, 5.0))
+        call("object_close", skag_pile, hit(pc, 5.0))
+        log.tick(True)
+        pile_kill, pile_again = batches()[-1]["h"]
+        assert pile_kill[5] == dmg.KILL and pile_again[5] == 0, ("broken: health 0 - its kill, once", pile_kill, pile_again)
         assert fifth["v"] == [[3250, "level", 0, 0, -1, "Southern Shelf"]], fifth["v"]
         # a barrel's fire on the ground (a damage area, its Owner the barrel - probe_damage_causer.py) burning the player
         # who set it off: the barrel's hit, not the player's own (the user)
