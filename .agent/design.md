@@ -494,6 +494,9 @@ recap.js took its rows):** three tabs in the drawer, one job each (view.js, sett
 - **Not logged** (the user): an object without health (its definition takes no damage or its MaxHealth is 0 - the
   map's rule, collector._health: GAME.damage.object_has_health), and a hit that did nothing (0 to health and shield -
   but one that killed, downed or gave a second wind keeps its row: that mark is the hit's).
+- **Healing in Realtime** (the user: a card of its own, the design ours): one card above the enemies' while a heal came
+  in the last 30 s - a row per player healed (the amount in the heal colour), its bar split by who healed them (the
+  players' colours, the enemies' bar), as long as its share of the most healed (realtime.js healEntries).
 - **Its cost, measured** (the user: check the impacts): in the mod's log every 30 s like frames.py's report, debug
   only (paths.DIAGNOSTICS), when hits came (damage.py `_report`): hits, each hook role's calls / mean / max, ms per
   second, the busiest second, the tick's draining - then from zero. Nothing to run (the user: not console commands). The

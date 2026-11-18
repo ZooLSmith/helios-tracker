@@ -516,3 +516,7 @@
 .dmrvit .ibar { flex: 1 1 0; min-width: 0; height: 16px; margin: 2px 0 0; padding: 0 6px; gap: 6px; font-size: 11px; }
 .dmrline .dmwho { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .dmramt { font-variant-numeric: tabular-nums; font-weight: 600; }
+/* Healing: its own card above the enemies' - a row per player healed, its bar split by who healed */
+.dmramt.heal { color: var(--live); }
+.dmrheal .dmrline + .dmrline, .dmrheal .dmbarbox + .dmrline { margin-top: 3px; }
+.dmrheal > .dmrline:first-child .dmwho { color: var(--dim); }

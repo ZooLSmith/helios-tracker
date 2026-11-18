@@ -445,7 +445,7 @@ const { DamageStore } = await load("js/damage/store.js");
 const { createFeed } = await load("js/damage/feed.js");
 const { linesHtml } = await load("js/damage/view.js");
 const { recapHtml, gatherRecap } = await load("js/damage/recap.js");
-const { realtimeEntries } = await load("js/damage/realtime.js");
+const { healEntries, realtimeEntries } = await load("js/damage/realtime.js");
 const { amountText: dmgAmount, amountWidth: dmgAmountWidth } = await load("js/damage/amount.js");
 const { searchWords } = await load("js/damage/search.js");
 const { summaryHtml } = await load("js/damage/info.js");
@@ -512,6 +512,8 @@ const dmgSlagOut = {
   me: dmgPlayerOut(1), friend: dmgPlayerOut(4),
   live: realtimeEntries(dmgSlag, 1000, 30000).map((e) => [e.id, e.dead, e.filled]),
   later: realtimeEntries(dmgSlag, 11000, 30000).map((e) => e.id),
+  heals: healEntries(dmgSlag, 1000, 30000).map((e) => [e.id, e.total, [...e.parts].map(([who, p]) => [who, p[0]])]),
+  healsGone: healEntries(dmgSlag, 31000, 30000).length,
   lines: linesHtml(dmgSlag, 300), summary: summaryHtml(dmgSlag, 1000),
 };
 S.pawns = dmgPawnsBefore;
@@ -3072,6 +3074,8 @@ def check_helios_tracker() -> None:  # noqa: PLR0915
         "the players: dealt, contribution, slag brought, kills, healing given, taken", dmg_slag)
     assert dmg_slag["live"] == [[5, True, 1], [6, False, 1]] and dmg_slag["later"] == [6], (
         "Realtime: the dead one kept a while (filled), then gone; the score's order", dmg_slag)
+    assert dmg_slag["heals"] == [[1, 588, [[4, 588]]]] and dmg_slag["healsGone"] == 0, (
+        "Realtime's Healing card: the one healed, by whom, how much - gone once the heals are older than 30 s", dmg_slag)
     assert 'dmamt heal' in dmg_slag["lines"] and ">heal<" in dmg_slag["lines"], ("a heal's line", dmg_slag["lines"])
     assert dmg_slag["summary"].count('class="dmsum"') == 1, ("the summary: a heal isn't damage dealt", dmg_slag["summary"])
     assert dmg_first["amounts"] == ["4.3", "99,999", "130.4K", "1.2M"], (

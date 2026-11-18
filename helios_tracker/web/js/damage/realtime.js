@@ -9,11 +9,14 @@
 // name struck through, gone FADE_MS later, the others moving up. Under its bar, while it's on the map and alive, its
 // shield and health side by side - the Info tab's player bars (playerinfo.js barRow - the user: the usual widgets),
 // updated in place (their pattern's animation never restarted by a redraw).
+// Healing (the user: a card of its own): one card above the enemies' while a heal came in the last RECENT_MS - a row
+// per player healed, its bar split by who healed them (their colours), as long as its share of the most healed.
 import { esc } from "../dom.js";
 import { num, t } from "../i18n.js";
 import { shownHealth, shownMaxHealth } from "../model.js";
 import { settings } from "../settings.js";
 import { S } from "../state.js";
+import { isHeal } from "./store.js";
 import { barRow } from "../ui/playerinfo.js";
 import { amountText } from "./amount.js";
 import { barHtml, legendHtml } from "./bars.js";
@@ -47,6 +50,33 @@ export function realtimeEntries(store, now, recentMs = RECENT_MS) {
   }
   out.sort((a, b) => b.score - a.score || b.pool - a.pool || a.id - b.id);
   return out.slice(0, CARDS);
+}
+
+/** The heals of the last `recentMs` at `now` (the log's ms): [{id: the one healed, total, parts: Map healer ->
+ *  [amount, 0, 0]}], the most healed first (bars.js's parts: a heal's amount as "hits"). */
+export function healEntries(store, now, recentMs = RECENT_MS) {
+  const byTarget = new Map();
+  store.forEachHit(now - recentMs, now, (h) => {
+    const amount = h.h + h.s;
+    if (!isHeal(h) || !(amount > 0)) return;
+    let e = byTarget.get(h.v);
+    if (!e) byTarget.set(h.v, e = { id: h.v, total: 0, parts: new Map() });
+    e.total += amount;
+    const p = e.parts.get(h.a);
+    if (p) p[0] += amount; else e.parts.set(h.a, [amount, 0, 0]);
+  });
+  return [...byTarget.values()].sort((a, b) => b.total - a.total || a.id - b.id);
+}
+
+/** The Healing card's HTML ("" without heals). */
+function healHtml(store, heals) {
+  if (!heals.length) return "";
+  const top = heals[0].total, sum = heals.reduce((n, e) => n + e.total, 0);
+  return `<div class="dmrcard dmrheal"><div class="dmrline"><span class="dmwho">${esc(t("dmg.healed"))}</span>` +
+    `<span class="dmramt heal">${esc(amountText(sum))}</span></div>` +
+    heals.map((e) => `<div class="dmrline"><span class="dmwho">${actorHtml(store, e.id)}</span>` +
+      `<span class="dmramt heal">${esc(amountText(e.total))}</span></div>${barHtml(store, e.parts, 1, e.total / top, true)}`).join("") +
+    "</div>";
 }
 
 // (its amount: what it lost - the contributions, overkill out: the user - never its damage taken in full)
@@ -85,16 +115,17 @@ function drawVitals(box, bars) {
 }
 
 // The tab's DOM, kept between frames: a card per actor (its element, its HTML as last written, its offset gliding to 0)
-let box = null, cards = new Map(), order = [], pendingSince = 0, lastAnim = 0, legendShown = "";
+let box = null, cards = new Map(), order = [], pendingSince = 0, lastAnim = 0, legendShown = "", healShown = "";
 
 /** The tab's list built in `list` (emptied): the legend, the swap bar, the cards. */
 export function buildRealtime(list) {
-  list.innerHTML = `<div class="dmlegendbox"></div><div class="dmswap"><i></i></div><div class="dmrt"></div>`;
+  list.innerHTML = `<div class="dmlegendbox"></div><div class="dmhealbox"></div><div class="dmswap"><i></i></div><div class="dmrt"></div>`;
   box = list;
   cards = new Map();
   order = [];
   pendingSince = 0;
   legendShown = "";
+  healShown = "";
 }
 
 /** The cards as the store is now (view.js, throttled). */
@@ -105,6 +136,10 @@ export function updateRealtime(store, now = store.now()) {
   const want = entries.map((e) => e.id), byId = new Map(entries.map((e) => [e.id, e]));
   const seen = new Set();
   for (const e of entries) for (const id of e.life.parts.keys()) seen.add(id);
+  const heals = healEntries(store, now);
+  for (const e of heals) for (const id of e.parts.keys()) seen.add(id);
+  const heal = healHtml(store, heals);
+  if (heal !== healShown) { healShown = heal; box.querySelector(".dmhealbox").innerHTML = heal; }
   const legend = legendHtml(store, seen);
   if (legend !== legendShown) { legendShown = legend; box.querySelector(".dmlegendbox").innerHTML = legend; }
   // the order: the cards kept keep theirs until the new one has waited SWAP_MS; a new card goes to its place at once
