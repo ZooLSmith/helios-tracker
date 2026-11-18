@@ -6,9 +6,9 @@ import { num, numUpTo } from "../i18n.js";
 const SHORT_FROM = 100000;
 let compact = null, compactLang = "";
 
-export function amountText(n) {
+export function amountText(n, shortFrom = SHORT_FROM) {
   if (n < 10) return numUpTo(n, 1);
-  if (n < SHORT_FROM) return num(Math.round(n));
+  if (n < shortFrom) return num(Math.round(n));
   const lang = globalThis.document?.documentElement.lang || "en";
   if (!compact || compactLang !== lang) {
     compactLang = lang;

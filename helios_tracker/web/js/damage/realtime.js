@@ -7,7 +7,8 @@
 // The cards move to their new place in JS from the frames - the Refresh rate setting's (smooth: gliding, N fps:
 // stepped, updates only: at once - no CSS transition running behind its back). Anything that dies: translucent, its
 // name struck through, gone FADE_MS later, the others moving up. Under its bar, while it's on the map and alive, its
-// shield and health side by side - the Info tab's player bars (playerinfo.js barRow - the user: the usual widgets),
+// shield and health side by side, half the row each (a line each pushed the cards down - the user), no labels then
+// (drawer.css) - the Info tab's player bars (playerinfo.js barRow - the user: the usual widgets),
 // updated in place (their pattern's animation never restarted by a redraw).
 // Healing (the user: a card of its own - then "simplified massively"): one small card above the enemies' while a heal
 // came in the last RECENT_MS - a line per healer > healed, its amount; no bars.
@@ -75,18 +76,23 @@ const healHtml = (store, heals) => (heals.length ? `<div class="dmrcard dmrheal"
 const cardHtml = (store, e) => `<div class="dmrline"><span class="dmwho">${actorHtml(store, e.id)}</span>` +
   `<span class="dmramt">${esc(amountText(e.pool > 0 ? Math.min(e.life.total, e.pool) : e.life.total))}</span></div>${barHtml(store, e.life.parts, e.filled, 1, true)}`;
 
+// A bar's value: what's left always in full, its max in full up to 999,999, then "1.2M" (the user: the bars are narrow;
+// the max may be short, not what's left)
+const VITAL_SHORT_FROM = 1000000;
+const vitalText = (n, max) => `${num(n)} / ${amountText(max, VITAL_SHORT_FROM)}`;
+
 /** Its shield and health now: [[cls, label, value, fraction]...] - none off the map or dead (parts.js poolLeft's
  *  source: the map pawn's h / s, full when the record leaves them out). */
 function vitals(store, e) {
   const def = store.actors.get(e.id), pawn = def?.m ? S.pawns.get(def.m) : null;
   if (e.dead || !pawn || !(pawn.m > 0)) return [];
   const out = [];
-  if (pawn.sm > 0) {
+  if (pawn.sm > 0) { // (shown down too: hidden, the health beside it jumped - the user)
     const s = Math.max(0, pawn.s ?? pawn.sm);
-    out.push(["sh", t("detail.shield"), `${num(Math.round(s))} / ${num(Math.round(pawn.sm))}`, s / pawn.sm]);
+    out.push(["sh", t("detail.shield"), vitalText(Math.round(s), Math.round(pawn.sm)), s / pawn.sm]);
   }
   const h = Math.max(0, pawn.h ?? pawn.m);
-  out.push(["hp", t("detail.health"), `${num(shownHealth(h))} / ${num(shownMaxHealth(pawn.m))}`, h / pawn.m]);
+  out.push(["hp", t("detail.health"), vitalText(shownHealth(h), shownMaxHealth(pawn.m)), h / pawn.m]);
   return out;
 }
 
@@ -96,7 +102,6 @@ function drawVitals(box, bars) {
   if (box.dataset.kinds !== kinds) {
     box.dataset.kinds = kinds;
     box.innerHTML = bars.map(([cls, label, value, fraction]) => barRow(label, value, fraction, cls)).join("");
-    return;
   }
   bars.forEach(([, , value, fraction], i) => {
     const bar = box.children[i], width = `${(Math.max(0, Math.min(1, fraction)) * 100).toFixed(1)}%`;

@@ -428,7 +428,7 @@
 /* The damage log (damage/view.js): the mission log's layout - its list scrolls alone under the filters */
 .ibody.mlistview > #dmList { flex: 1; min-height: 0; overflow: auto; padding: 0 8px 12px 4px; margin: 0 -8px 0 -4px; }
 /* the time window (damage/window.js): a thin track, the window on it in the accent - dragged, it moves whole (its
-   width kept) -, a handle at each end; under it, its start, its end ("now": live) */
+   width kept) -, a handle at each end; under it, its start, its end (clock times) */
 .dmrange { margin: 0 0 6px; }
 .dmtrack { position: relative; height: 16px; cursor: pointer; touch-action: none; }
 .dmtrack::before { content: ""; position: absolute; left: 0; right: 0; top: 7px; height: 2px; background: var(--control); border-radius: 1px; }
@@ -441,8 +441,8 @@
 .dmh:hover, .dmh:focus-visible, .dmrange[data-held="lo"] .lo, .dmrange[data-held="hi"] .hi { background: var(--accent); }
 /* the damage over the track's time, a heatmap (window.js drawHeat: a column per pixel, the accent's opacity) */
 .dmheat { position: static; inset: auto; cursor: default; touch-action: auto; /* (not the map's: base.css's canvas rule) */
-  display: block; width: 100%; height: 2px; margin: 1px 0 2px; color: var(--accent); image-rendering: pixelated;
-  background: color-mix(in srgb, var(--control) 50%, transparent); border-radius: 1px; }
+  display: block; width: 100%; height: 6px; margin: 1px 0 3px; color: var(--accent); image-rendering: pixelated;
+  background: color-mix(in srgb, var(--control) 50%, transparent); border-radius: 2px; } /* (6 px: 2 was hard to read - the user) */
 .dmrangebar { display: flex; align-items: center; justify-content: space-between; gap: 6px; font-size: 11px; color: var(--dim);
   font-variant-numeric: tabular-nums; }
 /* the log: a virtual list (damage/vlist.js) - the lines in view in a spacer as tall as all of them */
@@ -513,7 +513,14 @@
 /* its shield and health side by side: the Info tab's bars (.ibar), smaller */
 .dmrvit { display: flex; gap: 4px; }
 .dmrvit:empty { display: none; }
+/* shield and health side by side, half each (a line each pushed the cards down - the user) */
 .dmrvit .ibar { flex: 1 1 0; min-width: 0; height: 16px; margin: 2px 0 0; padding: 0 6px; gap: 6px; font-size: 11px; }
+/* narrow: the label cut first (.ibl's ellipsis), then the value - an ellipsis, not clipped at the edge */
+.dmrvit .ibv { flex: 0 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+/* both there: no labels (the user: too much room - the bars' colors tell them apart), the value centered; a bar alone
+   keeps its label */
+.dmrvit .ibar:not(:only-child) { justify-content: center; }
+.dmrvit .ibar:not(:only-child) .ibl { display: none; }
 .dmrline .dmwho { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .dmramt { font-variant-numeric: tabular-nums; font-weight: 600; }
 /* Healing: a small card above the enemies' - a line per healer > healed */

@@ -52,7 +52,7 @@ export function defaults() {
       closedInfo: [], // the Info tab's sections folded (their data-sec: "mission", "shops", "players")
       shopTab: "weapons", // the vending machines' tab (a machine kind: shops.py KINDS)
       damageTab: "realtime", // the damage log's tab in the drawer: "realtime" / "recap" / "log" (damage/view.js)
-      damageWindow: 60000, // Recap's and Log's time range's width, ms - the one last picked, opened live (damage/window.js)
+      damageFrom: 0, damageTo: 1, // Recap's and Log's time range: its ends as shares of the track (Keep hits for), the last picked (damage/window.js)
       // what the drawer shows, reopened on a refresh (ui/drawer.js): {} (closed), { k: "player", name },
       // { k: "mission", id } ("": the list), { k: "shops", id } ("": no machine first), { k: "detail", kind, id },
       // { k: "damage" } (the damage log)

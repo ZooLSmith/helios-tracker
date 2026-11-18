@@ -106,7 +106,7 @@ export function refreshDamageView(now) {
   lastAt = now;
   if (!$("dmList")) return;
   const range = document.querySelector("#ibody [data-dmrange]");
-  if (range && !range.dataset.held) refreshRange(range, damageStore); // (not under a dragged handle: window.js)
+  if (range) refreshRange(range, damageStore); // (its times slide with the game: window.js)
   const sub = damageStore.count ? t("dmg.kept", { n: damageStore.count }) : "";
   if ($("isub").textContent !== sub) $("isub").textContent = sub;
   drawList(false);
