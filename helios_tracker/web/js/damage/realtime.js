@@ -9,8 +9,8 @@
 // name struck through, gone FADE_MS later, the others moving up. Under its bar, while it's on the map and alive, its
 // shield and health side by side - the Info tab's player bars (playerinfo.js barRow - the user: the usual widgets),
 // updated in place (their pattern's animation never restarted by a redraw).
-// Healing (the user: a card of its own): one card above the enemies' while a heal came in the last RECENT_MS - a row
-// per player healed, its bar split by who healed them (their colours), as long as its share of the most healed.
+// Healing (the user: a card of its own - then "simplified massively"): one small card above the enemies' while a heal
+// came in the last RECENT_MS - a line per healer > healed, its amount; no bars.
 import { esc } from "../dom.js";
 import { num, t } from "../i18n.js";
 import { shownHealth, shownMaxHealth } from "../model.js";
@@ -52,32 +52,24 @@ export function realtimeEntries(store, now, recentMs = RECENT_MS) {
   return out.slice(0, CARDS);
 }
 
-/** The heals of the last `recentMs` at `now` (the log's ms): [{id: the one healed, total, parts: Map healer ->
- *  [amount, 0, 0]}], the most healed first (bars.js's parts: a heal's amount as "hits"). */
+/** The heals of the last `recentMs` at `now` (the log's ms): [{a: the healer, v: the one healed, amount}], the
+ *  biggest first. */
 export function healEntries(store, now, recentMs = RECENT_MS) {
-  const byTarget = new Map();
+  const pairs = new Map();
   store.forEachHit(now - recentMs, now, (h) => {
     const amount = h.h + h.s;
     if (!isHeal(h) || !(amount > 0)) return;
-    let e = byTarget.get(h.v);
-    if (!e) byTarget.set(h.v, e = { id: h.v, total: 0, parts: new Map() });
-    e.total += amount;
-    const p = e.parts.get(h.a);
-    if (p) p[0] += amount; else e.parts.set(h.a, [amount, 0, 0]);
+    const key = `${h.a}|${h.v}`;
+    const e = pairs.get(key) || pairs.set(key, { a: h.a, v: h.v, amount: 0 }).get(key);
+    e.amount += amount;
   });
-  return [...byTarget.values()].sort((a, b) => b.total - a.total || a.id - b.id);
+  return [...pairs.values()].sort((x, y) => y.amount - x.amount || x.v - y.v);
 }
 
-/** The Healing card's HTML ("" without heals). */
-function healHtml(store, heals) {
-  if (!heals.length) return "";
-  const top = heals[0].total, sum = heals.reduce((n, e) => n + e.total, 0);
-  return `<div class="dmrcard dmrheal"><div class="dmrline"><span class="dmwho">${esc(t("dmg.healed"))}</span>` +
-    `<span class="dmramt heal">${esc(amountText(sum))}</span></div>` +
-    heals.map((e) => `<div class="dmrline"><span class="dmwho">${actorHtml(store, e.id)}</span>` +
-      `<span class="dmramt heal">${esc(amountText(e.total))}</span></div>${barHtml(store, e.parts, 1, e.total / top, true)}`).join("") +
-    "</div>";
-}
+/** The Healing card's HTML ("" without heals): a line a pair. */
+const healHtml = (store, heals) => (heals.length ? `<div class="dmrcard dmrheal">` + heals.map((e) =>
+  `<div class="dmrline"><span class="dmwho">${actorHtml(store, e.a)}<span class="dmarrow">›</span>${actorHtml(store, e.v)}</span>` +
+  `<span class="dmramt heal">${esc(amountText(e.amount))}</span></div>`).join("") + `</div>` : "");
 
 // (its amount: what it lost - the contributions, overkill out: the user - never its damage taken in full)
 const cardHtml = (store, e) => `<div class="dmrline"><span class="dmwho">${actorHtml(store, e.id)}</span>` +
@@ -136,9 +128,7 @@ export function updateRealtime(store, now = store.now()) {
   const want = entries.map((e) => e.id), byId = new Map(entries.map((e) => [e.id, e]));
   const seen = new Set();
   for (const e of entries) for (const id of e.life.parts.keys()) seen.add(id);
-  const heals = healEntries(store, now);
-  for (const e of heals) for (const id of e.parts.keys()) seen.add(id);
-  const heal = healHtml(store, heals);
+  const heal = healHtml(store, healEntries(store, now));
   if (heal !== healShown) { healShown = heal; box.querySelector(".dmhealbox").innerHTML = heal; }
   const legend = legendHtml(store, seen);
   if (legend !== legendShown) { legendShown = legend; box.querySelector(".dmlegendbox").innerHTML = legend; }

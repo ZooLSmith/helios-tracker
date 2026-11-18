@@ -514,7 +514,7 @@ const dmgSlagOut = {
   later: realtimeEntries(dmgSlag, 11000, 30000).map((e) => e.id),
   recapHeals: [1, 4].map((id) => [...dmgSlagRecap.players.get(id).heals.values()].map((r) => [r.a, r.v, r.amount, r.n])),
   recapHealHtml: recapHtml(dmgSlag, 0, 1000, [], { tab: 1, more: new Set() }),
-  heals: healEntries(dmgSlag, 1000, 30000).map((e) => [e.id, e.total, [...e.parts].map(([who, p]) => [who, p[0]])]),
+  heals: healEntries(dmgSlag, 1000, 30000).map((e) => [e.a, e.v, e.amount]),
   healsGone: healEntries(dmgSlag, 31000, 30000).length,
   lines: linesHtml(dmgSlag, 300), summary: summaryHtml(dmgSlag, 1000),
 };
@@ -3076,7 +3076,7 @@ def check_helios_tracker() -> None:  # noqa: PLR0915
         "the players: dealt, contribution, slag brought, kills, healing given, taken", dmg_slag)
     assert dmg_slag["live"] == [[5, True, 1], [6, False, 1]] and dmg_slag["later"] == [6], (
         "Realtime: the dead one kept a while (filled), then gone; the score's order", dmg_slag)
-    assert dmg_slag["heals"] == [[1, 588, [[4, 588]]]] and dmg_slag["healsGone"] == 0, (
+    assert dmg_slag["heals"] == [[4, 1, 588]] and dmg_slag["healsGone"] == 0, (
         "Realtime's Healing card: the one healed, by whom, how much - gone once the heals are older than 30 s", dmg_slag)
     assert dmg_slag["recapHeals"] == [[[4, 1, 588, 1]], [[4, 1, 588, 1]]] and 'dmamt heal">588<' in dmg_slag["recapHealHtml"], (
         "the Recap: a heal in the healer's tab and in the healed one's", dmg_slag["recapHeals"])
