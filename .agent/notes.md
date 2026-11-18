@@ -818,7 +818,7 @@ a barrel, your own grenade. Run 1's function listing kept in tools/probes/probe_
     respawn: `GoFromInjuredToHealthy` + INJURED_Not + INJUREDDEAD_None (after a dead state: a respawn, not a second
     wind). `SetRevivePct` runs every frame while down (-1: nobody reviving); `CheckShouldBeAutoRevived` once, 2 s in.
     Not seen: a revive by another player (co-op), `KilledBy`.
-- Not seen yet: a co-op client (TakeDamage is server-side in UE3: a client likely gets none of this), vehicles,
+- Not seen yet: vehicles (a co-op client: below - none of this runs there),
   the player hit by an enemy (only by their own grenade), enemies hitting each other.
 - **Slag** (probe_slag.py, 2 runs, solo, Ice_P - bullymongs, a slag pistol, a corrosive launcher, an incendiary sniper,
   2026-11-18): **`DamageSummary.ExtraDamageDealtDueToAmplify` is slag's bonus** - 0 on every hit on a target not
@@ -863,6 +863,27 @@ a barrel, your own grenade. Run 1's function listing kept in tools/probes/probe_
   (`GD_Weap_AssaultRifle.Projectiles.Projectile_Dahl_Grenade`); an enemy's: no Owner, its Definition
   (`GD_Sage_GiantSpore_Corrosive.Projectiles.Projectile_Spore_CorrosiveBomb`). The log credits the Owner when it's an
   Inventory, else the Definition (GAME.damage.causer). A thrown grenade not dumped yet.
+- **A co-op client** (probe_damage_client.py, 2 runs as the client, 2026-11-18 - the user: "damages don't register
+  when I'm a client"; run 1's output kept as probe_damage_client_run1.txt): **none of the log's hooks run there** -
+  TakeDamage, ProcessDamageTakenSkillEvents, Died, ApplyStatusEffect, OnStatusEffectEnd, PlayInjured, HealDamage: the
+  host's only; `ClientOnRevived` the one that does (a second wind). What a client has instead:
+  - `WillowPawn:PlayHit(SomePawn, HitLocation, inDamageType, Momentum, HitInfo, Pipeline)` on the victim, **every hit
+    from anyone** (the host's on an enemy, an enemy's on the host, an enemy on another, mine): SomePawn the attacker's
+    pawn, HitInfo's BoneName, the Pipeline's `DamageTypeDef` (the element) - its DamageSummary all zeros, no
+    instigator, no source. Engine.Pawn:PlayHit runs after it for some (its parent). `WillowInteractiveObject:PlayHit`
+    the same for a barrel. No PlayHit for a burn tick (drops without one).
+  - The victim's replicated `HealthVar` (float) / `ShieldVar` (int) / `HealthMaxVar` / `ShieldMaxVar` (Net) - its
+    HealthPool.Data is empty on a client. A drop is seen 5-30 ms **after** its PlayHit (the PlayHit's PRE still reads
+    the health before), sometimes two hits in one drop (one network update).
+  - My own hits: `WillowDamageTypeDefinition:DisplayRecentDamageForPlayer(PC, DamageEventData)` (the floating numbers,
+    a static event) ~1 ms after the PlayHit: DamageEventData = {DamageTypeDefinition (the element),
+    DamageLocation (the hit's, to a few units), TotalDamageForDamageType (the amount - equal to the drop: 324.442 /
+    324.4), DamageEventFlags (1 on hits ~2.3x the gun's: a crit), DamagedActor (always None)}.
+  - Damage I take: `ClientDamageShake(Damage)` - not the amount (100, 113, 233 for shield drops of 81, 48...; 28 per
+    burn tick) - and `AddHUDDamageIndicator(HitDir, bShieldOnlyDamage)`.
+  - An enemy's death: `Engine.Pawn:TornOff` on its pawn, its replicated `HitDamageTypeDefinition` then the killing
+    element (None on the hits before). A player down: `InjuredState` (Net), its functions not hooked on a client yet.
+  - Both files read before the runs ended (58 s, 77 s of 180 - the user checked early, no crash).
 
 ## Item serials / Gibbed codes (probe_serial.py + probe_serial2.py, in game, both games, 2026-09-26)
 

@@ -43,6 +43,16 @@ class Damage(Part):
         ("WillowGame.WillowPawn:HealDamage", True, "healed"),
     )
 
+    # A co-op client's (notes.md "A co-op client": probe_damage_client.py) - none of HOOKS runs there, the host's alone.
+    # What it has: every hit's effects played on its victim (who, the element - no amount), its own damage numbers (the
+    # amount, a crit), an enemy's death; the health / shield replicated (damage_client.py: the amounts no hit explains)
+    CLIENT_HOOKS = (
+        ("WillowGame.WillowPawn:PlayHit", True, "client_hit"),  # (a player's pawn too: no override of its own)
+        ("WillowGame.WillowInteractiveObject:PlayHit", True, "client_object_hit"),
+        ("WillowGame.WillowDamageTypeDefinition:DisplayRecentDamageForPlayer", True, "client_number"),
+        ("Engine.Pawn:TornOff", True, "client_gone"),
+    )
+
     def __init__(self, profile: Any) -> None:
         super().__init__(profile)
         self._kinds: dict[int, int] = {}  # a damage source class's address -> its hits' kind (classes: static)
@@ -50,9 +60,9 @@ class Damage(Part):
         self._projectiles: dict[int, bool] = {}  # a causer class's address -> a projectile (classes: static)
         self._classes: dict[str, Any] = {}
 
-    def hooks(self) -> tuple[tuple[str, bool, str], ...]:
-        """The functions hooked: (path, PRE, role) - the roles damage.py handles."""
-        return self.HOOKS
+    def hooks(self, client: bool = False) -> tuple[tuple[str, bool, str], ...]:
+        """The functions hooked: (path, PRE, role) - the roles damage.py handles (a co-op client's: damage_client.py)."""
+        return self.CLIENT_HOOKS if client else self.HOOKS
 
     def hit(self, args: Any) -> tuple[Any, float, float, bool, Any, Any, int, float, float]:
         """A hit, off its `Pipeline` (a WillowDamagePipeline - reused for every hit: read in the call): (the instigator - a
@@ -197,6 +207,34 @@ class Damage(Part):
         """SetInjuredDeadState(INJUREDDEAD_Start): a downed player bled out (their death - no Died for a player)."""
         value = _field(args, "InjuredDeadStateVal")
         return getattr(value, "name", value) == "INJUREDDEAD_Start"
+
+    # region A co-op client (CLIENT_HOOKS)
+
+    def client_hit(self, args: Any) -> tuple[Any, Any, tuple[float, float, float]]:
+        """PlayHit(SomePawn, HitLocation, inDamageType, Momentum, HitInfo, Pipeline), on the victim: (the attacker's pawn,
+        the element - the Pipeline's DamageTypeDef, the hit's location). A client's pipeline has nothing else: its
+        DamageSummary all zeros, no instigator."""
+        location = _field(args, "HitLocation")
+        return (_field(args, "SomePawn"), _field(_field(args, "Pipeline"), "DamageTypeDef"),
+                (float(location.X), float(location.Y), float(location.Z)))
+
+    def client_number(self, args: Any) -> tuple[float, bool, Any, tuple[float, float, float]]:
+        """DisplayRecentDamageForPlayer(PC, DamageEventData): one of the local player's damage numbers - (the amount, a
+        crit, the element, where). Its DamagedActor is always None: the hit it belongs to is the PlayHit just before it
+        (~1 ms), at its location. DamageEventFlags 1 on a crit (the hits ~2.3x the gun's)."""
+        data = _field(args, "DamageEventData")
+        location = data.DamageLocation
+        return (float(data.TotalDamageForDamageType), bool(int(data.DamageEventFlags) & 1), data.DamageTypeDefinition,
+                (float(location.X), float(location.Y), float(location.Z)))
+
+    def vitals(self, actor: Any) -> tuple[float, float]:
+        """What a client knows of an actor's health and shield: a pawn's replicated HealthVar / ShieldVar (its
+        HealthPool's Data is empty there), an interactive object's Health (replicated, no shield)."""
+        if actor.Class._inherits(self._cls("WillowPawn")):
+            return float(_field(actor, "HealthVar")), float(_field(actor, "ShieldVar"))
+        return float(_field(actor, "Health")), 0.0
+
+    # endregion
 
     def _cls(self, name: str) -> Any:
         cls = self._classes.get(name)

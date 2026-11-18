@@ -52,7 +52,7 @@ export function renderDamageView(resetScroll) {
   const body = $("ibody"), store = damageStore, view = viewOf();
   $("itabs").style.display = "none";
   $("iwho").textContent = t("dmg.title");
-  $("isub").textContent = store.count ? t("dmg.kept", { n: store.count }) : "";
+  $("isub").textContent = ""; // (no "N hits kept" - the user: pointless)
   body.classList.add("mlistview"); // (the list scrolls alone, under the search and the views: the mission log's)
   const key = `${view}|${t("dmg.view.log")}`; // (built again for another view, another language)
   if (key !== builtKey || !$("dmList")) {
@@ -107,8 +107,6 @@ export function refreshDamageView(now) {
   if (!$("dmList")) return;
   const range = document.querySelector("#ibody [data-dmrange]");
   if (range) refreshRange(range, damageStore); // (its times slide with the game: window.js)
-  const sub = damageStore.count ? t("dmg.kept", { n: damageStore.count }) : "";
-  if ($("isub").textContent !== sub) $("isub").textContent = sub;
   drawList(false);
 }
 

@@ -11,6 +11,7 @@ named (game calls: once per actor / weapon - the collector's namers), one batch 
 **One record per hit, built while the game handles it**: the hit's TakeDamage opens a frame (a stack: they nest), what
 runs inside belongs to it - the read, an effect applied, the killing blow, a player downed, a second wind - and its
 end closes it. Every link is the game's call order, never a guess.
+A co-op client runs none of it (the server's): its own hooks and reads, damage_client.py - into the same rows.
 
 **Ids: the log's own** (1, 2... per kind), not the map's (addresses: reused once something's gone - an hour's log would
 mix enemies): an address -> (a WeakPointer, its id), the pointer dead = a new id. A player keeps theirs across
@@ -28,7 +29,7 @@ A batch: {"q": its sequence (the hub's), "h": [hits], "v": [events], "a" / "w" /
 - definitions: "a" {id: {"k": kind, "n": name, "raw"?: 1, "m"?: its map id, "boss"?, "o"?: a player's number in the
   game - PRI.PlayerID, the same on every page: their colours}}, "w" {id: {"n", "raw"?}},
   "e" {id: {"d": its definition's name, "el"?, "eln"?, "ecol"? - inspector.element_of}} - sent again when they change
-  (a player respawned: their "m").
+  (a player respawned: their "m"); an actor without an object ("k": "unattributed" - a client's: reserve_actor).
 """
 
 import json
@@ -37,6 +38,7 @@ import time
 from typing import Any
 
 from . import games
+from .damage_client import ClientReads
 from .frames import FRAMES, REPORT_EVERY
 from .paths import DIAGNOSTICS
 from .util import log, log_error
@@ -118,6 +120,8 @@ class DamageLog:
         self._down: dict[int, str] = {}  # a downed player's actor id -> "down" / "wind" (a second wind) / "dead"
         self._actors, self._what, self._elements = _Ids(), _Ids(), _Ids()
         self._sent: dict[tuple[str, int], dict[str, Any]] = {}
+        self._reserved: dict[int, dict[str, Any]] = {}  # actor ids without an object -> their definitions (sent once)
+        self._client: ClientReads | None = None  # a co-op client's hooks' bodies and reads (start)
         self.stats: dict[str, Any] = {}
         self.reset_stats()
         self.diagnostics = DIAGNOSTICS  # (the measures reported in the log: debug only - _report)
@@ -132,15 +136,17 @@ class DamageLog:
             self.stop()
             self._queue, self._floods, self._down = [], {}, {}
             self._actors, self._what, self._elements = _Ids(), _Ids(), _Ids()
-            self._sent = {}
+            self._sent, self._reserved = {}, {}
             self.hub.clear_events(CHANNEL)
 
-    def start(self) -> None:
-        """The profile's hooks added (a reload's first removed: the same id - add_hook keeps an old one)."""
+    def start(self, client: bool = False) -> None:
+        """The profile's hooks added (a reload's first removed: the same id - add_hook keeps an old one) - a co-op
+        client's own (`client`: the host's never run there - damage_client.py)."""
         from unrealsdk.hooks import Type, add_hook, remove_hook  # noqa: PLC0415
 
         self.stop()
-        for path, pre, role in games.GAME.damage.hooks():
+        self._client = ClientReads(self) if client else None
+        for path, pre, role in games.GAME.damage.hooks(client):
             kind = Type.PRE if pre else Type.POST
             remove_hook(path, kind, HOOK_ID)
             add_hook(path, kind, HOOK_ID, self._handler(role))
@@ -154,13 +160,29 @@ class DamageLog:
                 remove_hook(path, kind, HOOK_ID)
         self._hooked = []
         self._frames = []
+        if self._client is not None:
+            self._client.level_changed()  # (what it had pending: queued)
+            self._client = None
 
     @property
     def hooked(self) -> bool:
         return bool(self._hooked)
 
+    @property
+    def client(self) -> bool:
+        """Hooked as a co-op client (damage_client.py)."""
+        return self._client is not None
+
+    def reserve_actor(self, definition: dict[str, Any]) -> int:
+        """An actor id without a game object (a client's "unattributed"), its definition sent with the next batch."""
+        actor_id = self._actors.next
+        self._actors.next += 1
+        self._reserved[actor_id] = definition
+        return actor_id
+
     def _handler(self, role: str) -> Any:
-        body = getattr(self, "_on_" + role)
+        # (a client's roles: its own bodies - damage_client.py on_<role>)
+        body = getattr(self._client, "on_" + role[7:]) if role.startswith("client_") else getattr(self, "_on_" + role)
         failed: set[type] = set()
         def hook(obj: Any, args: Any, ret: Any, func: Any) -> None:  # noqa: ARG001
             with FRAMES.ours():
@@ -418,15 +440,20 @@ class DamageLog:
     # endregion
     # region The tick (the collector's): drained into a batch
 
-    def tick(self, active: bool) -> None:
+    def tick(self, active: bool, client: bool = False) -> None:
         """Each collector tick: the hooks on while a page is open, the option on and the game has the log (`active`: a
-        page and a level); what's queued published."""
+        page and a level) - a co-op client's (`client`: the hooks swapped when it changes), its reads; what's queued
+        published."""
         want = active and self.enabled and games.DAMAGE in games.GAME.features
-        if want and not self._hooked:
-            self.start()
+        if want and (not self._hooked or client != self.client):
+            self.start(client)
         elif not want and self._hooked:
             self.stop()
-        if self._queue or self._floods or self._actors.fresh or self._what.fresh or self._elements.fresh:
+        if self._client is not None:
+            start = time.perf_counter()
+            self._client.tick()  # (the victims' health read: game reads, the tick's)
+            self.stats["tick_s"] += time.perf_counter() - start
+        if self._reserved or self._queue or self._floods or self._actors.fresh or self._what.fresh or self._elements.fresh:
             start = time.perf_counter()
             self._drain()  # (the tick's work: naming what's new - game calls -, the batch's JSON, publishing)
             spent = time.perf_counter() - start
@@ -445,6 +472,8 @@ class DamageLog:
             return
         self._flush_floods(force=True)
         self._frames = []
+        if self._client is not None:
+            self._client.level_changed()
         for ids in (self._actors, self._what, self._elements):
             ids.prune()
         self._event([self._ms(), "level", 0, 0, -1, name])
@@ -465,6 +494,11 @@ class DamageLog:
     def _definitions(self) -> dict[str, dict[str, Any]]:
         """The new ids named (game calls: here, never in a hook), those that changed since last sent."""
         out: dict[str, dict[str, Any]] = {}
+        for key, value in self._reserved.items():
+            if self._sent.get(("a", key)) != value:
+                self._sent[("a", key)] = value
+                out.setdefault("a", {})[key] = value
+        self._reserved = {}
         for kind, ids in (("a", self._actors), ("w", self._what), ("e", self._elements)):
             fresh, ids.fresh = ids.fresh, {}
             for key, pointer in fresh.items():

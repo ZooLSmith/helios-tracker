@@ -449,7 +449,7 @@ const { healEntries, realtimeEntries } = await load("js/damage/realtime.js");
 const { amountText: dmgAmount, amountWidth: dmgAmountWidth } = await load("js/damage/amount.js");
 const { searchWords } = await load("js/damage/search.js");
 const { summaryHtml } = await load("js/damage/info.js");
-const { sourceColor: dmgColor } = await load("js/damage/parts.js");
+const { sourceColor: dmgColor, actorName: dmgActorName } = await load("js/damage/parts.js");
 const dmgHistory = {
   "s1:0": { sid: "s1", t0: 1000, seq: 2, defs: { a: { 1: { k: "me", n: "Me" }, 2: { k: "enemy", n: "Rakk" } }, w: { 1: { n: "Gun" } } },
     b: [{ q: 1, h: [[100, 1, 2, 10, 0, 1, 1, 0]] }, { q: 2, h: [[1200, 1, 2, 5, 5, 4, 1, 0]], v: [[1200, "fx+", 2, 1, 0, 1, 1]] }] },
@@ -533,7 +533,13 @@ const dmgColors = new DamageStore();
 dmgColors.add({ a: { 1: { k: "me", n: "Me", o: 257 }, 2: { k: "player", n: "Host", o: 256 }, 3: { k: "player", n: "Host", o: 256 },
   4: { k: "player", n: "Nobody" }, 5: { k: "enemy", n: "Rakk" } }, h: [] });
 const dmgColorsOut = [1, 2, 3, 4, 5].map((id) => dmgColor(dmgColors, id));
-const damageOut = { colors: dmgColorsOut, order: dmgOrderOut, slag: dmgSlagOut, selfSummary: dmgSelfSummary, urls: dmgUrls, first: dmgFirst, gap: dmgGap, expired: dmgExpired,
+// A co-op client's log (damage_client.py): the "unattributed" actor's rows in the victim's life, named by the page
+const dmgClient = new DamageStore();
+dmgClient.add({ a: { 1: { k: "me", n: "Me" }, 2: { k: "player", n: "Host" }, 3: { k: "enemy", n: "Rakk" }, 4: { k: "unattributed" } },
+  h: [[150, 1, 3, 30, 0, 1, 0, 0], [1100, 4, 3, 70, 0, 0, 0, 0]] });
+const dmgClientOut = { life: [...dmgClient.lives.get(3).parts].map(([id, p]) => [id, p[0]]), name: dmgActorName(dmgClient, 4),
+  line: linesHtml(dmgClient, 10).includes(">Unattributed<") };
+const damageOut = { client: dmgClientOut, colors: dmgColorsOut, order: dmgOrderOut, slag: dmgSlagOut, selfSummary: dmgSelfSummary, urls: dmgUrls, first: dmgFirst, gap: dmgGap, expired: dmgExpired,
   second: { sid: dmgStore.sid, t0: dmgStore.t0, count: dmgStore.count, name: dmgStore.actors.get(1).n, rakk: dmgStore.actors.has(2) } };
 const missionsOut = { deltaOut, lootDetailRenders, rowsOut, shotCostOut, bonusOut, statsOut, lookOut, vaultCat, healthShown, variantWords, stepOrder, hitPicks, items, itemsLater, notYetWhy, fallback, where, tooHigh, finish, difficulty, best, search, infoHtml, areas, gameText, story: flat(tree.story), other: flat(tree.other), counts: missionCounts(log),
   objectives: objectiveStates(log[1]).map((s) => s.state) };
@@ -3033,6 +3039,9 @@ def check_helios_tracker() -> None:  # noqa: PLR0915
     assert chk["drawer"] == {"k": "mission", "id": "M_Plan"} and chk["badDrawer"] == {}, chk  # restored on a refresh
     assert not js["unknownSettings"], js["unknownSettings"]
     dmg_page = js["damageOut"]
+    dmg_client_page = dmg_page["client"]
+    assert dmg_client_page["life"] == [[1, 30], [4, 70]] and dmg_client_page["name"] == "Unattributed" and (
+        dmg_client_page["line"]), ("a client's unattributed loss: in the victim's life, named", dmg_client_page)
     assert dmg_page["urls"] == ["/damage?since=0", "/damage?since=3", "/damage?since=0"], dmg_page["urls"]
     dmg_first = dmg_page["first"]
     assert dmg_first["times"] == [1200, 150, 100] and dmg_first["count"] == 3, ("in time order, q2 not twice", dmg_first)
@@ -3850,6 +3859,79 @@ def check_damage_log() -> None:
         rocket_row, spore_row, spore_row_b = batches()[-1]["h"]
         assert rocket_row[6] == crit_row[6], ("a projectile's hit: its weapon's (the gun's id)", rocket_row, crit_row)
         assert spore_row[6] == spore_row_b[6] != crit_row[6], ("an enemy's projectiles: one id, their definition's", spore_row)
+
+        # a co-op client (damage_client.py - notes.md "A co-op client"): none of the host's hooks run there - its own,
+        # strict (the user): another's hit not logged (no "?" rows - the user); ours, its damage number's (split shield then health by
+        # the shield the victim had); what the victims lost past our rows, the "unattributed" actor's - one row a
+        # second; a death (TornOff) an event; an object without health not logged
+        cl_roles = {role for _, _, role in games.GAME.damage.hooks(True)}
+        assert cl_roles == {"client_hit", "client_object_hit", "client_number", "client_gone"}, cl_roles
+        cl_hub = Hub()
+        cl_log = dmg.DamageLog(cl_hub)
+        cl_log.name_actor = lambda actor, identity: {"n": str(actor.Name) if actor is not None else "?"}
+        cl_log.name_what = lambda obj: {"n": str(obj.Name)}
+        cl_log.name_element = lambda obj: {"d": str(obj.Name)}
+        cl_clock = [5000]
+        cl_log._ms = lambda: cl_clock[0]
+        cl_me = dobj(0x900, player_cls, Controller=None, HealthVar=500.0, ShieldVar=100.0)
+        cl_host = dobj(0x901, player_cls, Controller=None, HealthVar=500.0, ShieldVar=0.0)
+        cl_enemy = dobj(0x910, ai, HealthVar=1000.0, ShieldVar=50.0)
+        cl_pile = dobj(0x920, DClass("WillowInteractiveObject"), Health=30.0, MaxHealth=30.0, InteractiveObjectDefinition=breakable)
+        cl_rock = dobj(0x921, DClass("WillowInteractiveObject"), Health=0.0, MaxHealth=0.0,
+                       InteractiveObjectDefinition=dns(bCanTakeDirectDamage=False, bCanTakeRadiusDamage=False))
+        cl_real_local = games.GAME.pawns.local
+        games.GAME.pawns.local = lambda cl_pc: cl_me
+        try:
+            cl_log.tick(True, True)
+            assert cl_log.hooked and cl_log.client, "a client: its own hooks"
+            cl_on = {role: cl_log._handler(role) for role in cl_roles}
+
+            def cl_hit(victim: object, attacker: object, at: tuple = (0.0, 0.0, 0.0)) -> None:
+                cl_on["client_object_hit" if victim.Class.Name == "WillowInteractiveObject" else "client_hit"](
+                    victim, dns(SomePawn=attacker, Pipeline=dns(DamageTypeDef=fire), HitLocation=dns(X=at[0], Y=at[1], Z=at[2])),
+                    None, None)
+
+            def cl_number(amount: float, flags: int, at: tuple) -> None:
+                cl_on["client_number"](None, dns(DamageEventData=dns(
+                    TotalDamageForDamageType=amount, DamageEventFlags=flags, DamageTypeDefinition=fire,
+                    DamageLocation=dns(X=at[0], Y=at[1], Z=at[2]))), None, None)
+
+            cl_hit(cl_enemy, cl_host)  # the host's: no amount - no row (its damage: the unattributed loss)
+            cl_hit(cl_enemy, cl_me, (10.0, 0.0, 0.0))  # ours: its number just after, at its place - a crit, 80
+            cl_number(80.0, 1, (12.0, 0.0, 0.0))
+            cl_hit(cl_rock, cl_me)  # (no health: nothing)
+            cl_hit(cl_pile, cl_me, (500.0, 0.0, 0.0))  # ours, its number never comes: it did nothing - no row (the user
+            # saw "?" on an enemy they can't damage)
+            cl_enemy.HealthVar, cl_enemy.ShieldVar = 870.0, 0.0  # lost 50 shield + 130 health: ours 50 + 30, 100 unexplained
+            cl_clock[0] = 5200
+            cl_log.tick(True, True)
+            cl_first = json.loads(cl_hub._events["damage"].batches[-1][2])  # (the first: our own definition, at the first tick)
+            (cl_our_row,) = cl_first["h"]
+            cl_enemy_id = cl_our_row[2]
+            assert cl_our_row[2] == cl_enemy_id and cl_our_row[3:6] == [30.0, 50.0, dmg.CRIT], ("ours: its number, shield first", cl_our_row)
+            # the unexplained loss: once its second is over, the "unattributed" actor's
+            cl_clock[0] = 6300
+            cl_log.tick(True, True)
+            cl_unexplained = json.loads(cl_hub._events["damage"].batches[-1][2])
+            cl_rest_row = cl_unexplained["h"][0]
+            assert cl_rest_row[0] == 5200 and cl_rest_row[2] == cl_enemy_id and cl_rest_row[3:6] == [100.0, 0.0, 0], cl_rest_row
+            assert cl_unexplained["a"][str(cl_rest_row[1])] == {"k": "unattributed"}, cl_unexplained["a"]
+            # its death: an event; regen then a loss - only the loss
+            cl_on["client_gone"](cl_enemy, dns(), None, None)
+            cl_enemy.HealthVar = 900.0
+            cl_log.tick(True, True)
+            cl_enemy.HealthVar = 850.0
+            cl_clock[0] = 7400
+            cl_log.tick(True, True)
+            cl_clock[0] = 8500
+            cl_log.tick(True, True)
+            cl_later = [json.loads(b) for _, _, b in cl_hub._events["damage"].batches][-2:]
+            assert cl_later[0]["v"][0][1:3] == ["died", cl_enemy_id], cl_later[0]
+            assert cl_later[1]["h"][0][3] == 50.0, ("a rise is no damage", cl_later[1])
+            cl_log.tick(True, False)
+            assert not cl_log.client, "a host again: the host's hooks"
+        finally:
+            games.GAME.pawns.local = cl_real_local
 
         # its cost measured (the user: check the impacts): reported in the mod's log every 30 s like frames.py's, debug
         # only - per hook role, the tick's draining, the busiest second -, then from zero; off: nothing

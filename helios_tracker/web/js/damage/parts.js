@@ -1,6 +1,7 @@
 // What the damage views share: an actor's name with its map marker, its pool (max health + shield) and what's left of
 // it, the sources' colours, a time, what dealt a hit as icons (an item card's type, the element), the tags of a hit.
 import { esc, nameHtml } from "../dom.js";
+import { t } from "../i18n.js";
 import { LAYERS, cardIconKey, prettyRaw } from "../model.js";
 import { S } from "../state.js";
 import { layerIcon } from "../ui/layers.js";
@@ -27,6 +28,7 @@ function actorLayer(def) {
 export const actorHtml = (store, id) => {
   const def = store.actors.get(id);
   if (!def) return `<span class="dma">?</span>`;
+  if (def.k === "unattributed") return `<span class="dma unattributed"><span class="nm">${esc(t("dmg.unattributed"))}</span></span>`;
   const layer = def.k === "me" || def.k === "player" ? null : actorLayer(def);
   return `<span class="dma ${esc(def.k || "")}">${layer ? `<span class="sw">${layerIcon(layer)}</span>` : ""}${nameHtml(def)}</span>`;
 };
@@ -96,7 +98,11 @@ export function playerOrder(store) {
 
 export const defName = (def) => (def ? (def.raw ? prettyRaw(def.n) : def.n || "") : "");
 
-export const actorName = (store, id) => defName(store.actors.get(id)) || "?";
+// (a co-op client's "unattributed": what the victims lost that no hit it saw explains - damage_client.py; ours to name)
+export const actorName = (store, id) => {
+  const def = store.actors.get(id);
+  return def?.k === "unattributed" ? t("dmg.unattributed") : defName(def) || "?";
+};
 
 export const clockText = (store, ms) => new Date(store.t0 + ms).toLocaleTimeString(globalThis.document?.documentElement.lang || undefined,
   { hour: "2-digit", minute: "2-digit", second: "2-digit" });

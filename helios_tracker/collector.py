@@ -435,8 +435,9 @@ class Collector:
         if now >= self._next_level_check:
             self._next_level_check = now + LEVEL_CHECK_EVERY
             run("level", self._check_level)
-        # the damage log: its hooks while a page is open (none: no work at all), what they caught published
-        run("damage", self.damage.tick, self._level_key is not None and bool(self.hub.clients))
+        # the damage log: its hooks while a page is open (none: no work at all), what they caught published - a co-op
+        # client's own (the host's never run there: damage_client.py)
+        run("damage", self.damage.tick, self._level_key is not None and bool(self.hub.clients), self._client)
         if self._level_key is None:
             return
         if not self.hub.clients:  # no page open: only follow the level

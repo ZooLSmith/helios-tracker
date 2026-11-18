@@ -502,5 +502,17 @@ recap.js took its rows):** three tabs in the drawer, one job each (view.js, sett
   only (paths.DIAGNOSTICS), when hits came (damage.py `_report`): hits, each hook role's calls / mean / max, ms per
   second, the busiest second, the tick's draining - then from zero. Nothing to run (the user: not console commands). The
   page's side isn't measured (the user: no JS-side measuring we didn't have before).
+- **A co-op client** (the user, 2026-11-18: "damages don't register when I'm a client" - question 3 above, answered by
+  probe_damage_client.py, notes.md "A co-op client"): none of the host's hooks run there. Its own, in their own module
+  (`damage_client.py` - the user: "clean and segmented, don't bloat the system"; the profile's `CLIENT_HOOKS` and its
+  client reads; damage.py routes the "client_*" roles to it, its tick reads the victims). **Strict, plus the totals** (the
+  user's pick of three - the other: pairing each hit with the next health drop, a timing guess): another's hit not
+  logged (first a row without an amount, "?" in the Log - the user: don't log those; its damage is in the victim's
+  unattributed loss); ours with its damage number's
+  amount and crit (one figure: split shield first, by the shield the victim had) - no number, no row (the hit did
+  nothing: the user saw "?" on an enemy they can't damage); what each victim lost past our rows
+  (its replicated health / shield) one row a second from the **"unattributed"** actor (`reserve_actor`, named by the page:
+  dmg.unattributed) - the bars' totals right, in grey; an enemy's death (TornOff) a "died" event. Not on a client: effects,
+  a killing blow, a player downed / revived (InjuredState is replicated - not read yet), what dealt a hit.
 - Still open: two players' slag on one target (co-op: the probe's step a), a revive by another player, a heal outside
   a hit (a vial, a Transfusion grenade), an interactive object's slag (its bonus stays its shooter's).
