@@ -9,7 +9,9 @@
 //   it pinned on top; rows under 2 % folded in "+ N more"; the killing blow marked. The search filters the hits.
 // - A player: what they did - damage dealt (every hit's full amount, overkill in: the weapons' numbers), their
 //   contribution, the slag they brought to others' hits, kills, healing given, damage taken -, and a row per weapon /
-//   element / hits or ticks: the amount, its share, hits, crits, kills.
+//   element / hits or ticks: the amount, its share, hits, crits, kills. Then their healing (the user: like Realtime's
+//   card - in the player's tab, healing being about players, not enemies): a row per healer > healed pair they're
+//   in, given or received, the biggest first.
 // One's own damage on oneself left out everywhere (the user); a heal in no damage total.
 import { esc } from "../dom.js";
 import { num, t } from "../i18n.js";
@@ -63,14 +65,24 @@ export function gatherRecap(store, t1, t2, words = []) {
   };
   const player = (id) => {
     let x = players.get(id);
-    if (!x) players.set(id, x = { id, dealt: 0, contrib: 0, slag: 0, kills: 0, healed: 0, taken: 0, rows: new Map() });
+    if (!x) players.set(id, x = { id, dealt: 0, contrib: 0, slag: 0, kills: 0, healed: 0, taken: 0, rows: new Map(), heals: new Map() });
     return x;
   };
   for (const id of playerOrder(store)) player(id); // (every player a tab, whatever they did)
   store.forEachHit(t1, t2, (h) => {
     if (h.a === h.v || !hitMatches(words, store, h)) return; // (on oneself: not counted - the user)
     const amount = h.h + h.s, tick = h.f & FLAG.TICK ? 1 : 0;
-    if (isHeal(h)) { if (h.a && isPlayer(store, h.a)) player(h.a).healed += amount; return; }
+    if (isHeal(h)) {
+      if (h.a && isPlayer(store, h.a)) player(h.a).healed += amount;
+      for (const id of [h.a, h.v]) { // (a row in the healer's tab and in the healed one's)
+        if (!id || !isPlayer(store, id)) continue;
+        const heals = player(id).heals, key = `${h.a}|${h.v}`;
+        const r = heals.get(key) || heals.set(key, { a: h.a, v: h.v, amount: 0, n: 0 }).get(key);
+        r.amount += amount;
+        r.n++;
+      }
+      return;
+    }
     if (h.a && isPlayer(store, h.a)) {
       const p = player(h.a);
       p.dealt += amount;
@@ -182,7 +194,8 @@ function playerHtml(store, data, id) {
     `${stat(partLabel(store, 2), p.slag)}${p.kills ? `<span class="dmstat"><span class="dmstatl">${esc(t("dmg.kills"))}</span>${num(p.kills)}</span>` : ""}` +
     `${stat(t("dmg.healed"), p.healed, "heal")}${stat(t("dmg.taken"), p.taken, "taken")}</span></div>`;
   const rows = [...p.rows.values()].sort((a, b) => b.amount - a.amount);
-  if (!rows.length) return head + `<div class="note">${esc(t("dmg.quietWindow"))}</div></div>`;
+  const heals = healRowsHtml(store, p);
+  if (!rows.length) return head + (heals || `<div class="note">${esc(t("dmg.quietWindow"))}</div>`) + `</div>`;
   return head + `<div class="dmrows">` + rows.map((r) => {
     const what = defName(store.whats.get(r.w)), el = store.elements.get(r.e);
     const tip = tipSections(what || "?", [{ kind: "stats", lines: [isShortened(r.amount) ? num(Math.round(r.amount)) : "",
@@ -190,7 +203,17 @@ function playerHtml(store, data, id) {
     return `<div class="dmsrow${r.kills ? " kill" : ""}"${tip}><span class="dmwho">${whatIcons(store, r.w, r.e) || `<span class="dmwhat"></span>`}` +
       `<span class="nm">${esc(what || "?")}</span></span><span class="dmtags"><span class="dmtag">${esc(percentText(r.amount, p.dealt))}</span></span>` +
       `<span class="dmcount">${esc(countText(r))}</span><span class="dmamt">${esc(amountText(r.amount))}</span></div>`;
-  }).join("") + `</div></div>`;
+  }).join("") + `</div>` + heals + `</div>`;
+}
+
+/** A player's healing: a row per healer > healed pair they're in (given or received), the biggest first ("" none). */
+function healRowsHtml(store, p) {
+  if (!p.heals.size) return "";
+  const rows = [...p.heals.values()].sort((a, b) => b.amount - a.amount);
+  return `<div class="dmrows"><div class="dmsubhead">${esc(t("dmg.healed"))}</div>` + rows.map((r) =>
+    `<div class="dmsrow"><span class="dmwho">${actorHtml(store, r.a)}<span class="dmarrow">›</span>${actorHtml(store, r.v)}</span>` +
+    `<span class="dmtags"></span>` +
+    `<span class="dmamt heal">${esc(amountText(r.amount))}</span></div>`).join("") + `</div>`;
 }
 
 /** The Recap's HTML. `state`: {tab: "enemies" or a player's id, more: Set(ids whose small rows are shown)}. */

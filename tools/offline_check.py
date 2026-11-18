@@ -512,6 +512,8 @@ const dmgSlagOut = {
   me: dmgPlayerOut(1), friend: dmgPlayerOut(4),
   live: realtimeEntries(dmgSlag, 1000, 30000).map((e) => [e.id, e.dead, e.filled]),
   later: realtimeEntries(dmgSlag, 11000, 30000).map((e) => e.id),
+  recapHeals: [1, 4].map((id) => [...dmgSlagRecap.players.get(id).heals.values()].map((r) => [r.a, r.v, r.amount, r.n])),
+  recapHealHtml: recapHtml(dmgSlag, 0, 1000, [], { tab: 1, more: new Set() }),
   heals: healEntries(dmgSlag, 1000, 30000).map((e) => [e.id, e.total, [...e.parts].map(([who, p]) => [who, p[0]])]),
   healsGone: healEntries(dmgSlag, 31000, 30000).length,
   lines: linesHtml(dmgSlag, 300), summary: summaryHtml(dmgSlag, 1000),
@@ -3076,6 +3078,8 @@ def check_helios_tracker() -> None:  # noqa: PLR0915
         "Realtime: the dead one kept a while (filled), then gone; the score's order", dmg_slag)
     assert dmg_slag["heals"] == [[1, 588, [[4, 588]]]] and dmg_slag["healsGone"] == 0, (
         "Realtime's Healing card: the one healed, by whom, how much - gone once the heals are older than 30 s", dmg_slag)
+    assert dmg_slag["recapHeals"] == [[[4, 1, 588, 1]], [[4, 1, 588, 1]]] and 'dmamt heal">588<' in dmg_slag["recapHealHtml"], (
+        "the Recap: a heal in the healer's tab and in the healed one's", dmg_slag["recapHeals"])
     assert 'dmamt heal' in dmg_slag["lines"] and ">heal<" in dmg_slag["lines"], ("a heal's line", dmg_slag["lines"])
     assert dmg_slag["summary"].count('class="dmsum"') == 1, ("the summary: a heal isn't damage dealt", dmg_slag["summary"])
     assert dmg_first["amounts"] == ["4.3", "99,999", "130.4K", "1.2M"], (
