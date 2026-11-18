@@ -3834,14 +3834,26 @@ def check_damage_log() -> None:
         assert rocket_row[6] == crit_row[6], ("a projectile's hit: its weapon's (the gun's id)", rocket_row, crit_row)
         assert spore_row[6] == spore_row_b[6] != crit_row[6], ("an enemy's projectiles: one id, their definition's", spore_row)
 
-        # its cost measured (the user: check the impacts - tools/probes/damage_log_stats.py): per hook role, the tick's
-        # draining, the busiest second; a reset starts over
-        dmg_summary_text = log.summary()
-        assert "busiest second" in dmg_summary_text and "    read:" in dmg_summary_text and "tick:" in dmg_summary_text, (
-            dmg_summary_text)
+        # its cost measured (the user: check the impacts): reported in the mod's log every 30 s like frames.py's, debug
+        # only - per hook role, the tick's draining, the busiest second -, then from zero; off: nothing
         assert log.stats["roles"]["open"][0] > 0 and log.stats["drains"] > 0, log.stats
-        log.reset_stats()
-        assert log.stats["hook_calls"] == 0 and not log.stats["roles"], "reset"
+        dmg_report_lines: list[str] = []
+        dmg_real_log, dmg.log = dmg.log, dmg_report_lines.append
+        try:
+            dmg_was_diag, dmg_was_next = log.diagnostics, log._next_report
+            log.diagnostics, log._next_report = False, 1.0
+            log._report(1e9)
+            assert not dmg_report_lines and log.stats["hook_calls"], "diagnostics off: no report, nothing reset"
+            log.diagnostics = True
+            log._report(1e9)
+            assert len(dmg_report_lines) == 1 and "busiest second" in dmg_report_lines[0] and "read " in \
+                dmg_report_lines[0] and "tick " in dmg_report_lines[0], dmg_report_lines
+            assert log.stats["hook_calls"] == 0 and not log.stats["roles"], "reported: from zero"
+            log._report(1e9 + 60)
+            assert len(dmg_report_lines) == 1, "no hits since: no report"
+            log.diagnostics, log._next_report = dmg_was_diag, dmg_was_next
+        finally:
+            dmg.log = dmg_real_log
         # the stream: a new page told to catch up; one a batch behind gets it; the catch-up: every definition, the batches
         events = hub._events["damage"]
         last_seq = events.seq

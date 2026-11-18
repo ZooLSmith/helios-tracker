@@ -11,7 +11,6 @@ import { settings } from "../settings.js";
 import { amountText } from "./amount.js";
 import { damageStore, isHeal } from "./store.js";
 import { actorHtml, isPlayer } from "./parts.js";
-import { timed } from "./perf.js";
 import { openDamageLog } from "./view.js";
 
 const TOP = 4;
@@ -40,7 +39,7 @@ export function refreshDamageInfo(now) {
   $("damageAll").hidden = !store.count && !store.events.length;
   const span = t("unit.minutes", { n: WINDOW_MS / 60000 });
   if ($("damageSpan").textContent !== span) $("damageSpan").textContent = span;
-  const html = timed("info: summary", () => summaryHtml(store));
+  const html = summaryHtml(store);
   if (html !== shownHtml) { shownHtml = html; $("damage").innerHTML = html; }
 }
 

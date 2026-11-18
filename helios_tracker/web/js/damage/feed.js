@@ -6,8 +6,6 @@
 // is on its way, the stream's batches wait; those it already brought are skipped.
 
 /** The feed of `store`: a function taking the stream's messages. `fetchJson(url)`: the request (a promise of JSON). */
-import { timed } from "./perf.js";
-
 export function createFeed(store, fetchJson, changed = () => {}) {
   let seq = 0; // the last batch the store has
   let fetching = false, again = false;
@@ -23,7 +21,7 @@ export function createFeed(store, fetchJson, changed = () => {}) {
     for (const b of batches) {
       if (b.q <= seq) continue; // (brought by a catch-up already)
       if (b.q > seq + 1) { catchUp(); return; } // a gap: the history has it (and what follows)
-      timed("store: a batch", () => store.add(b));
+      store.add(b);
       seq = b.q;
     }
     changed();
@@ -42,7 +40,7 @@ export function createFeed(store, fetchJson, changed = () => {}) {
         store.define(r.defs);
         for (const b of r.b || []) {
           if (b.q <= seq) continue;
-          timed("store: a catch-up batch", () => store.add(b)); // (one before missing: past the server's history - gone)
+          store.add(b); // (one before missing: past the server's history - gone)
           seq = b.q;
         }
       } while (again);

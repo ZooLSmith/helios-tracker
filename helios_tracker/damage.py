@@ -36,8 +36,9 @@ import time
 from typing import Any
 
 from . import games
-from .frames import FRAMES
-from .util import log_error
+from .frames import FRAMES, REPORT_EVERY
+from .paths import DIAGNOSTICS
+from .util import log, log_error
 
 CHANNEL = "damage"
 HOOK_ID = "helios_tracker_damage"
@@ -118,6 +119,8 @@ class DamageLog:
         self._sent: dict[tuple[str, int], dict[str, Any]] = {}
         self.stats: dict[str, Any] = {}
         self.reset_stats()
+        self.diagnostics = DIAGNOSTICS  # (the measures reported in the log: debug only - _report)
+        self._next_report = 0.0
 
     # region Switching
 
@@ -194,7 +197,7 @@ class DamageLog:
             stats["worst_second_s"], stats["worst_second_calls"] = stats["second_s"], stats["second_calls"]
 
     def reset_stats(self) -> None:
-        """The measures from zero (tools/probes/damage_log_stats.py: reset - one fight measured alone)."""
+        """The measures from zero (after each report: _report)."""
         self.stats = {"hits": 0, "events": 0, "batches": 0, "hook_s": 0.0, "hook_max_s": 0.0, "hook_calls": 0,
                       "roles": {}, "second": -1, "second_s": 0.0, "second_calls": 0, "worst_second_s": 0.0,
                       "worst_second_calls": 0, "tick_s": 0.0, "tick_max_s": 0.0, "ticks": 0, "drains": 0,
@@ -433,6 +436,7 @@ class DamageLog:
                 stats["tick_max_s"] = spent
         if self._hooked:
             self.stats["ticks"] += 1
+        self._report(time.monotonic())
 
     def level_changed(self, name: str) -> None:
         """A new level: a mark in the log; the floods closed, the open frames dropped, the gone objects' ids pruned."""
@@ -503,27 +507,34 @@ class DamageLog:
         self.stats["batches"] += 1
         self.hub.publish_events(CHANNEL, json.dumps(batch, separators=(",", ":")), defs, self.t0_epoch)
 
+    def _report(self, now: float) -> None:
+        """Every REPORT_EVERY s (frames.py's), debug only (paths.DIAGNOSTICS): the measures in the mod's log, when hits
+        came - then from zero (each report its own span)."""
+        if not self.diagnostics or now < self._next_report:
+            return
+        first = not self._next_report
+        self._next_report = now + REPORT_EVERY
+        if first:
+            return  # (the first span starts here: the measures since the mod's start kept)
+        if self.stats["hook_calls"]:
+            log(self.summary())
+        self.reset_stats()
+
     def summary(self) -> str:
-        """The console's lines (tools/probes/damage_log_stats.py): counts, our hooks' time - in all, per role, the busiest
-        second -, the tick's (draining: naming, JSON, publishing), since the last reset."""
+        """The report's line: counts, our hooks' time - in all, the busiest second, per role -, the tick's (draining:
+        naming, JSON, publishing), since the last report."""
         s = self.stats
         span = max(1e-9, time.perf_counter() - s["since"])
         mean = s["hook_s"] / s["hook_calls"] * 1e6 if s["hook_calls"] else 0.0
         tick_mean = s["tick_s"] / s["drains"] * 1e3 if s["drains"] else 0.0
-        lines = [
-            f"damage log: {'on' if self.enabled else 'off'}, hooks {'in' if self._hooked else 'out'}; over {span:.0f} s: "
-            f"{s['hits']} hits ({s['hits'] / span:.1f}/s), {s['events']} events, {s['batches']} batches",
-            f"  hooks: {s['hook_calls']} calls, {mean:.1f} us mean, {s['hook_max_s'] * 1e6:.0f} us max, "
-            f"{s['hook_s'] * 1e3:.1f} ms in all ({s['hook_s'] / span * 1e3:.2f} ms/s); busiest second "
-            f"{s['worst_second_s'] * 1e3:.2f} ms ({s['worst_second_calls']} calls)",
-            f"  tick: {s['drains']} drains, {tick_mean:.2f} ms mean, {s['tick_max_s'] * 1e3:.2f} ms max, "
-            f"{s['tick_s'] * 1e3:.1f} ms in all ({s['tick_s'] / span * 1e3:.2f} ms/s)",
-        ]
-        for role, (calls, total, top) in sorted(s["roles"].items(), key=lambda kv: -kv[1][1]):
-            lines.append(f"    {role}: {calls} calls, {total / calls * 1e6:.1f} us mean, {top * 1e6:.0f} us max, "
-                         f"{total * 1e3:.1f} ms")
-        lines.append(f"  ids: {self._actors.next - 1} actors, {self._what.next - 1} what, {self._elements.next - 1} "
-                     f"elements; open frames {len(self._frames)}")
-        return "\n".join(lines)
+        roles = ", ".join(f"{role} {calls}x {total / calls * 1e6:.1f} us (max {top * 1e6:.0f})"
+                          for role, (calls, total, top) in sorted(s["roles"].items(), key=lambda kv: -kv[1][1]))
+        return (f"damage log in the last {span:.0f} s: {s['hits']} hits ({s['hits'] / span:.1f}/s), {s['events']} events, "
+                f"{s['batches']} batches; hooks {s['hook_calls']} calls, {mean:.1f} us mean, {s['hook_max_s'] * 1e6:.0f} us "
+                f"max, {s['hook_s'] * 1e3:.1f} ms ({s['hook_s'] / span * 1e3:.2f} ms/s), busiest second "
+                f"{s['worst_second_s'] * 1e3:.2f} ms ({s['worst_second_calls']} calls) [{roles}]; tick {s['drains']} drains, "
+                f"{tick_mean:.2f} ms mean, {s['tick_max_s'] * 1e3:.2f} ms max, {s['tick_s'] * 1e3:.1f} ms "
+                f"({s['tick_s'] / span * 1e3:.2f} ms/s); ids {self._actors.next - 1} actors, {self._what.next - 1} what, "
+                f"{self._elements.next - 1} elements, open frames {len(self._frames)}")
 
     # endregion
