@@ -608,6 +608,8 @@ class Collector:
             pri = try_(lambda: identity.PlayerReplicationInfo)
             kind = "player" if self._is(identity, "PlayerController") else "other"
             return {"k": kind, **named(try_(lambda: str(pri.PlayerName), "") or "", str(identity.Class.Name))}
+        if self._is(actor, "Pawn") and self._is_seat(actor):  # (a vehicle's gun seat - a WillowWeaponPawn, no AI class:
+            actor = self._seat_vehicle(actor) or actor   # its vehicle, as the map shows it - the user's log)
         address = actor._get_address()
         if self._is(actor, "Pawn"):
             me = try_(lambda: games.GAME.pawns.local(get_pc()))

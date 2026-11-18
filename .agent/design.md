@@ -459,7 +459,7 @@ full up to 99,999, short from 100,000 (the user), their column as wide as the bi
 **The rework (the user, 2026-11-18 - _work/damage-log/ideas.md; built the same day; the Overview above superseded -
 recap.js took its rows):** three tabs in the drawer, one job each (view.js, settings.ui.damageTab):
 - **Realtime** (realtime.js): what's being done to the enemies now. A card per enemy / object being damaged - no
-  player cards; one not hit for 120 s gone (the user: no "how far back" slider - enemies die, it made no sense; a limit
+  player cards; one not hit for 30 s gone (120 at first: too long - the user) (the user: no "how far back" slider - enemies die, it made no sense; a limit
   for a fight left behind). Its bar (bars.js): its pool, filled by what it lost, split by who took it off - **over its
   whole life** (store.js lives: per victim, for the session).
   Tall, each segment's amount written in it when it has room (the user: else only on hover); the amount beside the name
@@ -474,7 +474,7 @@ recap.js took its rows):** three tabs in the drawer, one job each (view.js, sett
   A player: damage dealt (full, overkill in), contribution, slag brought, kills, healing given, taken; a row per
   weapon / element / hits or ticks.
 - **Log**: as before, plus heals (their tag, their amount in green).
-- **Time**: Realtime none (its 120 s limit); Recap and Log **share** one range (window.js - the user: a fight recapped, then its
+- **Time**: Realtime none (its 30 s limit); Recap and Log **share** one range (window.js - the user: a fight recapped, then its
   lines), its times the clock's ("10:30:12" ... "now" live).
 - **Pool** = max health + max shield (the user: a shield can't be bypassed), the biggest seen (parts.js maxPool - the map
   pawn's m + sm, kept once it leaves the map).

@@ -19,7 +19,7 @@ import { amountText } from "./amount.js";
 import { barHtml, legendHtml } from "./bars.js";
 import { actorHtml, isPlayer, maxPool, poolLeft } from "./parts.js";
 
-export const RECENT_MS = 120000; // a card not hit for this long: gone (a fight left behind)
+export const RECENT_MS = 30000; // a card not hit for this long: gone (a fight left behind - the user: 30 s, 120 was long)
 const FADE_MS = 10000; // a dead one's card kept this long (the user: 4 s was too short)
 const SWAP_MS = 1500; // a new order waits this long
 const GLIDE_MS = 140; // the cards' move: its time constant (smooth / N fps)
