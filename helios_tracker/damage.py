@@ -25,7 +25,8 @@ A batch: {"q": its sequence (the hub's), "h": [hits], "v": [events], "a" / "w" /
   "fx+" an effect applied (actor its victim, other the instigator; + what, the effect - a "w" id), "fx-" one ended
   (the same), "down" a player downed (other: by whom), "wind" a second wind (the hit: the kill that gave it), "dead"
   bled out, "up" back up (+ "revive" / "respawn"), "died" a death outside any hit (no killing blow), "level" (+ its name);
-- definitions: "a" {id: {"k": kind, "n": name, "raw"?: 1, "m"?: its map id, "boss"?}}, "w" {id: {"n", "raw"?}},
+- definitions: "a" {id: {"k": kind, "n": name, "raw"?: 1, "m"?: its map id, "boss"?, "o"?: a player's number in the
+  game - PRI.PlayerID, the same on every page: their colours}}, "w" {id: {"n", "raw"?}},
   "e" {id: {"d": its definition's name, "el"?, "eln"?, "ecol"? - inspector.element_of}} - sent again when they change
   (a player respawned: their "m").
 """

@@ -149,6 +149,13 @@ def _vital_max(value: float) -> float:
     return int(value) if value.is_integer() else value
 
 
+def _player_number(pri: Any) -> dict[str, int]:
+    """A player's number in the game for the damage log ({"o": PRI.PlayerID}, {} without a PRI): the server gives it,
+    every client reads the same one - the page's own player first gave each player their own page's first colour."""
+    number = try_(lambda: int(pri.PlayerID))
+    return {"o": number} if number is not None else {}
+
+
 def movie_length(name: str) -> float | None:
     """A cutscene video's length (s), from its Bink file's header (frames, then the frame rate as
     numerator / denominator at 28 / 32): <game>/WillowGame/Movies/<name>.bik, else a DLC's
@@ -603,11 +610,14 @@ class Collector:
 
     def _damage_actor(self, actor: Any, identity: Any) -> dict[str, Any]:
         """The damage log's definition of an actor (damage.py: at the tick, once per id - again for a player's new pawn):
-        its kind, name - the map's own (_pawn_info, the object's record) -, its map id ("m": the page opens its panel)."""
+        its kind, name - the map's own (_pawn_info, the object's record) -, its map id ("m": the page opens its panel); a
+        player's number in the game ("o": PRI.PlayerID - the server's, replicated: the same on every player's page, their
+        colours by it - parts.js sourceColor)."""
         if actor is None:  # (a player without a pawn - dead, between levels -, an AI controller without one)
             pri = try_(lambda: identity.PlayerReplicationInfo)
             kind = "player" if self._is(identity, "PlayerController") else "other"
-            return {"k": kind, **named(try_(lambda: str(pri.PlayerName), "") or "", str(identity.Class.Name))}
+            return {"k": kind, **named(try_(lambda: str(pri.PlayerName), "") or "", str(identity.Class.Name)),
+                    **_player_number(pri)}
         if self._is(actor, "Pawn") and self._is_seat(actor):  # (a vehicle's gun seat - a WillowWeaponPawn, no AI class:
             actor = self._seat_vehicle(actor) or actor   # its vehicle, as the map shows it - the user's log)
         address = actor._get_address()
@@ -618,6 +628,8 @@ class Collector:
             for key in ("raw", "boss"):
                 if key in info:
                     out[key] = info[key]
+            if info["k"] in ("me", "player"):
+                out.update(_player_number(player_info(actor)))
             return out
         if self._is(actor, "WillowInteractiveObject"):
             record = self._object_records.get((address, str(actor.Name)))

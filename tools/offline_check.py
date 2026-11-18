@@ -449,6 +449,7 @@ const { healEntries, realtimeEntries } = await load("js/damage/realtime.js");
 const { amountText: dmgAmount, amountWidth: dmgAmountWidth } = await load("js/damage/amount.js");
 const { searchWords } = await load("js/damage/search.js");
 const { summaryHtml } = await load("js/damage/info.js");
+const { sourceColor: dmgColor } = await load("js/damage/parts.js");
 const dmgHistory = {
   "s1:0": { sid: "s1", t0: 1000, seq: 2, defs: { a: { 1: { k: "me", n: "Me" }, 2: { k: "enemy", n: "Rakk" } }, w: { 1: { n: "Gun" } } },
     b: [{ q: 1, h: [[100, 1, 2, 10, 0, 1, 1, 0]] }, { q: 2, h: [[1200, 1, 2, 5, 5, 4, 1, 0]], v: [[1200, "fx+", 2, 1, 0, 1, 1]] }] },
@@ -526,7 +527,13 @@ const dmgExpired = { count: dmgStore.count, events: dmgStore.events.length };
 dmgSession = "s2";
 dmgFeed({ sid: "s2", t0: 9000, seq: 1, catchup: 1 });
 await dmgSettle();
-const damageOut = { order: dmgOrderOut, slag: dmgSlagOut, selfSummary: dmgSelfSummary, urls: dmgUrls, first: dmgFirst, gap: dmgGap, expired: dmgExpired,
+// The players' colours by their number in the game ("o": PlayerID - the same on every page), not the page's own first; a
+// respawned pawn's new id (a client) in its player's colour; no number: after, by id
+const dmgColors = new DamageStore();
+dmgColors.add({ a: { 1: { k: "me", n: "Me", o: 257 }, 2: { k: "player", n: "Host", o: 256 }, 3: { k: "player", n: "Host", o: 256 },
+  4: { k: "player", n: "Nobody" }, 5: { k: "enemy", n: "Rakk" } }, h: [] });
+const dmgColorsOut = [1, 2, 3, 4, 5].map((id) => dmgColor(dmgColors, id));
+const damageOut = { colors: dmgColorsOut, order: dmgOrderOut, slag: dmgSlagOut, selfSummary: dmgSelfSummary, urls: dmgUrls, first: dmgFirst, gap: dmgGap, expired: dmgExpired,
   second: { sid: dmgStore.sid, t0: dmgStore.t0, count: dmgStore.count, name: dmgStore.actors.get(1).n, rakk: dmgStore.actors.has(2) } };
 const missionsOut = { deltaOut, lootDetailRenders, rowsOut, shotCostOut, bonusOut, statsOut, lookOut, vaultCat, healthShown, variantWords, stepOrder, hitPicks, items, itemsLater, notYetWhy, fallback, where, tooHigh, finish, difficulty, best, search, infoHtml, areas, gameText, story: flat(tree.story), other: flat(tree.other), counts: missionCounts(log),
   objectives: objectiveStates(log[1]).map((s) => s.state) };
@@ -3048,6 +3055,8 @@ def check_helios_tracker() -> None:  # noqa: PLR0915
     assert ">20<" in dmg_recap and ">2 hits<" in dmg_recap and dmg_recap.count('class="dmsrow kill"') == 1, (
         "Rakk: took 20 - Me's two Gun hits one row, its killing blow marked", dmg_recap)
     assert 'class="dmseg k0"' in dmg_recap and "--c:var(--dm-p1)" in dmg_recap, ("its bar: Me's hits, Me's colour", dmg_recap)
+    assert dmg_page["colors"] == ["var(--dm-p2)", "var(--dm-p1)", "var(--dm-p1)", "var(--dm-p3)", "var(--dm-other)"], (
+        "the players' colours by their game number (the user: both blue, each on their own page)", dmg_page["colors"])
     dmg_order = dmg_page["order"]
     dmg_names = [n for n in ("Boss", "Psycho") if f">{n}<" in dmg_order["order"]]
     assert sorted(dmg_names, key=lambda n: dmg_order["order"].index(f">{n}<")) == ["Boss", "Psycho"], (
