@@ -499,6 +499,6 @@ export function draw() {
   refreshDamageInfo(now); // (the Info tab's Damage section: who dealt the most lately; the store's expiry)
   refreshDamageView(now); // (the damage log in the drawer, while open)
   refreshDetail(now); // (a selected thing's panel: its distance, health... - the game's state)
-  refreshDrawerHeight(now); // (a collapsed list's drawer: its height easing to its content's)
+  refreshDrawerHeight(now); // (the damage log's Realtime, collapsed: the drawer's height easing to its cards')
   refreshNorth(); // (the compass: shown once the user turned the map, pointing north)
 }

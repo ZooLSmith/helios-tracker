@@ -45,20 +45,22 @@ export function hideFold() {
 export const queryHtml = (key, query) => (foldOf(key) !== "filters" && query.trim()
   ? `<span class="mquery">${esc(t("mlog.searching", { q: query.trim() }))}</span>` : "");
 
-// Collapsed, the drawer's height follows its list's (cards coming and going in Realtime, rows in the mission log)
-// gradually (the user), from the frames - the Refresh rate's (smooth: eased, N fps: stepped, updates only: at once),
+// Collapsed on the damage log's Realtime, the drawer's height follows its cards' (coming and going) gradually (the
+// user: that one only), from the frames - the Refresh rate's (smooth: eased, N fps: stepped, updates only: at once),
 // never a timer or a CSS transition of its own. Its height as the CSS lays it out (auto, half the page at most: the
 // cap there) measured every MEASURE_MS only (a forced layout), each frame writing a height only while it moves.
 const EASE_MS = 160, MEASURE_MS = 250;
 let phone = null, shownHeight = null, wantHeight = 0, measuredAt = -Infinity, easedAt = 0;
 
-/** From draw.js' frame: the collapsed drawer's height towards its list's. */
+/** From draw.js' frame: the collapsed Realtime drawer's height towards its cards'. */
 export function refreshDrawerHeight(now) {
   const box = $("inspector");
   phone ??= matchMedia("(max-width: 520px)"); // (drawer.css: the page whole there, the fold ignored - first used here:
   // the module also loads where there's none, offline_check's Node)
-  // (a selected thing's fitted panel - #inspector.fit - not: the CSS's fit only, the user didn't want it animated)
-  if (!box.classList.contains("open") || !box.classList.contains("listcollapsed") || phone.matches) {
+  // the damage log's Realtime only (the user: its cards come and go all the time) - the other collapsed lists, a
+  // selected thing's fitted panel (#inspector.fit): the CSS's fit, not animated
+  const realtime = !!S.damageView && settings.ui.damageTab === "realtime";
+  if (!box.classList.contains("open") || !box.classList.contains("listcollapsed") || !realtime || phone.matches) {
     if (shownHeight !== null) { box.style.height = ""; shownHeight = null; } // (the CSS's again: full, unfolded)
     return;
   }
