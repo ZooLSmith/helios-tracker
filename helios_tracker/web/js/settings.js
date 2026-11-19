@@ -47,7 +47,9 @@ export function defaults() {
     },
     ui: { lang: "auto", panelTab: "info", inspectorTab: "info", openLayers: [], closedGroups: [], showLockedMissions: false,
       missionGroup: "chain", missionGoal: "xp",
-      missionFiltersClosed: false, // the mission list's filters folded away (more room for the list)
+      // the mission / damage log's chevron, a cycle (ui/listfold.js): "plain" (the list, its filters folded away),
+      // "filters" (the list and its filters), "collapsed" (the list alone, the counts hidden, the drawer half the page)
+      missionFold: "filters", damageFold: "filters",
       panelCollapsed: false, // the left panel folded (its title row and the level only)
       closedInfo: [], // the Info tab's sections folded (their data-sec: "mission", "shops", "players")
       shopTab: "weapons", // the vending machines' tab (a machine kind: shops.py KINDS)

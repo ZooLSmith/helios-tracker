@@ -18,6 +18,8 @@ import { updatePlayerVitals } from "./ui/players.js";
 import { refreshShops } from "./ui/shops.js";
 import { refreshDamageInfo } from "./damage/info.js";
 import { refreshDamageView } from "./damage/view.js";
+import { refreshDrawerHeight } from "./ui/listfold.js";
+import { refreshDetail } from "./ui/detail.js";
 import { mapThings } from "./ui/detail.js";
 import { refreshLayerSearch, searchFound } from "./ui/layers.js";
 import { H, W, centerOnTarget, ctx, dpr, fit, heightK, refreshNorth, setCtx, toScreen } from "./view.js";
@@ -496,5 +498,7 @@ export function draw() {
   refreshLayerSearch(now); // (the Layers tab's search: what's found, how far)
   refreshDamageInfo(now); // (the Info tab's Damage section: who dealt the most lately; the store's expiry)
   refreshDamageView(now); // (the damage log in the drawer, while open)
+  refreshDetail(now); // (a selected thing's panel: its distance, health... - the game's state)
+  refreshDrawerHeight(now); // (a collapsed list's drawer: its height easing to its content's)
   refreshNorth(); // (the compass: shown once the user turned the map, pointing north)
 }

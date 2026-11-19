@@ -50,7 +50,8 @@ bl2-helios-tracker/
 
 - `python tools/offline_check.py` — imports the mod with fake SDK modules, runs its collectors,
   extracts real tactical maps from the game's packages, serves the page and runs its JS under Node.
-  Run after every change; it's the only test we have outside the game. Without `project.json`'s game
+  Run after every change; it's the only test we have outside the game. Not for a CSS-only change: it doesn't check
+  CSS (the user: pointless there). Without `project.json`'s game
   it skips the game file checks.
 - In game: `pyexec helios_tracker/reload.py`. Page edits only need a browser refresh.
 - As players run it: `tools/use_sdkmod.bat` builds `_work/dist/helios_tracker.sdkmod` (`tools/build_sdkmod.py`) and

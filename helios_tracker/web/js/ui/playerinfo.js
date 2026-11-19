@@ -18,6 +18,23 @@ export function barRow(label, value, fraction, cls) {
     `<span class="ibl">${esc(label)}</span><span class="ibv">${esc(value)}</span></div>`;
 }
 
+/** Bars (barRow's: [[cls, label, value, fraction]...]) written in place in `box`: built when which bars it has changes,
+ *  else only their fill and value (their pattern's animation never restarted) - the damage log's Realtime cards', a
+ *  selected thing's panel (detail.js). */
+export function drawBars(box, bars) {
+  const kinds = bars.map((b) => b[0]).join();
+  if (box.dataset.kinds !== kinds) {
+    box.dataset.kinds = kinds;
+    box.innerHTML = bars.map(([cls, label, value, fraction]) => barRow(label, value, fraction, cls)).join("");
+  }
+  bars.forEach(([, , value, fraction], i) => {
+    const bar = box.children[i], width = `${(Math.max(0, Math.min(1, fraction)) * 100).toFixed(1)}%`;
+    if (bar.firstElementChild.style.width !== width) bar.firstElementChild.style.width = width;
+    const v = bar.querySelector(".ibv");
+    if (v.textContent !== value) v.textContent = value;
+  });
+}
+
 const seconds = (s) => t("unit.seconds", { n: Math.ceil(s) });
 
 function stateKey(pawn) {

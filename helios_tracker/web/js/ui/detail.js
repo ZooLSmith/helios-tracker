@@ -8,6 +8,7 @@ import { S, findDetail, isTrackedPlayer, itemById, onSale, pawnPos, trackedPawn 
 import { saveDrawer } from "./drawer.js";
 import { bindItems, openInspector, renderInspector } from "./inspector.js";
 import { itemHtml, pickupAmount, pickupIconHtml, priceText, rarityName } from "./items.js";
+import { drawBars } from "./playerinfo.js";
 import { renderPlayers } from "./players.js";
 import { oddsHtml } from "./odds.js";
 import { machineStockHtml } from "./shops.js";
@@ -143,6 +144,52 @@ function nearbyHtml(it) {
     list.map(thingRowHtml).join("") + `</div>`;
 }
 
+/** Its values that change by themselves (the game's state, many a second - never a redraw of the panel): its distance
+ *  from the tracked player, where it is - texts by key (absent: no row) -, its shield and health as bars (the players'
+ *  - the user: as the players', the damage log's), [[cls, label, value, fraction]...] (playerinfo.js drawBars). */
+function liveValues(it) {
+  const out = { bars: [] }, now = performance.now();
+  const at = it.fx !== undefined ? pawnPos(it, now) : it; // (a pawn: where it's drawn, its bars as they slide)
+  const me = trackedPawn(); // the tracked player
+  if (me && me !== it) {
+    const from = pawnPos(me, now);
+    out.distance = t("unit.meters", { n: num(Math.hypot(at.x - from.x, at.y - from.y, at.z - from.z) / UU_PER_METER, 0) });
+  }
+  if (it.sm > 0) {
+    const s = Math.max(0, at.s ?? it.sm);
+    out.bars.push(["sh", t("detail.shield"), `${num(Math.round(s))} / ${num(Math.round(it.sm))}`, s / it.sm]);
+  }
+  if (it.m > 0) {
+    const h = Math.max(0, at.h ?? it.m);
+    out.bars.push(["hp", t("detail.health"), `${num(shownHealth(h))} / ${num(shownMaxHealth(it.m))}`, h / it.m]);
+  }
+  if (at.x != null) out.position = ["X", "Y", "Z"].map((k) => `${k} ${num(Math.round(at[k.toLowerCase()]))}`).join(" · ");
+  return out;
+}
+
+/** A live value's cell (refreshDetail writes it again). */
+const liveHtml = (key, text) => `<span data-live="${key}">${esc(text)}</span>`;
+
+const LIVE_MS = 250;
+let liveAt = -Infinity;
+
+/** From draw.js' frame (throttled, the Refresh rate's): the open panel's live values (liveValues), each cell written
+ *  only when its text changed - the user: its distance, health... didn't follow the game. */
+export function refreshDetail(now) {
+  if (!S.detail || now - liveAt < LIVE_MS) return;
+  liveAt = now;
+  const cells = $("ibody").querySelectorAll("[data-live]");
+  if (!cells.length) return;
+  const it = findDetail();
+  if (!it) return;
+  const values = liveValues(it);
+  for (const cell of cells) {
+    if (cell.dataset.live === "bars") { drawBars(cell, values.bars); continue; }
+    const text = values[cell.dataset.live] ?? "";
+    if (cell.textContent !== text) cell.textContent = text;
+  }
+}
+
 export function renderDetail(resetScroll) {
   const body = $("ibody"), scroll = body.scrollTop;
   $("itabs").style.display = "none";
@@ -161,15 +208,9 @@ export function renderDetail(resetScroll) {
   $("iwho").innerHTML = back + (gear ? `<span style="color:${rarity(it.q || 0)[1]}">${whoName}</span>` : whoName);
   $("isub").textContent = [kindText(kind, it), it.l && (kind !== "loot" || gear) ? t("insp.level", { n: it.l }) : ""]
     .filter(Boolean).join(" · ");
-  const rows = [];
-  const me = trackedPawn(); // the tracked player
-  if (me && me !== it) {
-    const pos = it.fx !== undefined ? pawnPos(it, performance.now()) : it;
-    rows.push([t("detail.distance"), t("unit.meters", { n: num(Math.hypot(pos.x - me.x, pos.y - me.y, pos.z - me.z) / UU_PER_METER, 0) })]);
-  }
+  const rows = [], live = liveValues(it); // (its live cells: refreshDetail)
+  if (live.distance) rows.push([t("detail.distance"), null, liveHtml("distance", live.distance)]);
   if (kind === "loot" && !gear && it.am) rows.push([t("detail.amount"), pickupAmount(it)]); // money / ammo: how much
-  if (it.sm > 0) rows.push([t("detail.shield"), `${num(Math.round(it.s))} / ${num(Math.round(it.sm))}`]);
-  if (it.m > 0) rows.push([t("detail.health"), `${num(shownHealth(it.h))} / ${num(shownMaxHealth(it.m))}`]);
   // an object that explodes (a barrel): its element - the item cards' icon, the game's name (collector.py: its explosion's)
   if (it.xp && (it.el || it.eln)) {
     const elIcon = cardIconKey(it.el) ? `<img class="dpelement" src="/cardicon/element/${it.el}.png" ` +
@@ -228,8 +269,7 @@ export function renderDetail(resetScroll) {
   if (it.c) tech.push([t("item.class"), String(it.c)]);
   if (it.d) tech.push([t("detail.definition"), it.dp || it.d]);
   // where it is, in the game's units (the cursor's coordinates: tooltip.js) - a pawn's where it's drawn
-  const at = it.fx !== undefined ? pawnPos(it, performance.now()) : it;
-  if (at.x != null) tech.push([t("detail.position"), ["X", "Y", "Z"].map((k) => `${k} ${num(Math.round(at[k.toLowerCase()]))}`).join(" · ")]);
+  if (live.position) tech.push([t("detail.position"), null, liveHtml("position", live.position)]);
   const kvHtml = (list) => `<div class="kv">` + list.map(([k, v, h]) => `<span>${esc(k)}</span><span>${h ?? esc(v)}</span>`).join("") + `</div>`;
   // a fold (its header: the title, a count), closed until opened - remembered per object (S.itemFolds, as items')
   const fold = (key, title, count, inner) => `<div class="ifold${S.itemFolds.has(`${it.i}:${key}`) ? " open" : ""}" data-fold="${key}" ` +
@@ -246,7 +286,9 @@ export function renderDetail(resetScroll) {
   // (right under its rows: what's stacked with it - the map's click may have picked a neighbour)
   // a pickup's own icon (the game's: cash, eridium, health, an ammo type), big, above its rows
   const bigIcon = kind === "loot" && !gear ? pickupIconHtml(it, "dpicon") : "";
-  let html = (bigIcon ? `<div class="dpicons">${bigIcon}</div>` : "") + (rows.length ? kvHtml(rows) : "") + itemCard + nearbyHtml(it);
+  // its shield and health: the players' bars, above its rows (filled below: drawBars, then refreshDetail)
+  const bars = live.bars.length ? `<div class="dpvit" data-live="bars"></div>` : "";
+  let html = (bigIcon ? `<div class="dpicons">${bigIcon}</div>` : "") + bars + (rows.length ? kvHtml(rows) : "") + itemCard + nearbyHtml(it);
   // what it can hold: its chances when the collector worked them out (odds.js), else the pools' names
   const pools = it.odds && it.odds.length ? oddsHtml(it)
     : (it.loot || []).map((n) => `<div>${nameHtml({ n: String(n).replace(/^Pool_/, ""), raw: 1 })}</div>`).join("");
@@ -261,6 +303,8 @@ export function renderDetail(resetScroll) {
   }
   if (tech.length) html += fold("tech", t("item.details"), tech.length, kvHtml(tech));
   body.innerHTML = html;
+  const vit = body.querySelector(".dpvit");
+  if (vit) drawBars(vit, live.bars);
   bindItems(body); // (its items' cards: open / close)
   for (const fold of body.querySelectorAll(":scope > .ifold")) { // (its own folds: the pools, the details)
     fold.querySelector(".ifhead").onclick = () => {

@@ -25,6 +25,11 @@ const ICONS = {
   back: `<path d="M7.6 2.4 4 6l3.6 3.6" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>`,
   chevronDown: `<path d="M3.2 4.6 6 7.4l2.8-2.8" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>`,
   chevronUp: `<path d="M3.2 7.4 6 4.6l2.8 2.8" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>`,
+  // the drawer's lists' fold (ui/listfold.js), what a click does (as its tooltip - the step now read inverted: the
+  // user) - stacked angles: two down (show the filters), two pointing in (collapse), two pointing out (expand)
+  foldFilters: `<path d="M3.2 2.6 6 5.2l2.8-2.6M3.2 6.6 6 9.2l2.8-2.6" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>`,
+  foldCollapse: `<path d="M3.2 1.8 6 4.4l2.8-2.6M3.2 10.2 6 7.6l2.8 2.6" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>`,
+  foldExpand: `<path d="M3.2 4.4 6 1.8l2.8 2.6M3.2 7.6 6 10.2l2.8-2.6" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>`,
   chevronRight: `<path d="M4.6 3.2 7.4 6 4.6 8.8" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>`,
   compass: `<path d="M3.5 7.4 6 4.3 8.5 7.4" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"/>`, // an angle (a chevron), north up (the compass: its N orbits it)
   tune: `<path d="M1.8 3.6h8.4M1.8 8.4h8.4" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/>` + // settings: two sliders

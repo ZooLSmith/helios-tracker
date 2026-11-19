@@ -10,6 +10,7 @@ import { renderDetail } from "./detail.js";
 import { saveDrawer } from "./drawer.js";
 import { renderTargets } from "./panel.js";
 import { elementIconLoaded, itemsByKind } from "./items.js";
+import { hideFold } from "./listfold.js";
 import { renderMissionLog } from "./missionlog.js";
 import { renderShopsView } from "./shops.js";
 import { renderDamageView } from "../damage/view.js";
@@ -45,10 +46,13 @@ export function closeInspector() {
 
 export function renderInspector(resetScroll) {
   const box = $("inspector");
-  if (!S.missionView) { // (the mission list's layout - its own scroll - and its filters' chevron)
+  if (!S.missionView) { // (the mission list's layout - its own scroll - and the lists' chevron: listfold.js)
     $("ibody").classList.remove("mlistview");
-    $("ifold").hidden = true;
+    hideFold();
   }
+  // a selected thing's panel fitted to its content (the user: as the collapsed lists - drawer.css #inspector.fit; not
+  // eased like them: the user didn't want it animated)
+  box.classList.toggle("fit", !S.missionView && !S.shopView && !S.damageView && !!S.detail);
   if (S.missionView) { renderMissionLog(resetScroll); return; }
   if (S.shopView) { renderShopsView(resetScroll); return; }
   if (S.damageView) { renderDamageView(resetScroll); return; }

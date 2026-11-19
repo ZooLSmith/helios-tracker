@@ -18,7 +18,7 @@ import { shownHealth, shownMaxHealth } from "../model.js";
 import { settings } from "../settings.js";
 import { S } from "../state.js";
 import { isHeal } from "./store.js";
-import { barRow } from "../ui/playerinfo.js";
+import { drawBars } from "../ui/playerinfo.js";
 import { amountText } from "./amount.js";
 import { barHtml, legendHtml } from "./bars.js";
 import { actorHtml, isPlayer, maxPool, poolLeft } from "./parts.js";
@@ -96,20 +96,6 @@ function vitals(store, e) {
   return out;
 }
 
-/** The card's bars, written in place: built when which bars it has changes, else only their fill and value. */
-function drawVitals(box, bars) {
-  const kinds = bars.map((b) => b[0]).join();
-  if (box.dataset.kinds !== kinds) {
-    box.dataset.kinds = kinds;
-    box.innerHTML = bars.map(([cls, label, value, fraction]) => barRow(label, value, fraction, cls)).join("");
-  }
-  bars.forEach(([, , value, fraction], i) => {
-    const bar = box.children[i], width = `${(Math.max(0, Math.min(1, fraction)) * 100).toFixed(1)}%`;
-    if (bar.firstElementChild.style.width !== width) bar.firstElementChild.style.width = width;
-    const v = bar.querySelector(".ibv");
-    if (v.textContent !== value) v.textContent = value;
-  });
-}
 
 // The tab's DOM, kept between frames: a card per actor (its element, its HTML as last written, its offset gliding to 0)
 let box = null, cards = new Map(), order = [], pendingSince = 0, lastAnim = 0, legendShown = "", healShown = "";
@@ -150,7 +136,7 @@ export function updateRealtime(store, now = store.now()) {
   const before = new Map();
   for (const [id, c] of cards) before.set(id, c.el.offsetTop + c.off);
   for (const [id, c] of cards) if (!byId.has(id)) { c.el.remove(); cards.delete(id); }
-  for (const id of next) {
+  for (const [index, id] of next.entries()) {
     let c = cards.get(id);
     if (!c) {
       const el = document.createElement("div");
@@ -161,9 +147,11 @@ export function updateRealtime(store, now = store.now()) {
     }
     const e = byId.get(id), html = cardHtml(store, e);
     if (html !== c.html) { c.html = html; c.top.innerHTML = html; }
-    drawVitals(c.vit, vitals(store, e));
+    drawBars(c.vit, vitals(store, e)); // (written in place: playerinfo.js)
     c.el.classList.toggle("dead", e.dead);
-    rt.appendChild(c.el); // (moved: in the new order)
+    // in the new order - moved only when not in its place already: a node taken out and put back restarts its CSS
+    // animations (its bars' patterns did, every update - the user saw them restart)
+    if (rt.children[index] !== c.el) rt.insertBefore(c.el, rt.children[index] || null);
   }
   for (const [id, c] of cards) if (before.has(id)) c.off = before.get(id) - c.el.offsetTop;
   order = next;

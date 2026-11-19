@@ -14,6 +14,7 @@ import { initHoverTips } from "./ui/hovertip.js";
 import { initInspector } from "./ui/inspector.js";
 import { initLayers } from "./ui/layers.js";
 import { initMission } from "./ui/mission.js";
+import { initListFold } from "./ui/listfold.js";
 import { initMissionLog } from "./ui/missionlog.js";
 import { initPanel, renderTargets } from "./ui/panel.js";
 import { initShops } from "./ui/shops.js";
@@ -30,6 +31,7 @@ export function start() {
   initLayers();
   initMission();
   initMissionLog();
+  initListFold();
   initShops();
   initInspector();
   initHoverTips();

@@ -18,6 +18,7 @@ import { S } from "../state.js";
 import { saveDrawer } from "../ui/drawer.js";
 import { tipSections } from "../ui/hovertip.js";
 import { renderInspector } from "../ui/inspector.js";
+import { queryHtml, showFold } from "../ui/listfold.js";
 import { renderPlayers } from "../ui/players.js";
 import { amountText, amountWidth, isShortened } from "./amount.js";
 import { animateRealtime, buildRealtime, updateRealtime } from "./realtime.js";
@@ -52,7 +53,7 @@ export function renderDamageView(resetScroll) {
   const body = $("ibody"), store = damageStore, view = viewOf();
   $("itabs").style.display = "none";
   $("iwho").textContent = t("dmg.title");
-  $("isub").textContent = ""; // (no "N hits kept" - the user: pointless)
+  showQuery(); // (no "N hits kept" - the user: pointless)
   body.classList.add("mlistview"); // (the list scrolls alone, under the search and the views: the mission log's)
   const key = `${view}|${t("dmg.view.log")}`; // (built again for another view, another language)
   if (key !== builtKey || !$("dmList")) {
@@ -67,7 +68,7 @@ export function renderDamageView(resetScroll) {
       b.onclick = () => { settings.ui.damageTab = b.dataset.dmview; saveSettings(); renderDamageView(true); };
     }
     if (view !== "realtime") {
-      $("dmSearch").oninput = (e) => { S.damageView.query = e.target.value; drawList(true); };
+      $("dmSearch").oninput = (e) => { S.damageView.query = e.target.value; showQuery(); drawList(true); };
       bindRange(body.querySelector("[data-dmrange]"), store, () => drawList(false));
     }
     listShown = "";
@@ -76,8 +77,14 @@ export function renderDamageView(resetScroll) {
     if (view === "recap") bindRecap($("dmList"), S.damageView, () => drawList(false));
     if (view === "realtime") buildRealtime($("dmList"));
   }
+  showFold("damageFold", body.querySelector(".mfilters")); // (the views and filters folded away or not: listfold.js)
   drawList(resetScroll);
 }
+
+/** Under the title: the search while the filters are folded away (Realtime has none). */
+const showQuery = () => {
+  $("isub").innerHTML = viewOf() === "realtime" ? "" : queryHtml("damageFold", S.damageView.query || "");
+};
 
 /** The view's list as the window and the search are now. */
 function drawList(resetScroll) {

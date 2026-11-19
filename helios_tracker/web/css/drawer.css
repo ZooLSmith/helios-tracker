@@ -14,6 +14,14 @@
   border-bottom: 2px solid transparent; margin-bottom: -1px; }
 .tabs button.on { color: var(--text); border-bottom-color: var(--accent); }
 .ibody { overflow: auto; padding: 8px 12px 12px; flex: 1; }
+/* its scrollbar (a player's, a selected thing's panel...), as the lists' (below): its room kept, taken from the right
+   padding (12 px less base.css' 6 px bar - nothing moves as it starts scrolling: the user), shown only on hover. Not
+   a list's (.mlistview: its list scrolls, not it - a kept room would show there too, overflow hidden or not) */
+.ibody:not(.mlistview) { scrollbar-gutter: stable; padding-right: 6px; }
+.ibody:not(.mlistview):not(:hover)::-webkit-scrollbar-thumb { background: transparent; }
+@supports not selector(::-webkit-scrollbar) {
+  .ibody:not(.mlistview):not(:hover) { scrollbar-color: transparent transparent; }
+}
 /* the mission list: the search and filters stay, only the list under them scrolls */
 .ibody.mlistview { display: flex; flex-direction: column; overflow: hidden; padding-bottom: 0; }
 .ibody.mlistview > :not(.mtotop) { flex: none; }
@@ -262,9 +270,30 @@
 .pips i { width: 7px; height: 7px; border-radius: 1px; background: var(--pip-off); }
 .pips i.on { background: var(--accent); }
 /* the mission log: the tree (rows indented by depth), a mission's details */
-/* the list's filters, folded away by the header's chevron (#ifold, like the Helios panel's) */
+/* the list's filters, folded away by the header's chevron (#ifold: plain, filters, collapsed - missionlog.js FOLDS) */
 .mfilters.closed { display: none; }
-.ifold[hidden] { display: none; }
+#ifold[hidden] { display: none; } /* (an id, not the class: .ifold is an item card's fold - its border and margin) */
+/* collapsed: the relevant only (the user) - the drawer no longer reaching the page's bottom, half of it at most, ending
+   where a short list ends (the list scrolls inside; .listcollapsed: listfold.js, only while a list shows) */
+#inspector.listcollapsed { bottom: auto; max-height: calc(50% - 12px); }
+/* a selected thing's panel (detail.js): fitted the same way, down to the page's bottom at most (as unfolded) - the user */
+#inspector.fit { bottom: auto; max-height: calc(100% - 24px); }
+#inspector.listcollapsed .mcounts { display: none; } /* (the search alone: mlog.searching) */
+/* the lists' scrollbar (the mission log's, the damage log's - every fold, the user): its room kept (the rows don't jump
+   as a short list starts scrolling or stops), taken from the list's right padding (the room on top of it read as an
+   odd padding) - down to 4 px, not less: the rows reach 4 px past the list for their hover (their margin; 2 px
+   overflowed: a horizontal bar in Firefox) -, and shown only while the list is hovered (the user) - Chrome / Edge /
+   Safari, then Firefox (base.css' bars). (#inspector: over the lists' own rules, above and below) */
+#inspector .ibody.mlistview > :is(#mList, #dmList) { scrollbar-gutter: stable; padding-right: 4px; overflow-x: hidden; }
+#inspector :is(#mList, #dmList):not(:hover)::-webkit-scrollbar-thumb { background: transparent; }
+@supports not selector(::-webkit-scrollbar) {
+  #inspector :is(#mList, #dmList):not(:hover) { scrollbar-color: transparent transparent; }
+}
+/* collapsed: a thin fade at its bottom (the user): more under it - a mask, the panel being see-through; over the list's
+   12 px bottom padding, so the last row shows whole at the end. Not the scrollbar (the user): a solid layer over its
+   strip, on the right (8 px: Firefox's thin bar, Chrome's 6 px) - the layers add up */
+#inspector.listcollapsed :is(#mList, #dmList) {
+  mask: linear-gradient(#000, #000) right / 8px 100% no-repeat, linear-gradient(to bottom, #000 calc(100% - 14px), transparent); }
 
 .msearch { width: 100%; margin: 2px 0 6px; padding: 5px 8px; background: var(--control); color: var(--text); font: inherit;
   font-size: 12.5px; border: 1px solid var(--panel-edge); border-radius: 4px; outline: none; }
@@ -354,6 +383,7 @@
 .ibar { position: relative; display: flex; align-items: center; gap: 8px; height: 22px; margin: 3px 0; padding: 0 8px;
   background: var(--bar-track); border-radius: 3px; overflow: hidden; font-size: 12.5px; }
 .ibar i { position: absolute; left: 0; top: 0; bottom: 0; }
+.dpvit { margin: 2px 0 8px; } /* a selected thing's shield and health (detail.js): the players' bars, above its rows */
 .ibar span { position: relative; text-shadow: var(--bar-text-outline); }
 .ibar .ibl { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .ibar .ibv { flex: none; font-variant-numeric: tabular-nums; font-weight: 600; }
@@ -421,9 +451,13 @@
      for it - its height at the interface size, and its gap */
   body:has(#status:not(.live)) #inspector { padding-bottom: calc(env(safe-area-inset-bottom) + 56px * var(--ui-zoom, 1)); }
   /* the mission list's filters always unfolded on a page this size: its chevron (#ifold) gone - a fold saved on a wider
-     screen doesn't hide them here (settings.ui.missionFiltersClosed kept for there) */
+     screen doesn't hide them here (settings.ui.missionFold kept for there) */
   #ifold { display: none; }
   .mfilters.closed { display: block; }
+  #inspector.listfolded .dmrecaptabs { display: flex; } /* (.mtools' own) */
+  #inspector:is(.listcollapsed, .fit) { bottom: 0; max-height: none; } /* (the page whole, as unfolded) */
+  #inspector.listcollapsed .mcounts { display: inline; }
+  .mquery { display: none; } /* (the box itself shows, unfolded here) */
 }
 /* The damage log (damage/view.js): the mission log's layout - its list scrolls alone under the filters */
 .ibody.mlistview > #dmList { flex: 1; min-height: 0; overflow: auto; padding: 0 8px 12px 4px; margin: 0 -8px 0 -4px; }
@@ -477,8 +511,9 @@
 .dmpinned { border-bottom: 1px solid var(--panel-edge); margin-bottom: 2px; padding-bottom: 2px; }
 .dmsubhead { color: var(--heading); font-size: 9px; letter-spacing: .08em; text-transform: uppercase; }
 .dmmore { display: block; margin: 2px 0 0; font-size: 11px; }
-.dmcard.dead .dmentry .dma { text-decoration: line-through; }
+/* (a dead one's name not crossed out in the Recap - the user: it's "what happened", most are dead; its DEAD tag says it) */
 .dmrecaptabs { margin: 0 0 6px; }
+#inspector.listfolded .dmrecaptabs { display: none; } /* (filters - the user: folded away with the others, listfold.js) */
 .dmrecaptabs .seg { flex-wrap: wrap; }
 .dmsrow .nm { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .dmstat.heal, .dmamt.heal, .dmtag.heal { color: var(--live); }
