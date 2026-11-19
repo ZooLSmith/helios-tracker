@@ -521,7 +521,8 @@
    in its colour (dataviz's categorical slots 1-4, validated on the panels' dark surface - the players, in a fixed order:
    parts.js sourceColor), anyone else grey; ticks striped 45°, the slag a player brought striped 135°; 2 px between
    segments */
-#inspector { --dm-p1: #3987e5; --dm-p2: #d95926; --dm-p3: #199e70; --dm-p4: #c98500; --dm-other: #7c8791; }
+#inspector { --dm-p1: #3987e5; --dm-p2: #d95926; --dm-p3: #199e70; --dm-p4: #c98500; --dm-p5: #d55181; --dm-p6: #0ca30c;
+  --dm-p7: #9085e9; --dm-p8: #e66767; --dm-other: #7c8791; } /* (5-8: an extended co-op mod's players - the user) */
 .dmbarbox { margin: 3px 0 2px; }
 .dmtrackbar { height: 8px; border-radius: 3px; background: var(--hover); overflow: hidden; }
 .dmfill { display: flex; gap: 2px; height: 100%; min-width: 0; }

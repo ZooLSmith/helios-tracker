@@ -14,7 +14,10 @@ from pathlib import Path
 import unrealsdk
 from mods_base import ENGINE, get_pc
 
-OUT = Path(sys.modules["helios_tracker"].__file__).resolve().parents[1] / "tools" / "probes" / "probe_fast_travel.txt"
+import mods_base  # noqa: E402
+_GAME = mods_base.Game.get_current().name  # (another game than BL2: its own file - probe_fast_travel_tps.txt)
+OUT = Path(sys.modules["helios_tracker"].__file__).resolve().parents[1] / "tools" / "probes" / (
+    "probe_fast_travel.txt" if _GAME == "BL2" else f"probe_fast_travel_{_GAME.lower()}.txt")
 SCALARS = {"StrProperty", "NameProperty", "ObjectProperty", "ByteProperty", "IntProperty", "BoolProperty", "ArrayProperty",
            "StructProperty"}
 lines: list[str] = []

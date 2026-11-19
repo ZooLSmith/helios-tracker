@@ -26,9 +26,12 @@ DISCOVERY = "discovery"  # the level's discovery areas and the map's fog of war 
 OXYGEN = "oxygen"  # the Oz meter: oxygen pools, air domes, oxygen sources
 CHALLENGES = "challenges"  # level challenge objects a player discovers (the Vault symbols: IO_VaultRoy)
 JUMPPADS = "jumppads"  # jump pads and geysers (OzPlayerJumpPad)
-FASTTRAVEL = "fasttravel"  # the fast travel network and the maps' exits (travel.py: a map without a station, "via")
+TRAVELHINTS = "travelhints"  # the mission log's "via": how to reach a map without a fast travel station, from the
+# stations the player unlocked (travel.py - the network and the maps' exits); not fast travel itself
 DAMAGE = "damage"  # the damage log: every hit read where the game handles it (damage.py, games/<game>/damage.py) - a
 # player can switch it off (the Damage Log option): the level message's features are the session's (profiles.md)
+SLAG = "slag"  # slag: an effect amplifying every hit on its target (ExtraDamageDealtDueToAmplify, STATUS_EFFECT_Amp - notes.md
+# "Slag"), its share credited to who slagged it in the damage log (its bars' third part)
 
 _PROFILES: dict[str, type[Any]] = {}
 

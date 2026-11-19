@@ -177,3 +177,63 @@ notes.md "The Pre-Sequel's rarity table"; a mission's objective order - notes.md
 - **Area names** (the user, 2026-10-04: none on the map): the page got `"areas": []` - every area record failed, unlogged (`try_`). Its `WorldDiscoveryArea` has no `WorldAreaDisplayName`: `WorldAreaDisplayString`, a
   `LocalizedStringDefinition` (`GD_WorldDiscoveryArea.Wreck_P.LS_WRECK_PWDA_1`), the name its `Text` ("AI Hub", "Suspension Bridge"); None on a fog-only area. Everything else as BL2's (CustomName, DetectionRadius,
   bForFogOfWarOnly). Pity's Fall: 44 areas, 14 named (probe_areas.py). The way: `TpsWorld.area_name`.
+
+### 2026-11-19: the damage log - on, BL2's damage part as is; Cryo
+
+- **On** (the user's word - its Realtime filled in their first try) - BL2's `Damage` part unchanged (`games/tps.py`).
+- **Cryo isn't slag** (probe_cryo.py, solo - a cryo SMG, a shock laser, a shock pistol, cryo vines, the vacuum; the user
+  thought it slag's reskin, the Realtime bars showed its share as "ticks"): the game's own data says otherwise.
+  - Its effect `GD_Ice.StatusEffect.Status_Ice`, type **`STATUS_EFFECT_Freeze`** (not `STATUS_EFFECT_Amp`),
+    `bDoesDamageOverTime` True, 5 s, `DamageTypeDefinition` `DmgType_Ice_Status`, its skill `GD_Ice.Skills.Skill_IceEffects`
+    (the slow / freeze): **a damage over time** like a burn - its ticks (`WillowDmgSource_StatusEffect`, every ~0.33 s,
+    ~14 each from the SMG's: DamagePerSecond 18.9 at the cryo vine's) are the "ticks" the bars show. Right as it is.
+  - **No amplify bonus**: `DamageSummary.ExtraDamageDealtDueToAmplify` 0 on all 1,167 hits (the cryo'd targets shot
+    with the shock pistol after: InitialDamage = FinalDamage) - slag's share never shows in this game. The enum still
+    has `STATUS_EFFECT_Amp` (a TPS item using it: not seen). The profile leaves `slag` out of its features
+    (games/__init__.py SLAG): the bars' legend shows no slag key, the slaggers aren't read. Not tried: a frozen-solid target's melee / slam (the
+    game's frozen bonus - a crit? to probe if the log reads it wrong).
+- **Frozen solid** (probe_cryo.py run 2, the user: "frozen enemies take tick damage and mult the damage input"):
+  - Exact, hookable: `WillowAIPawn:Freeze()` then `SetFrozenState(EFROZEN_Frozen)` (`EFROZEN_Falling`: frozen in the air,
+    `Frozen` once it lands) **inside the hit that froze it** (its instigator: the freezer); `RemoveFrozenState()` at
+    the end, often inside the hit that broke it (a melee, a crit) - 9 freezes, ~1-4 s each. The pawn's
+    `CurrentFrozenState` (`EFROZEN_None` / `Freezing` / `Falling` / `Frozen`), `bIsFrozen`, `bPendingFrozen` say it on a hit.
+  - What a freeze changes, the victim's attribute modifiers (from its `Skill_IceEffects`, a SkillEffectManager skill):
+    **`ExplosiveImpactDamageModifier` 3.0** (explosive damage x3 while frozen), `GroundSpeed` 440 -> 196 (the slow);
+    the chill (the first cryo hit) puts modifiers on `IceImpactDamageModifier` / `IceStatusEffectDamageModifier`, both
+    still 1.0 here. All back to 1.0 / 440 at the end.
+  - **Guns: no bonus on a frozen target** - the shock pistol 68.25 = its base, its headshot crit 546.7 as on one not
+    frozen; Cryo's ticks the same. **A melee on a frozen one** (Aurelia's, twice): 69.0 base, `DamageSourceReduction`
+    -193.7 (x3.8): 262.8, 525.6 crit. Run 3, the same melee on the same enemy: not frozen -6.0 (x1.087, Aurelia's
+    own), frozen -193.7 (x3.806) - **a frozen target takes x3.5 melee**, applied in the DamageSource step with the
+    character's own (1.087 x 3.5 = 3.806). Not an attribute modifier of the victim (none changed for it): where the
+    game keeps the 3.5 is unknown (a DamageSource default? a constant in native code?) - to probe before crediting it.
+    A slam: two hits (`DmgType_AirMaskShatter` 50, cancelled to 0; the slam's own, `OzWillowDmgSource_Slam`) - its
+    base 235.9 on a frozen enemy, 113.8 on another not frozen: a slam scales with the fall, two enemies - not told.
+    An explosive on a frozen target: still not seen (the x3 modifier only seen set).
+  - For the damage log (not built - the user: documented only, 2026-11-19): a "frozen" event (Freeze inside its hit:
+    who froze whom) and its end, a FROZEN tag on the Realtime card - exact; the frozen bonus credited to the freezer
+    like slag's share - an explosive's 2/3 (the victim's x3 modifier, read at the hit), a melee's 2.5/3.5 once the
+    game's 3.5 is found (not a measured constant in the code: the "no guessing" rule).
+  - **A frozen enemy shattering**: its own hit, `OzWillowDmgSource_FrozenFall`, no element, causer the cryo gun that froze
+    it, instigator its player (278 at once) - logged as that gun's hit.
+  - The vacuum: `Status_Vacuum` (`STATUS_EFFECT_Vacuum`) ticks on everything in the open, ~3 a second each, most of them
+    0 damage (an enemy's; a player's to their oxygen only - DamageDealtToOxygen, FinalDamage 0): not logged (a hit for
+    nothing isn't - damage.py _read).
+
+### 2026-11-19: travel hints - off (the stations unlocked can't be read)
+
+- The log, entering a level: `WillowPlayerController has no attribute 'ActivatedTeleportersList'` (BL2's list of the
+  stations a player unlocked - travel.py's "via" table for the mission log; logged once, read as none).
+- `probe_fast_travel.py` (its output now per game: `probe_fast_travel_tps.txt`), Outlands_P2: 36
+  `FastTravelStationDefinition`s and the level lists read as BL2's; no field on the controller, its replication info or
+  its pawn lists the stations. The fast travel menu's movie (`FastTravelStationGFxMovie.LocationStationStrings`: 9
+  definition names - Airstrip, Spaceport, Ma_Deck13_FT, MoonSurfaceFastTravel, ComFacility, Outlands2, Outlands,
+  WreckCrater, EridianSlaughter) only while it's loaded (gone at the next probe).
+- `probe_tps_stations.py`: the save game objects (PlayerSaveGame: the class profiles only, WillowSaveGameManager) hold
+  none; the controller's functions: `IsStationDiscovered(StationDefinition) -> bool`, `ApplyVisitedTeleporterData`,
+  `SaveVisitedTeleporterData(SaveGame, PlayThrough)`, `RegisterStationForPlayer`...
+- `probe_tps_station_discovered.py`: `IsStationDiscovered` on each (36 in ~1 ms) - **False for the menu's own** (all
+  of them but the two DLC ones), True for 29 others (the Core Vault, MoonshotFT in no level): not "unlocked".
+- So the `travelhints` feature (was `fasttravel`: renamed - fast travel itself works) is off in TPS (games/tps.py): no
+  "via" in the mission log (there was none anyway).
+  To revisit: hook `RegisterStationForPlayer` / `ApplyVisitedTeleporterData` (its VisitedTeleporters at a load).

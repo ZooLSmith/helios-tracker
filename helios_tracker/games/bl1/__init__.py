@@ -1,7 +1,7 @@
 """Borderlands 1 - the original 2009 game, and its Game of the Year Enhanced edition - .agent/bl1.md. Borderlands 2's
 profile, its own parts where its way differs (this folder)."""
 
-from .. import CHALLENGES, DAMAGE, DISCOVERY, FASTTRAVEL, profile
+from .. import CHALLENGES, DAMAGE, DISCOVERY, SLAG, TRAVELHINTS, profile
 from ..bl2 import Borderlands2
 from .assets import Bl1Assets
 from .items import Bl1Items
@@ -42,7 +42,7 @@ class Borderlands1(Borderlands2):
     # no WorldDiscoveryArea class (the log: "Couldn't find class"); its fast travel not probed yet (travel.py reads BL2's
     # TravelStationDefinitions - BL1's may differ)
     # (the damage log: its functions not probed in this game yet)
-    features = Borderlands2.features - {DISCOVERY, CHALLENGES, FASTTRAVEL, DAMAGE}
+    features = Borderlands2.features - {DISCOVERY, CHALLENGES, TRAVELHINTS, DAMAGE, SLAG}
 
 
 @profile("BL1E")

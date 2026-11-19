@@ -4,6 +4,7 @@
 // store.js contribution) striped the other way; the segments 2 px apart. Each segment's tooltip: who, how much, its
 // share. A legend of the sources above the list (dataviz: identity never by colour alone).
 import { esc } from "../dom.js";
+import { hasFeature } from "../game.js";
 import { t } from "../i18n.js";
 import { tipSections } from "../ui/hovertip.js";
 import { amountText } from "./amount.js";
@@ -64,7 +65,8 @@ export function legendHtml(store, seen) {
   return `<div class="dmlegend">${players.map((id) => item(sourceColor(store, id), actorName(store, id))).join("")}` +
     `${others ? item("var(--dm-other)", t("dmg.others")) : ""}` +
     `<span class="dmkey"><i class="k1"></i>${esc(partLabel(store, 1))}</span>` +
-    `<span class="dmkey"><i class="k2"></i>${esc(partLabel(store, 2))}</span></div>`;
+    // (slag's key only in a game with slag - the Pre-Sequel's Cryo isn't: game.js hasFeature, games/__init__.py SLAG)
+    (hasFeature("slag") ? `<span class="dmkey"><i class="k2"></i>${esc(partLabel(store, 2))}</span>` : "") + `</div>`;
 }
 
 /** How much a share is ("12 %"). */

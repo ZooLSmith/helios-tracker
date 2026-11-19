@@ -320,7 +320,7 @@ class DamageLog:
         extra: dict[str, Any] = {}
         if previous > 0 and health > previous:
             extra["o"] = round(health - previous, 1)
-        if amplified > 0:
+        if amplified > 0 and games.SLAG in games.GAME.features:  # (a game without slag: no share, its slaggers not read)
             extra["g"] = round(amplified, 4)
             by = sorted({self._actor(x) for x in games.GAME.damage.amplifiers(victim) if x is not None} - {0})
             if by:

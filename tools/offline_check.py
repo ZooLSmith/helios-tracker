@@ -214,7 +214,7 @@ gameBl1.push([cardIconKey("jakobs"), cardIconKey("none"), cardIconKey("None"), c
 const { objectCategory: gameCategory } = await load("js/model.js");
 const gameOutpost = { d: "OutpostDefinition", n: "OutpostDefinition", raw: 1, c: "EmergencyTeleportOutpost" };
 gameBl1.push(gameCategory(gameOutpost));
-setGame("bl2", ["challenges", "discovery", "fasttravel"]);
+setGame("bl2", ["challenges", "discovery", "travelhints"]);
 gameBl1.push(gameCategory(gameOutpost)); // (BL2's: not a class of its - not a station by it)
 const gameBl2 = { shown: gameShown(), seraph: rarity(501)[0], etech: lootLayer({ q: 6, c: "WillowWeapon" }) };
 setGame("", []);
@@ -449,7 +449,7 @@ const { healEntries, realtimeEntries } = await load("js/damage/realtime.js");
 const { amountText: dmgAmount, amountWidth: dmgAmountWidth } = await load("js/damage/amount.js");
 const { searchWords } = await load("js/damage/search.js");
 const { summaryHtml } = await load("js/damage/info.js");
-const { sourceColor: dmgColor, actorName: dmgActorName } = await load("js/damage/parts.js");
+const { sourceColor: dmgColor, actorName: dmgActorName, playerOrder: dmgPlayerOrder } = await load("js/damage/parts.js");
 const dmgHistory = {
   "s1:0": { sid: "s1", t0: 1000, seq: 2, defs: { a: { 1: { k: "me", n: "Me" }, 2: { k: "enemy", n: "Rakk" } }, w: { 1: { n: "Gun" } } },
     b: [{ q: 1, h: [[100, 1, 2, 10, 0, 1, 1, 0]] }, { q: 2, h: [[1200, 1, 2, 5, 5, 4, 1, 0]], v: [[1200, "fx+", 2, 1, 0, 1, 1]] }] },
@@ -533,13 +533,24 @@ const dmgColors = new DamageStore();
 dmgColors.add({ a: { 1: { k: "me", n: "Me", o: 257 }, 2: { k: "player", n: "Host", o: 256 }, 3: { k: "player", n: "Host", o: 256 },
   4: { k: "player", n: "Nobody" }, 5: { k: "enemy", n: "Rakk" } }, h: [] });
 const dmgColorsOut = [1, 2, 3, 4, 5].map((id) => dmgColor(dmgColors, id));
+// A player reconnected (a new controller: a new id, a new number) - the one of that name already in the log (the
+// user): their hits and events under their first id, one player listed, their colour kept, their map link the new pawn's
+const dmgRejoin = new DamageStore();
+dmgRejoin.add({ a: { 1: { k: "me", n: "Me", o: 256 }, 2: { k: "player", n: "Bob", o: 257, m: 40 }, 3: { k: "enemy", n: "Rakk" } },
+  h: [[100, 2, 3, 30, 0, 0, 0, 0], [150, 1, 3, 5, 0, 0, 0, 0, 0, { g: 0.5, by: [2] }]] });
+const dmgRejoinColor = dmgColor(dmgRejoin, 2);
+dmgRejoin.add({ a: { 6: { k: "player", n: "Bob", o: 258, m: 77 } }, h: [[900, 6, 3, 20, 0, 0, 0, 0], [950, 1, 3, 10, 0, 0, 0, 0, 0, { g: 0.5, by: [6, 2] }]],
+  v: [[960, "down", 6, 3, -1]] });
+const dmgRejoinOut = { parts: [...dmgRejoin.lives.get(3).parts].map(([id, p]) => [id, p[0] + p[1] + p[2]]), players: dmgPlayerOrder(dmgRejoin),
+  has6: dmgRejoin.actors.has(6), bob: dmgRejoin.actors.get(2), color: [dmgRejoinColor, dmgColor(dmgRejoin, 2), dmgColor(dmgRejoin, 6)],
+  event: dmgRejoin.events.map((e) => e.actor), totals: dmgRejoin.totals(2, 0, 2000) };
 // A co-op client's log (damage_client.py): the "unattributed" actor's rows in the victim's life, named by the page
 const dmgClient = new DamageStore();
 dmgClient.add({ a: { 1: { k: "me", n: "Me" }, 2: { k: "player", n: "Host" }, 3: { k: "enemy", n: "Rakk" }, 4: { k: "unattributed" } },
   h: [[150, 1, 3, 30, 0, 1, 0, 0], [1100, 4, 3, 70, 0, 0, 0, 0]] });
 const dmgClientOut = { life: [...dmgClient.lives.get(3).parts].map(([id, p]) => [id, p[0]]), name: dmgActorName(dmgClient, 4),
   line: linesHtml(dmgClient, 10).includes(">Unattributed<") };
-const damageOut = { client: dmgClientOut, colors: dmgColorsOut, order: dmgOrderOut, slag: dmgSlagOut, selfSummary: dmgSelfSummary, urls: dmgUrls, first: dmgFirst, gap: dmgGap, expired: dmgExpired,
+const damageOut = { rejoin: dmgRejoinOut, client: dmgClientOut, colors: dmgColorsOut, order: dmgOrderOut, slag: dmgSlagOut, selfSummary: dmgSelfSummary, urls: dmgUrls, first: dmgFirst, gap: dmgGap, expired: dmgExpired,
   second: { sid: dmgStore.sid, t0: dmgStore.t0, count: dmgStore.count, name: dmgStore.actors.get(1).n, rakk: dmgStore.actors.has(2) } };
 const missionsOut = { deltaOut, lootDetailRenders, rowsOut, shotCostOut, bonusOut, statsOut, lookOut, vaultCat, healthShown, variantWords, stepOrder, hitPicks, items, itemsLater, notYetWhy, fallback, where, tooHigh, finish, difficulty, best, search, infoHtml, areas, gameText, story: flat(tree.story), other: flat(tree.other), counts: missionCounts(log),
   objectives: objectiveStates(log[1]).map((s) => s.state) };
@@ -1438,12 +1449,12 @@ def check_helios_tracker() -> None:  # noqa: PLR0915
         time.sleep(0.05)
     assert level["status"] == "ready" and level["upp"] == 128.0 and level["center"] == [-3072.0, -10240.0], level
     # the game and its features, for the page (games.py -> game.js)
-    assert level["game"] == "bl2" and level["features"] == ["challenges", "damage", "discovery", "fasttravel"], (level.get("game"), level.get("features"))
+    assert level["game"] == "bl2" and level["features"] == ["challenges", "damage", "discovery", "slag", "travelhints"], (level.get("game"), level.get("features"))
     # the level message's features are the session's (profiles.md): the Damage Log switched off - sent again without it,
     # the same level (the page resets nothing); back on
     c.set_feature("damage", False)
     level_off = json.loads(hub.latest("level"))
-    assert level_off["features"] == ["challenges", "discovery", "fasttravel"] and level_off["id"] == level["id"], level_off["features"]
+    assert level_off["features"] == ["challenges", "discovery", "slag", "travelhints"] and level_off["id"] == level["id"], level_off["features"]
     assert not c.damage.enabled, "off: the log's hooks out, its history dropped"
     c.set_feature("damage", True)
     assert json.loads(hub.latest("level"))["features"] == level["features"] and c.damage.enabled
@@ -1451,8 +1462,8 @@ def check_helios_tracker() -> None:  # noqa: PLR0915
     from helios_tracker import games as game_profiles  # noqa: PLC0415
     profile_bl2, profile_tps, profile_bl1 = (game_profiles.make_profile(n) for n in ("BL2", "TPS", "BL1"))
     assert type(game_profiles.GAME) is type(profile_bl2), "the fake mods_base's game: BL2"
-    # (the damage log: probed in BL2 only - the Pre-Sequel's without it until it is)
-    assert profile_tps.features == (profile_bl2.features | {"oxygen", "jumppads"}) - {"damage"} and profile_tps.packages == "CookedPCConsole"
+    # (the damage log: the Pre-Sequel's too - BL2's part, on the user's word; no slag there: its Cryo a damage over time)
+    assert profile_tps.features == (profile_bl2.features | {"oxygen", "jumppads"}) - {"slag", "travelhints"} and profile_tps.packages == "CookedPCConsole"
     assert profile_bl1.features == set() and profile_bl1.packages == "CookedPC" and profile_bl1.gibbed_prefix == ""
     # another player on a co-op client: no controller (not replicated) - no skills, the reason the page shows; it raised in
     # BL1 (its PlayerClass), the player dropped from the list and "Who" (the map showed both pawns)
@@ -3066,6 +3077,13 @@ def check_helios_tracker() -> None:  # noqa: PLR0915
     assert 'class="dmseg k0"' in dmg_recap and "--c:var(--dm-p1)" in dmg_recap, ("its bar: Me's hits, Me's colour", dmg_recap)
     assert dmg_page["colors"] == ["var(--dm-p2)", "var(--dm-p1)", "var(--dm-p1)", "var(--dm-p3)", "var(--dm-other)"], (
         "the players' colours by their game number (the user: both blue, each on their own page)", dmg_page["colors"])
+    rejoin = dmg_page["rejoin"]
+    assert rejoin["players"] == [1, 2] and not rejoin["has6"] and rejoin["event"] == [2], (
+        "a player reconnected (a new id, the same name): one player, their events under their first id", rejoin)
+    assert sorted(rejoin["parts"]) == [[1, 7.5], [2, 57.5]] and rejoin["totals"] == [50, 0], (
+        "their hits and slag share under their first id (a slagger once)", rejoin)
+    assert rejoin["bob"]["o"] == 257 and rejoin["bob"]["m"] == 77 and len(set(rejoin["color"])) == 1, (
+        "their colour kept (their first number), their map link the new pawn's", rejoin)
     dmg_order = dmg_page["order"]
     dmg_names = [n for n in ("Boss", "Psycho") if f">{n}<" in dmg_order["order"]]
     assert sorted(dmg_names, key=lambda n: dmg_order["order"].index(f">{n}<")) == ["Boss", "Psycho"], (
@@ -3306,7 +3324,7 @@ def check_travel() -> None:
         assert travel_table.via["banditslaughter_p"] == {"v": ["Three Horns - Valley"], "n": 2}, travel_table.via
         assert travel_table.update(None, titles.get) is False  # (no controller yet)
         travel_games.GAME = travel_games.make_profile("BL1")  # not probed: the feature left out, nothing read
-        assert travel_games.FASTTRAVEL not in travel_games.GAME.features and Travel().update(ns(), titles.get) is False
+        assert travel_games.TRAVELHINTS not in travel_games.GAME.features and Travel().update(ns(), titles.get) is False
     finally:
         travel_games.GAME = real_game
     print("  travel: a map without fast travel -> the nearest with it (unlocked first, ties kept), rebuilt on a new station")

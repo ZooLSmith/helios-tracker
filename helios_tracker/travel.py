@@ -72,7 +72,7 @@ class Travel:
     def update(self, pc: Any, name: Callable[[str], str]) -> bool:
         """Checks the stations unlocked; True if the table changed. `name`: a map's name as the game shows it
         (collector.level_name) - a map without one left out."""
-        if games.FASTTRAVEL not in games.GAME.features or pc is None:
+        if games.TRAVELHINTS not in games.GAME.features or pc is None:
             return False
         if self._network is None:
             self._network = try_(games.GAME.world.travel_network) or ([], [])  # (a failure: logged once, not retried)

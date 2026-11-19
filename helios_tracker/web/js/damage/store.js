@@ -87,6 +87,9 @@ export class DamageStore {
     this.sid = sid;
     this.t0 = t0 || 0; // the log's start, epoch ms
     this.actors = new Map(); this.whats = new Map(); this.elements = new Map(); // id -> definition (damage.py)
+    // a player back under a new id (reconnected: a new controller - damage.py keys a player by theirs) is the one of
+    // that name already in the log (the user): alias (new id -> the first one's), every hit and event put under it
+    this.alias = new Map(); this.playerByName = new Map(); // (name -> its first player id)
     this.blocks = []; // in time order
     this.count = 0; // hits kept
     this.serial = 0; // hits ever added (a hit's serial: what an event's link names)
@@ -104,11 +107,30 @@ export class DamageStore {
   /** The definitions a batch or a catch-up brings ({a, w, e}: id -> definition; a newer one replaces). */
   define(defs) {
     if (!defs) return;
-    for (const [kind, map] of [["a", this.actors], ["w", this.whats], ["e", this.elements]]) {
+    for (const [kind, map] of [["w", this.whats], ["e", this.elements]]) {
       for (const [id, def] of Object.entries(defs[kind] || {})) map.set(Number(id), def);
     }
+    for (const [key, def] of Object.entries(defs.a || {})) this.defineActor(Number(key), def);
     this.version++;
   }
+
+  /** An actor's definition: a player's first one named like a player already in the log (reconnected) - the id an
+   *  alias of theirs, the definition theirs (its map link the new pawn's; their number - their colour - kept). */
+  defineActor(id, def) {
+    const name = PLAYER_KINDS.has(def.k) && !def.raw ? def.n || "" : "";
+    const first = this.alias.get(id) ?? (name && !this.actors.has(id) ? this.playerByName.get(name) : undefined);
+    if (first !== undefined && first !== id) {
+      const old = this.actors.get(first);
+      this.alias.set(id, first);
+      this.actors.set(first, { ...def, k: old?.k ?? def.k, o: old?.o ?? def.o });
+      return;
+    }
+    this.actors.set(id, def);
+    if (name && !this.playerByName.has(name)) this.playerByName.set(name, id);
+  }
+
+  /** The id a hit or an event is put under (a reconnected player's: their first one). */
+  actorId(id) { return this.alias.size ? this.alias.get(id) ?? id : id; }
 
   /** A batch (damage.py: {q, h: hits, v: events, a / w / e: definitions}). */
   add(batch) {
@@ -117,7 +139,7 @@ export class DamageStore {
     for (const row of batch.h || []) this.addHit(row);
     for (const ev of batch.v || []) {
       const [t, kind, actor, other, hit, ...rest] = ev;
-      const e = { t, kind, actor, other, hit: hit >= 0 ? first + hit : -1, rest };
+      const e = { t, kind, actor: this.actorId(actor), other: this.actorId(other), hit: hit >= 0 ? first + hit : -1, rest };
       let i = this.events.length;
       while (i > 0 && this.events[i - 1].t > t) i--;
       this.events.splice(i, 0, e);
@@ -126,6 +148,10 @@ export class DamageStore {
   }
 
   addHit(row) {
+    if (this.alias.size) { // (a reconnected player's ids: their first one - a slagger's too, once each)
+      row[1] = this.actorId(row[1]); row[2] = this.actorId(row[2]);
+      if (row[9]?.by) row[9] = { ...row[9], by: [...new Set(row[9].by.map((x) => this.actorId(x)))] };
+    }
     const t = row[0], key = Math.floor(t / BLOCK_MS);
     let i = this.blocks.length;
     while (i > 0 && this.blocks[i - 1].key > key) i--;

@@ -55,16 +55,17 @@ export function poolLeft(store, id) {
 export const isPlayer = (store, id) => PLAYER_KIND.has(store.actors.get(id)?.k);
 const PLAYER_KIND = new Set(["me", "player"]);
 
-// The sources' colours (design.md: a bar split by who - dataviz's categorical slots 1-4, validated on the panels' dark
-// surface: blue, orange, aqua, yellow - a player each, never by rank, by their number in the game (the definition's "o":
+// The sources' colours (design.md: a bar split by who - dataviz's categorical slots 1-8, validated on the panels' dark
+// surface: blue, orange, aqua, yellow, then magenta, green, violet, red for an extended co-op mod's players (the user) -
+// a player each, never by rank, by their number in the game (the definition's "o":
 // PRI.PlayerID, the same on every player's page - the page's own player first gave everyone blue on their own page, the
 // user), the ones without one after by their log id; one player's ids - a pawn respawned on a client - one colour;
 // anyone else - an enemy, a barrel, the world - one neutral grey)
-const SLOTS = 4;
+const SLOTS = 8;
 
-/** A source's colour: "var(--dm-p1)".."var(--dm-p4)" for the players, "var(--dm-other)" for the rest. */
+/** A source's colour: "var(--dm-p1)".."var(--dm-p8)" for the players, "var(--dm-other)" for the rest. */
 export function sourceColor(store, id) {
-  const slot = playerSlots(store).get(id);
+  const slot = playerSlots(store).get(store.actorId ? store.actorId(id) : id); // (a reconnected player's: their first id's)
   return slot !== undefined ? `var(--dm-p${(slot % SLOTS) + 1})` : "var(--dm-other)";
 }
 

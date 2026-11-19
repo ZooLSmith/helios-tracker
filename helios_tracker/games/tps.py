@@ -2,7 +2,7 @@
 
 from typing import Any
 
-from . import DAMAGE, JUMPPADS, OXYGEN, profile
+from . import JUMPPADS, OXYGEN, SLAG, TRAVELHINTS, profile
 from .bl2 import Borderlands2
 from .bl2.objects import Objects
 from .bl2.skills import Skills
@@ -75,5 +75,10 @@ class PreSequel(Borderlands2):
     PARTS = {**Borderlands2.PARTS, "world": TpsWorld, "objects": TpsObjects, "skills": TpsSkills}
     key = "tps"
     gibbed_prefix = "BLOZ"
-    # (the damage log: its functions not probed in this game yet - notes.md "Damage: where a hit can be read" is BL2's)
-    features = (Borderlands2.features | {OXYGEN, JUMPPADS}) - {DAMAGE}
+    # (the damage log: BL2's damage part as is - on the user's word, 2026-11-19; a part's failure is logged once per
+    # method - what differs gets its override. No slag: its Cryo is a damage over time, no amplify bonus on any hit -
+    # probe_cryo.py, presequel.md "the damage log"). No travel hints (fast travel itself works): the stations a player unlocked aren't
+    # anywhere we can read - no ActivatedTeleportersList on its controller (the log), no field listing them,
+    # IsStationDiscovered false for the menu's own (probe_fast_travel_tps.txt, probe_tps_station_discovered.txt;
+    # presequel.md "travel hints")
+    features = (Borderlands2.features | {OXYGEN, JUMPPADS}) - {SLAG, TRAVELHINTS}
